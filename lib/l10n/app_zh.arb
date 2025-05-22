@@ -1,0 +1,7 @@
+{
+  "@@locale": "zh",
+  "welcome": "欢迎使用 DigiXpense",
+  "login": "登录",
+  "setting": "设置",
+  "totalBalanceToSpend": "按类别支出总余额"
+}

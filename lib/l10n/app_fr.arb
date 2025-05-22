@@ -1,0 +1,7 @@
+{
+  "@@locale": "fr",
+  "welcome": "Bienvenue sur DigiXpense",
+  "login": "Connexion",
+  "setting": "Paramètres",
+  "totalBalanceToSpend": "Solde total à dépenser par catégorie"
+}
