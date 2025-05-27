@@ -23,7 +23,7 @@ class _DashboardPageState extends State<DashboardPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
-        controller.isLoading = false;
+        // controller.isLoading = false;
       });
     });
   }

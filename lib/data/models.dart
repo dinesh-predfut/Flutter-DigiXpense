@@ -19,11 +19,44 @@ class Language {
 
   factory Language.fromJson(Map<String, dynamic> json) {
     return Language(
-      code: json['CountryCode'],
-      name: json['CountryName'],
+      code: json['LanguageId'],
+      name: json['LanguageName'],
     );
   }
 }
+class Locale {
+  final String code;
+  final String name;
+
+  Locale({required this.code, required this.name});
+
+  factory Locale.fromJson(Map<String, dynamic> json) {
+    return Locale(
+      code: json['Name'],
+      name: json['Code'],
+    );
+  }
+}
+class Timezone {
+  final String code;
+  final String name;
+  final String id;
+
+  Timezone({
+    required this.code,
+    required this.name,
+    required this.id,
+  });
+
+  factory Timezone.fromJson(Map<String, dynamic> json) {
+    return Timezone(
+      code: json['TimezoneCode'] ?? '',
+      name: json['TimezoneName'] ?? '', 
+      id: json['TimezoneId'] ?? '',
+    );
+  }
+}
+
 class Currency {
   final String code;
   final String name;

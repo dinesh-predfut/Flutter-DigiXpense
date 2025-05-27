@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity, // Make button full width
                       child: GradientButton(
                         text: "Log in",
-                        isLoading: controller.isLoading,
+                        isLoading: controller.isLoading.value,
                         onPressed: handleLogin,
                       ),
                     ),

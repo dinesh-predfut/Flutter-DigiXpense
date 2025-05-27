@@ -46,7 +46,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
     return Scaffold(
       key: _scaffoldKey,
 
-      
+        resizeToAvoidBottomInset: true,  
       drawer: MyDrawer(),
       
       body: Stack(

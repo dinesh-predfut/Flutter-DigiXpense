@@ -33,6 +33,7 @@ class Controller extends GetxController {
   final TextEditingController dobController = TextEditingController();
   final TextEditingController officialEmailController = TextEditingController();
   final TextEditingController personalEmailController = TextEditingController();
+  final TextEditingController gender = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController street = TextEditingController();
   final TextEditingController locale = TextEditingController();
@@ -47,15 +48,22 @@ class Controller extends GetxController {
   final TextEditingController endDateController = TextEditingController();
   final TextEditingController contactStreetController = TextEditingController();
   final TextEditingController contactCityController = TextEditingController();
+  final TextEditingController countryCodeController = TextEditingController();
 
   final TextEditingController contactPostalController = TextEditingController();
-
+  final TextEditingController addressID = TextEditingController();
+  final TextEditingController contactaddressID = TextEditingController();
   String maritalStatus = 'Single';
   Currency? selectedCurrency;
+  Locale? selectedLocale;
   Payment? selectedPayment;
+  Language? selectedLanguage;
+  Timezone? selectedTimezone;
+  String? selectedTimezonevalue;
+  String? stringCurrency;
   String selectedCurrencyFinal = '';
-  String gender = 'Female';
-  String country = 'United States';
+  List<String> emails = [];
+  String country = '';
   String contactStateController = '';
   String contactCountryController = 'United States';
   String state = '';
@@ -73,16 +81,23 @@ class Controller extends GetxController {
   String selectedContectCountryCode = '';
   File? imageFile;
   var isSameAsPermanent = false;
+  MapEntry<String, String>? selectedFormat;
 
   final ImagePicker _picker = ImagePicker();
   bool rememberMe = false;
   bool passwordVisible = false;
-  bool isLoading = false;
+  final RxBool isLoading = false.obs;
+  var buttonLoader = false.obs;
+  RxBool isImageLoading = false.obs;
   bool forgotisLoading = false;
   Rx<UserProfile> signInModel = UserProfile().obs;
-  File? profileImage;
+  // File? profileImage;
+  Rxn<File> profileImage = Rxn<File>();
+
   List<Country> countries = [];
   List<Language> language = [];
+  List<Timezone> timezone = [];
+  List<Locale> localeData = [];
   List<String> languageList = [];
   List<String> countryNames = [];
   List<String> stateList = [];
@@ -94,9 +109,29 @@ class Controller extends GetxController {
     loadSavedCredentials();
   }
 
+  Map<String, String> dateFormatMap = {
+    'mm_dd_yyyy': 'MM/dd/yyyy',
+    'dd_mm_yyyy': 'dd/MM/yyyy',
+    'yyyy_mm_dd': 'yyyy/MM/dd',
+    'mm_dd_yyyy_dash': 'MM-dd-yyyy',
+    'dd_mm_yyyy_dash': 'dd-MM-yyyy',
+    'yyyy_mm_dd_dash': 'yyyy-MM-dd',
+    'mm_dd_yyyy_dot': 'MM.dd.yyyy',
+    'dd_mm_yyyy_dot': 'dd.MM.yyyy',
+    'yyyy_mm_dd_dot': 'yyyy.MM.dd',
+    'MM_dd_yyyy': 'MM/dd/yyyy',
+    'dd_MM_yyyy': 'dd/MM/yyyy',
+    'YYYY_MM_DD': 'yyyy/MM/dd',
+    'MM_dd_yyyy_dash_alt': 'MM-dd-yyyy',
+    'dd_MM_yyyy_dash_alt': 'dd-MM-yyyy',
+    'YYYY_MM_DD_dash_alt': 'yyyy-MM-dd',
+    'MM_dd_yyyy_dot_alt': 'MM.dd.yyyy',
+    'dd_MM_yyyy_dot_alt': 'dd.MM.yyyy',
+    'YYYY_MM_DD_dot_alt': 'yyyy.MM.dd',
+  };
   Future signIn(BuildContext context) async {
     try {
-      // isLoading = true;
+      isLoading.value = true;
       // showMsg(false);
       // print("countryCodeController.text${countryCodeController.text}");
       var request = http.Request('POST', Uri.parse(Urls.login));
@@ -110,6 +145,7 @@ class Controller extends GetxController {
       var decodeData = jsonDecode(await response.stream.bytesToString());
 
       if (response.statusCode == 201) {
+          isLoading.value = false;
         await saveCredentials();
         // ignore: use_build_context_synchronously
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
@@ -121,7 +157,14 @@ class Controller extends GetxController {
         firstNameController.text = decodeData['UserName'] ?? '';
         lastNameController.text = decodeData['UserName'] ?? '';
         personalEmailController.text = decodeData['Email'] ?? '';
-
+        final settings =
+            (decodeData["UserSettings"] as List).first as Map<String, dynamic>;
+        selectedTimezonevalue = settings["DefaultTimeZoneValue"] ?? '';
+        stringCurrency = settings["DefaultCurrency"] ?? '';
+        // selectedLanguage = settings["DefaultLanguageId"] ?? '';
+        // selectedPayment = settings["DefaultPaymentMethodId"] ?? '';
+        // selectedFormat = settings["DefaultDateFormat"] ?? '';
+        print("setting$selectedCurrency");
         SetSharedPref().setData(
           token: signInModel.value.accessToken ?? "null",
           employeeId: signInModel.value.employeeId ?? "null",
@@ -129,7 +172,7 @@ class Controller extends GetxController {
           refreshtoken: signInModel.value.refreshToken ?? "null",
         );
 
-        // isLoading(false);
+       isLoading.value = false;
         // showMsg(false);
 
         // Show success toast
@@ -141,11 +184,11 @@ class Controller extends GetxController {
           textColor: Colors.white,
           fontSize: 16.0,
         );
-        isLoading = false;
+      isLoading.value = false;
         // Navigate to LandingPage
         // ignore: use_build_context_synchronously
       } else {
-        isLoading = false;
+     isLoading.value = false;
         // Show error toast
         Fluttertoast.showToast(
           msg: decodeData["message"] ?? "Login failed. Please try again.",
@@ -157,7 +200,7 @@ class Controller extends GetxController {
         );
       }
     } catch (e) {
-      isLoading = false;
+      isLoading.value = false;
       // Show exception toast
       Fluttertoast.showToast(
         msg: "An error occurred: $e",
@@ -176,14 +219,49 @@ class Controller extends GetxController {
   Future<void> pickImageProfile() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile == null) return;
 
-    if (pickedFile != null) {
-      profileImage = File(pickedFile.path);
+    isImageLoading.value = true;
+    profileImage.value = File(pickedFile.path);
+
+    try {
+      final bytes = await File(pickedFile.path).readAsBytes();
+      final base64Str = base64Encode(bytes);
+      final dataUrl = 'data:image/png;base64,$base64Str';
+
+      await uploadProfilePicture(dataUrl);
+      print('Upload done, profileImage = ${profileImage.value}');
+    } catch (e) {
+      print('Error picking/uploading image: $e');
+    } finally {
+      isImageLoading.value = false;
     }
-    ;
+  }
+
+  Future<void> uploadProfilePicture(String base64Image) async {
+    final url = Uri.parse(
+      '${Urls.updateProfilePicture}${Params.userId}',
+    );
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${Params.userToken ?? ''}',
+    };
+    final body = jsonEncode({
+      'ProfilePicture': base64Image,
+    });
+
+    final response = await http.post(url, headers: headers, body: body);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print('Upload successful: ${response.body}');
+    } else {
+      print('Upload failed [${response.statusCode}]: ${response.body}');
+      // you might parse response.body here to show validation errors
+    }
   }
 
   Future<bool> getPersonalDetails(BuildContext context) async {
+    isLoading.value = true;
     print('userId: ${Params.userId}');
     try {
       final uri = Uri.parse(
@@ -204,6 +282,7 @@ class Controller extends GetxController {
       print('Response Body: ${response.body}');
 
       if (response.statusCode != 200) {
+        isLoading.value = false;
         Fluttertoast.showToast(
           msg: "Error: ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
@@ -232,8 +311,27 @@ class Controller extends GetxController {
       firstNameController.text = emp['FirstName'] ?? '';
       middleNameController.text = emp['MiddleName'] ?? '';
       lastNameController.text = emp['LastName'] ?? '';
-      phoneController.text = emp['ContactNumber'] ?? '';
-      gender = emp['Gender'] ?? '';
+
+      gender.text = emp['Gender'] ?? '';
+      final fullNumber = emp['ContactNumber'] ?? '';
+
+      if (fullNumber.startsWith('+') && fullNumber.length > 4) {
+        final parts = fullNumber.split(' ');
+        if (parts.length == 3) {
+          countryCodeController.text = parts[0];
+          phoneController.text = "${parts[1]}${parts[2]}";
+          print(" phoneController.text${phoneController.text}");
+        } else {
+          countryCodeController.text = '';
+          phoneController.text = fullNumber;
+          print(" phoneController.text2$parts");
+        }
+      } else {
+        countryCodeController.text = '';
+        phoneController.text = fullNumber;
+        print(" phoneController.text3${phoneController.text}");
+      }
+
       // Addresses (if you have these controllers)
       final List<Map<String, dynamic>> addresses =
           (data['EMPEmployeeAddresses'] as List<dynamic>)
@@ -253,14 +351,17 @@ class Controller extends GetxController {
       city.text = perm['City'] ?? '';
       state = perm['State'] ?? '';
       postalCode.text = perm['PostalCode'] ?? '';
+      addressID.text = perm["AddressId"];
       country = perm['Country'] ?? '';
       contactStreetController.text = cont['Street'] ?? '';
       contactCityController.text = cont['City'] ?? '';
       contactStateController = cont['State'] ?? '';
       contactPostalController.text = cont['PostalCode'] ?? '';
+      contactaddressID.text = cont['AddressId'] ?? '';
       contactCountryController = cont['Country'] ?? '';
-
+      fetchState();
       // Optionally show a toast on success
+       isLoading.value = false;
       Fluttertoast.showToast(
         msg: "Personal details loaded",
         toastLength: Toast.LENGTH_SHORT,
@@ -268,7 +369,8 @@ class Controller extends GetxController {
 
       return true;
     } catch (error) {
-      print('Error Occurred: $error');
+       isLoading.value = false;
+      print('Error Occurreds: $error');
       Fluttertoast.showToast(
         msg: "An error occurred: $error",
         toastLength: Toast.LENGTH_SHORT,
@@ -453,6 +555,7 @@ class Controller extends GetxController {
             List<Country>.from(data.map((item) => Country.fromJson(item)));
         countryNames = countries.map((c) => c.name).toList();
         print('Failed to load countries$countryNames');
+        fetchState();
       } else {
         print('Failed to load countries');
       }
@@ -481,19 +584,75 @@ class Controller extends GetxController {
         final data = jsonDecode(response.body);
         language =
             List<Language>.from(data.map((item) => Language.fromJson(item)));
-        countryNames = countries.map((c) => c.name).toList();
-        print('Failed to load countries$countryNames');
+        // countryNames = language.map((c) => c.name).toList();
+        // print('language to load countries$countryNames');
       } else {
         print('Failed to load countries');
       }
     } catch (e) {
-      print('Error fetching countries: $e');
+      print('Error fetching language: $e');
+    }
+  }
+
+  Future<void> fetchTimeZoneList() async {
+    final url = Uri.parse(Urls.timeZoneDropdown);
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        // final data = jsonDecode(response.body);
+        // countryList = List<Country>.from(
+        //   data.map((item) => Country.fromJson(item)),
+        // );
+        final data = jsonDecode(response.body);
+        timezone =
+            List<Timezone>.from(data.map((item) => Timezone.fromJson(item)));
+        // countryNames = timezone.map((c) => c.name).toList();
+        // print('language to load countries$countryNames');
+      } else {
+        print('Failed to load countries');
+      }
+    } catch (e) {
+      print('Error fetching language: $e');
+    }
+  }
+
+  Future<void> localeDropdown() async {
+    final url = Uri.parse(Urls.locale);
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        localeData =
+            List<Locale>.from(data.map((item) => Locale.fromJson(item)));
+        // countryNames = localeData.map((c) => c.name).toList();
+        // print('localeData to load countries$countryNames');
+      } else {
+        print('Failed to load countries');
+      }
+    } catch (e) {
+      print('Error fetching localeData: $e');
     }
   }
 
   Future<void> fetchState() async {
     final url = Uri.parse(
-        '${Urls.stateList}$selectedCountryCode&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId');
+        '${Urls.stateList}$country&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId');
     try {
       final request = http.Request('GET', url)
         ..headers.addAll({
@@ -541,6 +700,75 @@ class Controller extends GetxController {
     }
   }
 
+  Future<void> getUserPref() async {
+    final url = Uri.parse(
+        '${Urls.getuserPreferencesAPI}${Params.userId}&page=1&sort_order=asc');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded is List &&
+            decoded.isNotEmpty &&
+            decoded.first is Map<String, dynamic>) {
+          final prefs = decoded.first as Map<String, dynamic>;
+          final defaultCurrencyCode = prefs['DefaultCurrency'];
+          final defaultLanguageId = prefs['DefaultLanguageId'];
+          final defaultTimezoneName = prefs['DefaultTimeZone'];
+          final defaultPaymentId = prefs['DefaultPaymentMethodId'];
+          final defaultDateformat = prefs['DefaultDateFormat'];
+          final defaultReceiptEmail = prefs['EmailsForRecieptForwarding'];
+          print('Selected preferences loaded$defaultTimezoneName');
+
+          selectedCurrency = currencies.firstWhere(
+            (c) => c.code == defaultCurrencyCode,
+            orElse: () => Currency(code: "", name: "", symbol: ""),
+          );
+
+          selectedLanguage = language.firstWhere(
+            (l) => l.code == defaultLanguageId,
+            orElse: () => Language(code: "", name: ""),
+          );
+
+          selectedTimezone = timezone.firstWhere(
+            (t) => t.id == defaultTimezoneName,
+            orElse: () => Timezone(code: "", name: "", id: ""),
+          );
+
+          selectedPayment = payment.firstWhere(
+            (p) => p.code == defaultPaymentId,
+            orElse: () => Payment(code: '', name: ''),
+          );
+          selectedFormat = dateFormatMap.entries.firstWhere(
+            (entry) => entry.value == defaultDateformat,
+            orElse: () => const MapEntry(
+                'dd_mm_yyyy', 'dd/MM/yyyy'), // or your app’s default
+          );
+          if (defaultReceiptEmail != null && defaultReceiptEmail is String) {
+            emails =
+                defaultReceiptEmail.split(';').map((e) => e.trim()).toList();
+          }
+
+          print(emails);
+          print('selectedFormat preferences loaded$selectedFormat');
+        } else {
+          print('Unexpected response formats: ${decoded.runtimeType}');
+        }
+      } else {
+        print('Failed to load preferences: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching preferences: $e');
+    }
+  }
+
   Future<void> paymentMethode() async {
     final url = Uri.parse(Urls.defalutPayment);
     try {
@@ -562,6 +790,131 @@ class Controller extends GetxController {
       }
     } catch (e) {
       print('Error fetching countries: $e');
+    }
+  }
+
+  // Updates Profile Details
+  Future<void> updateProfileDetails() async {
+    buttonLoader.value = true;
+    final Map<String, dynamic> requestBody = {
+      "ContactNumber": '${countryCodeController.text} ${phoneController.text}',
+      "employeeaddress": [
+        {
+          "AddressId": addressID.text,
+          "Country": selectedCountryCode,
+          "State": state,
+          "Street": street.text,
+          "City": city.text,
+          "PostalCode": postalCode.text,
+          "Addresspurpose": "Permanent"
+        },
+        {
+          "AddressId": contactaddressID.text,
+          "Country": selectedContectCountryCode,
+          "State": contactStateController,
+          "Street": contactStreetController.text,
+          "City": contactCityController.text,
+          "PostalCode": contactPostalController.text,
+          "Addresspurpose": "Contact"
+        }
+      ]
+    };
+
+    try {
+      final response = await http.put(
+        Uri.parse('${Urls.updateAddressDetails}${Params.userId}'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 280) {
+        buttonLoader.value = false;
+        final responseData = jsonDecode(response.body);
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 88, 1, 250),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        // print("✅ ");
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error: ${response.statusCode} - ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 250, 1, 1),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌ Error: ${response.statusCode} - ${response.body}");
+        buttonLoader.value = false;
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+      buttonLoader.value = false;
+    }
+  }
+
+  // UserPref Update APi
+  Future<void> userPreferences() async {
+    buttonLoader.value = true;
+    final Map<String, dynamic> requestBody = {
+      "UserId": Params.userId,
+      "DefaultCurrency": selectedCurrency?.code,
+      "DefaultTimeZoneValue": selectedTimezonevalue,
+      "DefaultTimeZone": selectedTimezone?.id,
+      "DefaultLanguageId": selectedLanguage?.code,
+      "DefaultDateFormat": selectedFormat?.value,
+      "EmailsForRecieptForwarding": emails.join(';'),
+      "ShowAnalyticsOnList": true,
+      "DefaultPaymentMethodId": selectedPayment?.code,
+      "ThemeDirection": false,
+      "ThemeColor": "GREEN_THEME",
+      "DecimalSeperator": "sq-AL"
+    };
+
+    try {
+      final response = await http.put(
+        Uri.parse('${Urls.userPreferencesAPI}${Params.userId}'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 280) {
+        buttonLoader.value = false;
+        final responseData = jsonDecode(response.body);
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 88, 1, 250),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        // print("✅ ");
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error: ${response.statusCode} - ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 250, 1, 1),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌ Error: ${response.statusCode} - ${response.body}");
+        buttonLoader.value = false;
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+      buttonLoader.value = false;
     }
   }
 }
