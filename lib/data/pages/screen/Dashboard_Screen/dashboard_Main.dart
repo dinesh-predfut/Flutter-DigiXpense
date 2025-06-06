@@ -1,3 +1,4 @@
+import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../core/constant/Parames/colors.dart';
@@ -20,6 +21,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
@@ -86,7 +88,9 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(height: 20),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                 const LanguageDropdown(),
                                 IconButton(
                                   icon: const Icon(Icons.notifications,
                                       color: Colors.white),
@@ -95,12 +99,12 @@ class _DashboardPageState extends State<DashboardPage> {
                                     print('Notification bell pressed');
                                   },
                                 ),
-
+                             
                                 // Profile Picture (Rounded)
                                 GestureDetector(
                                   onTap: () {
                                     Navigator.pushNamed(
-                                        context, AppRoutes.profile);
+                                        context, AppRoutes.personalInfo);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.all(

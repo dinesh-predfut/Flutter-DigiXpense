@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'My Flutter App',
       debugShowCheckedModeBanner: false,
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.entryScreen,
       onGenerateRoute: AppRoutes.generateRoute,
       theme: themeNotifier.getTheme(),
       locale: localeNotifier.locale,

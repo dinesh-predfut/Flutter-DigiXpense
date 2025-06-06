@@ -21,10 +21,14 @@ class Urls {
       "$baseURL/api/v1/global/global/locale?page=1&sort_by=Name&sort_order=asc&choosen_fields=Name%2CCode";
   static const updateAddressDetails =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userjoin?UserId=";
-       static const userPreferencesAPI=
+  static const userPreferencesAPI =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/usersettings/?UserId=";
-        static const getuserPreferencesAPI=
+  static const getuserPreferencesAPI =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/usersettings?filter_query=STPUserSettings.UserId%3D";
-        static const updateProfilePicture =
+  static const updateProfilePicture =
+      "$baseURL/api/v1/masters/usersandrolesmgmt/user/userprofiles?UserId=";
+  static const getProfilePicture =
+      "$baseURL/api/v1/masters/usersandrolesmgmt/useruserprofilepictures?UserId=";
+       static const deleteProfilePicture =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userprofiles?UserId=";
 }

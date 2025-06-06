@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:digi_xpense/data/models.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -20,6 +21,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'pages/screen/widget/router/router.dart';
+import 'package:path_provider/path_provider.dart';
 
 class Controller extends GetxController {
   final TextEditingController emailController = TextEditingController();
@@ -55,7 +57,10 @@ class Controller extends GetxController {
   final TextEditingController contactaddressID = TextEditingController();
   String maritalStatus = 'Single';
   Currency? selectedCurrency;
-  Locale? selectedLocale;
+
+  // StateModels? selectedContState;
+//  Country? selectedContCountry;
+  Locales? selectedLocale;
   Payment? selectedPayment;
   Language? selectedLanguage;
   Timezone? selectedTimezone;
@@ -79,6 +84,8 @@ class Controller extends GetxController {
   String selectedCountryCode = '';
   String selectedContectCountryName = '';
   String selectedContectCountryCode = '';
+  String selectedContectStateName = '';
+
   File? imageFile;
   var isSameAsPermanent = false;
   MapEntry<String, String>? selectedFormat;
@@ -93,11 +100,15 @@ class Controller extends GetxController {
   Rx<UserProfile> signInModel = UserProfile().obs;
   // File? profileImage;
   Rxn<File> profileImage = Rxn<File>();
-
-  List<Country> countries = [];
+  var selectedContCountry = Rx<Country?>(null);
+  var selectedState = Rx<StateModels?>(null);
+  var selectedContState = Rx<StateModels?>(null);
+  var selectedCountry = Rx<Country?>(null);
+  var statesres = <StateModels>[].obs;
+  var countries = <Country>[].obs;
   List<Language> language = [];
   List<Timezone> timezone = [];
-  List<Locale> localeData = [];
+  List<Locales> localeData = [];
   List<String> languageList = [];
   List<String> countryNames = [];
   List<String> stateList = [];
@@ -145,7 +156,7 @@ class Controller extends GetxController {
       var decodeData = jsonDecode(await response.stream.bytesToString());
 
       if (response.statusCode == 201) {
-          isLoading.value = false;
+        isLoading.value = false;
         await saveCredentials();
         // ignore: use_build_context_synchronously
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
@@ -172,7 +183,6 @@ class Controller extends GetxController {
           refreshtoken: signInModel.value.refreshToken ?? "null",
         );
 
-       isLoading.value = false;
         // showMsg(false);
 
         // Show success toast
@@ -184,11 +194,11 @@ class Controller extends GetxController {
           textColor: Colors.white,
           fontSize: 16.0,
         );
-      isLoading.value = false;
+        isLoading.value = false;
         // Navigate to LandingPage
         // ignore: use_build_context_synchronously
       } else {
-     isLoading.value = false;
+        isLoading.value = false;
         // Show error toast
         Fluttertoast.showToast(
           msg: decodeData["message"] ?? "Login failed. Please try again.",
@@ -251,190 +261,93 @@ class Controller extends GetxController {
       'ProfilePicture': base64Image,
     });
 
-    final response = await http.post(url, headers: headers, body: body);
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      print('Upload successful: ${response.body}');
+    final response = await http.patch(url, headers: headers, body: body);
+    if (response.statusCode == 200 || response.statusCode == 280) {
+      final responseData = jsonDecode(response.body);
+      print('Upload successful: ${responseData['detail']}');
+      Fluttertoast.showToast(
+        msg: "${responseData['detail']}",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Color.fromARGB(255, 35, 2, 124),
+        textColor: Color.fromARGB(255, 253, 252, 253),
+        fontSize: 16.0,
+      );
     } else {
       print('Upload failed [${response.statusCode}]: ${response.body}');
       // you might parse response.body here to show validation errors
     }
   }
 
-  Future<bool> getPersonalDetails(BuildContext context) async {
-    isLoading.value = true;
-    print('userId: ${Params.userId}');
+  Future<List<Country>> fetchCountries() async {
+    final url = Uri.parse(Urls.countryList);
+
     try {
-      final uri = Uri.parse(
-          '${Urls.getPersonalByID}?UserId=${Params.userId}&lockid=${Params.userId}&screen_name=user');
-      final request = http.Request('GET', uri)
+      final request = http.Request('GET', url)
         ..headers.addAll({
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${Params.userToken ?? ''}',
         });
-
-      print('Requesting: $uri');
-
-      // Send request
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
 
-      print('Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        countries.value =
+            List<Country>.from(data.map((item) => Country.fromJson(item)));
 
-      if (response.statusCode != 200) {
-        isLoading.value = false;
-        Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
-          toastLength: Toast.LENGTH_SHORT,
-        );
-        return false;
-      }
+        countryNames = countries.map((c) => c.name).toList();
 
-      // Decode and map fields
-      final List<dynamic> rawList = jsonDecode(response.body);
-      if (rawList.isEmpty) {
-        Fluttertoast.showToast(
-          msg: "No personal data returned.",
-          toastLength: Toast.LENGTH_SHORT,
-        );
-        return false;
-      }
-
-      final Map<String, dynamic> data = rawList.first as Map<String, dynamic>;
-      final Map<String, dynamic> emp = data['Employee'] as Map<String, dynamic>;
-
-      // Top‐level / email
-      personalEmailController.text = data['Email'] ?? '';
-
-      // Employee details
-      employeeIdController.text = emp['EmployeeId'] ?? '';
-      firstNameController.text = emp['FirstName'] ?? '';
-      middleNameController.text = emp['MiddleName'] ?? '';
-      lastNameController.text = emp['LastName'] ?? '';
-
-      gender.text = emp['Gender'] ?? '';
-      final fullNumber = emp['ContactNumber'] ?? '';
-
-      if (fullNumber.startsWith('+') && fullNumber.length > 4) {
-        final parts = fullNumber.split(' ');
-        if (parts.length == 3) {
-          countryCodeController.text = parts[0];
-          phoneController.text = "${parts[1]}${parts[2]}";
-          print(" phoneController.text${phoneController.text}");
-        } else {
-          countryCodeController.text = '';
-          phoneController.text = fullNumber;
-          print(" phoneController.text2$parts");
-        }
+        return countries;
       } else {
-        countryCodeController.text = '';
-        phoneController.text = fullNumber;
-        print(" phoneController.text3${phoneController.text}");
+        print('Failed to load countries');
+        throw Exception('Failed to load countries: ${response.statusCode}');
       }
-
-      // Addresses (if you have these controllers)
-      final List<Map<String, dynamic>> addresses =
-          (data['EMPEmployeeAddresses'] as List<dynamic>)
-              .map((e) => e as Map<String, dynamic>)
-              .toList();
-
-      final perm = addresses.firstWhere(
-        (a) => a['Addresspurpose'] == 'Permanent',
-        orElse: () => {},
-      );
-      final cont = addresses.firstWhere(
-        (a) => a['Addresspurpose'] == 'Contact',
-        orElse: () => {},
-      );
-
-      street.text = perm['Street'] ?? '';
-      city.text = perm['City'] ?? '';
-      state = perm['State'] ?? '';
-      postalCode.text = perm['PostalCode'] ?? '';
-      addressID.text = perm["AddressId"];
-      country = perm['Country'] ?? '';
-      contactStreetController.text = cont['Street'] ?? '';
-      contactCityController.text = cont['City'] ?? '';
-      contactStateController = cont['State'] ?? '';
-      contactPostalController.text = cont['PostalCode'] ?? '';
-      contactaddressID.text = cont['AddressId'] ?? '';
-      contactCountryController = cont['Country'] ?? '';
-      fetchState();
-      // Optionally show a toast on success
-       isLoading.value = false;
-      Fluttertoast.showToast(
-        msg: "Personal details loaded",
-        toastLength: Toast.LENGTH_SHORT,
-      );
-
-      return true;
-    } catch (error) {
-       isLoading.value = false;
-      print('Error Occurreds: $error');
-      Fluttertoast.showToast(
-        msg: "An error occurred: $error",
-        toastLength: Toast.LENGTH_SHORT,
-      );
-      return false;
+    } catch (e) {
+      print('Error fetching countries: $e');
+      throw Exception('Error fetching countries: $e');
     }
   }
 
-  // Future<bool> kinDetails(BuildContext context) async {
-  //   print('userId: ${Params.userId}');
-  //   try {
-  //     var request = http.Request('POST', Uri.parse(Urls.kinDetails));
-  //     request.body = json.encode({
-  //       "customerId": Params.userId,
-  //       "id": kinID,
-  //       "name": fullName.text,
-  //       "relationship": relationShip.text,
-  //       "phoneNumber": countryCodeController.text + phoneNumber.text,
-  //       "email": email.text,
-  //       "address": address.text
-  //     });
+  Future<void> deleteProfilePicture() async {
+    print("object");
+    if (profileImage.value == null) return;
 
-  //     request.headers.addAll({
-  //       'Content-Type': 'application/json',
-  //       'Authorization': 'Bearer ${Params.userToken ?? ''}',
-  //     });
+    final bytes = await profileImage.value!.readAsBytes();
+    final base64String = base64Encode(bytes);
+    print("object$base64String");
 
-  //     print('Request: ${request.body}');
+    final url = Uri.parse(
+      '${Urls.updateProfilePicture}${Params.userId}',
+    );
 
-  //     // Send request
-  //     http.StreamedResponse streamedResponse = await request.send();
-  //     var decodedResponse = await http.Response.fromStream(streamedResponse);
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${Params.userToken ?? ''}',
+    };
+    final body = jsonEncode({
+      'ProfilePicture': 'data:image/png;base64,$base64String',
+    });
 
-  //     print('decodedResponse Code: ${decodedResponse}');
-  //     print('Response Body: ${decodedResponse.body}');
+    final response = await http.patch(url, headers: headers, body: body);
+    if (response.statusCode == 200 || response.statusCode == 280) {
+      final responseData = jsonDecode(response.body);
+      profileImage.value = null;
+      print('Upload successful: ${responseData['detail']}');
+      Fluttertoast.showToast(
+        msg: "${responseData['detail']}",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Color.fromARGB(255, 35, 2, 124),
+        textColor: Color.fromARGB(255, 253, 252, 253),
+        fontSize: 16.0,
+      );
+    } else {
+      print('Upload failed [${response.statusCode}]: ${response.body}');
+      // you might parse response.body here to show validation errors
+    }
+  }
 
-  //     if (decodedResponse.statusCode == 200) {
-  //       // ignore: use_build_context_synchronously
-
-  //       Fluttertoast.showToast(
-  //         msg: "Employment Updated Successfully",
-  //         toastLength: Toast.LENGTH_SHORT,
-  //         gravity: ToastGravity.BOTTOM,
-  //         backgroundColor: Colors.grey,
-  //         textColor: Colors.white,
-  //       );
-  //       return true;
-  //     } else {
-  //       print('Error: ${decodedResponse.body}');
-  //       Fluttertoast.showToast(
-  //         msg: "Error: ${decodedResponse.body}",
-  //         toastLength: Toast.LENGTH_SHORT,
-  //       );
-  //       return false;
-  //     }
-  //   } catch (error) {
-  //     print('Error Occurred: $error');
-  //     Fluttertoast.showToast(
-  //       msg: "An error occurred: $error",
-  //       toastLength: Toast.LENGTH_SHORT,
-  //     );
-  //     return false;
-  //   }
-  // }
   Future<void> sendForgetPassword(BuildContext context) async {
     try {
       print("forgotemailController text: ${forgotemailController.text}");
@@ -533,38 +446,8 @@ class Controller extends GetxController {
         mode: LaunchMode.externalApplication); // or .inAppWebView
   }
 
-  Future<void> fetchCountries() async {
-    final url = Uri.parse(Urls.countryList);
-
-    try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
-
-      if (response.statusCode == 200) {
-        // final data = jsonDecode(response.body);
-        // countryList = List<Country>.from(
-        //   data.map((item) => Country.fromJson(item)),
-        // );
-        final data = jsonDecode(response.body);
-        countries =
-            List<Country>.from(data.map((item) => Country.fromJson(item)));
-        countryNames = countries.map((c) => c.name).toList();
-        print('Failed to load countries$countryNames');
-        fetchState();
-      } else {
-        print('Failed to load countries');
-      }
-    } catch (e) {
-      print('Error fetching countries: $e');
-    }
-  }
-
   Future<void> fetchLanguageList() async {
+    isLoading.value = true;
     final url = Uri.parse(Urls.languageList);
 
     try {
@@ -584,17 +467,21 @@ class Controller extends GetxController {
         final data = jsonDecode(response.body);
         language =
             List<Language>.from(data.map((item) => Language.fromJson(item)));
-        // countryNames = language.map((c) => c.name).toList();
-        // print('language to load countries$countryNames');
+        isLoading.value = false;
+        countryNames = language.map((c) => c.code).toList();
+        print('language to load countries$data');
       } else {
         print('Failed to load countries');
+        isLoading.value = false;
       }
     } catch (e) {
       print('Error fetching language: $e');
+      isLoading.value = false;
     }
   }
 
   Future<void> fetchTimeZoneList() async {
+    isLoading.value = true;
     final url = Uri.parse(Urls.timeZoneDropdown);
 
     try {
@@ -616,17 +503,20 @@ class Controller extends GetxController {
             List<Timezone>.from(data.map((item) => Timezone.fromJson(item)));
         // countryNames = timezone.map((c) => c.name).toList();
         // print('language to load countries$countryNames');
+        isLoading.value = false;
       } else {
         print('Failed to load countries');
+        isLoading.value = false;
       }
     } catch (e) {
       print('Error fetching language: $e');
+      isLoading.value = false;
     }
   }
 
   Future<void> localeDropdown() async {
     final url = Uri.parse(Urls.locale);
-
+    isLoading.value = true;
     try {
       final request = http.Request('GET', url)
         ..headers.addAll({
@@ -639,7 +529,8 @@ class Controller extends GetxController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         localeData =
-            List<Locale>.from(data.map((item) => Locale.fromJson(item)));
+            List<Locales>.from(data.map((item) => Locales.fromJson(item)));
+        isLoading.value = false;
         // countryNames = localeData.map((c) => c.name).toList();
         // print('localeData to load countries$countryNames');
       } else {
@@ -650,33 +541,45 @@ class Controller extends GetxController {
     }
   }
 
-  Future<void> fetchState() async {
+  Future<List<StateModels>> fetchState() async {
     final url = Uri.parse(
-        '${Urls.stateList}$country&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId');
+      '${Urls.stateList}$selectedCountryCode&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId',
+    );
+
     try {
       final request = http.Request('GET', url)
         ..headers.addAll({
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${Params.userToken ?? ''}',
         });
+
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 200) {
+        isLoading.value = true;
         final data = jsonDecode(response.body);
 
-        stateList = List<String>.from(
-          data.map((item) => item['StateName'].toString()),
+        final List<StateModels> states = List<StateModels>.from(
+          data.map((item) => StateModels.fromJson(item)),
         );
+
+        statesres.value = states;
+
+        isLoading.value = false;
+        return states;
       } else {
-        print('Failed to load countries');
+        print('Failed to load states. Status code: ${response.statusCode}');
+        return [];
       }
     } catch (e) {
-      print('Error fetching countries: $e');
+      print('Error fetching states: $e');
+      return [];
     }
   }
 
   Future<void> currencyDropDown() async {
+    isLoading.value = true;
     final url = Uri.parse(Urls.correncyDropdown);
     try {
       final request = http.Request('GET', url)
@@ -691,16 +594,20 @@ class Controller extends GetxController {
         final data = json.decode(response.body) as List;
 
         currencies = data.map((e) => Currency.fromJson(e)).toList();
+        isLoading.value = false;
         print('currencies to load countries$currencies');
       } else {
         print('Failed to load countries');
+        isLoading.value = false;
       }
     } catch (e) {
       print('Error fetching countries: $e');
+      isLoading.value = false;
     }
   }
 
   Future<void> getUserPref() async {
+    isLoading.value = true;
     final url = Uri.parse(
         '${Urls.getuserPreferencesAPI}${Params.userId}&page=1&sort_order=asc');
 
@@ -755,17 +662,20 @@ class Controller extends GetxController {
             emails =
                 defaultReceiptEmail.split(';').map((e) => e.trim()).toList();
           }
-
-          print(emails);
-          print('selectedFormat preferences loaded$selectedFormat');
+          isLoading.value = false;
+          print("selectedTimezone${selectedTimezone!.name}");
+          // print('selectedFormat preferences loaded${language.}.');
         } else {
           print('Unexpected response formats: ${decoded.runtimeType}');
+          isLoading.value = false;
         }
       } else {
         print('Failed to load preferences: ${response.statusCode}');
+        isLoading.value = false;
       }
     } catch (e) {
       print('Error fetching preferences: $e');
+      isLoading.value = false;
     }
   }
 
@@ -784,6 +694,7 @@ class Controller extends GetxController {
         final data = json.decode(response.body) as List;
 
         payment = data.map((e) => Payment.fromJson(e)).toList();
+        isLoading.value = false;
         print('payment to load countries$payment');
       } else {
         print('Failed to load countries');
@@ -793,7 +704,43 @@ class Controller extends GetxController {
     }
   }
 
-  // Updates Profile Details
+  Future<void> getProfilePicture() async {
+    final url = Uri.parse('${Urls.getProfilePicture}${Params.userId}');
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        print('✅ Profile picture saved to ${response.statusCode}');
+        final String base64String = response.body;
+        print('✅ Profile picture saved to $base64String');
+
+        final cleaned = base64String.contains(',')
+            ? base64String.split(',')[1]
+            : base64String;
+
+        final Uint8List bytes = base64Decode(cleaned);
+
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/profile_image.png');
+        await file.writeAsBytes(bytes);
+
+        profileImage.value = file;
+
+        print('✅ Profile image stored at: ${file.path}');
+      } else {
+        print('Failed to load countries');
+      }
+    } catch (e) {
+      print('Error fetching countries: $e');
+    }
+  }
+
   Future<void> updateProfileDetails() async {
     buttonLoader.value = true;
     final Map<String, dynamic> requestBody = {
@@ -859,6 +806,20 @@ class Controller extends GetxController {
       buttonLoader.value = false;
     }
   }
+String getLocaleCodeFromId(String id) {
+  switch (id) {
+    case 'LUG-01':
+      return 'en';
+    case 'LUG-02':
+      return 'ar';
+    case 'LUG-03':
+      return 'zh';
+    case 'LUG-04':
+      return 'fr';
+    default:
+      return 'en'; // fallback
+  }
+}
 
   // UserPref Update APi
   Future<void> userPreferences() async {
@@ -875,7 +836,7 @@ class Controller extends GetxController {
       "DefaultPaymentMethodId": selectedPayment?.code,
       "ThemeDirection": false,
       "ThemeColor": "GREEN_THEME",
-      "DecimalSeperator": "sq-AL"
+      "DecimalSeperator": selectedLocale?.code
     };
 
     try {
@@ -887,7 +848,7 @@ class Controller extends GetxController {
         },
         body: jsonEncode(requestBody),
       );
-
+      print("requestBody$requestBody");
       if (response.statusCode == 280) {
         buttonLoader.value = false;
         final responseData = jsonDecode(response.body);
@@ -915,6 +876,147 @@ class Controller extends GetxController {
     } catch (e) {
       print("❌ Exception: $e");
       buttonLoader.value = false;
+    }
+  }
+
+  Future<bool> getPersonalDetails(BuildContext context) async {
+    isLoading.value = true;
+    print('userId: ${Params.userId}');
+    try {
+      final uri = Uri.parse(
+          '${Urls.getPersonalByID}?UserId=${Params.userId}&lockid=${Params.userId}&screen_name=user');
+      final request = http.Request('GET', uri)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      print('Requesting: $uri');
+
+      // Send request
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        isLoading.value = false;
+        Fluttertoast.showToast(
+          msg: "Error: ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+        );
+        return false;
+      }
+
+      // Decode and map fields
+      final List<dynamic> rawList = jsonDecode(response.body);
+      if (rawList.isEmpty) {
+        Fluttertoast.showToast(
+          msg: "No personal data returned.",
+          toastLength: Toast.LENGTH_SHORT,
+        );
+        isLoading.value = false;
+        return false;
+      }
+      isLoading.value = true;
+      final Map<String, dynamic> data = rawList.first as Map<String, dynamic>;
+      final Map<String, dynamic> emp = data['Employee'] as Map<String, dynamic>;
+
+      // Top‐level / email
+      personalEmailController.text = data['Email'] ?? '';
+
+      // Employee details
+      employeeIdController.text = emp['EmployeeId'] ?? '';
+      firstNameController.text = emp['FirstName'] ?? '';
+      middleNameController.text = emp['MiddleName'] ?? '';
+      lastNameController.text = emp['LastName'] ?? '';
+
+      gender.text = emp['Gender'] ?? '';
+      final fullNumber = emp['ContactNumber'] ?? '';
+      isLoading.value = true;
+      if (fullNumber.length > 4) {
+        final parts = fullNumber.split(' ');
+        print(" phoneController.text2$parts");
+        if (parts.length == 3) {
+          countryCodeController.text = parts[0];
+          phoneController.text = "${parts[2]}";
+          print(" phoneController.text${phoneController.text}");
+        } else {
+          countryCodeController.text = '';
+          phoneController.text = fullNumber;
+        }
+      } else {
+        countryCodeController.text = '';
+        phoneController.text = fullNumber;
+        print(" phoneController.text3${phoneController.text}");
+      }
+
+      // Addresses (if you have these controllers)
+      final List<Map<String, dynamic>> addresses =
+          (data['EMPEmployeeAddresses'] as List<dynamic>)
+              .map((e) => e as Map<String, dynamic>)
+              .toList();
+
+      final perm = addresses.firstWhere(
+        (a) => a['Addresspurpose'] == 'Permanent',
+        orElse: () => {},
+      );
+      final cont = addresses.firstWhere(
+        (a) => a['Addresspurpose'] == 'Contact',
+        orElse: () => {},
+      );
+      isLoading.value = true;
+      street.text = perm['Street'] ?? '';
+      city.text = perm['City'] ?? '';
+      state = perm['State'] ?? '';
+      postalCode.text = perm['PostalCode'] ?? '';
+      addressID.text = perm["AddressId"];
+      selectedCountryCode = perm['Country'] ?? '';
+      contactStreetController.text = cont['Street'] ?? '';
+      contactCityController.text = cont['City'] ?? '';
+      contactStateController = cont['State'] ?? '';
+      contactPostalController.text = cont['PostalCode'] ?? '';
+      contactaddressID.text = cont['AddressId'] ?? '';
+      contactCountryController = cont['Country'] ?? '';
+      // fetchState();
+      // Optionally show a toast on success
+      isLoading.value = true;
+      Timer(const Duration(seconds: 5), () {
+        selectedCountry.value = countries.firstWhere(
+          (p) => p.code == selectedCountryCode,
+          orElse: () => Country(code: '', name: ''),
+        );
+
+        selectedContCountry.value = countries.firstWhere(
+          (p) => p.code == contactCountryController,
+          orElse: () => Country(code: '', name: ''),
+        );
+        selectedState.value = statesres.firstWhere(
+          (p) => p.name == state,
+          orElse: () => StateModels(code: '', name: ''),
+        );
+        selectedContState.value = statesres.firstWhere(
+          (p) => p.name == contactStateController,
+          orElse: () => StateModels(code: '', name: ''),
+        );
+        print(
+            "selectedState$statesres${contactStateController},${selectedContCountry.value!.code}");
+      });
+      Fluttertoast.showToast(
+        msg: "Personal details loaded${selectedCountryCode}",
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      isLoading.value = false;
+      return true;
+    } catch (error) {
+      isLoading.value = false;
+      print('Error Occurreds: $error');
+      Fluttertoast.showToast(
+        msg: "An error occurred: $error",
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return false;
     }
   }
 }
