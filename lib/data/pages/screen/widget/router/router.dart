@@ -1,5 +1,8 @@
 // lib/presentation/routes/app_routes.dart
+import 'dart:io';
+
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
 import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +11,7 @@ import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart
 import 'package:digi_xpense/data/pages/screen/Authentication/login.dart';
 import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/dashboard_Main.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/changeLanguage.dart';
+import '../../ALl_Expense_Screens/AutoScan/autoScan.dart';
 import '../../ALl_Expense_Screens/GeneralExpense/dashboard.dart';
 import '../../Profile/profile.dart';
 import '../../landingLogo/widget.dart';
@@ -22,7 +26,9 @@ class AppRoutes {
   static const String personalInfo = '/profile/profileDetailsPage';
   static const String entryScreen = '/profile/entryLogoScreen';
   static const String generalExpense = '/expense/generalExpense';
-  static const String expenseForm = '/expense/generalExpense/fom';
+  static const String expenseForm = '/expense/generalExpense/from';
+  static const String getSpecificExpense = '/expense/getSpecificExpense/view';
+  static const String autoScan = '/expense/outScan/view';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -41,9 +47,18 @@ class AppRoutes {
       case generalExpense:
         return MaterialPageRoute(
             builder: (_) => const GeneralExpenseDashboard());
-      case expenseForm:
+      case autoScan:
+        final args = settings.arguments as Map<String, dynamic>;
+        final File imageFile = args['imageFile'];
+        final Map<String, dynamic> apiResponse = args['apiResponse'];
+
         return MaterialPageRoute(
-            builder: (_) => const ExpenseCreationForm());
+          builder: (_) => AutoScanExpensePage(
+            imageFile: imageFile,
+            apiResponse: apiResponse,
+          ),
+        );
+
       case profile:
         return MaterialPageRoute(
           builder: (_) => const ScaffoldWithNav(
@@ -51,9 +66,8 @@ class AppRoutes {
               DashboardPage(),
               GeneralExpenseDashboard(),
               LoginScreen(),
-              // PersonalDetailsPage(),
             ],
-            initialIndex: 0, // index of ProfilePage
+            initialIndex: 0,
           ),
         );
       case dashboard_Main:
@@ -65,6 +79,17 @@ class AppRoutes {
               // LoginScreen(),
               PersonalDetailsPage(),
             ],
+          ),
+        );
+      case expenseForm:
+        return MaterialPageRoute(builder: (_) => const ExpenseCreationForm());
+      case AppRoutes.getSpecificExpense:
+        final args = settings.arguments as Map<String, dynamic>?;
+        print("args$args");
+        return MaterialPageRoute(
+          builder: (_) => ViewEditExpensePage(
+            items: args?['item'],
+            isReadOnly: true,
           ),
         );
 

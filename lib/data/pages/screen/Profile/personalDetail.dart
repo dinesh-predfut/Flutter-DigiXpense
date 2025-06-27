@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:get/get_core/src/get_main.dart';
+import 'package:libphonenumber/libphonenumber.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/comman/widgets/button.dart';
 import '../../../../core/comman/widgets/dateSelector.dart';
@@ -29,24 +30,22 @@ class PersonalDetailsPage extends StatefulWidget {
 class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   final controller = Get.put(Controller());
   final FocusNode _focusNode = FocusNode();
-
+  FocusNode _contactStateFocusNode = FocusNode();
+  FocusNode _contCountryFocusNode = FocusNode();
   final TextEditingController textcontroller = TextEditingController();
-  final TextEditingController _stateTextController = TextEditingController();
   final TextEditingController _statePresentStateTextController =
       TextEditingController();
-  final TextEditingController _statePresentTextController =
-      TextEditingController();
-  final TextEditingController _countryPresentTextController =
-      TextEditingController();
+
   final TextEditingController _controller = TextEditingController();
   List<Map<String, dynamic>> filteredOptions = [];
   List<Map<String, dynamic>> filteredStateOptions = [];
-
+  FocusNode _statePresentFocusNode = FocusNode();
   Future<List<StateModels>>? statesFuture;
   Future<List<Country>>? constCountryFuture;
   String _stateSearchQuery = '';
   String _statePresentSearchQuery = '';
-
+  RxBool isButtonDisabled = false.obs;
+  bool isTyping = false;
   String _ContCountry = '';
   String _presentCountry = '';
   bool _showResults = false;
@@ -61,23 +60,27 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   bool _didPopulateInitialcountry = false;
   bool _didPopulateInitialcontcountry = false;
   bool hasEmailError = false;
+  final RegExp _emailRegex = RegExp(r"^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$");
+  FocusNode _presentCountryFocusNode = FocusNode();
+  String? _errorText;
 
-  final RegExp _emailRegex = RegExp(
-    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-  );
+  void _validateOnChange(String value) {
+    final invalid = value
+        .split(',')
+        .map((e) => e.trim())
+        .any((e) => e.isNotEmpty && !_emailRegex.hasMatch(e));
 
-  void _validateEmailInput(String value) {
-    final emails = value.split(',');
     setState(() {
-      hasEmailError = emails.any((email) =>
-          email.trim().isNotEmpty && !_emailRegex.hasMatch(email.trim()));
+      hasEmailError = invalid;
+      _errorText = invalid ? "One or more emails are invalid" : null;
+      isTyping = value.trim().isNotEmpty;
     });
   }
 
   void _addEmails(String value) {
-    _validateEmailInput(value);
+    _validateOnChange(value);
+
     if (!hasEmailError) {
-      // Process valid emails
       final newEmails = value
           .split(',')
           .map((e) => e.trim())
@@ -90,9 +93,11 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
       setState(() {
         controller.emails.addAll(newEmails);
         _controller.clear();
+        _errorText = null;
+        isTyping = false;
       });
-      print("Valid emails: ${value.split(',')}");
-      _controller.clear(); // Clear input if valid
+
+      print("Added: $newEmails");
     }
   }
 
@@ -103,23 +108,65 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   @override
   void initState() {
     super.initState();
-    controller.fetchCountries();
-
-    controller.getPersonalDetails(context);
-    controller.getProfilePicture();
-    controller.fetchState();
-    controller.fetchCountries();
-    controller.fetchLanguageList();
-    controller.currencyDropDown();
-    controller.paymentMethode();
-    controller.fetchTimeZoneList();
-    controller.getUserPref();
-    controller.localeDropdown();
-    if (controller.selectedContCountry != null) {
-      statesFuture = controller.fetchState();
+    _presentCountryFocusNode.addListener(() {
+      if (_presentCountryFocusNode.hasFocus) {
+        setState(() {
+          _showResultsPresentCountr = true;
+        });
+      }
+    });
+    _statePresentFocusNode.addListener(() {
+      if (_statePresentFocusNode.hasFocus) {
+        setState(() {
+          _showResultsPresentState = true;
+        });
+      }
+    });
+    _contactStateFocusNode.addListener(() {
+      if (_contactStateFocusNode.hasFocus) {
+        setState(() {
+          _showResults = true;
+        });
+      }
+    });
+    if(controller.profileImage.value == null){
+  controller.getProfilePicture();
     }
 
+    // if (controller.contactStreetController.text.isEmpty &&
+    //     controller.selectedContCountry.value == null &&
+    //     controller.selectedContCountry.value == null) {
+      controller.fetchCountries();
+      controller.fetchTimeZoneList();
+      controller.localeDropdown();
+      controller.getPersonalDetails(context);
+    
+
+      controller.fetchLanguageList();
+      controller.currencyDropDown();
+    // }
+    Timer(const Duration(seconds: 3), () {
+      controller.getUserPref();
+     
+    });
+    // controller.fetchState();
+    controller.paymentMethode();
+
+    // if (controller.selectedContCountry != null) {
+    //   statesFuture = controller.fetchState();
+    // }
+
     print("controller.country${controller.language}");
+  }
+
+  Future<void> fetchCountries() async {
+    final response = await controller.fetchCountries();
+    controller.countries.assignAll(response);
+  }
+
+  Future<void> fetchState(selectedCountryCode) async {
+    final response = await controller.fetchCountries();
+    controller.countries.assignAll(response);
   }
 
   void toggleSameAddress(bool value) {
@@ -129,23 +176,32 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
       if (value) {
         controller.contactStreetController.text = controller.street.text;
         controller.contactCityController.text = controller.city.text;
-        controller.selectedContState = controller.selectedContState;
+        // controller.selectedContState = controller.selectedContState;
         controller.contactPostalController.text = controller.postalCode.text;
-        controller.selectedContCountry.value = controller.selectedCountry.value;
-        _statePresentTextController.text = controller.selectedCountryName;
-        controller.selectedContCountry.value = controller.selectedCountry.value;
-        _stateTextController.text = _statePresentStateTextController.text;
+        controller.countryConstTextController.text =
+            controller.presentCountryTextController.text;
+        // controller.countryConstTextController.text = controller.selectedCountryName;
+        controller.stateTextController.text =
+            controller.statePresentTextController.text;
+        controller.selectedContectCountryCode = controller.selectedCountryCode;
         _disableField = false;
+        _contCountryFocusNode.addListener(() {
+          if (_contCountryFocusNode.hasFocus) {
+            setState(() {
+              _showResultsContCountr = true;
+            });
+          }
+        });
       } else {
         controller.contactStreetController.clear();
         controller.contactCityController.clear();
         controller.contactStateController = "";
         controller.contactPostalController.clear();
         controller.contactCountryController = "";
-        _statePresentTextController.text = "";
-        _stateTextController.text = "";
+        controller.countryConstTextController.text = "";
+        controller.stateTextController.text = "";
         _disableField = true;
-        // _countryPresentTextController.text = "";
+        // controller.presentCountryTextController.text = "";
       }
     });
   }
@@ -154,8 +210,22 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   void dispose() {
     _focusNode.dispose();
     textcontroller.dispose();
+    _presentCountryFocusNode.dispose();
+    _statePresentFocusNode.dispose();
+    _contCountryFocusNode.dispose();
+    _contactStateFocusNode.dispose();
     super.dispose();
   }
+
+  void _cancelInput() {
+    _controller.clear();
+    setState(() {
+      _errorText = null;
+      isTyping = false;
+    });
+  }
+
+  final Map<String, dynamic> countryPhoneLengths = {};
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +254,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                     )),
                 Positioned(
                   bottom: 0,
-                  right: MediaQuery.of(context).size.width / 2 - 187,
+                  right: MediaQuery.of(context).size.width / 2 - 177,
                   child: GestureDetector(
                     onTap: () => showEditPopup(context),
                     child: Container(
@@ -206,8 +276,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Center(
-              child: Text(
-                  '${controller.phoneController.text} | ${controller.personalEmailController.text}',
+              child: Text(controller.personalEmailController.text,
                   style: const TextStyle(color: Colors.grey, fontSize: 14)),
             ),
             const SizedBox(height: 20),
@@ -238,7 +307,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                             // _dateField("Date of Birth", controller.dobController),
                             // const SizedBox(height: 20),
                             SizedBox(
-                                // width: 320, // set your desired width here
                                 child: IntlPhoneField(
                               controller: controller.phoneController,
                               keyboardType: TextInputType.phone,
@@ -250,8 +318,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 counterText: "",
                               ),
                               initialCountryCode: 'IN',
-                              disableLengthCheck:
-                                  true, // we’ll do our own check
                               onChanged: (phone) {
                                 controller.countryCodeController.text =
                                     phone.countryCode;
@@ -262,20 +328,30 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               },
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
                               ],
                               validator: (phone) async {
                                 if (phone == null ||
                                     phone.number.trim().isEmpty) {
                                   return loc.enterPhoneNumber;
                                 }
-                                if (phone.number.length != 10) {
-                                  return loc.phoneNumberDigitsOnly;
+
+                                isButtonDisabled.value = true;
+
+                                final isValid =
+                                    await PhoneNumberUtil.isValidPhoneNumber(
+                                  phoneNumber: phone.completeNumber,
+                                  isoCode: phone.countryISOCode,
+                                );
+
+                                if (isValid!) {
+                                  isButtonDisabled.value = false;
+                                  return 'Invalid phone number for ${phone.countryCode}';
                                 }
 
                                 return null;
                               },
                             )),
+
                             const SizedBox(height: 8),
                             _textField(loc.gender, controller.gender,
                                 isEnabled: false),
@@ -295,119 +371,350 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                     fontWeight: FontWeight.bold),
                               ),
                             ),
-                            _textField(loc.street, controller.street),
-                            _textField(loc.city, controller.city),
+                            _textField(
+                              loc.street,
+                              controller.street,
+                              onChanged: (value) {
+                                if (controller.isSameAsPermanent == true) {
+                                  toggleSameAddress(
+                                      controller.isSameAsPermanent);
+                                  controller.stateTextController.text =
+                                      value.toString();
+                                }
+                              },
+                            ),
+                            _textField(
+                              loc.city,
+                              controller.city,
+                              onChanged: (value) {
+                                if (controller.isSameAsPermanent == true) {
+                                  toggleSameAddress(
+                                      controller.isSameAsPermanent);
+                                  controller.stateTextController.text =
+                                      value.toString();
+                                }
+                              },
+                            ),
                             const SizedBox(
                               height: 8,
                             ),
-                            FutureBuilder<List<Country>>(
-                              future: controller.fetchCountries(),
+                            Obx(() {
+                              final countryList = controller.countries;
+                              final lowerQuery = _presentCountry.toLowerCase();
+
+                              final filteredPresentCountry = [
+                                ...countryList.where((c) => c.name
+                                    .toLowerCase()
+                                    .startsWith(lowerQuery)),
+                                ...countryList.where((c) =>
+                                    c.name.toLowerCase().contains(lowerQuery) &&
+                                    !c.name
+                                        .toLowerCase()
+                                        .startsWith(lowerQuery)),
+                                ...countryList.where((c) =>
+                                    !c.name.toLowerCase().contains(lowerQuery)),
+                              ];
+
+                              if (!_didPopulateInitialcountry &&
+                                  controller.selectedCountry.value != null &&
+                                  controller
+                                      .selectedCountry.value!.code.isNotEmpty) {
+                                controller.presentCountryTextController.text =
+                                    controller.selectedCountry.value!.name;
+                                _didPopulateInitialcountry = true;
+                              }
+
+                              return FormField<Country>(
+                                initialValue: controller.selectedCountry.value,
+                                builder: (stateField) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextField(
+                                        controller: controller
+                                            .presentCountryTextController,
+                                        focusNode: _presentCountryFocusNode,
+                                        decoration: InputDecoration(
+                                          labelText: '${loc.searchCountry}*',
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          suffixIcon: IconButton(
+                                            icon: Icon(
+                                              _showResultsPresentCountr
+                                                  ? Icons.arrow_drop_up
+                                                  : Icons
+                                                      .arrow_drop_down_outlined,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _showResultsPresentCountr =
+                                                    !_showResultsPresentCountr;
+                                                _showResultsContCountr = false;
+                                                _showResultsPresentState =
+                                                    false;
+                                                _showResults = false;
+                                                if (_showResultsPresentCountr) {
+                                                  _presentCountryFocusNode
+                                                      .requestFocus();
+                                                } else {
+                                                  _presentCountryFocusNode
+                                                      .unfocus();
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _presentCountry = value;
+                                            _showResultsPresentCountr = true;
+                                          });
+
+                                          if (value.isEmpty) {
+                                            controller.selectedCountry.value =
+                                                null;
+                                            stateField.didChange(null);
+                                          }
+                                        },
+                                        onTap: () {
+                                          setState(() {
+                                            _showResultsPresentCountr = true;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (_showResultsPresentCountr)
+                                        Container(
+                                          width: 320,
+                                          constraints: const BoxConstraints(
+                                              maxHeight: 250),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: Colors.grey.shade300),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            color: Colors.white,
+                                          ),
+                                          child: filteredPresentCountry.isEmpty
+                                              ? const Center(
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(12),
+                                                    child: Text(
+                                                        'No matching countries'),
+                                                  ),
+                                                )
+                                              : ListView.builder(
+                                                  shrinkWrap: true,
+                                                  itemCount:
+                                                      filteredPresentCountry
+                                                          .length,
+                                                  itemBuilder:
+                                                      (context, index) {
+                                                    final countryModel =
+                                                        filteredPresentCountry[
+                                                            index];
+                                                    return InkWell(
+                                                      onTap: () {
+                                                        FocusScope.of(context)
+                                                            .unfocus();
+
+                                                        if (controller
+                                                            .isSameAsPermanent) {
+                                                          toggleSameAddress(
+                                                              controller
+                                                                  .isSameAsPermanent);
+                                                          controller
+                                                                  .countryConstTextController
+                                                                  .text =
+                                                              countryModel.name;
+                                                        }
+
+                                                        controller
+                                                                .selectedCountryName =
+                                                            countryModel.name;
+                                                        controller
+                                                                .selectedCountryCode =
+                                                            countryModel.code;
+                                                        controller
+                                                                .selectedCountry
+                                                                .value =
+                                                            countryModel;
+                                                        controller.fetchState();
+
+                                                        setState(() {
+                                                          controller
+                                                                  .presentCountryTextController
+                                                                  .text =
+                                                              countryModel.name;
+                                                          _presentCountry = '';
+                                                          _showResultsPresentCountr =
+                                                              false;
+                                                          controller
+                                                              .statePresentTextController
+                                                              .text = '';
+
+                                                          if (controller
+                                                              .isSameAsPermanent) {
+                                                            controller
+                                                                .stateTextController
+                                                                .text = '';
+                                                          }
+                                                        });
+
+                                                        stateField.didChange(
+                                                            countryModel);
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 8),
+                                                        child: Text(
+                                                            countryModel.name),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                        ),
+                                      if (stateField.hasError)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 4, left: 12),
+                                          child: Text(
+                                            stateField.errorText!,
+                                            style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .errorColor),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              );
+                            }),
+                            const SizedBox(
+                              height: 15,
+                            ),
+                            FutureBuilder<List<StateModels>>(
+                              future:
+                                  statesFuture ?? Future.value(<StateModels>[]),
                               builder: (context, snapshot) {
-                                // 1) Loading / Error / No-data states
+                                final statesList = controller.statesres;
+                                final lowerQuery =
+                                    _statePresentSearchQuery.toLowerCase();
 
-                                // 2) We have a list of countries
-                                final countryList = snapshot.data!;
-                                final filteredpresentCountry = _presentCountry
-                                        .isEmpty
-                                    ? countryList
-                                    : countryList
-                                        .where((c) => c.name
-                                            .toLowerCase()
-                                            .contains(
-                                                _presentCountry.toLowerCase()))
-                                        .toList();
+                                final filteredStates = [
+                                  ...statesList.where((s) => s.name
+                                      .toLowerCase()
+                                      .startsWith(lowerQuery)),
+                                  ...statesList.where((s) =>
+                                      s.name
+                                          .toLowerCase()
+                                          .contains(lowerQuery) &&
+                                      !s.name
+                                          .toLowerCase()
+                                          .startsWith(lowerQuery)),
+                                  ...statesList.where((s) => !s.name
+                                      .toLowerCase()
+                                      .contains(lowerQuery)),
+                                ];
 
-                                // ─── Only once, when data first arrives: copy selectedContCountry into the field
-                                if (!_didPopulateInitialcountry &&
-                                    controller.selectedCountry.value != null &&
-                                    controller.selectedCountry.value!.code
-                                        .isNotEmpty) {
-                                  print("22222");
-                                  _countryPresentTextController.text =
-                                      controller.selectedCountry.value!.name;
-                                  _didPopulateInitialcountry = true;
+                                if (!_didPopulateInitialstate &&
+                                    controller.selectedState.value != null &&
+                                    controller
+                                        .selectedState.value!.code.isNotEmpty) {
+                                  _statePresentStateTextController.text =
+                                      controller.selectedState.value!.name;
+                                  _didPopulateInitialstate = true;
                                 }
 
-                                return FormField<Country>(
-                                  initialValue:
-                                      controller.selectedCountry.value,
+                                return FormField<StateModels>(
+                                  initialValue: controller.selectedState.value,
                                   builder: (stateField) {
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // ── 1) Search Field ──
-                                        SizedBox(
-                                          // width: 320,
-                                          child: TextField(
-                                            controller:
-                                                _countryPresentTextController,
-                                            autofocus: false,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  '${loc.searchCountry}*',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                              suffixIcon: _presentCountry
-                                                      .isEmpty
-                                                  ? const Icon(Icons
-                                                      .arrow_drop_down_outlined)
-                                                  : GestureDetector(
-                                                      onTap: () {
-                                                        // clear the field, hide results, clear selection
-                                                        setState(() {
-                                                          _countryPresentTextController
-                                                              .clear();
-                                                          _presentCountry = '';
-                                                          _showResultsPresentCountr =
-                                                              false;
-                                                        });
-                                                        controller
-                                                            .selectedCountry
-                                                            .value = null;
-                                                        stateField
-                                                            .didChange(null);
-                                                      },
-                                                      child: const Icon(
-                                                          Icons.clear),
-                                                    ),
+                                        TextField(
+                                          focusNode: _statePresentFocusNode,
+                                          controller: controller
+                                              .statePresentTextController,
+                                          decoration: InputDecoration(
+                                            labelText: loc.searchState,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
-                                            onChanged: (value) {
-                                              // As soon as the user types (or erases everything):
-                                              setState(() {
-                                                _presentCountry = value;
-                                                _showResultsPresentCountr =
-                                                    value.isNotEmpty;
-                                              });
-
-                                              // If they removed all text, clear the selection
-                                              if (value.isEmpty) {
-                                                controller.selectedCountry
-                                                    .value = null;
-                                                stateField.didChange(null);
-                                              }
-                                            },
-                                            onTap: () {
-                                              // If they tap into an empty field, show full list
-                                              if (_countryPresentTextController
-                                                  .text.isEmpty) {
+                                            suffixIcon: IconButton(
+                                              icon: Icon(
+                                                _showResultsPresentState
+                                                    ? Icons.arrow_drop_up
+                                                    : Icons
+                                                        .arrow_drop_down_outlined,
+                                              ),
+                                              onPressed: () {
                                                 setState(() {
+                                                  _showResultsPresentState =
+                                                      !_showResultsPresentState;
                                                   _showResultsPresentCountr =
-                                                      true;
+                                                      false;
+                                                  _showResultsContCountr =
+                                                      false;
+
+                                                  _showResults = false;
+                                                  if (_showResultsPresentState) {
+                                                    _statePresentFocusNode
+                                                        .requestFocus();
+                                                  } else {
+                                                    _statePresentFocusNode
+                                                        .unfocus();
+                                                  }
                                                 });
-                                              }
-                                            },
+                                              },
+                                            ),
                                           ),
+                                          onTap: () {
+                                            setState(() {
+                                              _showResultsPresentState = true;
+                                            });
+                                          },
+                                          onChanged: (value) {
+                                            if (controller.isSameAsPermanent ==
+                                                true) {
+                                              toggleSameAddress(
+                                                  controller.isSameAsPermanent);
+                                              controller.stateTextController
+                                                  .text = value;
+                                            }
+
+                                            controller.fetchState();
+
+                                            setState(() {
+                                              _statePresentSearchQuery = value;
+                                              _showResultsPresentState = true;
+
+                                              if (value.isEmpty) {
+                                                controller.selectedState.value =
+                                                    null;
+                                                controller
+                                                    .statePresentTextController
+                                                    .clear();
+                                              }
+
+                                              controller
+                                                  .statePresentTextController
+                                                  .text = value;
+                                            });
+                                          },
                                         ),
-
                                         const SizedBox(height: 8),
-
-                                        // ── 2) Filtered List ──
-                                        if (_showResultsPresentCountr)
+                                        if (_showResultsPresentState)
                                           Container(
-                                            width: 320,
+                                            width: double.infinity,
                                             constraints: const BoxConstraints(
                                                 maxHeight: 250),
                                             decoration: BoxDecoration(
@@ -415,64 +722,60 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                                   color: Colors.grey.shade300),
                                               borderRadius:
                                                   BorderRadius.circular(4),
-                                              color: Colors.white,
                                             ),
-                                            child: filteredpresentCountry
-                                                    .isEmpty
+                                            child: filteredStates.isEmpty
                                                 ? const Center(
                                                     child: Padding(
                                                       padding:
                                                           EdgeInsets.all(12),
                                                       child: Text(
-                                                          'No matching countries'),
+                                                          'No matching states'),
                                                     ),
                                                   )
                                                 : ListView.builder(
                                                     shrinkWrap: true,
                                                     itemCount:
-                                                        filteredpresentCountry
-                                                            .length,
+                                                        filteredStates.length,
                                                     itemBuilder:
                                                         (context, index) {
-                                                      final countryModel =
-                                                          filteredpresentCountry[
-                                                              index];
+                                                      final stateModel =
+                                                          filteredStates[index];
                                                       return InkWell(
                                                         onTap: () {
-                                                          // 1) Unfocus keyboard
-                                                          FocusScope.of(context)
-                                                              .unfocus();
-                                                          controller
-                                                                  .selectedCountryName =
-                                                              countryModel.name;
-                                                          controller
-                                                                  .selectedCountryCode =
-                                                              countryModel.code;
-
-                                                          controller
-                                                              .fetchState();
-                                                          _countryPresentTextController
-                                                              .text = "";
-                                                          // 2) Update text & hide list
-                                                          setState(() {
-                                                            _countryPresentTextController
+                                                          if (controller
+                                                                  .isSameAsPermanent ==
+                                                              true) {
+                                                            toggleSameAddress(
+                                                                controller
+                                                                    .isSameAsPermanent);
+                                                            controller
+                                                                    .stateTextController
                                                                     .text =
-                                                                countryModel
-                                                                    .name;
-                                                            _presentCountry =
-                                                                '';
-                                                            _showResultsPresentCountr =
-                                                                false;
-                                                            _statePresentStateTextController
-                                                                .text = "";
-                                                          });
+                                                                stateModel.name;
+                                                          }
 
-                                                          // 3) Notify form/parent of new selection
-                                                          controller
-                                                              .selectedContCountry
-                                                              .value = countryModel;
-                                                          stateField.didChange(
-                                                              countryModel);
+                                                          setState(() {
+                                                            controller
+                                                                    .statePresentTextController
+                                                                    .text =
+                                                                stateModel.name;
+                                                            controller
+                                                                .selectedContState
+                                                                .value = stateModel;
+                                                            controller
+                                                                    .selectedState
+                                                                    .value =
+                                                                stateModel;
+                                                            stateField
+                                                                .didChange(
+                                                                    stateModel);
+                                                            _statePresentSearchQuery =
+                                                                '';
+                                                            _showResultsPresentState =
+                                                                false;
+                                                            _statePresentFocusNode
+                                                                .unfocus();
+                                                          });
                                                         },
                                                         child: Padding(
                                                           padding:
@@ -482,15 +785,12 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                                                       12,
                                                                   vertical: 8),
                                                           child: Text(
-                                                              countryModel
-                                                                  .name),
+                                                              stateModel.name),
                                                         ),
                                                       );
                                                     },
                                                   ),
                                           ),
-
-                                        // ── 3) Validation Message ──
                                         if (stateField.hasError)
                                           Padding(
                                             padding: const EdgeInsets.only(
@@ -508,325 +808,22 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 );
                               },
                             ),
-                            // FormField<Country>(
-                            //   initialValue: controller.selectedCountry.value,
-                            //   builder: (state) {
-                            //     return SizedBox(
-                            //         width: 320, // Set your desired width here
-                            //         child:
-                            //             MultiColumnSearchDropdownField<Country>(
-                            //           state: state,
-                            //           labelText: "Select Country",
-                            //           columnHeaders: const ["Country"],
-                            //           dropdownHeight: 250,
-                            //           //  selectedValue: selectedCountry,
-                            //           onSearch: (query) async {
-                            //             final filtered = controller.countries
-                            //                 .where((locale) {
-                            //               final q = query.toLowerCase();
-                            //               return locale.code
-                            //                       .toLowerCase()
-                            //                       .contains(q) ||
-                            //                   locale.name
-                            //                       .toLowerCase()
-                            //                       .contains(q);
-                            //             }).toList();
-                            //             return Future.value(filtered);
-                            //           },
-                            //           rowBuilder: (locale) {
-                            //             return Padding(
-                            //               padding: const EdgeInsets.symmetric(
-                            //                   horizontal: 12, vertical: 6),
-                            //               child: Row(
-                            //                 children: [
-                            //                   // Expanded(child: Text(locale.code)),
-                            //                   Expanded(
-                            //                       child: Text(
-                            //                     locale.name,
-                            //                   )),
-                            //                 ],
-                            //               ),
-                            //             );
-                            //           },
-                            //           selectedDisplay: (country) =>
-                            //               country.name,
-                            //           onChanged: (country) {
-                            //             setState(() {
-                            //               controller.selectedCountryName =
-                            //                   country!.toString();
-                            //               controller
-                            //                       .selectedContectCountryCode =
-                            //                   country.code;
-                            //             });
-                            //             // controller.fetchState();
-                            //           },
-                            //         ));
-                            //   },
-                            // ),
+
                             const SizedBox(
-                              height: 15,
+                              height: 8,
                             ),
-                            FutureBuilder<List<StateModels>>(
-                                future: statesFuture ??
-                                    Future.value(<StateModels>[]),
-                                builder: (context, snapshot) {
-                                  final statesList = controller.statesres;
-                                  final filteredStates =
-                                      _statePresentSearchQuery.isEmpty
-                                          ? statesList
-                                          : statesList.where((s) {
-                                              return s.name
-                                                  .toLowerCase()
-                                                  .contains(
-                                                      _statePresentSearchQuery
-                                                          .toLowerCase());
-                                            }).toList();
 
-                                  // If there's already a selected state, populate its name once.
-                                  // Doing this in build() can cause repeated text‐setting, so you may
-                                  // want to move initialization into initState or guard it carefully.
-
-                                  if (!_didPopulateInitialstate &&
-                                      controller.selectedState.value != null &&
-                                      controller.selectedState.value!.code
-                                          .isNotEmpty) {
-                                    print("22222");
-                                    _statePresentStateTextController.text =
-                                        controller.selectedState.value!.name;
-                                    _didPopulateInitialstate = true;
-                                  }
-
-                                  return FormField<StateModels>(
-                                    initialValue:
-                                        controller.selectedState.value,
-                                    builder: (stateField) {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          // ── 1. Search Field ──
-                                          SizedBox(
-                                            // width: 320,
-                                            child: TextField(
-                                              autofocus: false,
-                                              controller:
-                                                  _statePresentStateTextController,
-                                              decoration: InputDecoration(
-                                                labelText: loc.searchState,
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                suffixIcon: _statePresentSearchQuery
-                                                        .isEmpty
-                                                    ? const Icon(Icons
-                                                        .arrow_drop_down_outlined)
-                                                    : GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _statePresentStateTextController
-                                                                .clear();
-                                                            _statePresentSearchQuery =
-                                                                '';
-                                                            _showResultsPresentState =
-                                                                false;
-                                                          });
-                                                        },
-                                                        child: const Icon(
-                                                            Icons.clear),
-                                                      ),
-                                              ),
-                                              onChanged: (value) {
-                                                controller.fetchState();
-
-                                                setState(() {
-                                                  setState(() {
-                                                    _statePresentSearchQuery =
-                                                        value;
-                                                    _showResultsPresentState =
-                                                        value.isNotEmpty;
-                                                    print(
-                                                        "print$_showResultsPresentState");
-                                                  });
-                                                  if (value.isEmpty) {
-                                                    print("print2$value");
-                                                    controller.selectedState
-                                                        .value = null;
-                                                    _statePresentStateTextController
-                                                        .clear();
-                                                  }
-
-                                                  // _stateTextController=value;
-                                                  _statePresentSearchQuery =
-                                                      value;
-                                                  _statePresentStateTextController
-                                                      .text = value.toString();
-                                                });
-                                              },
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 8),
-
-                                          // ── 2. Filtered List ──
-                                          if (_showResultsPresentState)
-                                            Container(
-                                              width: 320,
-                                              constraints: const BoxConstraints(
-                                                  maxHeight: 250),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color:
-                                                        Colors.grey.shade300),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: filteredStates.isEmpty
-                                                  ? const Center(
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsets.all(12),
-                                                        child: Text(
-                                                            'No matching states'),
-                                                      ),
-                                                    )
-                                                  : ListView.builder(
-                                                      shrinkWrap: true,
-                                                      itemCount:
-                                                          filteredStates.length,
-                                                      itemBuilder:
-                                                          (context, index) {
-                                                        final stateModel =
-                                                            filteredStates[
-                                                                index];
-                                                        return InkWell(
-                                                          onTap: () {
-                                                            // ① Unfocus the TextField so the keyboard/input disconnects
-
-                                                            setState(() {
-                                                              _statePresentStateTextController
-                                                                      .text =
-                                                                  stateModel
-                                                                      .name
-                                                                      .toString();
-
-                                                              controller
-                                                                      .contactStateController =
-                                                                  stateModel
-                                                                      .code
-                                                                      .toString();
-                                                              controller
-                                                                      .selectedContState
-                                                                      .value =
-                                                                  stateModel;
-                                                              stateField
-                                                                  .didChange(
-                                                                      stateModel);
-
-                                                              // ② Update TextField text and close dropdown
-                                                              _statePresentStateTextController
-                                                                      .text =
-                                                                  stateModel
-                                                                      .name;
-                                                              _statePresentSearchQuery =
-                                                                  '';
-                                                              _showResultsPresentState =
-                                                                  false;
-                                                            });
-                                                          },
-                                                          child: Padding(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 8,
-                                                            ),
-                                                            child: Text(
-                                                                stateModel
-                                                                    .name),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                            ),
-
-                                          // ── 3. Validation Message ──
-                                          if (stateField.hasError)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 4, left: 12),
-                                              child: Text(
-                                                stateField.errorText!,
-                                                style: TextStyle(
-                                                    color: Theme.of(context)
-                                                        .errorColor),
-                                              ),
-                                            ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                }),
-
-                            // Obx(() {
-                            //   return FormField<StateModels>(
-                            //     initialValue: controller.selectedState.value,
-                            //     builder: (stateField) {
-                            //       return SizedBox(
-                            //           width: 320, // Set your desired width here
-                            //           // height: 20,
-                            //           child: MultiColumnSearchDropdownField<
-                            //               StateModels>(
-                            //             state: stateField,
-                            //             labelText: "Select State",
-                            //             columnHeaders: const ["State"],
-                            //             dropdownHeight: 250,
-                            //             onSearch: (query) async {
-                            //               final q = query.toLowerCase();
-                            //               return controller.statesres
-                            //                   .where((s) =>
-                            //                       s.name
-                            //                           .toLowerCase()
-                            //                           .contains(q) ||
-                            //                       s.name
-                            //                           .toLowerCase()
-                            //                           .contains(q))
-                            //                   .toList();
-                            //             },
-                            //             rowBuilder: (locale) => Padding(
-                            //               padding: const EdgeInsets.symmetric(
-                            //                   horizontal: 16, vertical: 10),
-                            //               child: Row(
-                            //                 children: [
-                            //                   Expanded(child: Text(locale.name))
-                            //                 ],
-                            //               ),
-                            //             ),
-                            //             selectedDisplay: (s) => s.name,
-                            //             onChanged: (s) {
-                            //               controller.selectedState.value = s;
-                            //             },
-                            //           ));
-                            //     },
-                            //   );
-                            // }),
-                            const SizedBox(
-                              height: 15,
+                            _textField(
+                              loc.zipCode,
+                              controller.postalCode,
+                              onChanged: (value) {
+                                if (controller.isSameAsPermanent == true) {
+                                  toggleSameAddress(
+                                      controller.isSameAsPermanent);
+                                }
+                              },
                             ),
-                            // (String? val) {
-                            //   setState(() {
-                            //     controller.country = val;
-                            //     controller.selectedCountryCode = controller.countries
-                            //         .firstWhere((c) => c.name == val)
-                            //         .code;
-                            //     controller.fetchState();
-                            //     print("Selected name: ${controller.selectedCountryName}");
-                            //     print("Send code: ${controller.selectedCountryCode}");
-                            //   });
-                            // },
-
-                            _textField(loc.zipCode, controller.postalCode),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -844,6 +841,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
@@ -853,123 +851,324 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               ),
                             ),
                             _textField(
-                                loc.street, controller.contactStreetController,
-                                isEnabled: _disableField),
+                              loc.street,
+                              controller.contactStreetController,
+                              isEnabled: _disableField,
+                            ),
                             _textField(
-                                loc.city, controller.contactCityController,
-                                isEnabled: _disableField),
-                            FutureBuilder<List<Country>>(
-                              future: controller.fetchCountries(),
+                              loc.city,
+                              controller.contactCityController,
+                              isEnabled: _disableField,
+                              onChanged: (value) {
+                                print("Name changed to: $value");
+                                // You can add setState or controller logic here
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            Obx(() {
+                              final countryList = controller.countries;
+                              final lowerQuery = _ContCountry.toLowerCase();
+
+                              final filteredCountry = [
+                                ...countryList.where((c) => c.name
+                                    .toLowerCase()
+                                    .startsWith(lowerQuery)),
+                                ...countryList.where((c) =>
+                                    c.name.toLowerCase().contains(lowerQuery) &&
+                                    !c.name
+                                        .toLowerCase()
+                                        .startsWith(lowerQuery)),
+                                ...countryList.where((c) =>
+                                    !c.name.toLowerCase().contains(lowerQuery)),
+                              ];
+
+                              if (!_didPopulateInitialcontcountry &&
+                                  controller.selectedContCountry.value !=
+                                      null &&
+                                  controller.selectedContCountry.value!.name
+                                      .isNotEmpty) {
+                                controller.countryConstTextController.text =
+                                    controller.selectedContCountry.value!.name;
+                                _didPopulateInitialcontcountry = true;
+                              }
+
+                              return FormField<Country>(
+                                initialValue:
+                                    controller.selectedContCountry.value,
+                                enabled: _disableField,
+                                builder: (stateField) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextField(
+                                        enabled: _disableField,
+                                        controller: controller
+                                            .countryConstTextController,
+                                        focusNode: _contCountryFocusNode,
+                                        autofocus: false,
+                                        decoration: InputDecoration(
+                                          labelText: '${loc.searchCountry}*',
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          fillColor: _disableField
+                                              ? null
+                                              : Colors.grey.shade200,
+                                          filled: !_disableField,
+                                          suffixIcon: IconButton(
+                                            icon: Icon(
+                                              _showResultsContCountr
+                                                  ? Icons.arrow_drop_up
+                                                  : Icons
+                                                      .arrow_drop_down_outlined,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _showResultsContCountr =
+                                                    !_showResultsContCountr;
+                                                _showResultsPresentCountr =
+                                                    false;
+
+                                                _showResultsPresentState =
+                                                    false;
+                                                _showResults = false;
+                                                if (_showResultsContCountr) {
+                                                  _contCountryFocusNode
+                                                      .requestFocus();
+                                                } else {
+                                                  _contCountryFocusNode
+                                                      .unfocus();
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _ContCountry = value;
+                                            _showResultsContCountr = true;
+
+                                            if (value.isEmpty) {
+                                              controller.selectedContCountry
+                                                  .value = null;
+                                              stateField.didChange(null);
+                                            }
+                                          });
+                                        },
+                                        onTap: () {
+                                          setState(() {
+                                            _showResultsContCountr = true;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      if (_showResultsContCountr)
+                                        Container(
+                                          width: 320,
+                                          constraints: const BoxConstraints(
+                                              maxHeight: 250),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: Colors.grey.shade300),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            color: Colors.white,
+                                          ),
+                                          child: filteredCountry.isEmpty
+                                              ? const Center(
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(12),
+                                                    child: Text(
+                                                        'No matching countries'),
+                                                  ),
+                                                )
+                                              : ListView.builder(
+                                                  shrinkWrap: true,
+                                                  itemCount:
+                                                      filteredCountry.length,
+                                                  itemBuilder:
+                                                      (context, index) {
+                                                    final countryModel =
+                                                        filteredCountry[index];
+                                                    return InkWell(
+                                                      onTap: () {
+                                                        FocusScope.of(context)
+                                                            .unfocus();
+
+                                                        controller
+                                                                .selectedContectCountryCode =
+                                                            countryModel.code;
+                                                        controller
+                                                            .fetchSecondState();
+                                                        controller
+                                                            .stateTextController
+                                                            .text = "";
+
+                                                        setState(() {
+                                                          controller
+                                                                  .countryConstTextController
+                                                                  .text =
+                                                              countryModel.name;
+                                                          _ContCountry = '';
+                                                          _showResultsContCountr =
+                                                              false;
+                                                        });
+
+                                                        controller
+                                                            .selectedContCountry
+                                                            .value = countryModel;
+                                                        stateField.didChange(
+                                                            countryModel);
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 8),
+                                                        child: Text(
+                                                            countryModel.name),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                        ),
+                                      if (stateField.hasError)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 4, left: 12),
+                                          child: Text(
+                                            stateField.errorText!,
+                                            style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .errorColor),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              );
+                            }),
+                            const SizedBox(
+                              height: 8,
+                            ),
+
+                            FutureBuilder<List<StateModels>>(
+                              future:
+                                  statesFuture ?? Future.value(<StateModels>[]),
                               builder: (context, snapshot) {
-                                // 1) Loading / Error / No-data states
+                                final statesList = controller.statesconst;
+                                final lowerQuery =
+                                    _stateSearchQuery.toLowerCase();
 
-                                // 2) We have a list of countries
-                                final countryList = snapshot.data!;
-                                final filteredCountry = _ContCountry.isEmpty
-                                    ? countryList
-                                    : countryList
-                                        .where((c) => c.name
-                                            .toLowerCase()
-                                            .contains(
-                                                _ContCountry.toLowerCase()))
-                                        .toList();
+                                final filteredStates = [
+                                  ...statesList.where((s) => s.name
+                                      .toLowerCase()
+                                      .startsWith(lowerQuery)),
+                                  ...statesList.where((s) =>
+                                      s.name
+                                          .toLowerCase()
+                                          .contains(lowerQuery) &&
+                                      !s.name
+                                          .toLowerCase()
+                                          .startsWith(lowerQuery)),
+                                  ...statesList.where((s) => !s.name
+                                      .toLowerCase()
+                                      .contains(lowerQuery)),
+                                ];
 
-                                // ─── Only once, when data first arrives: copy selectedContCountry into the field
-                                if (!_didPopulateInitialcontcountry &&
-                                    controller.selectedContCountry.value !=
-                                        null &&
-                                    controller.selectedContCountry.value!.name
-                                        .isNotEmpty) {
-                                  print("3333");
-                                  _statePresentTextController.text = controller
-                                      .selectedContCountry.value!.name;
-                                  _didPopulateInitialcontcountry = true;
+                                // Populate initial field only once
+                                if (!_didPopulateInitial &&
+                                    controller
+                                        .contactStateController.isNotEmpty) {
+                                  controller.stateTextController.text =
+                                      controller.contactStateController;
+                                  _didPopulateInitial = true;
                                 }
 
-                                return FormField<Country>(
-                                  initialValue:
-                                      controller.selectedContCountry.value,
+                                return FormField<StateModels>(
                                   enabled: _disableField,
+                                  initialValue:
+                                      controller.selectedContState.value,
                                   builder: (stateField) {
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // ── 1) Search Field ──
-                                        SizedBox(
-                                          // width: 320,
-                                          child: TextField(
-                                            enabled: _disableField,
-                                            controller:
-                                                _statePresentTextController,
-                                            autofocus: false,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  '${loc.searchCountry}*',
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                              fillColor: _disableField
-                                                  ? null
-                                                  : Colors.grey.shade200,
-                                              filled: !_disableField,
-                                              suffixIcon: _ContCountry.isEmpty
-                                                  ? const Icon(Icons
-                                                      .arrow_drop_down_outlined)
-                                                  : GestureDetector(
-                                                      onTap: () {
-                                                        // clear the field, hide results, clear selection
-                                                        setState(() {
-                                                          _statePresentTextController
-                                                              .clear();
-                                                          _ContCountry = '';
-                                                          _showResultsContCountr =
-                                                              false;
-                                                        });
-                                                        controller
-                                                            .selectedContCountry
-                                                            .value = null;
-                                                        stateField
-                                                            .didChange(null);
-                                                      },
-                                                      child: const Icon(
-                                                          Icons.clear),
-                                                    ),
+                                        TextField(
+                                          enabled: _disableField,
+                                          autofocus: false,
+                                          focusNode: _contactStateFocusNode,
+                                          controller:
+                                              controller.stateTextController,
+                                          decoration: InputDecoration(
+                                            labelText: loc.searchState,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
-                                            onChanged: (value) {
-                                              // As soon as the user types (or erases everything):
-                                              setState(() {
-                                                _ContCountry = value;
-                                                _showResultsContCountr =
-                                                    value.isNotEmpty;
-                                              });
-
-                                              // If they removed all text, clear the selection
-                                              if (value.isEmpty) {
-                                                controller.selectedContCountry
-                                                    .value = null;
-                                                stateField.didChange(null);
-                                              }
-                                            },
-                                            onTap: () {
-                                              // If they tap into an empty field, show full list
-                                              if (_statePresentTextController
-                                                  .text.isEmpty) {
+                                            fillColor: _disableField
+                                                ? null
+                                                : Colors.grey.shade200,
+                                            filled: !_disableField,
+                                            suffixIcon: IconButton(
+                                              icon: Icon(
+                                                _showResults
+                                                    ? Icons.arrow_drop_up
+                                                    : Icons
+                                                        .arrow_drop_down_outlined,
+                                              ),
+                                              onPressed: () {
                                                 setState(() {
-                                                  _showResultsContCountr = true;
+                                                  _showResults = !_showResults;
+                                                  _showResultsPresentCountr =
+                                                      false;
+                                                  _showResultsContCountr =
+                                                      false;
+                                                  _showResultsPresentState =
+                                                      false;
+
+                                                  if (_showResults) {
+                                                    _contactStateFocusNode
+                                                        .requestFocus();
+                                                  } else {
+                                                    _contactStateFocusNode
+                                                        .unfocus();
+                                                  }
                                                 });
-                                              }
-                                            },
+                                              },
+                                            ),
                                           ),
+                                          onChanged: (value) {
+                                            controller.fetchSecondState();
+
+                                            setState(() {
+                                              _stateSearchQuery = value;
+                                              _showResults = true;
+
+                                              if (value.isEmpty) {
+                                                controller.selectedState.value =
+                                                    null;
+                                                controller.stateTextController
+                                                    .clear();
+                                              } else {
+                                                controller.stateTextController
+                                                    .text = value;
+                                              }
+                                            });
+                                          },
+                                          onTap: () {
+                                            setState(() {
+                                              _showResults = true;
+                                            });
+                                          },
                                         ),
-
                                         const SizedBox(height: 8),
-
-                                        // ── 2) Filtered List ──
-                                        if (_showResultsContCountr)
+                                        if (_showResults)
                                           Container(
-                                            width: 320,
+                                            width: double.infinity,
                                             constraints: const BoxConstraints(
                                                 maxHeight: 250),
                                             decoration: BoxDecoration(
@@ -979,71 +1178,62 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                                   BorderRadius.circular(4),
                                               color: Colors.white,
                                             ),
-                                            child: filteredCountry.isEmpty
+                                            child: filteredStates.isEmpty
                                                 ? const Center(
                                                     child: Padding(
                                                       padding:
                                                           EdgeInsets.all(12),
                                                       child: Text(
-                                                          'No matching countries'),
+                                                          'No matching states'),
                                                     ),
                                                   )
                                                 : ListView.builder(
                                                     shrinkWrap: true,
                                                     itemCount:
-                                                        filteredCountry.length,
+                                                        filteredStates.length,
                                                     itemBuilder:
                                                         (context, index) {
-                                                      final countryModel =
-                                                          filteredCountry[
-                                                              index];
+                                                      final stateModel =
+                                                          filteredStates[index];
                                                       return InkWell(
                                                         onTap: () {
-                                                          // 1) Unfocus keyboard
                                                           FocusScope.of(context)
                                                               .unfocus();
-                                                          controller
-                                                                  .selectedContectCountryCode =
-                                                              countryModel.code;
-                                                          controller
-                                                              .fetchState();
-                                                          _stateTextController
-                                                              .text = "";
-                                                          // 2) Update text & hide list
+
                                                           setState(() {
-                                                            _statePresentTextController
+                                                            controller
+                                                                    .stateTextController
                                                                     .text =
-                                                                countryModel
-                                                                    .name;
-                                                            _ContCountry = '';
-                                                            _showResultsContCountr =
+                                                                stateModel.name;
+                                                            controller
+                                                                    .contactStateController =
+                                                                stateModel.code;
+                                                            controller
+                                                                .selectedContState
+                                                                .value = stateModel;
+                                                            _stateSearchQuery =
+                                                                '';
+                                                            _showResults =
                                                                 false;
                                                           });
 
-                                                          // 3) Notify form/parent of new selection
-                                                          controller
-                                                              .selectedContCountry
-                                                              .value = countryModel;
                                                           stateField.didChange(
-                                                              countryModel);
+                                                              stateModel);
                                                         },
                                                         child: Padding(
                                                           padding:
                                                               const EdgeInsets
                                                                   .symmetric(
-                                                                  horizontal:
-                                                                      12,
-                                                                  vertical: 8),
+                                                            horizontal: 12,
+                                                            vertical: 8,
+                                                          ),
                                                           child: Text(
-                                                              countryModel
-                                                                  .name),
+                                                              stateModel.name),
                                                         ),
                                                       );
                                                     },
                                                   ),
                                           ),
-
-                                        // ── 3) Validation Message ──
                                         if (stateField.hasError)
                                           Padding(
                                             padding: const EdgeInsets.only(
@@ -1061,201 +1251,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 );
                               },
                             ),
-
-                            const SizedBox(
-                              height: 8,
-                            ),
-
-                            FutureBuilder<List<StateModels>>(
-                                future: statesFuture ??
-                                    Future.value(<StateModels>[]),
-                                builder: (context, snapshot) {
-                                  final statesList = controller.statesres;
-                                  final filteredStates = _stateSearchQuery
-                                          .isEmpty
-                                      ? statesList
-                                      : statesList.where((s) {
-                                          return s.name.toLowerCase().contains(
-                                              _stateSearchQuery.toLowerCase());
-                                        }).toList();
-
-                                  // If there's already a selected state, populate its name once.
-                                  // Doing this in build() can cause repeated text‐setting, so you may
-                                  // want to move initialization into initState or guard it carefully.
-                                  if (!_didPopulateInitial) {
-                                    _stateTextController.text =
-                                        controller.contactStateController;
-                                    _didPopulateInitial = true;
-                                  }
-                                  return FormField<StateModels>(
-                                    enabled: _disableField,
-                                    initialValue:
-                                        controller.selectedContState.value,
-                                    builder: (stateField) {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          // ── 1. Search Field ──
-                                          SizedBox(
-                                            // width: 330,
-                                            child: TextField(
-                                              enabled: _disableField,
-                                              autofocus: false,
-                                              controller: _stateTextController,
-                                              decoration: InputDecoration(
-                                                labelText: loc.searchState,
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                fillColor: _disableField
-                                                    ? null
-                                                    : Colors.grey.shade200,
-                                                filled: !_disableField,
-                                                suffixIcon: _stateSearchQuery
-                                                        .isEmpty
-                                                    ? const Icon(Icons
-                                                        .arrow_drop_down_outlined)
-                                                    : GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _stateTextController
-                                                                .clear();
-                                                            _stateSearchQuery =
-                                                                '';
-                                                            _showResults =
-                                                                false;
-                                                          });
-                                                        },
-                                                        child: const Icon(
-                                                            Icons.clear),
-                                                      ),
-                                              ),
-                                              onChanged: (value) {
-                                                controller.fetchState();
-                                                print("print$value");
-                                                setState(() {
-                                                  if (value.isEmpty) {
-                                                    print("print2$value");
-                                                    controller.selectedState
-                                                        .value = null;
-                                                    _stateTextController
-                                                        .clear();
-                                                  }
-
-                                                  // _stateTextController=value;
-                                                  _stateSearchQuery = value;
-                                                  _stateTextController.text =
-                                                      value.toString();
-                                                  _showResults =
-                                                      value.isNotEmpty;
-                                                });
-                                              },
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 8),
-
-                                          // ── 2. Filtered List ──
-                                          if (_showResults)
-                                            Container(
-                                              width: 320,
-                                              constraints: const BoxConstraints(
-                                                  maxHeight: 250),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color:
-                                                        Colors.grey.shade300),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: filteredStates.isEmpty
-                                                  ? const Center(
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsets.all(12),
-                                                        child: Text(
-                                                            'No matching states'),
-                                                      ),
-                                                    )
-                                                  : ListView.builder(
-                                                      shrinkWrap: true,
-                                                      itemCount:
-                                                          filteredStates.length,
-                                                      itemBuilder:
-                                                          (context, index) {
-                                                        final stateModel =
-                                                            filteredStates[
-                                                                index];
-                                                        return InkWell(
-                                                          onTap: () {
-                                                            // ① Unfocus the TextField so the keyboard/input disconnects
-
-                                                            setState(() {
-                                                              _stateTextController
-                                                                      .text =
-                                                                  stateModel
-                                                                      .name
-                                                                      .toString();
-
-                                                              controller
-                                                                      .contactStateController =
-                                                                  stateModel
-                                                                      .code
-                                                                      .toString();
-                                                              controller
-                                                                      .selectedContState
-                                                                      .value =
-                                                                  stateModel;
-                                                              stateField
-                                                                  .didChange(
-                                                                      stateModel);
-                                                              // ② Update TextField text and close dropdown
-                                                              _stateTextController
-                                                                      .text =
-                                                                  stateModel
-                                                                      .name;
-                                                              _stateSearchQuery =
-                                                                  '';
-                                                              _showResults =
-                                                                  false;
-                                                            });
-                                                          },
-                                                          child: Padding(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 8,
-                                                            ),
-                                                            child: Text(
-                                                                stateModel
-                                                                    .name),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                            ),
-
-                                          // ── 3. Validation Message ──
-                                          if (stateField.hasError)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 4, left: 12),
-                                              child: Text(
-                                                stateField.errorText!,
-                                                style: TextStyle(
-                                                    color: Theme.of(context)
-                                                        .errorColor),
-                                              ),
-                                            ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                }),
-
                             // _dropdown(
                             //     "State",
                             //     controller.contactStateController,
@@ -1269,196 +1264,383 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               loc.zipCode,
                               controller.contactPostalController,
                               isEnabled: _disableField,
+                              onChanged: (value) {
+                                print("Name changed to: $value");
+                                // You can add setState or controller logic here
+                              },
                             ),
                             const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                OutlinedButton(
-                                  onPressed: () {
-                                    // Cancel logic
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.gradientStart,
-                                    backgroundColor: Colors.white,
-                                    side: const BorderSide(
-                                        color: AppColors.gradientStart),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(loc.cancel),
-                                ),
-                                Obx(() {
-                                  return ElevatedButton(
-                                    onPressed: controller.buttonLoader.value
-                                        ? null
-                                        : () {
-                                            controller.updateProfileDetails();
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.gradientStart,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 24, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    child: controller.buttonLoader.value
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Text(loc.save),
-                                  );
-                                })
-                              ],
-                            )
+                            // Row(
+                            //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            //   children: [
+                            //     OutlinedButton(
+                            //       onPressed: () {
+                            //         // Cancel logic
+                            //       },
+                            //       style: OutlinedButton.styleFrom(
+                            //         foregroundColor: AppColors.gradientStart,
+                            //         backgroundColor: Colors.white,
+                            //         side: const BorderSide(
+                            //             color: AppColors.gradientStart),
+                            //         padding: const EdgeInsets.symmetric(
+                            //             horizontal: 24, vertical: 12),
+                            //         shape: RoundedRectangleBorder(
+                            //           borderRadius: BorderRadius.circular(8),
+                            //         ),
+                            //       ),
+                            //       child: Text(loc.cancel),
+                            //     ),
+                            //     // Obx(() {
+                            //     //   return ElevatedButton(
+                            //     //     onPressed: (controller
+                            //     //                 .isGEPersonalInfoLoading
+                            //     //                 .value ||
+                            //     //             isButtonDisabled.value)
+                            //     //         ? null
+                            //     //         : () {
+                            //     //             controller.updateProfileDetails();
+                            //     //           },
+                            //     //     style: ElevatedButton.styleFrom(
+                            //     //       backgroundColor: AppColors.gradientStart,
+                            //     //       foregroundColor: Colors.white,
+                            //     //       padding: const EdgeInsets.symmetric(
+                            //     //           horizontal: 24, vertical: 12),
+                            //     //       shape: RoundedRectangleBorder(
+                            //     //         borderRadius: BorderRadius.circular(8),
+                            //     //       ),
+                            //     //       textStyle: const TextStyle(
+                            //     //         fontSize: 16,
+                            //     //         fontWeight: FontWeight.w500,
+                            //     //       ),
+                            //     //     ),
+                            //     //     child: controller
+                            //     //             .isGEPersonalInfoLoading.value
+                            //     //         ? const SizedBox(
+                            //     //             width: 20,
+                            //     //             height: 20,
+                            //     //             child: CircularProgressIndicator(
+                            //     //               color: Colors.white,
+                            //     //               strokeWidth: 2,
+                            //     //             ),
+                            //     //           )
+                            //     //         : Text(loc.save),
+                            //     //   );
+                            //     // })
+                            //   ],
+                            // )
                           ],
                         ),
                         _buildSection(
                           title: loc.localizationPreferences,
                           children: [
                             const SizedBox(height: 20),
+                            Obx(() {
+                              // show loading or empty placeholder while timezone data is loading
+                              if (controller.timezone.isEmpty) {
+                                return const SizedBox(); // or a loading spinner / placeholder
+                              }
 
-                            SearchableMultiColumnDropdownField<Timezone>(
-                              labelText: loc.timeZone,
-                              columnHeaders: const [
-                                'TimezoneName',
-                                'TimezoneCode',
-                                'TimezoneId'
-                              ],
-                              items: controller.timezone,
-                              selectedValue: controller.selectedTimezone,
-                              searchValue: (t) => '${t.name} ${t.code} ${t.id}',
-                              displayText: (t) => t.name,
-                              validator: (t) =>
-                                  t == null ? 'Please pick a timezone' : null,
-                              onChanged: (t) {
-                                setState(() {
-                                  controller.selectedTimezone = t;
-                                });
-                              },
-                              rowBuilder: (t) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(t.name)),
-                                    Expanded(child: Text(t.code.toString())),
-                                    Expanded(child: Text(t.id.toString())),
-                                  ],
-                                ),
-                              ),
-                            ),
+                              return SearchableMultiColumnDropdownField<
+                                  Timezone>(
+                                labelText: loc.timeZone,
+                                columnHeaders: const [
+                                  'TimezoneName',
+                                  'TimezoneCode',
+                                  'TimezoneId'
+                                ],
+                                items: controller.timezone,
+                                selectedValue:
+                                    controller.selectedTimezone.value,
+                                searchValue: (t) =>
+                                    '${t.name} ${t.code} ${t.id}',
+                                displayText: (t) => t.name,
+                                validator: (t) =>
+                                    t == null ? 'Please pick a timezone' : null,
+                                onChanged: (t) {
+                                  controller.selectedTimezone.value = t!;
+                                },
+                                rowBuilder: (t, searchQuery) {
+                                  Widget highlight(String text) {
+                                    final query = searchQuery.toLowerCase();
+                                    final lowerText = text.toLowerCase();
+                                    final startIndex = lowerText.indexOf(query);
+
+                                    if (startIndex == -1 || query.isEmpty) {
+                                      return Text(text,
+                                          style: const TextStyle(fontSize: 10));
+                                    }
+
+                                    final endIndex = startIndex + query.length;
+                                    return RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(
+                                            fontSize: 10, color: Colors.black),
+                                        children: [
+                                          TextSpan(
+                                              text: text.substring(
+                                                  0, startIndex)),
+                                          TextSpan(
+                                            text: text.substring(
+                                                startIndex, endIndex),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                              text: text.substring(endIndex)),
+                                        ],
+                                      ),
+                                    );
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: highlight(t.name)),
+                                        Expanded(
+                                            child:
+                                                highlight(t.code.toString())),
+                                        Expanded(
+                                            child: highlight(t.id.toString())),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            }),
 
                             const SizedBox(height: 20),
                             // Padding(
                             //   padding: const EdgeInsets.symmetric(horizontal: 8),
                             //   child:
-                            SearchableMultiColumnDropdownField<Payment>(
-                              labelText: 'Default Payment',
-                              columnHeaders: [
-                                'PaymentMethodName',
-                                'PaymentMethodId'
-                              ],
-                              items: controller.payment,
-                              selectedValue: controller.selectedPayment,
-                              searchValue: (p) => p.name,
-                              displayText: (p) => p.name,
-                              validator: (p) => p == null
-                                  ? 'Please select a payment method'
-                                  : null,
-                              onChanged: (p) {
-                                setState(() => controller.selectedPayment = p);
-                              },
-                              rowBuilder: (p) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(p.name)),
-                                    Expanded(child: Text(p.code)),
+                            Obx(() =>
+                                SearchableMultiColumnDropdownField<Payment>(
+                                  labelText: loc.defaultPayment,
+                                  columnHeaders: const [
+                                    'PaymentMethodName',
+                                    'PaymentMethodId'
                                   ],
-                                ),
-                              ),
-                            ),
+                                  items: controller.payment,
+                                  selectedValue:
+                                      controller.selectedPayment.value,
+                                  searchValue: (p) => '${p.name} ${p.code}',
+                                  displayText: (p) => p.name,
+                                  validator: (p) => p == null
+                                      ? 'Please select a payment method'
+                                      : null,
+                                  onChanged: (p) {
+                                    setState(() =>
+                                        controller.selectedPayment.value = p!);
+                                  },
+                                  rowBuilder: (p, searchQuery) {
+                                    Widget highlight(String text) {
+                                      final query = searchQuery.toLowerCase();
+                                      final lower = text.toLowerCase();
+                                      final matchIndex = lower.indexOf(query);
 
+                                      if (matchIndex == -1 || query.isEmpty)
+                                        return Text(text);
+
+                                      final end = matchIndex + query.length;
+                                      return RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  text.substring(0, matchIndex),
+                                              style: const TextStyle(
+                                                  color: Colors.black),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(
+                                                  matchIndex, end),
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(end),
+                                              style: const TextStyle(
+                                                  color: Colors.black),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: highlight(p.name)),
+                                          Expanded(child: highlight(p.code)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                )),
                             const SizedBox(height: 20),
 
-                            // CURRENCY DROPDOWN
-                            SearchableMultiColumnDropdownField<Currency>(
-                              labelText: loc.defaultCurrency,
-                              columnHeaders: const ['Code', 'Name', 'Symbol'],
-                              items: controller.currencies,
-                             selectedValue: controller.selectedCurrency,
-
-                              searchValue: (c) =>
-                                  '${c.code} ${c.name} ${c.symbol}',
-                              displayText: (c) => c.name,
-                              validator: (c) =>
-                                  c == null ? 'Please pick a currency' : null,
-                              onChanged: (c) {
-                                setState(() {
-                                  controller.selectedCurrency = c;
-                                });
-                              },
-                              rowBuilder: (c) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(c.code)),
-                                    Expanded(child: Text(c.name)),
-                                    Expanded(child: Text(c.symbol)),
+                            Obx(() =>
+                                SearchableMultiColumnDropdownField<Currency>(
+                                  labelText: loc.defaultCurrency,
+                                  columnHeaders: const [
+                                    'Code',
+                                    'Name',
+                                    'Symbol'
                                   ],
-                                ),
-                              ),
-                            ),
+                                  items: controller.currencies,
+                                  selectedValue:
+                                      controller.selectedCurrency.value,
+                                  searchValue: (c) =>
+                                      '${c.code} ${c.name} ${c.symbol}',
+                                  displayText: (c) => c.code,
+                                  validator: (c) => c == null
+                                      ? 'Please pick a currency'
+                                      : null,
+                                  onChanged: (c) {
+                                    controller.selectedCurrency.value = c;
+                                  },
+                                  rowBuilder: (c, searchQuery) {
+                                    Widget highlight(String text) {
+                                      final query = searchQuery.toLowerCase();
+                                      final lower = text.toLowerCase();
+                                      final matchIndex = lower.indexOf(query);
+
+                                      if (matchIndex == -1 || query.isEmpty) {
+                                        return Text(text,
+                                            style:
+                                                const TextStyle(fontSize: 11));
+                                      }
+
+                                      final end = matchIndex + query.length;
+                                      return RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  text.substring(0, matchIndex),
+                                              style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 11),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(
+                                                  matchIndex, end),
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(end),
+                                              style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: highlight(c.code)),
+                                          Expanded(child: highlight(c.name)),
+                                          Expanded(child: highlight(c.symbol)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                )),
 
                             const SizedBox(height: 20),
 
 // LOCALE DROPDOWN
-                            SearchableMultiColumnDropdownField<Locales>(
-                              labelText: loc.selectLocale,
-                              columnHeaders: const ["Code", "Name"],
-                              items: controller.localeData,
-                              selectedValue: controller.selectedLocale,
-                              searchValue: (locale) =>
-                                  '${locale.code} ${locale.name}',
-                              displayText: (locale) =>
-                                  '${locale.code} — ${locale.name}',
-                              validator: (locale) => locale == null
-                                  ? 'Please select a locale'
-                                  : null,
-                              onChanged: (locale) {
-                                setState(() {
-                                  controller.selectedLocale = locale;
-                                });
-                              },
-                              rowBuilder: (locale) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(locale.code)),
-                                    Expanded(child: Text(locale.name)),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            Obx(() =>
+                                SearchableMultiColumnDropdownField<Locales>(
+                                  labelText: loc.selectLocale,
+                                  columnHeaders: const ["Code", "Name"],
+                                  items: controller.localeData,
+                                  selectedValue:
+                                      controller.selectedLocale.value,
+                                  searchValue: (locale) =>
+                                      '${locale.code} ${locale.name}',
+                                  displayText: (locale) =>
+                                      '${locale.code} — ${locale.name}',
+                                  validator: (locale) => locale == null
+                                      ? 'Please select a locale'
+                                      : null,
+                                  onChanged: (locale) {
+                                    setState(() {
+                                      controller.selectedLocale.value = locale!;
+                                    });
+                                  },
+                                  rowBuilder: (locale, searchQuery) {
+                                    Widget highlight(String text) {
+                                      final query = searchQuery.toLowerCase();
+                                      final lower = text.toLowerCase();
+                                      final matchIndex = lower.indexOf(query);
 
+                                      if (matchIndex == -1 || query.isEmpty) {
+                                        return Text(text,
+                                            style:
+                                                const TextStyle(fontSize: 10));
+                                      }
+
+                                      final end = matchIndex + query.length;
+                                      return RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  text.substring(0, matchIndex),
+                                              style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 10),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(
+                                                  matchIndex, end),
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(end),
+                                              style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 10),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 10),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                              child: highlight(locale.code)),
+                                          Expanded(
+                                              child: highlight(locale.name)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                )),
                             const SizedBox(height: 20),
 
                             SearchableMultiColumnDropdownField<Language>(
@@ -1468,8 +1650,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 'LanguageId'
                               ],
                               items: controller.language,
-                           selectedValue: controller.selectedLanguage,
-
+                              selectedValue: controller.selectedLanguage,
                               searchValue: (lang) =>
                                   '${lang.name} ${lang.code}',
                               displayText: (lang) => lang.name,
@@ -1479,23 +1660,60 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               onChanged: (lang) {
                                 setState(() {
                                   controller.selectedLanguage = lang;
-                                  final localeCode = controller.getLocaleCodeFromId(lang!.code);
-                                  // update the app locale
+                                  final localeCode = controller
+                                      .getLocaleCodeFromId(lang!.code);
                                   Provider.of<LocaleNotifier>(context,
                                           listen: false)
                                       .setLocale(Locale(localeCode));
                                 });
                               },
-                              rowBuilder: (lang) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(lang.name)),
-                                    Expanded(child: Text(lang.code)),
-                                  ],
-                                ),
-                              ),
+                              rowBuilder: (lang, searchQuery) {
+                                Widget highlight(String text) {
+                                  final query = searchQuery.toLowerCase();
+                                  final lower = text.toLowerCase();
+                                  final matchIndex = lower.indexOf(query);
+
+                                  if (matchIndex == -1 || query.isEmpty) {
+                                    return Text(text);
+                                  }
+
+                                  final end = matchIndex + query.length;
+                                  return RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: text.substring(0, matchIndex),
+                                          style: const TextStyle(
+                                              color: Colors.black),
+                                        ),
+                                        TextSpan(
+                                          text: text.substring(matchIndex, end),
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: text.substring(end),
+                                          style: const TextStyle(
+                                              color: Colors.black),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 16),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: highlight(lang.name)),
+                                      Expanded(child: highlight(lang.code)),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
 
                             const SizedBox(height: 20),
@@ -1510,6 +1728,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                   items:
                                       controller.dateFormatMap.entries.toList(),
                                   dropdownHeight: 300,
+                                  dropdownWidth: 340,
                                   onChanged: (entry) {
                                     setState(() =>
                                         controller.selectedFormat = entry);
@@ -1551,93 +1770,111 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                   ),
 
                                   const SizedBox(height: 16),
-                                  TextField(
-                                    controller: _controller,
-                                    decoration: InputDecoration(
-                                      labelText: loc.enterEmail,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextField(
+                                        controller: _controller,
+                                        decoration: InputDecoration(
+                                          labelText: 'Enter email(s)',
+                                          border: OutlineInputBorder(),
+                                          errorText: _errorText,
+                                        ),
+                                        onChanged: _validateOnChange,
+                                        onSubmitted: _addEmails,
                                       ),
-                                      errorText: _controller.text.isNotEmpty &&
-                                              _controller.text.split(',').any(
-                                                  (e) =>
-                                                      e.trim().isNotEmpty &&
-                                                      !_emailRegex
-                                                          .hasMatch(e.trim()))
-                                          ? "One or more emails are invalid"
-                                          : null,
-                                    ),
-                                    onSubmitted: _addEmails,
-                                    onEditingComplete: () {
-                                      _addEmails(_controller.text);
-                                      FocusScope.of(context).unfocus();
-                                    },
-                                  ),
+                                      const SizedBox(height: 8),
+                                      if (isTyping)
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            TextButton(
+                                              onPressed: isTyping
+                                                  ? _cancelInput
+                                                  : null,
+                                              child: const Text("Cancel"),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(
+                                              onPressed:
+                                                  isTyping && !hasEmailError
+                                                      ? () => _addEmails(
+                                                          _controller.text)
+                                                      : null,
+                                              child: const Text("Submit"),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  )
                                 ]),
                             const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                OutlinedButton(
-                                  onPressed: () {
-                                    // Cancel logic
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.gradientStart,
-                                    backgroundColor: Colors.white,
-                                    side: const BorderSide(
-                                        color: AppColors.gradientStart),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(loc.cancel),
-                                ),
-                                Obx(() {
-                                  return ElevatedButton(
-                                    onPressed: controller.buttonLoader.value
-                                        ? null
-                                        : () {
-                                            controller.userPreferences();
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.gradientStart,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 24, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    child: controller.buttonLoader.value
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Text(loc.submit),
-                                  );
-                                })
-                              ],
-                            )
                           ],
                         ),
-                      
                       ],
                     );
-            })
+            }),
+            const SizedBox(height: 20),
+            const SizedBox(height: 20),
           ],
         ),
       ),
+      bottomNavigationBar: Obx(() {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: () {},
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.gradientStart,
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: AppColors.gradientStart),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(loc.cancel),
+            ),
+            ElevatedButton(
+              onPressed: controller.buttonLoader.value
+                  ? null
+                  : () {
+                      controller.userPreferences();
+                      controller.updateProfileDetails();
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.gradientStart,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              child: controller.buttonLoader.value
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(loc.submit),
+            ),
+            const SizedBox(height: 40),
+          ],
+        );
+      }),
     );
   }
 
@@ -1676,18 +1913,19 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
     String label,
     TextEditingController controller, {
     bool isEnabled = true,
+    void Function(String)? onChanged, // <-- Added parameter
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
       child: TextField(
         controller: controller,
         enabled: isEnabled,
+        onChanged: onChanged, // <-- Set onChanged here
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          // Optional: Visual cue when disabled
           fillColor: isEnabled ? null : Colors.grey.shade200,
           filled: !isEnabled,
         ),

@@ -1,6 +1,15 @@
+import 'dart:io';
+
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:photo_view/photo_view.dart';
 import 'Side_Bar/side_bar.dart';
 
 class ScaffoldWithNav extends StatefulWidget {
@@ -22,12 +31,149 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
   int _currentIndex = 0;
   bool _isFabOpen = false;
   bool _isAddFabOpen = false;
-
+  final controller = Get.put(Controller());
+  final PhotoViewController _photoViewController = PhotoViewController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 200),
   );
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+
+    try {
+      controller.isImageLoading.value = true;
+
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        final croppedFile = await _cropImage(File(pickedFile.path));
+        if (croppedFile != null) {
+          setState(() {
+            controller.imageFiles.add(File(croppedFile.path));
+          });
+        }
+      }
+    } catch (e) {
+      print("Error picking or cropping image: $e");
+      Fluttertoast.showToast(
+        msg: "Failed to upload image",
+        backgroundColor: Colors.red,
+      );
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<File?> _cropImage(File file) async {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      aspectRatioPresets: [
+        CropAspectRatioPreset.original,
+        CropAspectRatioPreset.square,
+      ],
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Colors.deepPurple,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: false,
+        ),
+        IOSUiSettings(
+          title: 'Crop Image',
+        )
+      ],
+    );
+
+    if (croppedFile != null) {
+      final croppedImage = File(croppedFile.path);
+     // ignore: use_build_context_synchronously
+     await controller.sendUploadedFileToServer(context, croppedImage);
+
+      // Navigator.pushNamed(
+      //   context,
+      //   AppRoutes.autoScan,
+      //   arguments: croppedImage,
+      // );
+    }
+
+    return null;
+  }
+
+  void _zoomIn() {
+    _photoViewController.scale = _photoViewController.scale! * 1.2;
+  }
+
+  void _zoomOut() {
+    _photoViewController.scale = _photoViewController.scale! / 1.2;
+  }
+
+  void _deleteImage() {
+    setState(() {
+      controller.imageFile = null;
+    });
+  }
+
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              PhotoView(
+                imageProvider: FileImage(file),
+                backgroundDecoration: const BoxDecoration(color: Colors.black),
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 3.0,
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Column(
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: "zoom_in_$index",
+                      onPressed: _zoomIn,
+                      child: const Icon(Icons.zoom_in),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "zoom_out_$index",
+                      onPressed: _zoomOut,
+                      child: const Icon(Icons.zoom_out),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "edit_$index",
+                      onPressed: () => _cropImage(file),
+                      child: const Icon(Icons.edit),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          controller.imageFiles.removeAt(index);
+                        });
+                      },
+                      child: const Icon(Icons.delete),
+                      backgroundColor: Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -60,7 +206,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      // camera action
+                      _pickImage(ImageSource.camera);
                     },
                     child: const Icon(Icons.camera_alt,
                         color: Colors.white, size: 20),
@@ -71,7 +217,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      // gallery action
+                      _pickImage(ImageSource.gallery);
                     },
                     child:
                         const Icon(Icons.photo, color: Colors.white, size: 20),
@@ -91,7 +237,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.expenseForm);
+                      Navigator.pushNamed(context, AppRoutes.expenseForm);
                     },
                     child: Image.asset("assets/general.png"),
                   ),

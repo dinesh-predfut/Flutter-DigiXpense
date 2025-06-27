@@ -13,6 +13,8 @@ class Urls {
       "$baseURL/api/v1/global/global/globallanguages?page=1&sort_by=LanguageName&sort_order=asc&choosen_fields=LanguageId%2CLanguageName";
   static const correncyDropdown =
       "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
+  static const geconfigureField =
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
   static const defalutPayment =
       "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId";
   static const timeZoneDropdown =
@@ -29,6 +31,34 @@ class Urls {
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userprofiles?UserId=";
   static const getProfilePicture =
       "$baseURL/api/v1/masters/usersandrolesmgmt/useruserprofilepictures?UserId=";
-       static const deleteProfilePicture =
+  static const deleteProfilePicture =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userprofiles?UserId=";
+  static const getPaidtoDropdown =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/merchants?TransactionDate=1746556200000";
+  static const getPaidwithDropdown =
+      "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId%2CReimbursible";
+  static const getProjectDropdown =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/projectid?EmployeeId=EMP001&TransactionDate=1749493800000";
+  static const taxGroup =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/taxgroups?filter_query=TAXTaxGroups.IsActive__eq%3Dtrue&page=1&sort_order=asc";
+  static const unitDropdown =
+      "$baseURL/api/v1/global/global/unitofmeasurements?filter_query=STPUnitOfMeasurements.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=UomId%2CUomName";
+  static const currencySymbol =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/currency?filter_query=STPCompanyCurrencies.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
+  static const expenseCategory =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expensecategory?ProjectId=";
+  static const exchangeRate =
+      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion";
+  static const saveGenderalExpense =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistrationscreen?functionalentity=ExpenseRequisition";
+  static const getallGeneralExpense =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D";
+  static const getSpecificGeneralExpense =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+  static const getTrackingDetails =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
+  static const getExpensImage =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/getdocumentattachments?RecId=";
+  static const autoScanExtract =
+      "$baseURL/api/v1/expensemgmt/expenseocr/extract";
 }

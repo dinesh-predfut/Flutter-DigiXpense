@@ -21,7 +21,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
@@ -90,7 +90,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                 const LanguageDropdown(),
+                                const LanguageDropdown(),
                                 IconButton(
                                   icon: const Icon(Icons.notifications,
                                       color: Colors.white),
@@ -99,7 +99,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     print('Notification bell pressed');
                                   },
                                 ),
-                             
+
                                 // Profile Picture (Rounded)
                                 GestureDetector(
                                   onTap: () {

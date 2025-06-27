@@ -58,6 +58,8 @@ dependencies:
   file_picker: ^8.0.0+1
   photo_view: ^0.15.0
   image_cropper: ^6.0.0
+  libphonenumber: ^2.0.2
+  flutter_multi_formatter: ^2.13.7
 url_launcher: ^6.2.5
 file_picker: ^5.3.3 
 

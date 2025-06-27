@@ -1,5 +1,15 @@
+import 'dart:async';
+
+import 'package:digi_xpense/core/comman/widgets/button.dart';
+import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
+import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/main.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -7,6 +17,10 @@ import 'package:image_cropper/image_cropper.dart';
 import 'dart:io';
 import 'package:photo_view/photo_view.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import '../../../../service.dart';
 
 class ExpenseCreationForm extends StatefulWidget {
   const ExpenseCreationForm({super.key});
@@ -15,15 +29,106 @@ class ExpenseCreationForm extends StatefulWidget {
   State<ExpenseCreationForm> createState() => _ExpenseCreationFormState();
 }
 
-class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
+class _ExpenseCreationFormState extends State<ExpenseCreationForm>
+    with TickerProviderStateMixin {
+  final controller = Get.put(Controller());
+  final controllerItems = Get.put(Controller());
+  // final _formKey = GlobalKey<FormState>();
+  List<Controller> itemizeControllers = [];
+
   int _currentStep = 0;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
   int _selectedCategoryIndex = -1;
-
+  bool _showPaidForError = false;
+  bool _showPaidWithError = false;
+  bool _showQuantityError = false;
+  bool _showUnitAmountError = false;
+  bool _showUnitError = false;
+  bool setQuality = true;
+  bool clearField = false;
+  bool _showTaxAmountError = false;
+  bool showItemizeDetails = false;
+  String? _paidTo;
+  bool? isThereReferenceID = false;
+  String? paidToError;
+  String? paidwithError;
+  String? selectDate;
+  String? selectReferenceIDError;
   final PageController _pageController = PageController();
 
   final List<String> _titles = ["Payment Info", "Itemize", "Expense Details"];
+  @override
+  void initState() {
+    super.initState();
+
+    controller.configuration();
+    controller.selectedDate ??= DateTime.now();
+    controller.fetchPaidto();
+    controller.fetchPaidwith();
+    controller.fetchProjectName();
+    controller.fetchTaxGroup();
+    controller.fetchUnit();
+    controller.currencyDropDown();
+    controller.getUserPref();
+    controller.fetchExpenseCategory();
+    controller.configuration();
+    controller.fetchPaidwith();
+    controller.imageFiles.value = [];
+    _initializeUnits();
+    itemizeControllers.add(Controller());
+    controller.fetchExchangeRate();
+  }
+
+  bool validateDropdowns() {
+    bool isValid = true;
+    if (!controller.isManualEntry && controller.selectedPaidto == null) {
+      setState(() => paidToError = 'Please select a merchant');
+      return isValid = false;
+      ;
+    }
+
+    if (controller.isManualEntry &&
+        controller.manualPaidToController.text.trim().isEmpty) {
+      setState(() => paidToError = 'Please enter a merchant name');
+      return isValid = false;
+      ;
+    }
+    if (controller.paidWith == null) {
+      setState(() {
+        paidwithError = 'Please select a Payment Method';
+      });
+      isValid = false;
+    }
+    if (controller.selectedDate == null) {
+      setState(() {
+        paidwithError = 'Please select a Date';
+      });
+      isValid = false;
+    }
+    if (isThereReferenceID == true && controller.referenceID.text.isEmpty) {
+      setState(() {
+        selectReferenceIDError = 'Please select a Reference ID ';
+      });
+      isValid = false;
+    }
+    return isValid;
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: controller.selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != controller.selectedDate) {
+      setState(() {
+        controller.selectedDate = picked;
+        selectDate = null;
+      });
+    }
+  }
 
   void _nextStep() {
     if (_currentStep < 2) {
@@ -36,11 +141,63 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
     }
   }
 
+  final List<Color> categoryColors = [
+    Colors.green,
+    Colors.blueAccent,
+    Colors.purpleAccent,
+    Colors.amber,
+    Colors.deepOrange,
+    Colors.deepPurple,
+    Colors.grey.shade400,
+    Colors.red.shade700,
+    Colors.pink.shade200,
+  ];
+  Future<void> _initializeUnits() async {
+    await controller.fetchUnit(); // Wait for units to be fetched
+
+    final defaultUnit = controller.unit.firstWhere(
+      (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
+      orElse: () => controller.unit.first,
+    );
+
+    setState(() {
+      controller.selectedunit ??= defaultUnit;
+      controller.selectedunit ??= defaultUnit;
+    });
+  }
+
   void _addItemize() {
     if (_itemizeCount < 5) {
       setState(() {
+        itemizeControllers.add(Controller());
         _itemizeCount++;
         _selectedItemizeIndex = _itemizeCount - 1;
+        showItemizeDetails = true;
+      });
+    }
+  }
+
+  void _removeItemize(int selectedItemizeIndex) {
+    if (_itemizeCount < 1) {
+      showItemizeDetails = false;
+    }
+    if (selectedItemizeIndex == 0) {
+      setState(() {
+        itemizeControllers.removeAt(0);
+        _itemizeCount--;
+      });
+    }
+    if (_itemizeCount > 1 &&
+        _selectedItemizeIndex >= 0 &&
+        _selectedItemizeIndex < itemizeControllers.length) {
+      setState(() {
+        itemizeControllers.removeAt(_selectedItemizeIndex);
+        _itemizeCount--;
+
+        // Adjust selected index if needed
+        if (_selectedItemizeIndex >= _itemizeCount) {
+          _selectedItemizeIndex = _itemizeCount - 1;
+        }
       });
     }
   }
@@ -166,7 +323,9 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
             child: TabBarView(
               children: List.generate(
                 _itemizeCount,
-                (index) => Center(child: ExpenseCreateForm2(context)),
+                (index) => Center(
+                    child:
+                        expenseCreateForm2(context, itemizeControllers[index])),
               ),
             ),
           ),
@@ -184,203 +343,863 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
     );
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("3-Step Form")),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildProgressBar(),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                const ExpenseCreationFormStep1(),
-                _buildItemizePage(),
-                const CreateExpensePage(),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            if (_currentStep > 0)
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _currentStep--;
-                    _pageController.animateToPage(
-                      _currentStep,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.grey),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+    return
+        // ignore: deprecated_member_use
+        WillPopScope(
+            onWillPop: () async {
+              controller.clearFormFields();
+              return true; // allow back navigation
+            },
+            child: Scaffold(
+              appBar: AppBar(title: const Text("General Expense Form")),
+              body: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildProgressBar(),
                   ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        expenseCreationFormStep1(context),
+                        _buildItemizePage(),
+                        const CreateExpensePage(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              bottomNavigationBar: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    if (_currentStep == 2)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _currentStep--;
+                            _pageController.animateToPage(
+                              _currentStep,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.black),
+                        label: const Text(
+                          'Back',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      )
+                    else
+                      const SizedBox(), // Empty space if back is not shown
+                  ],
                 ),
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
-                label: const Text(
-                  'Back',
-                  style: TextStyle(color: Colors.black),
-                ),
-              )
-            else
-              const SizedBox(), // Empty space if back is not shown
+              ),
+            ));
+  }
 
-            const Spacer(),
+  Widget expenseCreateForm2(BuildContext context, Controller controller) {
+    // Use the provided controller parameter consistently
+    controller.selectedunit = controllerItems.selectedunit;
+    print("selecteduni${controller.selectedunit}");
+    if (setQuality) {
+      if (controller.quantity.text.isEmpty) {
+        controller.quantity.text = '1.00';
+      }
+    }
+    if (clearField) {
+      controller.quantity.clear();
+      controller.selectedProject = null;
+      controller.paidAmount.clear();
+      controller.lineAmount.clear();
+      controller.selectedProject = null;
+      controller.selectedTax = null;
+      controller.selectedCategoryId = '';
+      controller.taxAmount.clear();
+      controller.unitAmount.clear();
+      controller.descriptionController;
+    }
+    return Scaffold(
+        body: SafeArea(
+            child: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ...controllerItems.configList
+            .where((field) =>
+                field['IsEnabled'] == true &&
+                field['FieldName'] != 'Location' &&
+                field['FieldName'] != 'Refrence Id' &&
+                field['FieldName'] != 'Is Billable' &&
+                field['FieldName'] != 'is Reimbursible')
+            .map((field) {
+          final String label = field['FieldName'];
+          final bool isMandatory = field['IsMandatory'] ?? false;
 
-            ElevatedButton(
-              onPressed: _nextStep,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.gradientEnd,
-                side: const BorderSide(color: AppColors.gradientEnd),
-                shape: RoundedRectangleBorder(
+          Widget inputField;
+
+          if (label == 'Project Id') {
+            inputField = SearchableMultiColumnDropdownField<Project>(
+              labelText: 'Project Id ${isMandatory ? "*" : ""}',
+              columnHeaders: const ['Project Name', 'Project Id'],
+              items: controllerItems.project,
+              selectedValue: controller.selectedProject,
+              searchValue: (proj) => '${proj.name} ${proj.code}',
+              displayText: (proj) => proj.code,
+              validator: (proj) => isMandatory && proj == null
+                  ? 'Please select a Project'
+                  : null,
+              onChanged: (proj) {
+                setState(() {
+                  controller.selectedProject = proj;
+                  controllerItems.selectedProject = proj;
+                });
+                controllerItems.fetchExpenseCategory();
+              },
+              rowBuilder: (proj, searchQuery) {
+                Widget highlight(String text) {
+                  final lowerQuery = searchQuery.toLowerCase();
+                  final lowerText = text.toLowerCase();
+                  final start = lowerText.indexOf(lowerQuery);
+                  if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+                  final end = start + searchQuery.length;
+                  return RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: text.substring(0, start),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        TextSpan(
+                          text: text.substring(start, end),
+                          style: const TextStyle(
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextSpan(
+                          text: text.substring(end),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: highlight(proj.name)),
+                      Expanded(child: highlight(proj.code)),
+                    ],
+                  ),
+                );
+              },
+            );
+          } else if (label == 'Tax Group') {
+            inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
+              labelText: 'Tax Group ${isMandatory ? "*" : ""}',
+              columnHeaders: const ['Tax Group', 'Tax ID'],
+              items: controllerItems.taxGroup,
+              selectedValue: controller.selectedTax,
+              searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
+              displayText: (tax) => tax.taxGroupId,
+              validator: (tax) => isMandatory && tax == null
+                  ? 'Please select a Tax Group'
+                  : null,
+              onChanged: (tax) {
+                setState(() {
+                  controller.selectedTax = tax;
+                  controllerItems.selectedTax = tax;
+                });
+              },
+              rowBuilder: (tax, searchQuery) {
+                Widget highlight(String text) {
+                  final lowerQuery = searchQuery.toLowerCase();
+                  final lowerText = text.toLowerCase();
+                  final start = lowerText.indexOf(lowerQuery);
+                  if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+                  final end = start + searchQuery.length;
+                  return RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: text.substring(0, start),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        TextSpan(
+                          text: text.substring(start, end),
+                          style: const TextStyle(
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextSpan(
+                          text: text.substring(end),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: highlight(tax.taxGroup)),
+                      Expanded(child: highlight(tax.taxGroupId)),
+                    ],
+                  ),
+                );
+              },
+            );
+          } else if (label == 'Tax Amount') {
+            inputField = TextField(
+              keyboardType: TextInputType.number,
+              controller: controller.taxAmount,
+              style: const TextStyle(color: Colors.black),
+              onChanged: (tax) {
+                setState(() {
+                  controller.taxAmount.text = tax;
+                });
+              },
+              decoration: InputDecoration(
+                labelText: '$label${isMandatory ? " *" : ""}',
+                errorText:
+                    _showTaxAmountError ? 'Tax Amount is required' : null,
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Text(
-                _currentStep == 2 ? 'Finish' : 'Next',
-                style: const TextStyle(color: Colors.white),
+            );
+          } else {
+            inputField = TextField(
+              decoration: InputDecoration(
+                labelText: '$label${isMandatory ? " *" : ""}',
+                border: const OutlineInputBorder(),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+            );
+          }
 
-  Widget ExpenseCreateForm2(BuildContext context) {
-    return Scaffold(
-      // backgroundColor: Colors.black,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Project *",
-              ),
               const SizedBox(height: 8),
+              inputField,
+              const SizedBox(height: 16),
+            ],
+          );
+        }).toList(),
+        const SizedBox(height: 16),
+        const Text("Paid For *"),
+        const SizedBox(height: 20),
+        if (_showPaidForError)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'Please select a category',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 20),
+        Obx(() {
+          final categoryList = controllerItems.expenseCategory;
+
+          if (categoryList.isEmpty) {
+            return const Text("No categories found");
+          }
+
+          return GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            children: categoryList.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final color = categoryColors[index % categoryColors.length];
+
+              return _buildCategoryButton(
+                index,
+                item,
+                item.categoryId,
+                color,
+                color,
+                item.expenseCategoryIcon.toString(),
+                controller,
+              );
+            }).toList(),
+          );
+        }),
+        const SizedBox(height: 24),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            if (showItemizeDetails)
+              SearchableMultiColumnDropdownField<Unit>(
+                labelText: 'Unit *',
+                columnHeaders: const ['Uom Id', 'Uom Name'],
+                items: controllerItems.unit,
+                selectedValue: controller.selectedunit,
+                searchValue: (tax) => '${tax.code} ${tax.name}',
+                displayText: (tax) => tax.name,
+                onChanged: (tax) {
+                  setState(() {
+                    controller.selectedunit = tax;
+                    _showUnitError = false;
+                  });
+                },
+                rowBuilder: (tax, searchQuery) {
+                  Widget highlight(String text) {
+                    final lowerQuery = searchQuery.toLowerCase();
+                    final lowerText = text.toLowerCase();
+                    final start = lowerText.indexOf(lowerQuery);
+                    if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+                    final end = start + searchQuery.length;
+                    return RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: text.substring(0, start),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                          TextSpan(
+                            text: text.substring(start, end),
+                            style: const TextStyle(
+                              color: Colors.black,
+                            ),
+                          ),
+                          TextSpan(
+                            text: text.substring(end),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(child: highlight(tax.code)),
+                        Expanded(child: highlight(tax.name)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 16),
+            if (showItemizeDetails)
+              Row(
+                children: [
+                  Expanded(
+                      child: TextField(
+                    keyboardType: TextInputType.number,
+                    controller: controller.unitAmount,
+                    style: const TextStyle(color: Colors.black),
+                    onChanged: (value) {
+                      controllerItems.fetchExchangeRate();
+                      setState(() {
+                        controller.unitAmount.text = value;
+                        _showUnitAmountError = false;
+                      });
+                      final qty =
+                          double.tryParse(controller.quantity.text) ?? 0.0;
+                      final unit =
+                          double.tryParse(controller.unitAmount.text) ?? 0.0;
+
+                      final calculatedLineAmount = qty * unit;
+                      print(
+                          "calculatedLineAmount: $qty x $unit = $calculatedLineAmount");
+                      controller.paidAmount.text =
+                          calculatedLineAmount.toStringAsFixed(2);
+                      controllerItems.paidAmontIsEditable.value = false;
+                      controller.lineAmount.text =
+                          calculatedLineAmount.toStringAsFixed(2);
+                      controller.lineAmountINR.text =
+                          calculatedLineAmount.toStringAsFixed(2);
+                    },
+                    onEditingComplete: () {
+                      String text = controller.unitAmount.text;
+                      double? value = double.tryParse(text);
+                      if (value != null) {
+                        controller.unitAmount.text = value.toStringAsFixed(2);
+                        controller.paidAmount.text = value.toStringAsFixed(2);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: "Unit Amount *",
+                      errorText: _showUnitAmountError
+                          ? 'Unit Amount is required'
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: Colors.black, width: 2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  )),
+                  if (showItemizeDetails) const SizedBox(width: 12),
+                  if (showItemizeDetails)
+                    Expanded(
+                        child: TextField(
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      controller: controller.quantity,
+                      style: const TextStyle(color: Colors.black),
+                      onChanged: (value) {
+                        setState(() {
+                          controller.quantity.text = value;
+                          _showQuantityError = false;
+                          setQuality = false;
+                        });
+                        final qty =
+                            double.tryParse(controller.quantity.text) ?? 0.0;
+                        final unit =
+                            double.tryParse(controller.unitAmount.text) ?? 0.0;
+
+                        final calculatedLineAmount = qty * unit;
+                        print(
+                            "calculatedLineAmount: $qty x $unit = $calculatedLineAmount");
+                        controller.paidAmount.text =
+                            calculatedLineAmount.toStringAsFixed(2);
+                        controller.paidAmontIsEditable.value = false;
+                        controller.lineAmount.text =
+                            calculatedLineAmount.toStringAsFixed(2);
+                        controller.lineAmountINR.text =
+                            calculatedLineAmount.toStringAsFixed(2);
+                      },
+                      decoration: InputDecoration(
+                        labelText: "Quantity*",
+                        errorText:
+                            _showQuantityError ? 'Quantity is required' : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide:
+                              const BorderSide(color: Colors.black, width: 2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    )),
+                ],
+              ),
+            if (showItemizeDetails) const SizedBox(height: 16),
+            if (showItemizeDetails)
+              Row(
+                children: [
+                  Expanded(
+                      child: _buildTextInput(
+                          "Line Amount *", controller.lineAmount,
+                          enabled: false)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _buildTextInput(
+                          "Line Amount in INR *", controller.lineAmountINR,
+                          enabled: false)),
+                ],
+              ),
+            if (showItemizeDetails && _itemizeCount > 1) ...[
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black),
+                  border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const TextField(
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Select',
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Amount:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      _calculateTotalLineAmount(controller).toStringAsFixed(2),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text("Paid For *"),
-              const SizedBox(height: 20),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: [
-                  _buildCategoryButton(
-                      0, "Travel", Colors.green, Icons.directions_walk),
-                  _buildCategoryButton(
-                      1, "Hotels", Colors.blueAccent, Icons.hotel),
-                  _buildCategoryButton(
-                      2, "Food", Colors.purpleAccent, Icons.restaurant),
-                  _buildCategoryButton(
-                      3, "Transport", Colors.amber, Icons.directions_car),
-                  _buildCategoryButton(
-                      4, "Taxi", Colors.deepOrange, Icons.local_taxi),
-                  _buildCategoryButton(
-                      5, "Bills", Colors.deepPurple, Icons.receipt_long),
-                  _buildCategoryButton(
-                      6, "Shopping", Colors.grey.shade300, Icons.shopping_cart,
-                      textColor: Colors.black),
-                  _buildCategoryButton(
-                      7, "Events", Colors.red.shade700, Icons.event),
-                  _buildCategoryButton(
-                      8, "Others", Colors.pink.shade200, Icons.more_horiz),
-                ],
+            ],
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller.descriptionController,
+              style: const TextStyle(color: Colors.black),
+              decoration: InputDecoration(
+                labelText: "Comments",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Colors.black, width: 2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(child: _buildTextInput("Comments")),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildTextInput("Unit *")),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _buildTextInput("Quantity *")),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildTextInput("Unit Amount *")),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(child: _buildTextInput("Line Amount *")),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildTextInput("Line Amount in INR *")),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Expanded(child: Text("Line Amount *")),
-                  const SizedBox(width: 12),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (_itemizeCount > 1)
                   OutlinedButton.icon(
-                    onPressed: _addItemize,
+                    onPressed: () => _removeItemize(_selectedItemizeIndex),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.gradientEnd),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    icon: const Icon(Icons.add, color: AppColors.gradientEnd),
+                    icon: const Icon(Icons.delete,
+                        color: Color.fromARGB(255, 233, 8, 8)),
                     label: const Text(
-                      'Itemize',
+                      "Remove",
                       style: TextStyle(color: AppColors.gradientEnd),
                     ),
-                  )
+                  ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _addItemize,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.gradientEnd),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add, color: AppColors.gradientEnd),
+                  label: const Text(
+                    'Itemize',
+                    style: TextStyle(color: AppColors.gradientEnd),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ...controller.configList
+                .where((field) =>
+                    field['IsEnabled'] == true &&
+                    field['FieldName'] == 'Is Billable')
+                .map((field) {
+              final String label = field['FieldName'];
+              final bool isMandatory = field['IsMandatory'] ?? false;
+
+              return Row(
+                children: [
+                  if (controller.configList.any((field) =>
+                      field['IsEnabled'] == true &&
+                      field['FieldName'].toLowerCase() == 'is reimbursible'))
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value:
+                                controller.checkboxValues['is Reimbursible'] ??
+                                    false,
+                            onChanged: (value) {
+                              controller.isReimbursite = value!;
+                              setState(() {
+                                controller.checkboxValues['is Reimbursible'] =
+                                    value ?? false;
+                              });
+                            },
+                          ),
+                          Flexible(
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'is Reimbursible',
+                                children: [
+                                  if (controller.configList.firstWhere((f) =>
+                                          f['FieldName'].toLowerCase() ==
+                                          'is reimbursible')['IsMandatory'] ==
+                                      true)
+                                    const TextSpan(
+                                      text: ' *',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (controller.configList.any((field) =>
+                      field['IsEnabled'] == true &&
+                      field['FieldName'].toLowerCase() == 'is billable'))
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: controller.checkboxValues['Is Billable'] ??
+                                false,
+                            onChanged: (value) {
+                              controller.isBillable = value!;
+                              setState(() {
+                                controller.checkboxValues['Is Billable'] =
+                                    value ?? false;
+                              });
+                            },
+                          ),
+                          Flexible(
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Is Billable',
+                                children: [
+                                  if (controller.configList.firstWhere((f) =>
+                                          f['FieldName'].toLowerCase() ==
+                                          'is billable')['IsMandatory'] ==
+                                      true)
+                                    const TextSpan(
+                                      text: ' *',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            }).toList(),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  if (_currentStep > 0)
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _currentStep--;
+                          _pageController.animateToPage(
+                            _currentStep,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.grey),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      label: const Text(
+                        'Back',
+                        style: TextStyle(color: Colors.black),
+                      ),
+                    )
+                  else
+                    const SizedBox(),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Reset error states
+                      setState(() {
+                        _showQuantityError = false;
+                        _showUnitAmountError = false;
+                        _showUnitError = false;
+                        _showTaxAmountError = false;
+                      });
+
+                      bool isValid = true;
+
+                      if (controller.selectedCategoryId.isEmpty) {
+                        setState(() => _showPaidForError = true);
+                        isValid = false;
+                      }
+                      if (_itemizeCount > 1) {
+                        if (controller.quantity.text.isEmpty) {
+                          setState(() => _showQuantityError = true);
+                          isValid = false;
+                        }
+
+                        if (controller.unitAmount.text.isEmpty) {
+                          setState(() => _showUnitAmountError = true);
+                          isValid = false;
+                        }
+
+                        if (controller.selectedunit == null) {
+                          setState(() => _showUnitError = true);
+                          isValid = false;
+                        }
+                      }
+
+                      // Validate other mandatory fields
+                      if (controller.taxAmount.text.isEmpty &&
+                          controller.configList.any((f) =>
+                              f['FieldName'] == 'Tax Amount' &&
+                              f['IsMandatory'] == true)) {
+                        setState(() => _showTaxAmountError = true);
+                        isValid = false;
+                      }
+                      print('isValid$isValid');
+                      if (isValid) {
+                        controller.finalItems =
+                            itemizeControllers.map((c) => c.toModel()).toList();
+                        _nextStep();
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: AppColors.gradientEnd,
+                      side: const BorderSide(color: AppColors.gradientEnd),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      _currentStep == 2 ? 'Finish' : 'Next',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
+      ]),
+    )));
+  }
+
+  double _calculateTotalLineAmount(Controller controllers) {
+    double total = 0.0;
+
+    final currentLineAmount =
+        double.tryParse(controllers.lineAmount.text) ?? 0.0;
+    total += currentLineAmount;
+
+    for (var itemController in itemizeControllers) {
+      if (itemController != controllers) {
+        final amount = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+        total += amount;
+      }
+    }
+    controller.paidAmount.text = total.toString();
+    print("total$total");
+    return total;
   }
 
   Widget _buildCategoryButton(
-      int index, String label, Color color, IconData icon,
-      {Color textColor = Colors.white}) {
+    int index,
+    ExpenseCategory item,
+    String iD,
+    Color color,
+    Color textColor,
+    String? icon,
+    Controller controllers,
+  ) {
     final isSelected = _selectedCategoryIndex == index;
+
+    Widget _buildIcon(String? icon) {
+      const fallbackUrl =
+          "https://icons.veryicon.com/png/o/commerce-shopping/icon-of-lvshan-valley-mobile-terminal/home-category.png";
+
+      try {
+        if (icon != null && icon.isNotEmpty) {
+          if (icon.startsWith('data:image')) {
+            // Data URI: extract base64 part
+            final base64Str = icon.split(',').last;
+            Uint8List bytes = base64Decode(base64Str);
+            return Image.memory(
+              bytes,
+              width: 30,
+              height: 30,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.image_not_supported, size: 30),
+            );
+          } else if (RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(icon)) {
+            // Plain base64 (no prefix)
+            Uint8List bytes = base64Decode(icon);
+            return Image.memory(
+              bytes,
+              width: 30,
+              height: 30,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.image_not_supported, size: 30),
+            );
+          } else {
+            // URL case
+            return Image.asset(
+              icon,
+              width: 30,
+              height: 30,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.image_not_supported, size: 30),
+            );
+          }
+        }
+      } catch (_) {
+        // Invalid base64 or broken URL
+      }
+
+      // Fallback image
+      return Image.network(
+        fallbackUrl,
+        width: 30,
+        height: 30,
+        errorBuilder: (context, error, stackTrace) =>
+            const Icon(Icons.image_not_supported, size: 30),
+      );
+    }
 
     return GestureDetector(
       onTap: () {
         setState(() {
           _selectedCategoryIndex = index;
         });
+        _showPaidForError = false;
+        controllers.selectedCategoryId = item.categoryId;
+        controller.selectedCategoryId = item.categoryId;
+
+        print("Tapped Category Name: ${item.categoryName}");
+        print("Tapped Category ID: ${controllers.selectedCategoryId}");
+
+        // // Optionally store or process them
+        // selectedCategoryName = item.categoryName;
       },
       child: Container(
         decoration: BoxDecoration(
@@ -392,41 +1211,43 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: textColor, size: 28),
+            _buildIcon(icon),
             const SizedBox(height: 8),
-            Text(label, style: TextStyle(color: textColor)),
+            Text(
+              item.categoryId,
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTextInput(String label) {
+  Widget _buildTextInput(String label, TextEditingController controller,
+      {bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-        ),
         const SizedBox(height: 8),
         TextField(
-          style: const TextStyle(color: Colors.black),
+          controller: controller,
+          enabled: enabled,
+          keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            hintText: label,
-            hintStyle: const TextStyle(color: Colors.black),
+            labelText: label,
+            filled: !enabled ? true : false,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(color: Colors.black), // ← Black border
             ),
             enabledBorder: OutlineInputBorder(
-              borderSide:
-                  const BorderSide(color: Colors.black), // ← Black border
               borderRadius: BorderRadius.circular(10),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(
-                  color: Colors.black, width: 2), // ← Black border on focus
+              borderSide: const BorderSide(color: Colors.black, width: 2),
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -434,248 +1255,455 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm> {
       ],
     );
   }
-}
 
-class ExpenseCreationFormStep1 extends StatefulWidget {
-  const ExpenseCreationFormStep1({super.key});
-
-  @override
-  State<ExpenseCreationFormStep1> createState() =>
-      _ExpenseCreationFormStep1State();
-}
-
-class _ExpenseCreationFormStep1State extends State<ExpenseCreationFormStep1> {
-  final _formKey = GlobalKey<FormState>();
-  DateTime? _selectedDate;
-  String? _paidTo;
-  String? _paidWith;
-  bool _isLoading = false;
-
-  final List<String> _payees = [
-    'Amazon',
-    'Office Supplies Inc.',
-    'Utility Company',
-    'Travel Agency',
-    'Other Vendor'
-  ];
-
-  final List<String> _paymentMethods = [
-    'UPI',
-    'Debit Card',
-    'Credit Card',
-    'Bank Transfer',
-    'Cash',
-    'Others'
-  ];
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
-
-  Future<void> _submitExpense() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final Map<String, dynamic> requestBody = {
-        'requestDate': _selectedDate?.toIso8601String(),
-        'paidTo': _paidTo,
-        'paidWith': _paidWith,
-      };
-
-      final response = await http.post(
-        Uri.parse('https://your-api-endpoint.com/expenses'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(requestBody),
-      );
-
-      if (response.statusCode == 201) {
-        // Success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense created successfully!')),
-        );
-        // Reset form
-        _formKey.currentState!.reset();
-        setState(() {
-          _selectedDate = null;
-          _paidTo = null;
-          _paidWith = null;
-        });
-      } else {
-        // Error
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response.body}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget expenseCreationFormStep1(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Request Date *',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Obx(() {
+        return controller.isLoadingGE2.value
+            ? const FullPageLoader()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  // key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _selectedDate == null
-                            ? 'Select date'
-                            : DateFormat('dd/MM/yyyy').format(_selectedDate!),
-                        style: TextStyle(
-                          color: _selectedDate == null
-                              ? Colors.grey
-                              : Colors.black,
+                      const SizedBox(height: 8),
+                      FormField<DateTime>(
+                        validator: (value) {
+                          if (controller.selectedDate == null) {
+                            return 'Please select a request date';
+                          }
+                          return null;
+                        },
+                        builder: (FormFieldState<DateTime> field) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              InkWell(
+                                onTap: () async {
+                                  await _selectDate(context);
+                                  field.didChange(controller.selectedDate);
+                                },
+                                child: InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'Request Date',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    errorText: field.errorText,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        controller.selectedDate == null
+                                            ? 'Select date'
+                                            : DateFormat('dd/MM/yyyy').format(
+                                                controller.selectedDate!),
+                                        style: TextStyle(
+                                          color: controller.selectedDate == null
+                                              ? Colors.grey
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                      const Icon(Icons.calendar_today,
+                                          size: 20),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (paidwithError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 8.0, bottom: 8),
+                                  child: Text(
+                                    paidwithError.toString(),
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Reference ID Field
+                      Obx(() {
+                        return Column(
+                          children: controller.configList
+                              .where((field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Refrence Id')
+                              .map((field) {
+                            final String label = field['FieldName'];
+                            final bool isMandatory =
+                                field['IsMandatory'] ?? false;
+                            isThereReferenceID = field['IsMandatory'] ?? false;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
+                                FormField<String>(
+                                  validator: (value) {
+                                    if (isMandatory &&
+                                        (value == null || value.isEmpty)) {
+                                      return 'This field is required';
+                                    }
+                                    return null;
+                                  },
+                                  builder: (FormFieldState<String> field) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        TextField(
+                                          controller: controller.referenceID,
+                                          onChanged: (value) {
+                                            field.didChange(value);
+                                            selectReferenceIDError = null;
+                                          },
+                                          decoration: InputDecoration(
+                                              labelText:
+                                                  '$label${isMandatory ? " *" : ""}',
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              errorText: field.errorText),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                if (selectReferenceIDError != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 8.0, bottom: 8),
+                                    child: Text(
+                                      selectReferenceIDError.toString(),
+                                      style: const TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                const SizedBox(height: 16),
+                              ],
+                            );
+                          }).toList(),
+                        );
+                      }),
+
+                      const SizedBox(height: 16),
+
+                      // Paid To Dropdown
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Paid To *',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+
+                          // 🔁 Toggle Button
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  controller.isManualEntry =
+                                      !controller.isManualEntry;
+                                  if (controller.isManualEntry) {
+                                    controller.selectedPaidto = null;
+                                  } else {
+                                    controller.manualPaidToController.clear();
+                                  }
+                                  paidToError = null;
+                                });
+                              },
+                              child: Text(controller.isManualEntry
+                                  ? 'Select from Merchant List'
+                                  : "Can't find merchant? Enter manually"),
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // 👇 Conditional UI
+                          if (!controller.isManualEntry)
+                            SearchableMultiColumnDropdownField<MerchantModel>(
+                              labelText: 'Select Merchant',
+                              columnHeaders: const [
+                                'Merchant Name',
+                                'Merchant ID'
+                              ],
+                              items: controller.paidTo,
+                              selectedValue: controller.selectedPaidto,
+                              searchValue: (p) =>
+                                  '${p.merchantNames} ${p.merchantId}',
+                              displayText: (p) => p.merchantNames,
+                              validator: (_) => null,
+                              onChanged: (p) {
+                                setState(() {
+                                  controller.selectedPaidto = p;
+                                  paidToError = null;
+                                });
+                              },
+                              rowBuilder: (p, searchQuery) {
+                                Widget highlight(String text) {
+                                  final lowerQuery = searchQuery.toLowerCase();
+                                  final lowerText = text.toLowerCase();
+                                  final start = lowerText.indexOf(lowerQuery);
+
+                                  if (start == -1 || searchQuery.isEmpty)
+                                    return Text(text);
+
+                                  final end = start + searchQuery.length;
+                                  return RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: text.substring(0, start),
+                                          style: const TextStyle(
+                                              color: Colors.black),
+                                        ),
+                                        TextSpan(
+                                          text: text.substring(start, end),
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: text.substring(end),
+                                          style: const TextStyle(
+                                              color: Colors.black),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 16),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                          child: highlight(p.merchantNames)),
+                                      Expanded(child: highlight(p.merchantId)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            )
+                          else
+                            TextFormField(
+                              controller: controller.manualPaidToController,
+                              decoration: const InputDecoration(
+                                labelText: 'Enter Merchant Name',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  paidToError = null;
+                                });
+                              },
+                            ),
+
+                          const SizedBox(height: 8),
+
+                          if (paidToError != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(left: 8.0, bottom: 8),
+                              child: Text(
+                                paidToError!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Paid With *',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Paid With Radio Buttons
+                      Obx(() {
+                        return Column(
+                          children: List.generate(
+                              controller.paymentMethods.length, (index) {
+                            final method = controller.paymentMethods[index];
+                            List<Color> colors = [
+                              Colors.red.shade100,
+                              Colors.green.shade100,
+                              Colors.blue.shade100,
+                              Colors.orange.shade100,
+                            ];
+                            List<IconData> icons = [
+                              Icons.credit_card,
+                              Icons.money,
+                              Icons.payment,
+                              Icons.account_balance_wallet,
+                            ];
+
+                            return Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: colors[index % colors.length],
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              child: RadioListTile<String>(
+                                title: Row(
+                                  children: [
+                                    Icon(icons[index % icons.length],
+                                        color: Colors.black),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        method.paymentMethodName,
+                                        style: const TextStyle(
+                                            color: Colors.black),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                value: method.paymentMethodId,
+                                groupValue: controller.paidWith,
+                                onChanged: (String? value) {
+                                  controller.paymentMethodeID = value;
+                                  setState(() {
+                                    controller.paidWith = value;
+                                  });
+                                  paidwithError = null;
+                                },
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                tileColor: Colors.transparent,
+                              ),
+                            );
+                          }),
+                        );
+                      }),
+
+                      // Show validation error under Paid With (if any)
+                      if (paidwithError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, bottom: 8),
+                          child: Text(
+                            paidwithError.toString(),
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+
+                      // const SizedBox(height: 20),
+
+                      // // Submit Button
+                      //   SizedBox(
+                      //     width: double.infinity,
+                      //     child: ElevatedButton(
+                      //     onPressed: () {
+                      //       final isValid = _formKey.currentState!.validate();
+                      //       final isPaidWithValid = _paidWith != null;
+
+                      //       setState(() {
+                      //         _showPaidWithError = !isPaidWithValid;
+                      //       });
+
+                      //       if (isValid && isPaidWithValid) {
+                      //         print('Form is valid. Proceed with submission.');
+                      //         // Continue to API or next step...
+                      //       } else {
+                      //         print('Validation failed');
+                      //       }
+                      //     },
+                      //     child: const Text('Submit'),
+                      //   ),
+                      // ),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            if (_currentStep > 0)
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _currentStep--;
+                                    _pageController.animateToPage(
+                                      _currentStep,
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.grey),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.arrow_back,
+                                    color: Colors.black),
+                                label: const Text(
+                                  'Back',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                              )
+                            else
+                              const SizedBox(), // Empty space if back is not shown
+
+                            const Spacer(),
+
+                            ElevatedButton(
+                              onPressed: () {
+                                if (validateDropdowns()) {
+                                  // final isValid =
+                                  //     _formKey.currentState!.validate();
+                                  final isPaidWithValid =
+                                      controller.paidWith != null;
+
+                                  setState(() {
+                                    _showPaidWithError = !isPaidWithValid;
+                                  });
+
+                                  if (isPaidWithValid) {
+                                    _nextStep();
+                                  } else {
+                                    print('Validation failed');
+                                  }
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: AppColors.gradientEnd,
+                                side: const BorderSide(
+                                    color: AppColors.gradientEnd),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                _currentStep == 2 ? 'Finish' : 'Next',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const Icon(Icons.calendar_today, size: 20),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Paid To *',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                hint: const Text('Select'),
-                value: _paidTo,
-                items: _payees.map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-                onChanged: (newValue) {
-                  setState(() {
-                    _paidTo = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select a payee';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Paid With *',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Column(
-                children: _paymentMethods
-                    .asMap()
-                    .map((index, method) {
-                      List<Color> colors = [
-                        Colors.red.shade100,
-                        Colors.green.shade100,
-                        Colors.blue.shade100,
-                        Colors.orange.shade100,
-                      ];
-
-                      List<IconData> icons = [
-                        Icons.credit_card,
-                        Icons.money,
-                        Icons.payment,
-                        Icons.account_balance_wallet,
-                      ];
-
-                      return MapEntry(
-                        index,
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: colors[index % colors.length],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: RadioListTile<String>(
-                            title: Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Icon(icons[index % icons.length],
-                                    color: Colors.black),
-                                const SizedBox(width: 10),
-                                Text(
-                                  method,
-                                  style: const TextStyle(color: Colors.black),
-                                ),
-                              ],
-                            ),
-                            value: method,
-                            groupValue: _paidWith,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _paidWith = value;
-                              });
-                            },
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            tileColor: Colors.transparent,
-                          ),
-                        ),
-                      );
-                    })
-                    .values
-                    .toList(),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
+              );
+      }),
     );
   }
 }
@@ -688,40 +1716,61 @@ class CreateExpensePage extends StatefulWidget {
 }
 
 class _CreateExpensePageState extends State<CreateExpensePage> {
-  File? _imageFile;
+  bool _isVisible = false;
+  final FocusNode _focusNode = FocusNode();
   final PhotoViewController _photoViewController = PhotoViewController();
-
+  final controller = Get.put(Controller());
   Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await ImagePicker().pickImage(source: source);
-    if (pickedFile != null) {
-      _cropImage(File(pickedFile.path));
+    final picker = ImagePicker();
+
+    try {
+      controller.isImageLoading.value = true;
+
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        final croppedFile = await _cropImage(File(pickedFile.path));
+        if (croppedFile != null) {
+          setState(() {
+            controller.imageFiles.add(File(croppedFile.path));
+          });
+        }
+      }
+    } catch (e) {
+      print("Error picking or cropping image: $e");
+      Fluttertoast.showToast(
+        msg: "Failed to upload image",
+        backgroundColor: Colors.red,
+      );
+    } finally {
+      controller.isImageLoading.value = false;
     }
   }
 
-  Future<void> _cropImage(File imageFile) async {
+  Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
-      sourcePath: imageFile.path,
+      sourcePath: file.path,
       aspectRatioPresets: [
         CropAspectRatioPreset.original,
         CropAspectRatioPreset.square,
-        CropAspectRatioPreset.ratio3x2,
       ],
       uiSettings: [
         AndroidUiSettings(
-          toolbarTitle: 'Edit Image',
+          toolbarTitle: 'Crop Image',
           toolbarColor: Colors.deepPurple,
           toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: Colors.deepPurple,
-          initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
         ),
-        IOSUiSettings(title: 'Edit Image'),
+        IOSUiSettings(
+          title: 'Crop Image',
+        )
       ],
     );
 
     if (croppedFile != null) {
-      setState(() => _imageFile = File(croppedFile.path));
+      return File(croppedFile.path);
     }
+
+    return null;
   }
 
   void _zoomIn() {
@@ -734,312 +1783,557 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
 
   void _deleteImage() {
     setState(() {
-      _imageFile = null;
+      controller.imageFile = null;
     });
   }
 
-  Widget _buildImageArea() {
-    return GestureDetector(
-      onTap: () => _pickImage(ImageSource.gallery),
-      child: Container(
-        height: 300,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: _imageFile == null
-            ? const Center(child: Text('Tap to Upload the Document'))
-            : Stack(
-                children: [
-                  PhotoView(
-                    controller: _photoViewController,
-                    imageProvider: FileImage(_imageFile!),
-                    backgroundDecoration:
-                        const BoxDecoration(color: Colors.transparent),
-                    minScale: PhotoViewComputedScale.contained,
-                    maxScale: PhotoViewComputedScale.covered * 3.0,
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Column(
-                      children: [
-                        FloatingActionButton.small(
-                          heroTag: "zoom_in",
-                          onPressed: _zoomIn,
-                          child: const Icon(Icons.zoom_in),
-                          backgroundColor: Colors.deepPurple,
-                        ),
-                        const SizedBox(height: 8),
-                        FloatingActionButton.small(
-                          heroTag: "zoom_out",
-                          onPressed: _zoomOut,
-                          child: const Icon(Icons.zoom_out),
-                          backgroundColor: Colors.deepPurple,
-                        ),
-                        const SizedBox(height: 8),
-                        FloatingActionButton.small(
-                          heroTag: "edit",
-                          onPressed: () => _cropImage(_imageFile!),
-                          child: const Icon(Icons.edit),
-                          backgroundColor: Colors.deepPurple,
-                        ),
-                        const SizedBox(height: 8),
-                        FloatingActionButton.small(
-                          heroTag: "delete",
-                          onPressed: _deleteImage,
-                          child: const Icon(Icons.delete),
-                          backgroundColor: Colors.red,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              PhotoView(
+                imageProvider: FileImage(file),
+                backgroundDecoration: const BoxDecoration(color: Colors.black),
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 3.0,
               ),
-      ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Column(
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: "zoom_in_$index",
+                      onPressed: _zoomIn,
+                      child: const Icon(Icons.zoom_in),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "zoom_out_$index",
+                      onPressed: _zoomOut,
+                      child: const Icon(Icons.zoom_out),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "edit_$index",
+                      onPressed: () => _cropImage(file),
+                      child: const Icon(Icons.edit),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          controller.imageFiles.removeAt(index);
+                        });
+                      },
+                      child: const Icon(Icons.delete),
+                      backgroundColor: Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImageArea() {
+    @override
+    void initState() {
+      super.initState();
+
+      if (controller.paidAmount.text.isNotEmpty) {
+        // final amount = double.tryParse(controller.paidAmount.text) ?? 0.0;
+        // final unit = double.tryParse(controller.unitRate.text) ?? 0.0;
+        // final result = amount * unit;
+        // controller.amountINR.text = result.toString();
+        controller.fetchExchangeRate();
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => _pickImage(ImageSource.gallery),
+          child: Container(
+            height: 200,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (controller.imageFiles.isEmpty) {
+                return const Center(child: Text('Tap to Upload Document(s)'));
+              } else {
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: controller.imageFiles.length,
+                  itemBuilder: (context, index) {
+                    final file = controller.imageFiles[index];
+                    return GestureDetector(
+                      onTap: () => _showFullImage(file, index),
+                      child: Container(
+                        margin: const EdgeInsets.all(8),
+                        width: 100,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.deepPurple),
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: FileImage(file),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }
+            }),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   void dispose() {
     _photoViewController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Listen for focus changes
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        setState(() {
+          _isVisible = true; // Toggle visibility when focus is lost
+          // controller.fetchExchangeRate();
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Create Expense')),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+      padding: const EdgeInsets.all(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            _buildImageArea(),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildImageArea(),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text("Upload"),
-                      onPressed: () => _pickImage(ImageSource.gallery),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text("Capture"),
-                      onPressed: () => _pickImage(ImageSource.camera),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text("Upload"),
+                  onPressed: () => _pickImage(ImageSource.gallery),
                 ),
-                   const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Paid Amount
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            
-                            decoration: const InputDecoration(
-                              labelText: 'Paid Amount *',
-                              border: OutlineInputBorder(),
-                            ),
-                            initialValue: '230',
-                          ),
-                        ),
-                        
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          height: 60,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            children: [
-                              Text('INR',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.bold)),
-                              Icon(Icons.arrow_drop_down),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Rate *',
-                              border: OutlineInputBorder(),
-                            ),
-                            initialValue: '1',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Amount in INR
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Amount in INR *',
-                        border: OutlineInputBorder(),
-                      ),
-                      initialValue: '230',
-                    ),
-                    const SizedBox(height: 30),
-
-                    // Policy Violations Header
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Policy Violations',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        Text(
-                          'Check Policies',
-                          style: TextStyle(color: Colors.blue),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Policy Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Policy 1001',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Icon(Icons.check, color: Colors.green),
-                              SizedBox(width: 8),
-                              Expanded(
-                                  child: Text("Expense Amount Under Limit")),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(Icons.check, color: Colors.green),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "Receipt Required Amount :Amount  in any expense\nRecorded Should have a receipt",
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(Icons.close, color: Colors.red),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "if description has been made mandatory by the Admin for all expense",
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(Icons.error_outline, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "An expense that has expired is Considered a Policy",
-                                  style: TextStyle(color: Colors.black87),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Buttons
-                    Center(
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: 200,
-                            height: 48,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                // backgroundColor:
-                                //     const LinearGradient(colors: [Colors.indigo, Colors.blueAccent])
-                                //         .createShader(const Rect.fromLTWH(0.0, 0.0, 200.0, 48.0))
-                                //         .withAlpha(255),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                              ),
-                              onPressed: () {},
-                              child: const Text("Submit"),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.deepPurpleAccent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                ),
-                                onPressed: () {},
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 24, vertical: 12),
-                                  child: Text("Save"),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                  ),
-                                ),
-                                onPressed: () {},
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 24, vertical: 12),
-                                  child: Text("Cancel",
-                                      style: TextStyle(letterSpacing: 1.5)),
-                                ),
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text("Capture"),
+                  onPressed: () => _pickImage(ImageSource.camera),
                 ),
               ],
             ),
-          ),
-        ));
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Paid Amount
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: controller.paidAmount,
+                        enabled: controller.paidAmontIsEditable.value,
+                        onChanged: (_) {
+                          controller.fetchExchangeRate();
+
+                          final paid =
+                              double.tryParse(controller.paidAmount.text) ??
+                                  0.0;
+                          final rate =
+                              double.tryParse(controller.unitRate.text) ?? 1.0;
+
+                          final result = paid * rate;
+
+                          controller.amountINR.text = result.toStringAsFixed(2);
+                        },
+                        focusNode: _focusNode,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Paid Amount *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.only(
+                                topRight: Radius.circular(0),
+                                bottomRight: Radius.circular(0),
+                                topLeft: Radius.circular(10),
+                                bottomLeft: Radius.circular(10)),
+                          ),
+                        ),
+                        onEditingComplete: () {
+                          String text = controller.paidAmount.text;
+                          double? value = double.tryParse(text);
+                          if (value != null) {
+                            controller.paidAmount.text =
+                                value.toStringAsFixed(2); // Format value
+                          }
+                          // Call once
+                          _focusNode.unfocus(); // Dismiss keyboard
+                        },
+                      ),
+                    ),
+                    Expanded(
+                        child: Obx(
+                      () => SearchableMultiColumnDropdownField<Currency>(
+                        alignLeft: -90,
+                        dropdownWidth: 280,
+                        labelText: "",
+                        columnHeaders: const ['Code', 'Name', 'Symbol'],
+                        items: controller.currencies,
+                        selectedValue: controller.selectedCurrency.value,
+                        backgroundColor: const Color.fromARGB(255, 22, 2, 92),
+                        searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
+                        displayText: (c) => c.code,
+                        inputDecoration: const InputDecoration(
+                          suffixIcon: Icon(Icons.arrow_drop_down_outlined),
+                          filled: true,
+                          fillColor: Color.fromARGB(55, 5, 23, 128),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(0),
+                              bottomLeft: Radius.circular(0),
+                              topRight: Radius.circular(10),
+                              bottomRight: Radius.circular(10),
+                            ),
+                          ),
+                        ),
+                        validator: (c) =>
+                            c == null ? 'Please pick a currency' : null,
+                        onChanged: (c) {
+                          controller.selectedCurrency.value = c;
+                          controller.fetchExchangeRate();
+                          // controller.userPreferences()
+                        },
+                        rowBuilder: (c, searchQuery) {
+                          Widget highlight(String text) {
+                            final lowerQuery = searchQuery.toLowerCase();
+                            final lowerText = text.toLowerCase();
+                            final start = lowerText.indexOf(lowerQuery);
+
+                            if (start == -1 || searchQuery.isEmpty)
+                              return Text(text);
+
+                            final end = start + searchQuery.length;
+                            return RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: text.substring(0, start),
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  TextSpan(
+                                    text: text.substring(start, end),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: text.substring(end),
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 16),
+                            child: Row(
+                              children: [
+                                Expanded(child: highlight(c.code)),
+                                Expanded(child: highlight(c.name)),
+                                Expanded(child: highlight(c.symbol)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: controller.unitRate,
+                        decoration: InputDecoration(
+                          labelText: 'Rate *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        // initialValue: controller.unitRate,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                if (_isVisible)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: const Text(
+                        'Accounting Distribution',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                // Amount in INR
+                TextFormField(
+                  controller: controller.amountINR,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: 'Amount in INR *',
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // Policy Violations Header
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Policy Violations',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      'Check Policies',
+                      style: TextStyle(color: Colors.blue),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Policy Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Policy 1001',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.check, color: Colors.green),
+                          SizedBox(width: 8),
+                          Expanded(child: Text("Expense Amount Under Limit")),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.check, color: Colors.green),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Receipt Required Amount :Amount  in any expense\nRecorded Should have a receipt",
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.close, color: Colors.red),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "if description has been made mandatory by the Admin for all expense",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "An expense that has expired is Considered a Policy",
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                // Buttons
+                Center(
+                  child: Column(
+                    children: [
+                      Obx(() {
+                        return GradientButton(
+                          text: "Submit",
+                          isLoading: controller.isGESubmitBTNLoading.value,
+                          onPressed: () {
+                            controller.saveGeneralExpense(context, true);
+                          },
+                        );
+                      }),
+                      // SizedBox(
+                      //   width: 200,
+                      //   height: 48,
+                      //   child: ElevatedButton(
+                      //     onPressed: () {
+                      //       // Your action here
+                      //     },
+                      //     style: ElevatedButton.styleFrom(
+                      //       padding: EdgeInsets.zero,
+                      //       shape: RoundedRectangleBorder(
+                      //         borderRadius: BorderRadius.circular(24),
+                      //       ),
+                      //       backgroundColor: Colors.transparent, // Important!
+                      //       shadowColor: Colors.transparent,
+                      //     ),
+                      //     child: Ink(
+                      //       decoration: BoxDecoration(
+                      //         gradient: const LinearGradient(
+                      //           colors: [Colors.indigo, Colors.blueAccent],
+                      //         ),
+                      //         borderRadius: BorderRadius.circular(24),
+                      //       ),
+                      //       child: Container(
+                      //         alignment: Alignment.center,
+                      //         child: const Text(
+                      //           'Submit',
+                      //           style: TextStyle(
+                      //             color: Colors.white,
+                      //             fontWeight: FontWeight.bold,
+                      //           ),
+                      //         ),
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Obx(() {
+                            return ElevatedButton(
+                              onPressed: controller.isUploading.value
+                                  ? null
+                                  : () {
+                                      controller.saveGeneralExpense(
+                                          context, false);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(130, 50),
+                                backgroundColor: Color.fromARGB(241, 20, 94, 2),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              child: controller.isUploading.value
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text("Save"),
+                            );
+                          }),
+                          const SizedBox(width: 40),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(130, 50),
+                              backgroundColor: Colors.grey,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () {
+                              controller.selectedDate = null;
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              child: Text("Cancel",
+                                  style: TextStyle(
+                                      letterSpacing: 1.5, color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ));
   }
 }

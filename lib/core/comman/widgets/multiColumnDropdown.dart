@@ -9,6 +9,7 @@ class MultiColumnDropdownField<T> extends StatefulWidget {
   final void Function(T?) onChanged;
   final String Function(T selected) selectedDisplay;
   final double dropdownHeight;
+  final double dropdownWidth;
 
   const MultiColumnDropdownField({
     Key? key,
@@ -20,6 +21,7 @@ class MultiColumnDropdownField<T> extends StatefulWidget {
     required this.onChanged,
     required this.selectedDisplay,
     required this.dropdownHeight,
+    required this.dropdownWidth,
   }) : super(key: key);
 
   @override
@@ -89,7 +91,7 @@ class MultiColumnDropdownFieldState<T>
               child: Material(
                 elevation: 4,
                 child: Container(
-                  constraints: BoxConstraints(maxHeight: widget.dropdownHeight),
+                  constraints: BoxConstraints(maxHeight: widget.dropdownHeight,maxWidth: widget.dropdownWidth),
                   color: Colors.white,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

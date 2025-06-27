@@ -42,6 +42,7 @@ class DateFormatDropdown extends StatelessWidget {
           columnHeaders: const ['Key', 'Format'],
           items: dateFormatMap.entries.toList(),
           dropdownHeight: 300,
+          dropdownWidth: 300,
           onChanged: onChanged,
           rowBuilder: (entry) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),

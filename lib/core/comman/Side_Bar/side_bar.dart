@@ -1,13 +1,24 @@
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:get/get_instance/get_instance.dart';
+import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 
 import '../../../data/pages/screen/widget/router/router.dart';
+import '../../../data/service.dart';
 
-class MyDrawer extends StatelessWidget {
+class MyDrawer extends StatefulWidget {
+  const MyDrawer({super.key});
+
+  @override
+  State<MyDrawer> createState() => _MyDrawerState();
+}
+
+class _MyDrawerState extends State<MyDrawer> {
   final Color gray = Colors.grey.shade700;
   final TextStyle subTextStyle =
       const TextStyle(fontSize: 14, color: Colors.black87);
-
+  final controller = Get.put(Controller());
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -15,19 +26,31 @@ class MyDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(),
+          DrawerHeader(
+            decoration: const BoxDecoration(),
             child: Row(
               children: [
-                CircleAvatar(
-                    radius: 24,
-                    backgroundImage: AssetImage('assets/avatar.png')),
-                SizedBox(width: 12),
-                Text('Rose',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Spacer(),
-                Icon(Icons.chevron_left)
+                Obx(() => CircleAvatar(
+                      radius: 40,
+                      backgroundImage: controller.isImageLoading.value
+                          ? null
+                          : controller.profileImage.value != null
+                              ? FileImage(controller.profileImage.value!)
+                              : null,
+                      child: controller.isImageLoading.value
+                          ? const CircularProgressIndicator()
+                          : controller.profileImage.value == null
+                              ? const Icon(Icons.person, size: 60)
+                              : null,
+                    )),
+                const SizedBox(width: 12),
+                Text(controller.firstNameController.text ?? "Name",
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black)),
+                const Spacer(),
+                // const Icon(Icons.chevron_left)
               ],
             ),
           ),

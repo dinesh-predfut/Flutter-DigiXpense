@@ -1,0 +1,1743 @@
+import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
+import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/data/service.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'dart:io';
+import 'package:intl/intl.dart';
+
+class AutoScanExpensePage extends StatefulWidget {
+  final File imageFile;
+  final Map<String, dynamic> apiResponse;
+
+  const AutoScanExpensePage({
+    Key? key,
+    required this.imageFile,
+    required this.apiResponse,
+  }) : super(key: key);
+
+  @override
+  State<AutoScanExpensePage> createState() => _AutoScanExpensePageState();
+}
+
+class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late List<Map<String, dynamic>> expenseTrans;
+  final controller = Get.put(Controller());
+  bool _isItemized = false;
+  bool _isReimbursable = true;
+  bool _isBillable = false;
+
+  // Main form controllers
+  final TextEditingController receiptDateController = TextEditingController();
+  final TextEditingController merchantController = TextEditingController();
+  final TextEditingController referenceController = TextEditingController();
+  final TextEditingController totalAmountController = TextEditingController();
+  final TextEditingController taxAmountController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController paymentMethodController = TextEditingController();
+  final TextEditingController currencyController = TextEditingController();
+  final TextEditingController cashAdvanceController = TextEditingController();
+  final TextEditingController commentsController = TextEditingController();
+  final TextEditingController totalInINRController = TextEditingController();
+
+  // Itemize sections
+  final List<ItemizeSection> itemizeSections = [];
+
+  @override
+  void initState() {
+    super.initState();
+    controller.configuration();
+    controller.selectedDate ??= DateTime.now();
+    controller.fetchPaidto();
+    controller.fetchPaidwith();
+    controller.fetchProjectName();
+    controller.fetchTaxGroup();
+    controller.fetchUnit();
+    controller.currencyDropDown();
+    controller.getUserPref();
+    controller.fetchExpenseCategory();
+    controller.configuration();
+    controller.fetchPaidwith();
+
+    controller.fetchExchangeRate();
+    expenseTrans = List<Map<String, dynamic>>.from(
+        widget.apiResponse['ExpenseTrans'] ?? []);
+    _isItemized = expenseTrans.length > 1 ||
+        (expenseTrans.isNotEmpty && expenseTrans[0]['Description'] != null);
+    _initializeFormFromApiResponse();
+  }
+
+  void _initializeFormFromApiResponse() {
+    // Parse receipt date (timestamp in milliseconds)
+    final date = DateTime.fromMillisecondsSinceEpoch(
+        widget.apiResponse['ReceiptDate'] ?? 0);
+    receiptDateController.text = DateFormat('yyyy-MM-dd').format(date);
+
+    // Map main fields
+    merchantController.text = widget.apiResponse['Merchant'] ?? '';
+    referenceController.text = widget.apiResponse['ReferenceNumber'] ?? '';
+    totalAmountController.text =
+        (widget.apiResponse['TotalAmount'] ?? 0).toString();
+    taxAmountController.text =
+        (widget.apiResponse['TaxAmount'] ?? 0).toString();
+    descriptionController.text = widget.apiResponse['Description'] ?? '';
+    paymentMethodController.text = widget.apiResponse['PaymentMethod'] ?? '';
+    currencyController.text = widget.apiResponse['Currency'] ?? '';
+    commentsController.text = widget.apiResponse['Comments'] ?? '';
+
+    // Calculate total in INR (placeholder - replace with actual calculation)
+    double total = double.tryParse(totalAmountController.text) ?? 0;
+    double rate = double.tryParse(controller.unitRate.text) ?? 1;
+    totalInINRController.text = (total * rate).toStringAsFixed(2);
+
+    // Create itemize sections from ExpenseTrans
+    for (var i = 0; i < expenseTrans.length; i++) {
+      final item = expenseTrans[i];
+      itemizeSections.add(ItemizeSection(
+        index: i + 1,
+        category: item['ExpenseCategory'] ?? '',
+        description: item['Description'] ?? '',
+        quantity: (item['Quantity'] ?? 1).toString(),
+        unitPrice: (item['UnitPriceTrans'] ?? 0).toString(),
+        uomId: item['UomId'] ?? '',
+        taxAmount: (item['TaxAmount'] ?? 0).toString(),
+        isReimbursable: item['IsReimbursable'] ?? true,
+        isBillable: item['IsBillable'] ?? false,
+        onDelete: i > 0 ? () => _removeItemizeSection(i) : null,
+      ));
+    }
+  }
+
+  void _addItemizeSection() {
+    setState(() {
+      itemizeSections.add(ItemizeSection(
+        index: itemizeSections.length + 1,
+        onDelete: itemizeSections.isNotEmpty
+            ? () => _removeItemizeSection(itemizeSections.length)
+            : null,
+      ));
+    });
+  }
+
+  void _removeItemizeSection(int index) {
+    setState(() {
+      itemizeSections.removeAt(index);
+      // Update indices
+      for (int i = 0; i < itemizeSections.length; i++) {
+        itemizeSections[i].index = i + 1;
+        itemizeSections[i].onDelete =
+            i > 0 ? () => _removeItemizeSection(i) : null;
+      }
+    });
+  }
+
+  void _submitForm() {
+    print("Form is invalid");
+    // if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState!.validate()) {
+      print("Form is valid");
+    } else {
+      print("Form is invalid");
+    }
+    // Prepare the data to submit
+    // final formData = {
+    //   'ReceiptDate': receiptDateController.text,
+    //   'Merchant': merchantController.text,
+    //   'ReferenceNumber': referenceController.text,
+    //   'TotalAmount': double.tryParse(totalAmountController.text) ?? 0,
+    //   'TaxAmount': double.tryParse(taxAmountController.text) ?? 0,
+    //   'Description': descriptionController.text,
+    //   'PaymentMethod': paymentMethodController.text,
+    //   'Currency': currencyController.text,
+    //   'Comments': commentsController.text,
+    //   'IsItemized': _isItemized,
+    //   'IsReimbursable': _isReimbursable,
+    //   'IsBillable': _isBillable,
+    //   'ExpenseTrans': _isItemized
+    //       ? itemizeSections.map((section) => section.toMap()).toList()
+    //       : null,
+    //   'ImagePath': widget.imageFile.path,
+    // };
+    // controller.imageFiles=[];
+    controller.paidAmount.text = totalAmountController.text;
+    controller.taxAmount.text = taxAmountController.text;
+    controller.descriptionController.text = descriptionController.text;
+    controller.rememberMe = _isReimbursable;
+    controller.isBillable = _isBillable;
+    controller.referenceController.text = referenceController.text;
+    controller.receiptDateController.text = receiptDateController.text;
+    if (widget.imageFile.existsSync()) {
+      controller.imageFiles.add(widget.imageFile);
+      print("✅ File added: ${widget.imageFile.path}");
+    } else {
+      print("❌ File does not exist: ${widget.imageFile.path}");
+    }
+
+    // print('Submitting form data: $formData');
+    controller.finalItems.clear();
+
+    for (final item in itemizeSections) {
+      controller.finalItems.add(ExpenseItem(
+        expenseCategoryId: item.categoryController.text.trim(),
+        quantity: double.tryParse(item.quantityController.text) ?? 0,
+        uomId: item.uomIdController.text.trim(),
+        unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
+        taxAmount: double.tryParse(item.taxAmountController.text) ?? 0,
+        taxGroup: controller.selectedTax?.taxGroupId ??
+            '', // Add this from selectedTax or item.taxGroup if available
+        lineAmountTrans: double.tryParse(item.lineAmountController.text) ?? 0,
+        lineAmountReporting:
+            double.tryParse(item.lineAmountINRController.text) ?? 0,
+        projectId: controller.selectedProject?.code ??
+            '', // Add this if you have a controller/project field
+        description: item.descriptionController.text.trim(),
+        isReimbursable: item._isReimbursable,
+        accountingDistributions: [], // Add logic if needed
+      ));
+    }
+
+    controller.saveGeneralExpense(context, true);
+    // Navigate to success screen
+  }
+
+  @override
+  void dispose() {
+    receiptDateController.dispose();
+    merchantController.dispose();
+    referenceController.dispose();
+    totalAmountController.dispose();
+    taxAmountController.dispose();
+    descriptionController.dispose();
+    paymentMethodController.dispose();
+    currencyController.dispose();
+    cashAdvanceController.dispose();
+    commentsController.dispose();
+    totalInINRController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Expense Submission'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Scanned image preview
+              _buildImagePreview(),
+              const SizedBox(height: 20),
+
+              // Common fields for both itemized and non-itemized
+              _buildCommonFieldsSection(),
+
+              // Itemized or non-itemized specific fields
+              if (_isItemized) _buildItemizedFields(),
+
+              // Toggle buttons and action buttons
+              _buildBottomSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePreview() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Image.file(
+        widget.imageFile,
+        fit: BoxFit.cover,
+        width: double.infinity,
+      ),
+    );
+  }
+
+  Widget _buildCommonFieldsSection() {
+    return _buildSection(
+      title: 'Basic Information',
+      children: [
+        _buildDateField('Receipt Date *', receiptDateController),
+
+        SearchableMultiColumnDropdownField<MerchantModel>(
+          labelText: 'Paid To *',
+          columnHeaders: const ['Merchant Name', 'Merchant ID'],
+          items: controller.paidTo,
+          selectedValue: controller.selectedPaidto,
+          searchValue: (p) => '${p.merchantNames} ${p.merchantId}',
+          displayText: (p) => p.merchantNames,
+          validator: (value) => value == null ? 'Please select Paid To' : null,
+          onChanged: (p) {
+            if (p != null) {
+              setState(() {
+                controller.selectedPaidto = p;
+                merchantController.text = p.merchantNames;
+              });
+              print("merchantController: ${merchantController.text}");
+              print("Selected Merchant: $p");
+            } else {
+              print("Null value selected");
+            }
+          },
+          rowBuilder: (p, searchQuery) {
+            Widget highlight(String text) {
+              final query = searchQuery.toLowerCase();
+              final full = text.toLowerCase();
+              final start = full.indexOf(query);
+
+              if (start == -1 || query.isEmpty) return Text(text);
+
+              final end = start + query.length;
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: text.substring(0, start),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: text.substring(start, end),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text.substring(end),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: highlight(p.merchantNames)),
+                  Expanded(child: highlight(p.merchantId)),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (!_isItemized)
+          SearchableMultiColumnDropdownField<Project>(
+            labelText: 'Project *',
+            columnHeaders: const ['Project Name', 'Project ID'],
+            items: controller.project,
+            selectedValue: controller.selectedProject,
+            searchValue: (p) => '${p.name} ${p.code}',
+            displayText: (p) => p.code,
+            validator: (value) =>
+                value == null ? 'Please select Project' : null,
+            onChanged: (p) {
+              setState(() {
+                controller.selectedProject = p;
+              });
+            },
+            controller: controller.projectDropDowncontroller,
+            rowBuilder: (p, searchQuery) {
+              Widget highlight(String text) {
+                final query = searchQuery.toLowerCase();
+                final lowerText = text.toLowerCase();
+                final matchIndex = lowerText.indexOf(query);
+
+                if (matchIndex == -1 || query.isEmpty) return Text(text);
+
+                final end = matchIndex + query.length;
+                return RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: text.substring(0, matchIndex),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                      TextSpan(
+                        text: text.substring(matchIndex, end),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: text.substring(end),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(child: highlight(p.name)),
+                    Expanded(child: highlight(p.code)),
+                  ],
+                ),
+              );
+            },
+          ),
+        if (!_isItemized) const SizedBox(height: 16),
+
+        SearchableMultiColumnDropdownField<PaymentMethodModel>(
+          // enabled: controller.isEnable.value,
+          labelText: 'Paid With',
+          columnHeaders: const ['Payment Name', 'Payment ID'],
+          items: controller.paymentMethods,
+          selectedValue: controller.selectedPaidWith,
+          searchValue: (p) => '${p.paymentMethodName} ${p.paymentMethodId}',
+          displayText: (p) => p.paymentMethodName,
+          validator: (_) => null,
+          onChanged: (p) {
+            setState(() {
+              controller.selectedPaidWith = p;
+              controller.paymentMethodeID = p!.paymentMethodId;
+            });
+          },
+          rowBuilder: (p, searchQuery) {
+            Widget highlight(String text) {
+              final query = searchQuery.toLowerCase();
+              final lowerText = text.toLowerCase();
+              final start = lowerText.indexOf(query);
+
+              if (start == -1 || query.isEmpty) return Text(text);
+
+              final end = start + query.length;
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: text.substring(0, start),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: text.substring(start, end),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text.substring(end),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: highlight(p.paymentMethodName)),
+                  Expanded(child: highlight(p.paymentMethodId)),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (!_isItemized)
+          SearchableMultiColumnDropdownField<ExpenseCategory>(
+            labelText: 'Paid For *',
+            columnHeaders: const ['Category Name', 'Category ID'],
+            items: controller.expenseCategory,
+            selectedValue: controller.selectedCategory,
+            searchValue: (p) => '${p.categoryName} ${p.categoryId}',
+            displayText: (p) => p.categoryId,
+            validator: (value) =>
+                value == null ? 'Please select Category' : null,
+            onChanged: (p) {
+              setState(() {
+                controller.selectedCategory = p;
+              });
+            },
+            controller: controller.categoryController,
+            rowBuilder: (p, searchQuery) {
+              Widget highlight(String text) {
+                final query = searchQuery.toLowerCase();
+                final lower = text.toLowerCase();
+                final matchIndex = lower.indexOf(query);
+
+                if (matchIndex == -1 || query.isEmpty) return Text(text);
+
+                final end = matchIndex + query.length;
+                return RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: text.substring(0, matchIndex),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                      TextSpan(
+                        text: text.substring(matchIndex, end),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: text.substring(end),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(child: highlight(p.categoryName)),
+                    Expanded(child: highlight(p.categoryId)),
+                  ],
+                ),
+              );
+            },
+          ),
+        if (!_isItemized) const SizedBox(height: 16),
+
+        _buildTextField(label: 'Reference *', controller: referenceController),
+        // const SizedBox(height: 16),
+        // Rest of the non-itemized fields
+
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: TextFormField(
+        //         controller: totalAmountController,
+        //         decoration: const InputDecoration(labelText: 'Paid Amount'),
+        //         keyboardType: TextInputType.number,
+        //         validator: (value) {
+        //           if (value == null || value.isEmpty) {
+        //             return 'Please enter amount';
+        //           }
+        //           if (double.tryParse(value) == null) {
+        //             return 'Please enter valid number';
+        //           }
+        //           return null;
+        //         },
+        //       ),
+        //     ),
+        //     const SizedBox(width: 16),
+        //     Expanded(
+        //       child: TextFormField(
+        //         controller: controller.unitRate,
+        //         decoration: const InputDecoration(labelText: 'Rate *'),
+        //         keyboardType: TextInputType.number,
+        //         validator: (value) {
+        //           if (value == null || value.isEmpty) {
+        //             return 'Please enter rate';
+        //           }
+        //           if (double.tryParse(value) == null) {
+        //             return 'Please enter valid number';
+        //           }
+        //           return null;
+        //         },
+        //       ),
+        //     ),
+        //     const SizedBox(width: 16),
+        //     Expanded(
+        //       child: TextFormField(
+        //         controller: totalInINRController,
+        //         decoration:
+        //             const InputDecoration(labelText: 'Total Amount In INR'),
+        //         readOnly: true,
+        //       ),
+        //     ),
+        //   ],
+        // ),
+        const SizedBox(height: 16),
+
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: totalAmountController,
+                onChanged: (_) {
+                  controller.fetchExchangeRate();
+
+                  final paid =
+                      double.tryParse(controller.paidAmount.text) ?? 0.0;
+                  final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
+
+                  final result = paid * rate;
+
+                  controller.amountINR.text = result.toStringAsFixed(2);
+                },
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Paid Amount *',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(0),
+                        bottomRight: Radius.circular(0),
+                        topLeft: Radius.circular(10),
+                        bottomLeft: Radius.circular(10)),
+                  ),
+                ),
+                onEditingComplete: () {
+                  String text = controller.paidAmount.text;
+                  double? value = double.tryParse(text);
+                  if (value != null) {
+                    controller.paidAmount.text =
+                        value.toStringAsFixed(2); // Format value
+                  }
+                  // Call once
+                },
+              ),
+            ),
+            Expanded(
+                child: Obx(() => SearchableMultiColumnDropdownField<Currency>(
+                      // enabled: controller.isEnable.value,
+                      alignLeft: -90,
+                      dropdownWidth: 280,
+                      labelText: "",
+                      columnHeaders: const ['Code', 'Name', 'Symbol'],
+                      items: controller.currencies,
+                      selectedValue: controller.selectedCurrency.value,
+                      backgroundColor: const Color.fromARGB(255, 22, 2, 92),
+                      searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
+                      displayText: (c) => c.code,
+                      inputDecoration: const InputDecoration(
+                        suffixIcon: Icon(Icons.arrow_drop_down_outlined),
+                        filled: true,
+                        fillColor: Color.fromARGB(55, 5, 23, 128),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(0),
+                            bottomLeft: Radius.circular(0),
+                            topRight: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                      ),
+                      validator: (c) =>
+                          c == null ? 'Please pick a currency' : null,
+                      onChanged: (c) {
+                        controller.selectedCurrency.value = c;
+                        controller.fetchExchangeRate();
+                      },
+                      controller: controller.currencyDropDowncontroller,
+                      rowBuilder: (c, searchQuery) {
+                        Widget highlight(String text) {
+                          final query = searchQuery.toLowerCase();
+                          final lowerText = text.toLowerCase();
+                          final matchIndex = lowerText.indexOf(query);
+
+                          if (matchIndex == -1 || query.isEmpty) {
+                            return Text(text,
+                                style: const TextStyle(color: Colors.white));
+                          }
+
+                          final end = matchIndex + query.length;
+                          return RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text.substring(0, matchIndex),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                TextSpan(
+                                  text: text.substring(matchIndex, end),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: text.substring(end),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(child: highlight(c.code)),
+                              Expanded(child: highlight(c.name)),
+                              Expanded(child: highlight(c.symbol)),
+                            ],
+                          ),
+                        );
+                      },
+                    ))),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                controller: controller.unitRate,
+                decoration: InputDecoration(
+                  labelText: 'Rate *',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                // initialValue: controller.unitRate,
+              ),
+            ),
+          ],
+        ),
+        if (!_isItemized) const SizedBox(height: 16),
+        if (!_isItemized)
+          SearchableMultiColumnDropdownField<TaxGroupModel>(
+            labelText: 'Tax Group *',
+            columnHeaders: const ['Tax Group', 'Tax ID'],
+            items: controller.taxGroup,
+            selectedValue: controller.selectedTax,
+            searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
+            displayText: (tax) => tax.taxGroupId,
+            validator: (value) =>
+                value == null ? 'Please select Tax Group ' : null,
+            onChanged: (tax) {
+              setState(() {
+                controller.selectedTax = tax;
+              });
+            },
+            rowBuilder: (tax, searchQuery) {
+              Widget highlight(String text) {
+                final lowerQuery = searchQuery.toLowerCase();
+                final lowerText = text.toLowerCase();
+                final start = lowerText.indexOf(lowerQuery);
+                if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+                final end = start + searchQuery.length;
+                return RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: text.substring(0, start),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                      TextSpan(
+                        text: text.substring(start, end),
+                        style: const TextStyle(
+                          color: Colors.black,
+                        ),
+                      ),
+                      TextSpan(
+                        text: text.substring(end),
+                        style: const TextStyle(color: Colors.black),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(child: highlight(tax.taxGroup)),
+                    Expanded(child: highlight(tax.taxGroupId)),
+                  ],
+                ),
+              );
+            },
+          ),
+        if (!_isItemized) const SizedBox(height: 16),
+        if (!_isItemized) _buildNumberField('Tax Amount', taxAmountController),
+        if (!_isItemized) const SizedBox(height: 16),
+        if (!_isItemized)
+          _buildTextField(
+            label: "Comments",
+            controller: commentsController,
+          ),
+        if (!_isItemized)
+          Align(
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isItemized = true;
+                  // Initialize with one empty item when switching to itemized
+                  if (itemizeSections.isEmpty) {
+                    _addItemizeSection();
+                  }
+                });
+              },
+              child: const Text('Add Itemize'),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildItemizedFields() {
+    return Column(
+      children: [
+        _buildSection(
+          title: 'Itemized Expenses',
+          children: [
+            ...itemizeSections
+                .map((section) => section.build(context))
+                .toList(),
+            Center(
+              child: ElevatedButton(
+                onPressed: _addItemizeSection,
+                child: const Text('Add Item'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNonItemizedFields() {
+    return _buildSection(
+      title: 'Expense Details',
+      children: [
+        // Add a button to switch to itemized mode
+
+        // Rest of the non-itemized fields
+        SearchableMultiColumnDropdownField<Project>(
+          labelText: 'Project *',
+          columnHeaders: const ['Project Name', 'Project ID'],
+          items: controller.project,
+          selectedValue: controller.selectedProject,
+          searchValue: (p) => '${p.name} ${p.code}',
+          displayText: (p) => p.code,
+          validator: (value) => value == null ? 'Please select Project' : null,
+          onChanged: (p) {
+            setState(() {
+              controller.selectedProject = p;
+            });
+          },
+          controller: controller.projectDropDowncontroller,
+          rowBuilder: (p, searchQuery) {
+            Widget highlight(String text) {
+              final query = searchQuery.toLowerCase();
+              final lowerText = text.toLowerCase();
+              final matchIndex = lowerText.indexOf(query);
+
+              if (matchIndex == -1 || query.isEmpty) return Text(text);
+
+              final end = matchIndex + query.length;
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: text.substring(0, matchIndex),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: text.substring(matchIndex, end),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text.substring(end),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: highlight(p.name)),
+                  Expanded(child: highlight(p.code)),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        SearchableMultiColumnDropdownField<ExpenseCategory>(
+          labelText: 'Paid For *',
+          columnHeaders: const ['Category Name', 'Category ID'],
+          items: controller.expenseCategory,
+          selectedValue: controller.selectedCategory,
+          searchValue: (p) => '${p.categoryName} ${p.categoryId}',
+          displayText: (p) => p.categoryId,
+          validator: (value) => value == null ? 'Please select Category' : null,
+          onChanged: (p) {
+            setState(() {
+              controller.selectedCategory = p;
+            });
+          },
+          controller: controller.categoryController,
+          rowBuilder: (p, searchQuery) {
+            Widget highlight(String text) {
+              final query = searchQuery.toLowerCase();
+              final lower = text.toLowerCase();
+              final matchIndex = lower.indexOf(query);
+
+              if (matchIndex == -1 || query.isEmpty) return Text(text);
+
+              final end = matchIndex + query.length;
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: text.substring(0, matchIndex),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: text.substring(matchIndex, end),
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text.substring(end),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: highlight(p.categoryName)),
+                  Expanded(child: highlight(p.categoryId)),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: totalAmountController,
+                decoration: const InputDecoration(labelText: 'Paid Amount'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter amount';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Please enter valid number';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextFormField(
+                controller: controller.unitRate,
+                decoration: const InputDecoration(labelText: 'Rate *'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter rate';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Please enter valid number';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextFormField(
+                controller: totalInINRController,
+                decoration:
+                    const InputDecoration(labelText: 'Total Amount In INR'),
+                readOnly: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SearchableMultiColumnDropdownField<TaxGroupModel>(
+          labelText: 'Tax Group *',
+          columnHeaders: const ['Tax Group', 'Tax ID'],
+          items: controller.taxGroup,
+          selectedValue: controller.selectedTax,
+          searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
+          displayText: (tax) => tax.taxGroupId,
+          validator: (value) =>
+              value == null ? 'Please select Tax Group ' : null,
+          onChanged: (tax) {
+            setState(() {
+              controller.selectedTax = tax;
+            });
+          },
+          rowBuilder: (tax, searchQuery) {
+            Widget highlight(String text) {
+              final lowerQuery = searchQuery.toLowerCase();
+              final lowerText = text.toLowerCase();
+              final start = lowerText.indexOf(lowerQuery);
+              if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+              final end = start + searchQuery.length;
+              return RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: text.substring(0, start),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: text.substring(start, end),
+                      style: const TextStyle(
+                        color: Colors.black,
+                      ),
+                    ),
+                    TextSpan(
+                      text: text.substring(end),
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: highlight(tax.taxGroup)),
+                  Expanded(child: highlight(tax.taxGroupId)),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildNumberField('Tax Amount', taxAmountController),
+        const SizedBox(height: 16),
+        _buildTextField(
+          label: "Comments",
+          controller: commentsController,
+        ),
+        Center(
+          child: ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _isItemized = true;
+                // Initialize with one empty item when switching to itemized
+                if (itemizeSections.isEmpty) {
+                  _addItemizeSection();
+                }
+              });
+            },
+            child: const Text('Add Item'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomSection() {
+    return Column(
+      children: [
+        // TextButton(
+        //   onPressed: () {
+        //     // Handle Account Distribution
+        //   },
+        //   child: const Text('Account Distribution'),
+        // ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  // Save action
+                  if (_formKey.currentState!.validate()) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Expense saved successfully')),
+                    );
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _submitForm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+                child: const Text('Submit'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey,
+                ),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.deepPurple,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          collapsedBackgroundColor: Colors.white,
+          textColor: Colors.deepPurple,
+          iconColor: Colors.deepPurple,
+          collapsedIconColor: Colors.grey,
+          childrenPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildNumberField(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateField(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.calendar_today),
+            onPressed: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (date != null) {
+                controller.text = DateFormat('yyyy-MM-dd').format(date);
+              }
+            },
+          ),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select $label';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+}
+
+class ItemizeSection {
+  int index;
+  final String? category;
+  final String? description;
+  final String? quantity;
+  final String? unitPrice;
+  final String? uomId;
+  final String? taxAmount;
+  final bool isReimbursable;
+  final bool isBillable;
+  VoidCallback? onDelete;
+  final controller = Get.put(Controller());
+
+  final TextEditingController categoryController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController quantityController = TextEditingController();
+  final TextEditingController unitPriceController = TextEditingController();
+  final TextEditingController uomIdController = TextEditingController();
+  final TextEditingController taxAmountController = TextEditingController();
+  final TextEditingController commentsController = TextEditingController();
+  final TextEditingController lineAmountController = TextEditingController();
+  final TextEditingController lineAmountINRController = TextEditingController();
+  bool _isReimbursable;
+  bool _isBillable;
+
+  ItemizeSection({
+    required this.index,
+    this.category,
+    this.description,
+    this.quantity,
+    this.unitPrice,
+    this.uomId,
+    this.taxAmount,
+    this.isReimbursable = true,
+    this.isBillable = false,
+    this.onDelete,
+  })  : _isReimbursable = isReimbursable,
+        _isBillable = isBillable {
+    categoryController.text = category ?? '';
+    descriptionController.text = description ?? '';
+    quantityController.text = quantity ?? '1';
+    unitPriceController.text = unitPrice ?? '0';
+    uomIdController.text = uomId ?? '';
+    taxAmountController.text = taxAmount ?? '0';
+
+    // Calculate initial line amount
+    _updateLineAmount();
+
+    // Add listeners to update line amount when quantity or unit price changes
+    quantityController.addListener(_updateLineAmount);
+    unitPriceController.addListener(_updateLineAmount);
+  }
+
+  void _updateLineAmount() {
+    double qty = double.tryParse(quantityController.text) ?? 0;
+    double unitPrice = double.tryParse(unitPriceController.text) ?? 0;
+    lineAmountController.text = (qty * unitPrice).toStringAsFixed(2);
+
+    // Calculate line amount in INR (placeholder - replace with actual rate)
+    double rate = double.tryParse(controller.unitRate.text) ?? 1;
+    lineAmountINRController.text = (qty * unitPrice * rate).toStringAsFixed(2);
+  }
+
+  void dispose() {
+    quantityController.removeListener(_updateLineAmount);
+    unitPriceController.removeListener(_updateLineAmount);
+    categoryController.dispose();
+    descriptionController.dispose();
+    quantityController.dispose();
+    unitPriceController.dispose();
+    uomIdController.dispose();
+    taxAmountController.dispose();
+    commentsController.dispose();
+    lineAmountController.dispose();
+    lineAmountINRController.dispose();
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'ExpenseCategory': categoryController.text,
+      'Description': descriptionController.text,
+      'Quantity': int.tryParse(quantityController.text) ?? 1,
+      'UnitPriceTrans': double.tryParse(unitPriceController.text) ?? 0,
+      'UomId': uomIdController.text,
+      'TaxAmount': double.tryParse(taxAmountController.text) ?? 0,
+      'Comments': commentsController.text,
+      'LineAmount': double.tryParse(lineAmountController.text) ?? 0,
+      'LineAmountINR': double.tryParse(lineAmountINRController.text) ?? 0,
+      'IsReimbursable': _isReimbursable,
+      'IsBillable': _isBillable,
+    };
+  }
+
+  Widget build(BuildContext context) {
+    return Card(
+        color: Colors.grey[10],
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            dividerColor: Colors.transparent,
+          ),
+          child: ExpansionTile(
+            title: Text('Item $index'),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    SearchableMultiColumnDropdownField<Project>(
+                      labelText: 'Project *',
+                      columnHeaders: const ['Project Name', 'Project ID'],
+                      items: controller.project,
+                      selectedValue: controller.selectedProject,
+                      searchValue: (p) => '${p.name} ${p.code}',
+                      displayText: (p) => p.code,
+                      validator: (value) =>
+                          value == null ? 'Please select Project' : null,
+                      onChanged: (p) {
+                        controller.selectedProject = p;
+                      },
+                      controller: controller.projectDropDowncontroller,
+                      rowBuilder: (p, searchQuery) {
+                        Widget highlight(String text) {
+                          final query = searchQuery.toLowerCase();
+                          final lowerText = text.toLowerCase();
+                          final matchIndex = lowerText.indexOf(query);
+
+                          if (matchIndex == -1 || query.isEmpty)
+                            return Text(text);
+
+                          final end = matchIndex + query.length;
+                          return RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text.substring(0, matchIndex),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                TextSpan(
+                                  text: text.substring(matchIndex, end),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: text.substring(end),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(child: highlight(p.name)),
+                              Expanded(child: highlight(p.code)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SearchableMultiColumnDropdownField<ExpenseCategory>(
+                      labelText: 'Paid For *',
+                      columnHeaders: const ['Category Name', 'Category ID'],
+                      items: controller.expenseCategory,
+                      selectedValue: controller.selectedCategory,
+                      searchValue: (p) => '${p.categoryName} ${p.categoryId}',
+                      displayText: (p) => p.categoryId,
+                      validator: (value) =>
+                          value == null ? 'Please select Category' : null,
+                      onChanged: (p) {
+                        controller.selectedCategory = p;
+                      },
+                      controller: categoryController,
+                      rowBuilder: (p, searchQuery) {
+                        Widget highlight(String text) {
+                          final query = searchQuery.toLowerCase();
+                          final lower = text.toLowerCase();
+                          final matchIndex = lower.indexOf(query);
+
+                          if (matchIndex == -1 || query.isEmpty)
+                            return Text(text);
+
+                          final end = matchIndex + query.length;
+                          return RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text.substring(0, matchIndex),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                TextSpan(
+                                  text: text.substring(matchIndex, end),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: text.substring(end),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(child: highlight(p.categoryName)),
+                              Expanded(child: highlight(p.categoryId)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SearchableMultiColumnDropdownField<Unit>(
+                      labelText: 'Unit *',
+                      columnHeaders: const ['Uom Id', 'Uom Name'],
+                      items: controller.unit,
+                      selectedValue: controller.selectedunit,
+                      searchValue: (tax) => '${tax.code} ${tax.name}',
+                      displayText: (tax) => tax.name,
+                      validator: (tax) =>
+                          tax == null ? 'Please select a Unit' : null,
+                      onChanged: (tax) {
+                        controller.selectedunit = tax;
+                      },
+                      controller: uomIdController,
+                      rowBuilder: (tax, searchQuery) {
+                        Widget highlight(String text) {
+                          final query = searchQuery.toLowerCase();
+                          final lower = text.toLowerCase();
+                          final matchIndex = lower.indexOf(query);
+
+                          if (matchIndex == -1 || query.isEmpty)
+                            return Text(text);
+
+                          final end = matchIndex + query.length;
+                          return RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text.substring(0, matchIndex),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                TextSpan(
+                                  text: text.substring(matchIndex, end),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: text.substring(end),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(child: highlight(tax.code)),
+                              Expanded(child: highlight(tax.name)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: commentsController,
+                      decoration: InputDecoration(
+                          labelText: "Comment",
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 20, horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          )),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: unitPriceController,
+                            decoration: InputDecoration(
+                                labelText: "Unit Amount *",
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                )),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter amount';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: quantityController,
+                            decoration: InputDecoration(
+                                labelText: "Quantity *",
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                )),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter quantity';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: lineAmountController,
+                            decoration: InputDecoration(
+                                labelText: "Line Amont",
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                )),
+                            readOnly: true,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: lineAmountINRController,
+                            decoration: InputDecoration(
+                                labelText: "Line Amount in INR",
+                                contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                )),
+                            readOnly: true,
+                          ),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SearchableMultiColumnDropdownField<TaxGroupModel>(
+                      labelText: 'Tax Group *',
+                      columnHeaders: const ['Tax Group', 'Tax ID'],
+                      items: controller.taxGroup,
+                      selectedValue: controller.selectedTax,
+                      searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
+                      displayText: (tax) => tax.taxGroupId,
+                      validator: (value) =>
+                          value == null ? 'Please select Tax Group ' : null,
+                      onChanged: (tax) {
+                        controller.selectedTax = tax;
+                      },
+                      rowBuilder: (tax, searchQuery) {
+                        Widget highlight(String text) {
+                          final lowerQuery = searchQuery.toLowerCase();
+                          final lowerText = text.toLowerCase();
+                          final start = lowerText.indexOf(lowerQuery);
+                          if (start == -1 || searchQuery.isEmpty)
+                            return Text(text);
+
+                          final end = start + searchQuery.length;
+                          return RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text.substring(0, start),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                TextSpan(
+                                  text: text.substring(start, end),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: text.substring(end),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Expanded(child: highlight(tax.taxGroup)),
+                              Expanded(child: highlight(tax.taxGroupId)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: taxAmountController,
+                      decoration: InputDecoration(
+                          labelText: "Tax Amount",
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 20, horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          )),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: const Text('Is Reimbursable'),
+                      value: _isReimbursable,
+                      onChanged: (value) {
+                        _isReimbursable = value;
+                      },
+                    ),
+                    SwitchListTile(
+                      title: const Text('Is Billable'),
+                      value: _isBillable,
+                      onChanged: (value) {
+                        _isBillable = value;
+                      },
+                    ),
+                    if (onDelete != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: onDelete,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ));
+  }
+}
+
+class SubmissionSuccessScreen extends StatelessWidget {
+  final File imageFile;
+  final Map<String, dynamic> formData;
+
+  const SubmissionSuccessScreen({
+    Key? key,
+    required this.imageFile,
+    required this.formData,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Submission Successful'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 100),
+            const SizedBox(height: 20),
+            const Text(
+              'Expense Submitted Successfully!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Return to Home'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
