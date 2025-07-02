@@ -1,3 +1,4 @@
+import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
@@ -33,7 +34,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   final TextEditingController receiptDateController = TextEditingController();
   final TextEditingController merchantController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
-  final TextEditingController totalAmountController = TextEditingController();
+  // final TextEditingController controller.paidAmount = TextEditingController();
   final TextEditingController taxAmountController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController paymentMethodController = TextEditingController();
@@ -55,18 +56,37 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     controller.fetchProjectName();
     controller.fetchTaxGroup();
     controller.fetchUnit();
-    controller.currencyDropDown();
+
     controller.getUserPref();
     controller.fetchExpenseCategory();
     controller.configuration();
     controller.fetchPaidwith();
-
-    controller.fetchExchangeRate();
+    _initializeUnits();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await controller.fetchExchangeRate();
+      controller.currencyDropDown();
+      // ✅ Only after exchange rate is fetched
+      print("Now continue with other logic...");
+    });
     expenseTrans = List<Map<String, dynamic>>.from(
         widget.apiResponse['ExpenseTrans'] ?? []);
     _isItemized = expenseTrans.length > 1 ||
         (expenseTrans.isNotEmpty && expenseTrans[0]['Description'] != null);
     _initializeFormFromApiResponse();
+  }
+
+  Future<void> _initializeUnits() async {
+    await controller.fetchUnit();
+
+    final defaultUnit = controller.unit.firstWhere(
+      (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
+      orElse: () => controller.unit.first,
+    );
+
+    setState(() {
+      controller.selectedunit ??= defaultUnit;
+      controller.selectedunit ??= defaultUnit;
+    });
   }
 
   void _initializeFormFromApiResponse() {
@@ -78,7 +98,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     // Map main fields
     merchantController.text = widget.apiResponse['Merchant'] ?? '';
     referenceController.text = widget.apiResponse['ReferenceNumber'] ?? '';
-    totalAmountController.text =
+    controller.paidAmount.text =
         (widget.apiResponse['TotalAmount'] ?? 0).toString();
     taxAmountController.text =
         (widget.apiResponse['TaxAmount'] ?? 0).toString();
@@ -88,7 +108,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     commentsController.text = widget.apiResponse['Comments'] ?? '';
 
     // Calculate total in INR (placeholder - replace with actual calculation)
-    double total = double.tryParse(totalAmountController.text) ?? 0;
+    double total = double.tryParse(controller.paidAmount.text) ?? 0;
     double rate = double.tryParse(controller.unitRate.text) ?? 1;
     totalInINRController.text = (total * rate).toStringAsFixed(2);
 
@@ -146,7 +166,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     //   'ReceiptDate': receiptDateController.text,
     //   'Merchant': merchantController.text,
     //   'ReferenceNumber': referenceController.text,
-    //   'TotalAmount': double.tryParse(totalAmountController.text) ?? 0,
+    //   'TotalAmount': double.tryParse(controller.paidAmount.text) ?? 0,
     //   'TaxAmount': double.tryParse(taxAmountController.text) ?? 0,
     //   'Description': descriptionController.text,
     //   'PaymentMethod': paymentMethodController.text,
@@ -161,7 +181,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     //   'ImagePath': widget.imageFile.path,
     // };
     // controller.imageFiles=[];
-    controller.paidAmount.text = totalAmountController.text;
+    // controller.paidAmount.text = controller.paidAmount.text;
     controller.taxAmount.text = taxAmountController.text;
     controller.descriptionController.text = descriptionController.text;
     controller.rememberMe = _isReimbursable;
@@ -174,28 +194,40 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     } else {
       print("❌ File does not exist: ${widget.imageFile.path}");
     }
-
+    List<AccountingDistribution> distributions = [];
     // print('Submitting form data: $formData');
     controller.finalItems.clear();
-
-    for (final item in itemizeSections) {
-      controller.finalItems.add(ExpenseItem(
-        expenseCategoryId: item.categoryController.text.trim(),
-        quantity: double.tryParse(item.quantityController.text) ?? 0,
-        uomId: item.uomIdController.text.trim(),
-        unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
-        taxAmount: double.tryParse(item.taxAmountController.text) ?? 0,
-        taxGroup: controller.selectedTax?.taxGroupId ??
-            '', // Add this from selectedTax or item.taxGroup if available
-        lineAmountTrans: double.tryParse(item.lineAmountController.text) ?? 0,
-        lineAmountReporting:
-            double.tryParse(item.lineAmountINRController.text) ?? 0,
-        projectId: controller.selectedProject?.code ??
-            '', // Add this if you have a controller/project field
-        description: item.descriptionController.text.trim(),
-        isReimbursable: item._isReimbursable,
-        accountingDistributions: [], // Add logic if needed
-      ));
+    for (int i = 0; i < itemizeSections.length; i++) {
+      final item = itemizeSections[i];
+      for (final split in item.split) {
+        distributions.add(
+          AccountingDistribution(
+            transAmount: split.amount ?? 0.0, // Safe null handling
+            reportAmount: split.amount ?? 0.0,
+            allocationFactor: split.percentage,
+            dimensionValueId: split.paidFor ?? '', // Safe null handling
+          ),
+        );
+      }
+      controller.finalItems.add(
+        ExpenseItem(
+          expenseCategoryId: item.categoryController.text.trim(),
+          quantity: double.tryParse(item.quantityController.text) ?? 0,
+          uomId: item.uomIdController.text.trim(),
+          unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
+          taxAmount: double.tryParse(item.taxAmountController.text) ?? 0,
+          taxGroup: controller.selectedTax?.taxGroupId ?? '',
+          lineAmountTrans: double.tryParse(item.lineAmountController.text) ?? 0,
+          lineAmountReporting:
+              double.tryParse(item.lineAmountINRController.text) ?? 0,
+          projectId: controller.projectDropDowncontroller.text,
+          description: item.descriptionController.text.trim(),
+          isReimbursable: item._isReimbursable,
+          accountingDistributions: item.accountingDistributions
+              .whereType<AccountingDistribution>()
+              .toList(), //
+        ),
+      );
     }
 
     controller.saveGeneralExpense(context, true);
@@ -207,7 +239,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     receiptDateController.dispose();
     merchantController.dispose();
     referenceController.dispose();
-    totalAmountController.dispose();
+    controller.paidAmount.dispose();
     taxAmountController.dispose();
     descriptionController.dispose();
     paymentMethodController.dispose();
@@ -265,8 +297,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   }
 
   Widget _buildCommonFieldsSection() {
-    return _buildSection(
-      title: 'Basic Information',
+    return Column(
       children: [
         _buildDateField('Receipt Date *', receiptDateController),
 
@@ -525,7 +556,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
         //   children: [
         //     Expanded(
         //       child: TextFormField(
-        //         controller: totalAmountController,
+        //         controller: controller.paidAmount,
         //         decoration: const InputDecoration(labelText: 'Paid Amount'),
         //         keyboardType: TextInputType.number,
         //         validator: (value) {
@@ -573,7 +604,8 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
           children: [
             Expanded(
               child: TextFormField(
-                controller: totalAmountController,
+                enabled: !_isItemized,
+                controller: controller.paidAmount,
                 onChanged: (_) {
                   controller.fetchExchangeRate();
 
@@ -935,7 +967,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
           children: [
             Expanded(
               child: TextFormField(
-                controller: totalAmountController,
+                controller: controller.paidAmount,
                 decoration: const InputDecoration(labelText: 'Paid Amount'),
                 keyboardType: TextInputType.number,
                 validator: (value) {
@@ -1040,20 +1072,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
           label: "Comments",
           controller: commentsController,
         ),
-        Center(
-          child: ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _isItemized = true;
-                // Initialize with one empty item when switching to itemized
-                if (itemizeSections.isEmpty) {
-                  _addItemizeSection();
-                }
-              });
-            },
-            child: const Text('Add Item'),
-          ),
-        ),
       ],
     );
   }
@@ -1119,7 +1137,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
       child: Card(
-        elevation: 2,
+        elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ExpansionTile(
           initiallyExpanded: true,
@@ -1233,6 +1251,7 @@ class ItemizeSection {
   final bool isBillable;
   VoidCallback? onDelete;
   final controller = Get.put(Controller());
+  List<AccountingSplit> split = [AccountingSplit(percentage: 100.0)];
 
   final TextEditingController categoryController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
@@ -1245,7 +1264,7 @@ class ItemizeSection {
   final TextEditingController lineAmountINRController = TextEditingController();
   bool _isReimbursable;
   bool _isBillable;
-
+  List<AccountingDistribution?> accountingDistributions = [];
   ItemizeSection({
     required this.index,
     this.category,
@@ -1257,6 +1276,7 @@ class ItemizeSection {
     this.isReimbursable = true,
     this.isBillable = false,
     this.onDelete,
+    this.accountingDistributions = const [],
   })  : _isReimbursable = isReimbursable,
         _isBillable = isBillable {
     categoryController.text = category ?? '';
@@ -1278,7 +1298,7 @@ class ItemizeSection {
     double qty = double.tryParse(quantityController.text) ?? 0;
     double unitPrice = double.tryParse(unitPriceController.text) ?? 0;
     lineAmountController.text = (qty * unitPrice).toStringAsFixed(2);
-
+    controller.paidAmount.text = (qty * unitPrice).toStringAsFixed(2);
     // Calculate line amount in INR (placeholder - replace with actual rate)
     double rate = double.tryParse(controller.unitRate.text) ?? 1;
     lineAmountINRController.text = (qty * unitPrice * rate).toStringAsFixed(2);
@@ -1343,6 +1363,7 @@ class ItemizeSection {
                           value == null ? 'Please select Project' : null,
                       onChanged: (p) {
                         controller.selectedProject = p;
+                        controller.projectDropDowncontroller.text = p!.code;
                       },
                       controller: controller.projectDropDowncontroller,
                       rowBuilder: (p, searchQuery) {
@@ -1456,11 +1477,12 @@ class ItemizeSection {
                       items: controller.unit,
                       selectedValue: controller.selectedunit,
                       searchValue: (tax) => '${tax.code} ${tax.name}',
-                      displayText: (tax) => tax.name,
+                      displayText: (tax) => tax.code,
                       validator: (tax) =>
                           tax == null ? 'Please select a Unit' : null,
                       onChanged: (tax) {
                         controller.selectedunit = tax;
+                        uomIdController.text = tax!.code;
                       },
                       controller: uomIdController,
                       rowBuilder: (tax, searchQuery) {
@@ -1680,10 +1702,55 @@ class ItemizeSection {
                     ),
                     SwitchListTile(
                       title: const Text('Is Billable'),
-                      value: _isBillable,
+                      value: !_isBillable,
                       onChanged: (value) {
                         _isBillable = value;
                       },
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            final double lineAmount =
+                                double.tryParse(lineAmountController.text) ??
+                                    0.0;
+
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(16)),
+                              ),
+                              builder: (context) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      MediaQuery.of(context).viewInsets.bottom,
+                                  left: 16,
+                                  right: 16,
+                                  top: 24,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: AccountingDistributionWidget(
+                                    index: index,
+                                    splits: split,
+                                    lineAmount: lineAmount,
+                                    onChanged: (i, updatedSplit) {
+                                      split[i] = updatedSplit;
+                                    },
+                                    onDistributionChanged: (newList) {
+                                      controller.accountingDistributions
+                                          .addAll(newList);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Account Distribution'),
+                        ),
+                      ],
                     ),
                     if (onDelete != null)
                       Align(

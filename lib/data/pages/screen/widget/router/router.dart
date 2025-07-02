@@ -1,8 +1,12 @@
 // lib/presentation/routes/app_routes.dart
 import 'dart:io';
 
+import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseForm.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseFormstart.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
 import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +33,10 @@ class AppRoutes {
   static const String expenseForm = '/expense/generalExpense/from';
   static const String getSpecificExpense = '/expense/getSpecificExpense/view';
   static const String autoScan = '/expense/outScan/view';
-
+  static const String perDiem = '/expense/PerDiem/create';
+  static const String mileageExpense = '/expense/mileageExpense/create';
+  static const String mileageExpensefirst =
+      '/expense/mileageExpense/mileageExpensefirst';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -47,6 +54,28 @@ class AppRoutes {
       case generalExpense:
         return MaterialPageRoute(
             builder: (_) => const GeneralExpenseDashboard());
+      case perDiem:
+        final args = settings.arguments;
+        if (args != null &&
+            args is Map<String, dynamic> &&
+            args.containsKey('item')) {
+          final PerdiemResponseModel item = args['item'];
+          return MaterialPageRoute(
+            builder: (_) => CreatePerDiemPage(item: item),
+          );
+        } else {
+          // fallback: navigate to CreatePerDiemPage without item or show error
+          return MaterialPageRoute(
+            builder: (_) => const CreatePerDiemPage(),
+          );
+        }
+
+      case mileageExpense:
+        return MaterialPageRoute(
+            builder: (_) => const MileageRegistrationPage());
+      case mileageExpensefirst:
+        return MaterialPageRoute(builder: (_) => const MileageFirstFrom());
+
       case autoScan:
         final args = settings.arguments as Map<String, dynamic>;
         final File imageFile = args['imageFile'];

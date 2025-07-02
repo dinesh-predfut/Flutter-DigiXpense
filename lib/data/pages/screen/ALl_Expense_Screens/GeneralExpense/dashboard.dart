@@ -21,7 +21,7 @@ class GeneralExpenseDashboard extends StatefulWidget {
       _GeneralExpenseDashboardState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
+class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> with TickerProviderStateMixin {
   final controllers = Get.put(Controller());
   bool isLoading = false;
 
@@ -49,39 +49,53 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
     final offset = renderBox.localToGlobal(Offset.zero);
 
     return OverlayEntry(
-      builder: (_) => Positioned(
-        left: offset.dx + 16,
-        top: offset.dy + 280, // adjust as needed based on layout
-        width: 120,
-        height: 300,
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+      builder: (_) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          _toggleOverlay(); // dismiss when tapping outside
+        },
+        child: Stack(
+          children: [
+            Positioned(
+              left: offset.dx + 16,
+              top: offset.dy + 280, // adjust as needed
+              width: 120,
+              height: 300,
+              child: GestureDetector(
+                // Prevent tap propagation inside the popup
+                onTap: () {},
+                child: Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: statusOptions.length,
+                      itemBuilder: (_, index) {
+                        final option = statusOptions[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(option),
+                          onTap: () {
+                            setState(() {
+                              controller.selectedStatus = option;
+                              controller.isLoadingGE1.value = false;
+                            });
+                            controller.fetchGetallGExpense();
+                            _toggleOverlay(); // close overlay
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
             ),
-            child: ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: statusOptions.length,
-              itemBuilder: (_, index) {
-                final option = statusOptions[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(option),
-                  onTap: () {
-                    setState(() {
-                      controller.selectedStatus = option;
-                      controller.isLoadingGE1.value = false;
-                    });
-                    controller.fetchGetallGExpense();
-                    _toggleOverlay(); // close overlay
-                  },
-                );
-              },
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -122,11 +136,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
     });
-
-    
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -140,8 +150,8 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
               return true; // allow back navigation
             },
             child: Scaffold(
-              backgroundColor: const Color(0xFFF7F7F7),
-              body:SafeArea(
+                backgroundColor: const Color(0xFFF7F7F7),
+                body: SafeArea(
                   child: Column(
                     children: [
                       // Top Content in scroll view
@@ -254,7 +264,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                                     // Positioned profile image and bell icon
                                   ],
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 15),
                                 SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
@@ -274,7 +284,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 15),
                                 Center(
                                   child: SizedBox(
                                     width: 300, // adjust width as needed
@@ -357,6 +367,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                             itemCount: expenses.length,
                             itemBuilder: (ctx, idx) {
                               final item = expenses[idx];
+
                               return Dismissible(
                                 key: ValueKey(item.expenseId),
                                 background: _buildSwipeActionLeft(isLoading),
@@ -365,13 +376,22 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                                   if (direction ==
                                       DismissDirection.startToEnd) {
                                     setState(() => isLoading = true);
-                                    controller.fetchSecificExpenseItem(
-                                        context, item.recId);
-                                    controller.fetchExpenseHistory(item.recId);
+
+                                    if (item.expenseType == "PerDiem") {
+                                      await controller.fetchSecificPerDiemItem(
+                                          context, item.recId);
+                                    } else if (item.expenseType ==
+                                        "General Expenses") {
+                                      await controller.fetchSecificExpenseItem(
+                                          context, item.recId);
+                                      controller
+                                          .fetchExpenseHistory(item.recId);
+                                    }
+
                                     setState(() => isLoading = false);
                                     return false;
                                   } else {
-                                    final ok = await showDialog<bool>(
+                                    final shouldDelete = await showDialog<bool>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         title: const Text('Delete?'),
@@ -386,15 +406,27 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                                           ElevatedButton(
                                             onPressed: () =>
                                                 Navigator.of(ctx).pop(true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.red,
+                                            ),
                                             child: const Text('Delete'),
                                           ),
                                         ],
                                       ),
                                     );
+
+                                    if (shouldDelete == true) {
+                                      setState(() => isLoading = true);
+                                      await controller
+                                          .deleteExpense(item.recId);
+                                      setState(() => isLoading = false);
+                                      return true; // This will remove the item from UI
+                                    }
+
                                     return false;
                                   }
                                 },
-                                child: _buildCard(item),
+                                child: _buildCard(item, context),
                               );
                             },
                           );
@@ -402,9 +434,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard> {
                       )
                     ],
                   ),
-                )
-         
-            ));
+                )));
   }
 
   Widget circula() {
@@ -783,61 +813,85 @@ Widget _buildSwipeActionRight() {
   );
 }
 
-Widget _buildCard(GExpense item) {
-  print("itemxxx${item.expenseType}");
-  return Card(
-    color: const Color.fromARGB(218, 245, 244, 244),
-    shadowColor: const Color.fromARGB(255, 82, 78, 78),
-    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    child: ListTile(
-      // leading: ClipRRect(
-      //   borderRadius: BorderRadius.circular(8),
-      //   child: Image.network(item.,
-      //       width: 56, height: 56, fit: BoxFit.cover),
-      // ),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(item.expenseId,
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(
-            item.receiptDate != null
-                ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
-                : 'No date',
-            style: const TextStyle(
-                fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
-          ),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            item.expenseCategoryId,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 0, 110, 255),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(item.approvalStatus,
-                    style: const TextStyle(color: Colors.white, fontSize: 12)),
-              ),
-              Text('\$${item.totalAmountReporting}',
+Widget _buildCard(GExpense item, BuildContext context) {
+  print("itemxxx ${item.expenseType}");
+  final controller = Get.put(Controller());
+  return GestureDetector(
+    onTap: () {
+      if (item.expenseType == "PerDiem") {
+        controller.fetchSecificPerDiemItem(context, item.recId);
+      } else if (item.expenseType == "General Expenses") {
+        print("Expenses${item.recId}");
+        controller.fetchSecificExpenseItem(context, item.recId);
+        controller.fetchExpenseHistory(item.recId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
+        );
+      }
+    },
+    child: Card(
+      color: const Color.fromARGB(218, 245, 244, 244),
+      shadowColor: const Color.fromARGB(255, 82, 78, 78),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: ID + Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(item.expenseId,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  item.receiptDate != null
+                      ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                      : 'No date',
                   style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue)),
-            ],
-          )
-        ],
+                      fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 4),
+
+            // Category
+            Text(item.expenseCategoryId,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+
+            const SizedBox(height: 6),
+
+            // Status and Amount
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 0, 110, 255),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    item.approvalStatus,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+                Text(
+                  '\$${item.totalAmountReporting}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
   );

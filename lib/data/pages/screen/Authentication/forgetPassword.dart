@@ -17,7 +17,7 @@ class _ForgetPasswordState extends State<ForgetPassword> {
 
   void handlesend() async {
     setState(() {
-      controller.forgotisLoading = true;
+      controller.forgotisLoading.value = true;
     });
     controller.sendForgetPassword(context);
   }
@@ -91,14 +91,17 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity, // Make button full width
-                      child: GradientButton(
-                        text: "Send Link",
-                        isLoading: controller.forgotisLoading,
-                        onPressed: handlesend,
-                      ),
-                    ),
+                    Obx(() {
+                      return SizedBox(
+                        width: double.infinity, // Make button full width
+                        child: GradientButton(
+                          text: "Send Link",
+                          isLoading: controller.forgotisLoading.value,
+                          onPressed: handlesend,
+                        ),
+                      );
+                    }),
+                   
                     const SizedBox(height: 30),
                     Row(
                         mainAxisAlignment:MainAxisAlignment.center ,

@@ -113,14 +113,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity, // Make button full width
-                      child: GradientButton(
-                        text: "Log in",
-                        isLoading: controller.isLoading.value,
-                        onPressed: handleLogin,
-                      ),
-                    ),
+                    Obx(() {
+                      return SizedBox(
+                        width: double.infinity, // Make button full width
+                        child: GradientButton(
+                          text: "Log in",
+                          isLoading: controller.isLoading.value,
+                          onPressed: handleLogin,
+                        ),
+                      );
+                    }),
                     const SizedBox(height: 16),
                     const Row(
                       children: [

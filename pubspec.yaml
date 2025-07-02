@@ -60,6 +60,11 @@ dependencies:
   image_cropper: ^6.0.0
   libphonenumber: ^2.0.2
   flutter_multi_formatter: ^2.13.7
+  uuid: ^4.5.1
+  font_awesome_flutter: ^10.8.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  geocoding: ^3.0.0
 url_launcher: ^6.2.5
 file_picker: ^5.3.3 
 

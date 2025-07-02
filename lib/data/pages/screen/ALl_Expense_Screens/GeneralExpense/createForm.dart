@@ -61,7 +61,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   @override
   void initState() {
     super.initState();
-
+    controller.clearFormFields();
     controller.configuration();
     controller.selectedDate ??= DateTime.now();
     controller.fetchPaidto();
@@ -74,7 +74,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     controller.fetchExpenseCategory();
     controller.configuration();
     controller.fetchPaidwith();
-    controller.imageFiles.value = [];
+
     _initializeUnits();
     itemizeControllers.add(Controller());
     controller.fetchExchangeRate();
@@ -342,8 +342,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {

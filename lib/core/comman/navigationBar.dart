@@ -87,8 +87,8 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
 
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
-     // ignore: use_build_context_synchronously
-     await controller.sendUploadedFileToServer(context, croppedImage);
+      // ignore: use_build_context_synchronously
+      await controller.sendUploadedFileToServer(context, croppedImage);
 
       // Navigator.pushNamed(
       //   context,
@@ -247,7 +247,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      // Action 2
+                      Navigator.pushNamed(context, AppRoutes.perDiem);
                     },
                     child: Padding(
                       padding: const EdgeInsets.only(
@@ -271,7 +271,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      // Action 4
+                      Navigator.pushNamed(context, AppRoutes.mileageExpensefirst);
                     },
                     child: Image.asset("assets/vodometer.png"),
                   ),

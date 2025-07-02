@@ -18,6 +18,7 @@ import 'package:digi_xpense/core/constant/Parames/params.dart';
 import 'package:digi_xpense/core/constant/url.dart';
 import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart';
 import 'dart:io';
+
 // ignore: duplicate_import
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:libphonenumber/libphonenumber.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 class Controller extends GetxController {
   final TextEditingController emailController = TextEditingController();
@@ -78,6 +80,7 @@ class Controller extends GetxController {
   final TextEditingController paidWithController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
   final TextEditingController ProjectIdController = TextEditingController();
+  final TextEditingController locationController = TextEditingController();
   final TextEditingController statePresentTextController =
       TextEditingController();
   final TextEditingController stateconsTextController = TextEditingController();
@@ -98,10 +101,21 @@ class Controller extends GetxController {
   final TextEditingController projectDropDowncontroller =
       TextEditingController();
 
+// Per Diem
+  final TextEditingController fromDateController = TextEditingController();
+  final TextEditingController toDateController = TextEditingController();
+  // final TextEditingController locationController = TextEditingController();
+  final TextEditingController daysController = TextEditingController();
+  final TextEditingController perDiemController = TextEditingController();
+  final TextEditingController amountInController = TextEditingController();
+  final TextEditingController purposeController = TextEditingController();
+  late String digiSessionId;
+
   @override
   void onInit() {
     super.onInit();
     loadSavedCredentials();
+    fetchNotifications();
   }
 
   String selectedStatus = "Un Reported";
@@ -109,20 +123,26 @@ class Controller extends GetxController {
   var phoneNumber = ''.obs;
   List<GESpeficExpense> getSpecificListGExpense = [];
   RxList<GESpeficExpense> specificExpenseList = <GESpeficExpense>[].obs;
+  RxList<PerdiemResponseModel> specificPerdiemList =
+      <PerdiemResponseModel>[].obs;
+  Rx<PerDiemResponseModel?> perdiemResponse = Rx<PerDiemResponseModel?>(null);
   // List<ExpenseItem> expenseItems = [];
   List<ExpenseItem> finalItems = [];
-  // List<GExpense> getAllListGExpense = [];
+  List<AccountingDistribution?> accountingDistributions = [];
   RxList<GExpense> getAllListGExpense = <GExpense>[].obs;
   String maritalStatus = 'Single';
   var selectedCurrency = Rxn<Currency>();
   late double exchangeRate;
   bool isManualEntry = false;
   RxBool isEnable = false.obs;
+  RxBool isEnablePerDiem = false.obs;
   RxBool paidAmontIsEditable = true.obs;
+  RxBool perDiem = true.obs;
   MerchantModel? selectedPaidto;
   Language? selectedLanguage;
   Project? selectedProject;
   Project? selectedProjectForView;
+  LocationModel? selectedLocation;
   ExpenseCategory? selectedCategory;
   TaxGroupModel? selectedTax;
   PaymentMethodModel? selectedPaidWith;
@@ -155,10 +175,13 @@ class Controller extends GetxController {
   String selectedContectCountryName = '';
   String selectedContectCountryCode = '';
   String selectedContectStateName = '';
-
+  late int setTheAllcationAmount = 0;
+  late int editTotalAmount;
+  List<AllocationLine> allocationLines = [];
+  List<AccountingSplit> split = [AccountingSplit(percentage: 100.0)];
   var isSameAsPermanent = false;
   MapEntry<String, String>? selectedFormat;
-
+  var notifications = <NotificationItem>[].obs;
   final ImagePicker _picker = ImagePicker();
   bool rememberMe = false;
   bool passwordVisible = false;
@@ -169,9 +192,10 @@ class Controller extends GetxController {
   final RxBool isLoadingGE1 = false.obs;
   final RxBool isLoadingGE2 = false.obs;
   final RxBool isUploading = false.obs;
+  final RxBool forgotisLoading = false.obs;
   var buttonLoader = false.obs;
   RxBool isImageLoading = false.obs;
-  bool forgotisLoading = false;
+  // bool forgotisLoading = false.obs;;
   Rx<UserProfile> signInModel = UserProfile().obs;
   // File? profileImage;
   Rxn<File> profileImage = Rxn<File>();
@@ -184,7 +208,9 @@ class Controller extends GetxController {
   var paidTo = <MerchantModel>[].obs;
   var project = <Project>[].obs;
   var taxGroup = <TaxGroupModel>[].obs;
+  var location = <LocationModel>[].obs;
   var unit = <Unit>[].obs;
+  List<Map<String, dynamic>> files = [];
   Rx<Locales> selectedLocale = Locales(code: '', name: '').obs;
   Rx<Payment> selectedPayment = Payment(code: '', name: '').obs;
   Rx<Timezone> selectedTimezone = Timezone(code: '', name: '', id: '').obs;
@@ -192,6 +218,7 @@ class Controller extends GetxController {
   List<Language> language = [];
   List<Timezone> timezone = [];
   List<Locales> localeData = [];
+  List<LocationModel> locationDropDown = [];
   List<String> languageList = [];
   List<String> countryNames = [];
   List<String> stateList = [];
@@ -286,6 +313,7 @@ class Controller extends GetxController {
         // ignore: use_build_context_synchronously
       } else {
         isLoading.value = false;
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         // Show error toast
         Fluttertoast.showToast(
           msg: decodeData["message"] ?? "Login failed. Please try again.",
@@ -298,6 +326,8 @@ class Controller extends GetxController {
       }
     } catch (e) {
       isLoading.value = false;
+      // ignore: use_build_context_synchronously
+      Navigator.pushNamed(context, AppRoutes.dashboard_Main);
       // Show exception toast
       Fluttertoast.showToast(
         msg: "An error occurred: $e",
@@ -308,21 +338,33 @@ class Controller extends GetxController {
         fontSize: 16.0,
       );
       print("An error occurred: $e");
-
+      isLoading.value = false;
       rethrow;
     }
   }
 
   void clearFormFields() {
-    selectedDate = null;
+    firstNameController.clear();
     manualPaidToController.clear();
-    selectedPaidto = null;
-    referenceID.clear();
-    paidAmontIsEditable.value = true;
-    imageFiles.clear(); // ✅ CORRECT
-    amountINR.clear();
-    paidWith = "";
     paidAmount.clear();
+    amountINR.clear();
+    unitRate.clear();
+    descriptionController.clear();
+    taxAmount.clear();
+    selectedPaidWith = null;
+    selectedPaidto = null;
+    selectedunit = null;
+    selectedCurrency.value = null;
+    selectedTax = null;
+    selectedProject = null;
+    selectedDate = DateTime.now();
+    imageFiles.clear();
+    finalItems.clear();
+    files.clear();
+    isManualEntry = false;
+    isUploading.value = false;
+    isGESubmitBTNLoading.value = false;
+    paymentMethodeID = "";
   }
 
   ExpenseItem toModel() {
@@ -362,6 +404,26 @@ class Controller extends GetxController {
         )
       ],
     );
+  }
+
+  Future<List<PaidForModel>> fetchPaidForList() async {
+    final url = Uri.parse(Urls.dimensionValueDropDown);
+
+    final response = await http.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        'DigiSessionID': digiSessionId,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((item) => PaidForModel.fromJson(item)).toList();
+    } else {
+      throw Exception('Failed to fetch Paid For list: ${response.statusCode}');
+    }
   }
 
   Future<void> sendUploadedFileToServer(BuildContext context, File file) async {
@@ -414,13 +476,17 @@ class Controller extends GetxController {
         );
       } else {
         print('Failed: ${response.statusCode} => ${response.body}');
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: ${response.statusCode}')),
+          SnackBar(
+              content: Text(
+                  'Upload failed:${response.statusCode} => ${response.body}')),
         );
       }
     } catch (e) {
-      Navigator.of(context).pop(); // Ensure loader closes on error too
+      // Navigator.of(context).pop(); // Ensure loader closes on error too
       print("Exception: $e");
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -560,7 +626,7 @@ class Controller extends GetxController {
     try {
       print("forgotemailController text: ${forgotemailController.text}");
 
-      forgotisLoading = true;
+      forgotisLoading.value = true;
 
       final response = await http.post(
           Uri.parse('${Urls.forgetPassword}${forgotemailController.text}'),
@@ -571,7 +637,7 @@ class Controller extends GetxController {
       final decodeData = jsonDecode(response.body);
 
       if (response.statusCode == 280) {
-        forgotisLoading = false;
+        forgotisLoading.value = false;
 
         Fluttertoast.showToast(
           msg: "Reset Password Link Sended Your Mail ID :${{
@@ -587,7 +653,7 @@ class Controller extends GetxController {
         // You can navigate here if needed
         // Navigator.push(...);
       } else {
-        forgotisLoading = false;
+        forgotisLoading.value = false;
 
         Fluttertoast.showToast(
           msg: decodeData["message"] ?? "Login failed. Please try again.",
@@ -599,7 +665,7 @@ class Controller extends GetxController {
         );
       }
     } catch (e) {
-      forgotisLoading = false;
+      forgotisLoading.value = false;
 
       Fluttertoast.showToast(
         msg: "An error occurred: $e",
@@ -858,7 +924,7 @@ class Controller extends GetxController {
     isLoading.value = true;
 
     try {
-      final String transactionDate = '1749580200000';
+      const String transactionDate = '1749580200000';
 
       // Safely construct query parameters
       final queryParams = <String, String>{
@@ -1451,6 +1517,38 @@ class Controller extends GetxController {
     }
   }
 
+  Future<List<LocationModel>> fetchLocation() async {
+    final url = Uri.parse(Urls.locationDropDown);
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        isLoading.value = true;
+        final data = jsonDecode(response.body);
+
+        locationDropDown = List<LocationModel>.from(
+            data.map((item) => LocationModel.fromJson(item)));
+        location.value = locationDropDown;
+        isLoading.value = false;
+        return locationDropDown;
+      } else {
+        print('Failed to load states. Status code: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching states: $e');
+      return [];
+    }
+  }
+
   Future<List<Project>> fetchProjectName() async {
     isLoadingGE1.value = true;
     final url = Uri.parse(
@@ -1751,11 +1849,11 @@ class Controller extends GetxController {
     }
   }
 
-  Future<List<ExpenseHistory>> fetchExpenseHistory([int? recId]) async {
-    const String token = 'your_token_here';
+  Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
+    ;
     final response = await http.get(
       Uri.parse(
-          '${Urls.getTrackingDetails}RefRecId__eq%3D2079806&page=1&sort_by=ModifiedBy&sort_order=desc'),
+          '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc'),
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
         'Content-Type': 'application/json',
@@ -1824,7 +1922,6 @@ class Controller extends GetxController {
   Future<List<Map<String, dynamic>>> buildDocumentAttachment(
       List<File> imageFiles) async {
     isUploading.value = true;
-    List<Map<String, dynamic>> files = [];
 
     try {
       for (int i = 0; i < imageFiles.length; i++) {
@@ -1857,6 +1954,7 @@ class Controller extends GetxController {
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
     if (!bool) {
       isUploading.value = true;
     } else {
@@ -1887,13 +1985,14 @@ class Controller extends GetxController {
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+      "ExpenseCategoryId": "Bus",
       if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       if (!hasValidUnit) 'ProjectId': selectedProject?.code ?? '',
       if (!hasValidUnit) 'Description': descriptionController.text,
       if (!hasValidUnit) "TaxGroup": selectedTax?.taxGroupId ?? '',
       if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
-      // 'AccountingDistributions':
-      //     accountingDistributions.map((e) => e.toJson()).toList(),
+      'AccountingDistributions':
+          accountingDistributions.map((e) => e?.toJson()).toList(),
       "DocumentAttachment": {
         "File": attachmentPayload,
       },
@@ -2076,9 +2175,8 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final String baseUrl = '${Urls.getallGeneralExpense}${Params.userId}';
-    final String commonParams = '&page=1&sort_order=asc';
+    const String commonParams = '&page=1&sort_order=asc';
 
-    // 🔁 Status logic mapping
     String? apiStatus;
     switch (selectedStatus) {
       case 'Un Reported':
@@ -2135,4 +2233,338 @@ class Controller extends GetxController {
       return [];
     }
   }
+
+  Future<List<PaymentMethodModel>> fetchPerDiemPrefillDatas() async {
+    isLoadingGE1.value = true;
+    final url = Uri.parse(Urls.getPaidwithDropdown);
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        isLoadingGE1.value = false;
+
+        paymentMethods.value = (data as List)
+            .map((item) => PaymentMethodModel.fromJson(item))
+            .toList();
+
+        print(
+            "paymentMethods: ${paymentMethods.map((e) => e.paymentMethodName).toList()}");
+
+        return paymentMethods;
+      } else {
+        print(
+            'Failed to load payment methods. Status code: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+      return [];
+    }
+  }
+
+  int parseDateToEpoch(String formattedDate) {
+    final date = DateFormat('dd-MMM-yyyy').parse(formattedDate);
+    return date.millisecondsSinceEpoch;
+  }
+
+  Future<List<AllocationLine>> fetchPerDiemRates() async {
+    isLoadingGE1.value = true;
+
+    try {
+      final fromDate = parseDateToEpoch(fromDateController.text);
+      final toDate = parseDateToEpoch(toDateController.text);
+      final location = selectedLocation?.location ?? '';
+      final employeeId = Params.employeeId;
+      final token = Params.userToken ?? '';
+
+      final url = Uri.parse(
+        '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=$employeeId',
+      );
+
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      final decodeData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final parsedResponse = PerDiemResponseModel.fromJson(body);
+        isLoadingGE1.value = false;
+
+        perdiemResponse.value = parsedResponse;
+        perDiem.value = true;
+        allocationLines = parsedResponse.allocationLines ?? [];
+        print("allocationLinesData$allocationLines");
+        daysController.text = parsedResponse.totalDays.toString();
+        amountInController.text =
+            parsedResponse.totalAmountTrans.toStringAsFixed(2);
+        perDiemController.text = parsedResponse.perdiemId.toString();
+
+        return allocationLines;
+      } else if (response.statusCode == 404) {
+        Fluttertoast.showToast(
+          msg: decodeData["detail"]["message"] ?? "Per Diem data not found",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return [];
+      } else {
+        return [];
+      }
+    } catch (e) {
+      return [];
+    } finally {
+      isLoadingGE1.value = false;
+    }
+  }
+
+  void clearFormFieldsPerdiem() {
+    // Clear text controllers
+    setTheAllcationAmount = 0;
+    amountInController.clear();
+    firstNameController.clear();
+    purposeController.clear();
+    fromDateController.clear();
+    toDateController.clear();
+    isManualEntry = false;
+    // Reset dropdowns or selections
+    selectedProject = null;
+    selectedLocation = null;
+    split.clear();
+    // Reset allocation and accounting distribution data
+    allocationLines = [];
+    accountingDistributions = [];
+
+    // Optional: Reset any state-managed variables like totals
+    // totalAmount.value = 0.0; // Example, if using GetX
+    // isLoading.value = false;
+
+    print("All form fields cleared.");
+  }
+
+  Future<void> deleteExpense(int recId) async {
+    final String token = Params.userToken ?? ''; // get your bearer token safely
+
+    final Uri url = Uri.parse(
+      '${Urls.deleteExpense}$recId&screen_name=MyExpense',
+    );
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        fetchGetallGExpense();
+        print('✅ Expense deleted successfully');
+      } else {
+        print('❌ Failed to delete expense: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ Error deleting expense: $e');
+    }
+  }
+
+  Future<void> updatePerDiemDetails(
+      context, bool bool, bool resubmit, String? recId) async {
+    // buttonLoader.value = true;
+    // isUploading.value = true;
+    print(recId);
+    Map<String, dynamic> buildPayload() {
+      return {
+        "ExpenseId": recId ?? '',
+        "ProjectId": selectedProject!.code,
+        "TotalAmountTrans": amountInController.text,
+        "TotalAmountReporting": amountInController.text,
+        "EmployeeId": Params.employeeId,
+        "EmployeeName": firstNameController.text,
+        "ReceiptDate": parseDateToEpoch(fromDateController.text),
+        "Currency": "INR",
+        "Description": purposeController.text,
+        "Source": "Web",
+        "ExchRate": 1,
+        "ExpenseType": "PerDiem",
+        "Location": selectedLocation!.location,
+        "CashAdvReqId": "",
+        "FromDate": parseDateToEpoch(fromDateController.text),
+        "ToDate": parseDateToEpoch(toDateController.text),
+        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+        "AccountingDistributions":
+            accountingDistributions.map((e) => e?.toJson()).toList(),
+        "AllocationLines": allocationLines.map((e) => e.toJson()).toList(),
+      };
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${Urls.perDiemRegistration}&Submit=$bool&Resubmit=$resubmit&screen_name=PerDiemRegistration'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(buildPayload()),
+      );
+
+      if (response.statusCode == 201) {
+        buttonLoader.value = false;
+        isUploading.value = false;
+        clearFormFieldsPerdiem();
+        fetchPerDiemRates();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        final responseData = jsonDecode(response.body);
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 88, 1, 250),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        // print("✅ ");
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error:  ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 250, 1, 1),
+          textColor: Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌ Error: ${response.body}");
+        buttonLoader.value = false;
+        isUploading.value = false;
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+      buttonLoader.value = false;
+    }
+  }
+
+  Future<List<PerdiemResponseModel>> fetchSecificPerDiemItem(
+      context, int recId) async {
+    isLoadingGE1.value = true;
+    final url = Uri.parse('${Urls.getSpecificPerdiemExpense}$recId');
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        specificPerdiemList.value = (data as List)
+            .map((item) => PerdiemResponseModel.fromJson(item))
+            .toList();
+
+        // for (var expense in specificPerdiemList) {
+        //   expenseIdController.text = expense.expenseId;
+        //   receiptDateController.text =
+        //       DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+        // }
+        // print("Perdiem ID: ${expenseIdController.text}");
+        isLoadingGE1.value = false;
+        Navigator.pushNamed(
+          context,
+          AppRoutes.perDiem,
+          arguments: {
+            'item': specificPerdiemList[0],
+          },
+        );
+        return specificPerdiemList;
+      } else {
+        isLoadingGE1.value = false;
+        print(
+            'Failed to load payment methods. Status code: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+      isLoadingGE1.value = false;
+
+      return [];
+    }
+  }
+
+  void fetchNotifications() async {
+    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    notifications.value = [
+      NotificationItem(
+        id: 'EMP002',
+        title:
+            'You Request ID:EMP002 for Mileage as Approved by Dodi Taison Rs.32.00',
+        time: '11.00 AM',
+        imageUrl: 'https://i.pravatar.cc/100?img=1',
+        isRead: false,
+      ),
+      NotificationItem(
+        id: 'HU002',
+        title:
+            'You Request ID:HU002 for Per Diem as Approved by Dodi Taison Rs.232.00',
+        time: '10.50 AM',
+        imageUrl: 'https://i.pravatar.cc/100?img=2',
+        isRead: false,
+      ),
+      NotificationItem(
+        id: 'HU0022',
+        title:
+            'You Request ID:HU0022 for Per Diem as Approved by Dodi Taison Rs.232.00',
+        time: '10.32 AM',
+        imageUrl: 'https://i.pravatar.cc/100?img=3',
+        isRead: true,
+      ),
+      NotificationItem(
+        id: 'HU0023',
+        title:
+            'You Request ID:HU002 for Per Diem as Rejected by Dodi Taison Rs.232.00',
+        time: '08.40 AM',
+        imageUrl: 'https://i.pravatar.cc/100?img=4',
+        isRead: true,
+      ),
+    ];
+  }
+
+  void markAsRead(NotificationItem item) {
+    final index = notifications.indexWhere((e) => e.id == item.id);
+    if (index != -1) {
+      notifications[index] = NotificationItem(
+        id: item.id,
+        title: item.title,
+        time: item.time,
+        imageUrl: item.imageUrl,
+        isRead: true,
+      );
+    }
+  }
+
+  List<NotificationItem> get unreadNotifications =>
+      notifications.where((n) => !n.isRead).toList();
 }

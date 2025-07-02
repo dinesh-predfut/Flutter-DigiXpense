@@ -55,10 +55,28 @@ class Urls {
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D";
   static const getSpecificGeneralExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+  static const getSpecificPerdiemExpense =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
   static const getExpensImage =
       "$baseURL/api/v1/expenseregistration/expenseregistration/getdocumentattachments?RecId=";
   static const autoScanExtract =
       "$baseURL/api/v1/expensemgmt/expenseocr/extract";
+  static const dimensionValueDropDown =
+      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=asc";
+  static const locationDropDown =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/locations?page=1&sort_order=asc";
+  static const perDiemPrefillValue =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemrateid?Fromdate=";
+  static const perDiemAllocation =
+      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion/";
+  static const perDiemFetchRate =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemrateid?Fromdate=";
+  static const perDiemRegistration =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/PerdiumRegistration?functionalentity=ExpenseRequisition";
+  static const updatetheAllocation =
+      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion/";
+  static const deleteExpense=
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenses?RecId=";
 }

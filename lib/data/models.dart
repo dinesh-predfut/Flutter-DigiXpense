@@ -522,24 +522,334 @@ class ExpenseCategory {
 }
 
 class AccountingDistribution {
-  final double transAmount;
-  final double reportAmount;
-  final double allocationFactor;
-  final String dimensionValueId;
+  double transAmount;
+  double reportAmount;
+  String? dimensionValueId;
+  double allocationFactor;
+  String? currency;
 
   AccountingDistribution({
     required this.transAmount,
     required this.reportAmount,
+    this.dimensionValueId,
     required this.allocationFactor,
-    required this.dimensionValueId,
+    this.currency,
   });
 
-  Map<String, dynamic> toJson() => {
-        'TransAmount': transAmount,
-        'ReportAmount': reportAmount,
-        'AllocationFactor': allocationFactor,
-        'DimensionValueId': dimensionValueId,
-      };
+  factory AccountingDistribution.fromJson(Map<String, dynamic> json) {
+    return AccountingDistribution(
+      transAmount: (json['TransAmount'] ?? 0).toDouble(),
+      reportAmount: (json['ReportAmount'] ?? 0).toDouble(),
+      dimensionValueId: json['DimensionValueId'],
+      allocationFactor: (json['AllocationFactor'] ?? 0).toDouble(),
+      currency: json['Currency'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'TransAmount': transAmount,
+      'ReportAmount': reportAmount,
+      'DimensionValueId': dimensionValueId,
+      'AllocationFactor': allocationFactor,
+      'Currency': currency,
+    };
+  }
+
+  AccountingDistribution copy() {
+    return AccountingDistribution(
+      transAmount: transAmount,
+      reportAmount: reportAmount,
+      dimensionValueId: dimensionValueId,
+      allocationFactor: allocationFactor,
+      currency: currency,
+    );
+  }
+}
+
+
+class PerDiemResponseModel {
+  final String perdiemId;
+  final String currencyCode;
+  final int totalDays;
+  final double totalAmountTrans;
+  final List<AllocationLine> allocationLines;
+
+  PerDiemResponseModel({
+    required this.perdiemId,
+    required this.currencyCode,
+    required this.totalDays,
+    required this.totalAmountTrans,
+    required this.allocationLines,
+  });
+
+  factory PerDiemResponseModel.fromJson(Map<String, dynamic> json) {
+    final lines = (json['AllocationLines'] as List? ?? [])
+        .map((e) => AllocationLine.fromJson(e))
+        .toList();
+
+    return PerDiemResponseModel(
+      perdiemId: json['PerdiemId'] ?? '',
+      currencyCode: json['Currencycode'] ?? '',
+      totalDays: json['Totaldays'] ?? 0,
+      totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
+      allocationLines: lines,
+    );
+  }
+}
+
+class AllocationLine {
+  final String perDiemId;
+  final String expenseCategoryId;
+  double unitPriceTrans;
+  double quantity;
+  final int effectiveFrom;
+  final int effectiveTo;
+  double perDayRate;
+  double parsed;
+  AllocationLine({
+    required this.perDiemId,
+    required this.expenseCategoryId,
+    required this.unitPriceTrans,
+    required this.quantity,
+    required this.effectiveFrom,
+    required this.effectiveTo,
+    this.perDayRate = 0.0,
+    this.parsed = 0.0,
+  });
+
+  /// Convert from JSON
+  factory AllocationLine.fromJson(Map<String, dynamic> json) {
+    return AllocationLine(
+      perDiemId: json['PerDiemId'] ?? '',
+      expenseCategoryId: json['ExpenseCategoryId'] ?? '',
+      unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
+      quantity: (json['Quantity'] ?? 0).toDouble(),
+      effectiveFrom: json['EffectiveFrom'] ?? 0,
+      effectiveTo: json['EffectiveTo'] ?? 0,
+    );
+  }
+
+  /// Derived total days from quantity
+  int get totalDays => quantity.toInt();
+
+  /// Derived line amount
+  double get lineAmountTrans => quantity * unitPriceTrans;
+
+  /// Convert to JSON for API submission
+  Map<String, dynamic> toJson() {
+    return {
+      "PerDiemId": perDiemId,
+      "ExpenseCategoryId": expenseCategoryId,
+      "UnitPriceTrans": unitPriceTrans,
+      "Quantity": quantity,
+      "EffectiveFrom": effectiveFrom,
+      "EffectiveTo": effectiveTo,
+      "LineAmountTrans": lineAmountTrans,
+      "LineAmountReporting": lineAmountTrans,
+    };
+  }
+}
+
+class NotificationItem {
+  final String id;
+  final String title;
+  final String time;
+  final String imageUrl;
+  final bool isRead;
+
+  NotificationItem({
+    required this.id,
+    required this.title,
+    required this.time,
+    required this.imageUrl,
+    this.isRead = false,
+  });
+
+  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    return NotificationItem(
+      id: json['id'],
+      title: json['title'],
+      time: json['time'],
+      imageUrl: json['imageUrl'],
+      isRead: json['isRead'] ?? false,
+    );
+  }
+}
+
+class PerdiemResponseModel {
+  final String expenseId;
+  final String cashAdvReqId;
+  final String projectId;
+  final double totalAmountTrans;
+  final double totalAmountReporting;
+  final String? merchantName;
+  final String employeeId;
+  final String employeeName;
+  final int receiptDate;
+  final String approvalStatus;
+  final String currency;
+  final String? referenceNumber;
+  final String source;
+  final double exchRate;
+  final bool isBillable;
+  final bool isPreauthorised;
+  final String expenseType;
+  final bool isReimbursable;
+  final String? country;
+  final int recId;
+  final String expenseStatus;
+  final String description;
+  final String location;
+  final int fromDate;
+  final int toDate;
+  final int noOfDays;
+  final List<dynamic> expenseHeaderCustomFieldValues;
+  final List<dynamic> expenseHeaderExpensecategorycustomfieldvalues;
+  late List<AccountingDistribution> accountingDistributions;
+  final List<AllocationLine> allocationLines;
+
+  PerdiemResponseModel({
+    required this.expenseId,
+    required this.cashAdvReqId,
+    required this.projectId,
+    required this.totalAmountTrans,
+    required this.totalAmountReporting,
+    this.merchantName,
+    required this.employeeId,
+    required this.employeeName,
+    required this.receiptDate,
+    required this.approvalStatus,
+    required this.currency,
+    this.referenceNumber,
+    required this.source,
+    required this.exchRate,
+    required this.isBillable,
+    required this.isPreauthorised,
+    required this.expenseType,
+    required this.isReimbursable,
+    this.country,
+    required this.recId,
+    required this.expenseStatus,
+    required this.description,
+    required this.location,
+    required this.fromDate,
+    required this.toDate,
+    required this.noOfDays,
+    required this.expenseHeaderCustomFieldValues,
+    required this.expenseHeaderExpensecategorycustomfieldvalues,
+    required this.accountingDistributions,
+    required this.allocationLines,
+  });
+
+  factory PerdiemResponseModel.fromJson(Map<String, dynamic> json) {
+    return PerdiemResponseModel(
+      expenseId: json['ExpenseId'],
+      cashAdvReqId: json['CashAdvReqId'],
+      projectId: json['ProjectId'],
+      totalAmountTrans: json['TotalAmountTrans']?.toDouble() ?? 0.0,
+      totalAmountReporting: json['TotalAmountReporting']?.toDouble() ?? 0.0,
+      merchantName: json['MerchantName'],
+      employeeId: json['EmployeeId'],
+      employeeName: json['EmployeeName'],
+      receiptDate: json['ReceiptDate'],
+      approvalStatus: json['ApprovalStatus'],
+      currency: json['Currency'],
+      referenceNumber: json['ReferenceNumber'],
+      source: json['Source'],
+      exchRate: json['ExchRate']?.toDouble() ?? 1.0,
+      isBillable: json['IsBillable'],
+      isPreauthorised: json['IsPreauthorised'],
+      expenseType: json['ExpenseType'],
+      isReimbursable: json['IsReimbursable'],
+      country: json['Country'],
+      recId: json['RecId'],
+      expenseStatus: json['ExpenseStatus'],
+      description: json['Description'],
+      location: json['Location'],
+      fromDate: json['FromDate'],
+      toDate: json['ToDate'],
+      noOfDays: json['NoOfDays'],
+      expenseHeaderCustomFieldValues:
+          json['ExpenseHeaderCustomFieldValues'] ?? [],
+      expenseHeaderExpensecategorycustomfieldvalues:
+          json['ExpenseHeaderExpensecategorycustomfieldvalues'] ?? [],
+      accountingDistributions: (json['AccountingDistributions'] as List)
+          .map((e) => AccountingDistribution.fromJson(e))
+          .toList(),
+      allocationLines: (json['AllocationLines'] as List)
+          .map((e) => AllocationLine.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class LocationModel {
+  final String location;
+  final String description;
+  final String createdBy;
+  final String modifiedBy;
+  final int organizationId;
+  final int recId;
+  final String region;
+  final String country;
+  final String city;
+  final int createdDatetime;
+  final int modifiedDatetime;
+  final int subOrganizationId;
+  final String state;
+
+  LocationModel({
+    required this.location,
+    required this.description,
+    required this.createdBy,
+    required this.modifiedBy,
+    required this.organizationId,
+    required this.recId,
+    required this.region,
+    required this.country,
+    required this.city,
+    required this.createdDatetime,
+    required this.modifiedDatetime,
+    required this.subOrganizationId,
+    required this.state,
+  });
+
+  factory LocationModel.fromJson(Map<String, dynamic> json) {
+    return LocationModel(
+      location: json['Location'] ?? '',
+      description: json['Description'] ?? '',
+      createdBy: json['CreatedBy'] ?? '',
+      modifiedBy: json['ModifiedBy'] ?? '',
+      organizationId: json['OrganizationId'] ?? 0,
+      recId: json['RecId'] ?? 0,
+      region: json['Region'] ?? '',
+      country: json['Country'] ?? '',
+      city: json['City'] ?? '',
+      createdDatetime: json['CreatedDatetime'] ?? 0,
+      modifiedDatetime: json['ModifiedDatetime'] ?? 0,
+      subOrganizationId: json['SubOrganizationId'] ?? 0,
+      state: json['State'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'Location': location,
+      'Description': description,
+      'CreatedBy': createdBy,
+      'ModifiedBy': modifiedBy,
+      'OrganizationId': organizationId,
+      'RecId': recId,
+      'Region': region,
+      'Country': country,
+      'City': city,
+      'CreatedDatetime': createdDatetime,
+      'ModifiedDatetime': modifiedDatetime,
+      'SubOrganizationId': subOrganizationId,
+      'State': state,
+    };
+  }
 }
 
 class ExpenseItem {
@@ -568,8 +878,10 @@ class ExpenseItem {
     required this.projectId,
     required this.description,
     required this.isReimbursable,
-    required this.accountingDistributions,
-  });
+    List<AccountingDistribution>?
+        accountingDistributions, // Make parameter optional
+  }) : accountingDistributions =
+            accountingDistributions ?? []; // Provide empty list as default
 
   Map<String, dynamic> toJson() => {
         'ExpenseCategoryId': expenseCategoryId,
@@ -716,6 +1028,31 @@ class GESpeficExpense {
     );
   }
 }
+
+class AccountingSplit {
+  double percentage;
+  double? amount;
+  String? paidFor;
+
+  AccountingSplit({
+    required this.percentage,
+    this.amount,
+    this.paidFor,
+  });
+
+  AccountingSplit copyWith({
+    double? percentage,
+    double? amount,
+    String? paidFor,
+  }) {
+    return AccountingSplit(
+      percentage: percentage ?? this.percentage,
+      amount: amount ?? this.amount,
+      paidFor: paidFor ?? this.paidFor,
+    );
+  }
+}
+
 class ItemizeSection {
   final DateTime receiptDate;
   final String? expenseId;
@@ -754,6 +1091,7 @@ class ItemizeSection {
     };
   }
 }
+
 class ExpenseHistory {
   final String eventType;
   final String notes;
@@ -773,6 +1111,20 @@ class ExpenseHistory {
       notes: json['Notes'],
       userName: json['UserName'],
       createdDate: DateTime.fromMillisecondsSinceEpoch(json['CreatedDatetime']),
+    );
+  }
+}
+
+class PaidForModel {
+  final String valueName;
+  final String dimensionValueId;
+
+  PaidForModel({required this.valueName, required this.dimensionValueId});
+
+  factory PaidForModel.fromJson(Map<String, dynamic> json) {
+    return PaidForModel(
+      valueName: json['ValueName'] ?? '',
+      dimensionValueId: json['DimensionValueId'] ?? '',
     );
   }
 }

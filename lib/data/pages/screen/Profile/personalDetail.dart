@@ -77,6 +77,15 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
     });
   }
 
+  String cleanSymbol(String symbol) {
+    // Detect corrupted ₹ based on UTF-8 misinterpretation
+    if (symbol.codeUnits.toString() == '[226, 130, 161]') {
+      print("Corrupted symbol found → Replacing with ₹");
+      return '₹';
+    }
+    return symbol;
+  }
+
   void _addEmails(String value) {
     _validateOnChange(value);
 
@@ -129,25 +138,23 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
         });
       }
     });
-    if(controller.profileImage.value == null){
-  controller.getProfilePicture();
+    if (controller.profileImage.value == null) {
+      controller.getProfilePicture();
     }
 
     // if (controller.contactStreetController.text.isEmpty &&
     //     controller.selectedContCountry.value == null &&
     //     controller.selectedContCountry.value == null) {
-      controller.fetchCountries();
-      controller.fetchTimeZoneList();
-      controller.localeDropdown();
-      controller.getPersonalDetails(context);
-    
+    controller.fetchCountries();
+    controller.fetchTimeZoneList();
+    controller.localeDropdown();
+    controller.getPersonalDetails(context);
 
-      controller.fetchLanguageList();
-      controller.currencyDropDown();
+    controller.fetchLanguageList();
+    controller.currencyDropDown();
     // }
     Timer(const Duration(seconds: 3), () {
       controller.getUserPref();
-     
     });
     // controller.fetchState();
     controller.paymentMethode();
@@ -1485,82 +1492,90 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 )),
                             const SizedBox(height: 20),
 
-                            Obx(() =>
-                                SearchableMultiColumnDropdownField<Currency>(
-                                  labelText: loc.defaultCurrency,
-                                  columnHeaders: const [
-                                    'Code',
-                                    'Name',
-                                    'Symbol'
-                                  ],
-                                  items: controller.currencies,
-                                  selectedValue:
-                                      controller.selectedCurrency.value,
-                                  searchValue: (c) =>
-                                      '${c.code} ${c.name} ${c.symbol}',
-                                  displayText: (c) => c.code,
-                                  validator: (c) => c == null
-                                      ? 'Please pick a currency'
-                                      : null,
-                                  onChanged: (c) {
-                                    controller.selectedCurrency.value = c;
-                                  },
-                                  rowBuilder: (c, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final query = searchQuery.toLowerCase();
-                                      final lower = text.toLowerCase();
-                                      final matchIndex = lower.indexOf(query);
+                            Obx(
+                              () =>
+                                  SearchableMultiColumnDropdownField<Currency>(
+                                labelText: loc.defaultCurrency,
+                                columnHeaders: const ['Code', 'Name', 'Symbol'],
+                                items: controller.currencies,
+                                selectedValue:
+                                    controller.selectedCurrency.value,
+                                searchValue: (c) =>
+                                    '${c.code} ${c.name} ${cleanSymbol(c.symbol)}', // 🔧 Fix display
+                                displayText: (c) =>
+                                    '${c.code} ${c.name} ${cleanSymbol(c.symbol)}', // 🔧 Fix display
+                                validator: (c) =>
+                                    c == null ? 'Please pick a currency' : null,
+                                onChanged: (c) {
+                                  controller.selectedCurrency.value = c;
+                                },
+                                rowBuilder: (c, searchQuery) {
+                                  Widget highlight(String text) {
+                                    final query = searchQuery.toLowerCase();
+                                    final lower = text.toLowerCase();
+                                    final matchIndex = lower.indexOf(query);
 
-                                      if (matchIndex == -1 || query.isEmpty) {
-                                        return Text(text,
-                                            style:
-                                                const TextStyle(fontSize: 11));
-                                      }
-
-                                      final end = matchIndex + query.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  text.substring(0, matchIndex),
-                                              style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 11),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(
-                                                  matchIndex, end),
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 11),
-                                            ),
-                                          ],
+                                    if (matchIndex == -1 || query.isEmpty) {
+                                      return Text(
+                                        text,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontFamily: 'Roboto',
                                         ),
                                       );
                                     }
 
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12, horizontal: 16),
-                                      child: Row(
+                                    final end = matchIndex + query.length;
+                                    return RichText(
+                                      text: TextSpan(
                                         children: [
-                                          Expanded(child: highlight(c.code)),
-                                          Expanded(child: highlight(c.name)),
-                                          Expanded(child: highlight(c.symbol)),
+                                          TextSpan(
+                                            text: text.substring(0, matchIndex),
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 11,
+                                              fontFamily: 'Roboto',
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text:
+                                                text.substring(matchIndex, end),
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11,
+                                              fontFamily: 'Roboto',
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: text.substring(end),
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 11,
+                                              fontFamily: 'Roboto',
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     );
-                                  },
-                                )),
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: highlight(c.code)),
+                                        Expanded(child: highlight(c.name)),
+                                        Expanded(
+                                            child: highlight(
+                                                cleanSymbol(c.symbol))),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
 
                             const SizedBox(height: 20),
 
