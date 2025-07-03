@@ -65,6 +65,8 @@ dependencies:
   flutter_map: ^6.1.0
   latlong2: ^0.9.1
   geocoding: ^3.0.0
+  google_maps_flutter: ^2.2.8
+  geolocator: ^11.1.0
 url_launcher: ^6.2.5
 file_picker: ^5.3.3 
 

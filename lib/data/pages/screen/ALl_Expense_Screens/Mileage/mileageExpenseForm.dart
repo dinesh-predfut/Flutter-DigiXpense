@@ -1,8 +1,11 @@
-// ignore: file_names
+import 'dart:async';
+import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 
 class MileageRegistrationPage extends StatefulWidget {
   const MileageRegistrationPage({super.key});
@@ -19,17 +22,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   final List<TextEditingController> _endControllers = [
     TextEditingController(text: "Delhi")
   ];
-
+  final controller = Get.put(Controller());
   final List<LatLng> _startCoords = [];
   final List<LatLng> _endCoords = [];
 
   double totalDistanceKm = 0;
-  final Distance distance = const Distance();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _calculateAllDistances();
+    controller.checkAndRequestPermission();
   }
 
   Future<void> _calculateAllDistances() async {
@@ -54,20 +58,30 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
           _startCoords.add(startLatLng);
           _endCoords.add(endLatLng);
 
-          totalDistanceKm +=
-              distance.as(LengthUnit.Kilometer, startLatLng, endLatLng);
+          totalDistanceKm += Geolocator.distanceBetween(
+                startLatLng.latitude,
+                startLatLng.longitude,
+                endLatLng.latitude,
+                endLatLng.longitude,
+              ) /
+              1000;
         } else {
-          debugPrint("Invalid city: $startCity or $endCity");
           _showErrorSnackBar(
               "Could not find location for: $startCity or $endCity");
         }
       } catch (e) {
-        debugPrint("Location Error: $e");
         _showErrorSnackBar("Location Error for $startCity or $endCity");
       }
     }
 
-    setState(() {});
+    if (mounted) setState(() {});
+  }
+
+  void _onTripTextChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 800), () {
+      _calculateAllDistances();
+    });
   }
 
   void _showErrorSnackBar(String message) {
@@ -93,6 +107,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   }
 
   @override
+  void dispose() {
+    _debounce?.cancel();
+    for (var controller in _startControllers) {
+      controller.dispose();
+    }
+    for (var controller in _endControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -102,10 +128,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFF0F1C44),
-                Color(0xFF2E3C85),
-              ],
+              colors: [Color(0xFF0F1C44), Color(0xFF2E3C85)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -113,17 +136,15 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
           child: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            title: const Text(
-              'Mileage Registration',
-              style: TextStyle(color: Colors.white),
-            ),
+            title: const Text('Mileage Registration',
+                style: TextStyle(color: Colors.white)),
             iconTheme: const IconThemeData(color: Colors.white),
           ),
         ),
       ),
       body: Column(
         children: [
-          // HEADER
+          // Header Section
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: screenHeight * 0.5),
             child: Container(
@@ -138,7 +159,6 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 10),
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -152,18 +172,51 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                     color: Colors.white),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: TextField(
-                                    controller: _startControllers[index],
-                                    onChanged: (_) => _calculateAllDistances(),
-                                    decoration: InputDecoration(
-                                      hintText: "Start Trip ${index + 1}",
-                                      fillColor: Colors.white,
-                                      filled: true,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(30),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                    ),
+                                  child: FutureBuilder<List<String>>(
+                                    future: controller.fetchPlaceSuggestions(
+                                        _startControllers[index].text),
+                                    builder: (context, snapshot) {
+                                      return Autocomplete<String>(
+                                        initialValue: TextEditingValue(
+                                            text:
+                                                _startControllers[index].text),
+                                        optionsBuilder: (TextEditingValue
+                                            textEditingValue) async {
+                                          if (textEditingValue.text == '') {
+                                            return const Iterable<
+                                                String>.empty();
+                                          }
+                                          return await controller
+                                              .fetchPlaceSuggestions(
+                                                  textEditingValue.text);
+                                        },
+                                        onSelected: (String selection) {
+                                          _startControllers[index].text =
+                                              selection;
+                                          _onTripTextChanged();
+                                        },
+                                        fieldViewBuilder: (context, controller,
+                                            focusNode, onFieldSubmitted) {
+                                          return TextField(
+                                            controller: controller,
+                                            focusNode: focusNode,
+                                            decoration: InputDecoration(
+                                              hintText:
+                                                  "Start Trip ${index + 1}",
+                                              fillColor: Colors.white,
+                                              filled: true,
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(30),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                            ),
+                                            onChanged: (_) =>
+                                                _onTripTextChanged(),
+                                          );
+                                        },
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
@@ -177,7 +230,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 Expanded(
                                   child: TextField(
                                     controller: _endControllers[index],
-                                    onChanged: (_) => _calculateAllDistances(),
+                                    onChanged: (_) => _onTripTextChanged(),
                                     decoration: InputDecoration(
                                       hintText: "End Trip ${index + 1}",
                                       fillColor: Colors.white,
@@ -210,27 +263,16 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                         onPressed: _addTrip,
                       ),
                     ),
-                    Row(
-                      children: [
-                        const Text("Round Trip",
-                            style: TextStyle(color: Colors.white)),
-                        Switch(
-                          value: false,
-                          onChanged: (_) {},
-                          activeColor: Colors.pinkAccent,
-                        )
-                      ],
-                    ),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _infoCard("Total Distance KM",
                             "${totalDistanceKm.toStringAsFixed(2)} Km"),
-                        // ignore: unnecessary_string_interpolations
-                        _infoCard("Total Amount in USD",
+                        _infoCard("Total Amount (USD)",
                             "${(totalDistanceKm * 0.5).toStringAsFixed(0)}"),
-                        _infoCard("Total Amount in INR",
-                            (totalDistanceKm * 40).toStringAsFixed(0)),
+                        _infoCard("Total Amount (INR)",
+                            "${(totalDistanceKm * 40).toStringAsFixed(0)}"),
                       ],
                     ),
                   ],
@@ -239,50 +281,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
             ),
           ),
 
-          // MAP SECTION
-          Expanded(
-            child: FlutterMap(
-              options: MapOptions(
-                // ignore: deprecated_member_use
-                center: _startCoords.isNotEmpty
-                    ? _startCoords[0]
-                    : const LatLng(20.5937, 78.9629),
-                // ignore: deprecated_member_use
+          // Map Section
+          const SizedBox(
+            height: 300, // or MediaQuery.of(context).size.height * 0.5
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(20.5937, 78.9629),
                 zoom: 5,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  userAgentPackageName: 'com.example.app',
-                ),
-                MarkerLayer(
-                  markers: [
-                    for (var coord in _startCoords)
-                      Marker(
-                        point: coord,
-                        child:
-                            const Icon(Icons.location_on, color: Colors.green),
-                      ),
-                    for (var coord in _endCoords)
-                      Marker(
-                        point: coord,
-                        child: const Icon(Icons.flag, color: Colors.red),
-                      ),
-                  ],
-                ),
-                PolylineLayer(
-                  polylines: [
-                    for (int i = 0; i < _startCoords.length; i++)
-                      Polyline(
-                        points: [_startCoords[i], _endCoords[i]],
-                        strokeWidth: 3,
-                        color: Colors.blue,
-                      )
-                  ],
-                ),
-              ],
+              zoomControlsEnabled: true,
+              myLocationEnabled: true,
             ),
-          )
+          ) 
         ],
       ),
     );

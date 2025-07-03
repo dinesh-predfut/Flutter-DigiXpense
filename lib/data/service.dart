@@ -18,7 +18,7 @@ import 'package:digi_xpense/core/constant/Parames/params.dart';
 import 'package:digi_xpense/core/constant/url.dart';
 import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart';
 import 'dart:io';
-
+import 'package:geolocator/geolocator.dart';
 // ignore: duplicate_import
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -2564,6 +2564,44 @@ class Controller extends GetxController {
       );
     }
   }
+
+  Future<List<String>> fetchPlaceSuggestions(String input) async {
+    const apiKey =
+        "AIzaSyDk9NqdMVKgLTvuMAVDU71JYxOD0CQQ7QQ";
+    final url =
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$apiKey&components=country:in';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final predictions = data['predictions'] as List;
+      return predictions.map((p) => p['description'] as String).toList();
+    } else {
+      throw Exception('Failed to fetch suggestions');
+    }
+  }
+Future<void> checkAndRequestPermission() async {
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    permission = await Geolocator.requestPermission();
+  }
+
+  if (permission == LocationPermission.always ||
+      permission == LocationPermission.whileInUse) {
+    // Permission granted; now get current position
+    final position = await Geolocator.getCurrentPosition();
+
+    print('📍 Current Position: Lat=${position.latitude}, Lng=${position.longitude}');
+
+ 
+      // _currentLatLng = LatLng(position.latitude, position.longitude);
+   
+  } else {
+    print('❌ Location permission not granted');
+  }
+}
 
   List<NotificationItem> get unreadNotifications =>
       notifications.where((n) => !n.isRead).toList();
