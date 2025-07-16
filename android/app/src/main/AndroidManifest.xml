@@ -32,11 +32,11 @@
             android:value="2" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDk9NqdMVKgLTvuMAVDU71JYxOD0CQQ7QQ" />
+            android:value="AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0" />
         <meta-data
             android:name="com.google.maps.android.renderer"
             android:value="latest" />
-        <!-- ✅ Add this UCropActivity declaration -->
+      
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"

@@ -64,6 +64,13 @@ class _SearchableMultiColumnDropdownFieldState<T>
       _controller.text = widget.displayText(widget.selectedValue as T);
     }
     _controller.addListener(_handleSearch);
+
+    // 👇 Close dropdown when focus is lost
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _isOverlayOpen) {
+        _hideOverlay();
+      }
+    });
   }
 
   void _handleSearch() {
@@ -73,52 +80,62 @@ class _SearchableMultiColumnDropdownFieldState<T>
     _overlayEntry?.markNeedsBuild();
   }
 
- void _showOverlay() {
-  _currentOpenOverlay?._hideOverlay();
+  void _showOverlay() {
+    _currentOpenOverlay?._hideOverlay();
 
-  final renderBox = context.findRenderObject() as RenderBox;
-  final offset = renderBox.localToGlobal(Offset.zero);
-  final size = renderBox.size;
-  final screenHeight = MediaQuery.of(context).size.height;
+    final renderBox = context.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final screenHeight = MediaQuery.of(context).size.height;
 
-  final dropdownHeight = widget.dropdownMaxHeight;
-  final spaceBelow = screenHeight - offset.dy - size.height;
-  final spaceAbove = offset.dy;
+    final dropdownHeight = widget.dropdownMaxHeight;
+    final spaceBelow = screenHeight - offset.dy - size.height;
+    final spaceAbove = offset.dy;
 
-  final showAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
+    final showAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
-  _overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
-      left: widget.alignLeft ?? offset.dx,
-      width: widget.dropdownWidth ?? size.width,
-      top: showAbove
-          ? offset.dy - dropdownHeight - 5
-          : offset.dy + size.height + 5,
-      child: CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        offset: Offset(0, showAbove ? -dropdownHeight - 5 : size.height + 5),
-        child: Material(
-          elevation: 4,
-          child: _buildDropdownContent(),
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: widget.alignLeft ?? offset.dx,
+        width: widget.dropdownWidth ?? size.width,
+        top: showAbove
+            ? offset.dy - dropdownHeight - 5
+            : offset.dy + size.height + 5,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, showAbove ? -dropdownHeight - 5 : size.height + 5),
+          child: Material(
+            elevation: 4,
+            child: _buildDropdownContent(),
+          ),
         ),
       ),
-    ),
-  );
+    );
 
-  Overlay.of(context, rootOverlay: true)!.insert(_overlayEntry!);
-  _currentOpenOverlay = this;
-  setState(() => _isOverlayOpen = true);
-}
+    Overlay.of(context, rootOverlay: true)!.insert(_overlayEntry!);
+    _currentOpenOverlay = this;
+    setState(() => _isOverlayOpen = true);
 
+    // 👇 Close dropdown when scrolling
+    ScrollableState? scrollableState = Scrollable.of(context);
+    scrollableState?.position.addListener(_hideOverlay);
+  }
 
   void _hideOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    if (_currentOpenOverlay == this) {
-      _currentOpenOverlay = null;
+    if (_isOverlayOpen) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      setState(() => _isOverlayOpen = false);
+
+      // Clean up scroll listener
+      ScrollableState? scrollableState = Scrollable.of(context);
+      scrollableState?.position.removeListener(_hideOverlay);
+
+      if (_currentOpenOverlay == this) {
+        _currentOpenOverlay = null;
+      }
     }
-    setState(() => _isOverlayOpen = false);
   }
 
   Widget _buildDropdownContent() {

@@ -24,14 +24,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import '../../../../service.dart';
 
-class ExpenseCreationForm extends StatefulWidget {
-  const ExpenseCreationForm({super.key});
+class CashAdvanceReturnForm extends StatefulWidget {
+  const CashAdvanceReturnForm({super.key});
 
   @override
-  State<ExpenseCreationForm> createState() => _ExpenseCreationFormState();
+  State<CashAdvanceReturnForm> createState() => _CashAdvanceReturnFormState();
 }
 
-class _ExpenseCreationFormState extends State<ExpenseCreationForm>
+class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     with TickerProviderStateMixin {
   final controller = Get.put(Controller());
   final controllerItems = Get.put(Controller());
@@ -75,7 +75,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     controller.isManualEntryMerchant = false;
     _initializeUnits();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Safe to update observables here
+      controller.fetchCashAdvanceRequests();
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
@@ -84,7 +84,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       controller.currencyDropDown();
       controller.getUserPref();
       controller.fetchExpenseCategory();
-      // controller.fetchExchangeRate();
+      controller.fetchExchangeRate();
     });
   }
 
@@ -455,7 +455,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
               return true; // allow back navigation
             },
             child: Scaffold(
-              appBar: AppBar(title: const Text("General Expense Form")),
+              appBar: AppBar(
+                  title: const Text(
+                "Return Form",
+                style: TextStyle(fontWeight: FontWeight.w800),
+                textAlign: TextAlign.center,
+              )),
               body: Column(
                 children: [
                   const SizedBox(height: 20),
@@ -1408,7 +1413,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     return Scaffold(
       body: Obx(() {
         return controller.isLoadingGE2.value
-            ? const SkeletonLoaderPage()
+            ? SkeletonLoaderPage()
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
@@ -1435,7 +1440,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Request Date *',
+                                    labelText: 'Retrun Date *',
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -1539,7 +1544,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Paid To *',
+                          const Text('Cash Advance Request *',
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
 
@@ -2037,10 +2042,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Obx(() {
-              // if (controller.isLoading.value) {
-              //   return const Center(child: CircularProgressIndicator());
-              // } else
-              if (controller.imageFiles.isEmpty) {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (controller.imageFiles.isEmpty) {
                 return const Center(child: Text('Tap to Upload Document(s)'));
               } else {
                 return ListView.builder(
@@ -2142,15 +2146,15 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         controller: controller.paidAmount,
                         enabled: controller.paidAmontIsEditable.value,
                         onChanged: (_) {
-                          // controller.fetchExchangeRate();
+                          controller.fetchExchangeRate();
 
                           final paid =
                               double.tryParse(controller.paidAmount.text) ??
                                   0.0;
                           final rate =
-                              double.tryParse(controller.unitRate.text);
+                              double.tryParse(controller.unitRate.text) ?? 1.0;
 
-                          final result = paid * rate!;
+                          final result = paid * rate;
 
                           controller.amountINR.text = result.toStringAsFixed(2);
                           controller.isVisible.value = true;
@@ -2208,11 +2212,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             c == null ? 'Please pick a currency' : null,
                         onChanged: (c) {
                           controller.selectedCurrency.value = c;
-                          controller.currencyDropDowncontroller.text = c!.code;
                           controller.fetchExchangeRate();
                           // controller.userPreferences()
                         },
-                        controller: controller.currencyDropDowncontroller,
                         rowBuilder: (c, searchQuery) {
                           Widget highlight(String text) {
                             final lowerQuery = searchQuery.toLowerCase();
@@ -2268,34 +2270,13 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     Expanded(
                       child: TextFormField(
                         controller: controller.unitRate,
-                        keyboardType:
-                            TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           labelText: 'Rate *',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onChanged: (val) {
-                          // Fetch exchange rate if needed
-                          // controller.fetchExchangeRate();
-
-                          final paid =
-                              double.tryParse(controller.paidAmount.text) ??
-                                  0.0;
-                          final rate = double.tryParse(val) ?? 1.0;
-
-                          // ✅ Perform calculation
-                          final result = paid * rate;
-
-                          controller.amountINR.text = result.toStringAsFixed(2);
-                          controller.isVisible.value = true;
-
-                          print("Paid Amount: $paid");
-                          print("Rate: $rate");
-                          print(
-                              "Calculated INR Amount: ${controller.amountINR.text}");
-                        },
+                        // initialValue: controller.unitRate,
                       ),
                     ),
                   ],
@@ -2341,20 +2322,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         },
                                         onDistributionChanged: (newList) {
                                           if (!mounted) return;
-
-                                          // 🔥 Print each item in newList for debugging
-                                          for (var dist in newList) {
-                                            print("onDistributionChanged:");
-                                            print(
-                                                "  TransAmount: ${dist.transAmount}");
-                                            print(
-                                                "  ReportAmount: ${dist.reportAmount}");
-                                            print(
-                                                "  AllocationFactor: ${dist.allocationFactor}");
-                                            print(
-                                                "  DimensionValueId: ${dist.dimensionValueId}");
-                                          }
-
                                           controller.accountingDistributions
                                               .clear();
                                           controller.accountingDistributions

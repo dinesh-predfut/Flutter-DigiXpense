@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -14,12 +16,43 @@ class ForgetPassword extends StatefulWidget {
 
 class _ForgetPasswordState extends State<ForgetPassword> {
   final controller = Get.put(Controller());
-
-  void handlesend() async {
-    setState(() {
+  // Reactive countdown
+  // seconds remaining
+  Timer? resendTimer;
+  // void handlesend() async {
+  //   setState(() {
+  //     controller.forgotisLoading.value = true;
+  //   });
+  //   controller.(context);
+  // }
+  void handleSendLink() async {
+    if (controller.resendCountdown == 0) {
+      // Start loading
       controller.forgotisLoading.value = true;
+
+      try {
+        await controller.sendForgetPassword(context); // Your API call
+        // Success, start countdown
+        startResendCountdown();
+      } catch (e) {
+        // Handle error
+        debugPrint("Error sending link: $e");
+      } finally {
+        controller.forgotisLoading.value = false;
+      }
+    }
+  }
+
+  void startResendCountdown() {
+    controller.resendCountdown.value = 30; // Start at 30s
+
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (controller.resendCountdown.value > 0) {
+        controller.resendCountdown.value--; // Decrease countdown
+      } else {
+        timer.cancel();
+      }
     });
-    controller.sendForgetPassword(context);
   }
 
   @override
@@ -61,7 +94,9 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                   children: [
                     const Text("Forget Password",
                         style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold,color: Colors.black)),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black)),
                     const SizedBox(height: 10),
                     const Text(
                         "Don’t worry! It happens. Please enter the email associated with your account.",
@@ -92,31 +127,42 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                     ),
                     const SizedBox(height: 20),
                     Obx(() {
+                      final bool isLoading = controller.forgotisLoading.value;
+                      final bool isButtonDisabled =
+                          controller.resendCountdown.value > 0 || isLoading;
+
+                      String buttonText;
+                      if (controller.resendCountdown.value > 0) {
+                        buttonText =
+                            "Resend in ${controller.resendCountdown.value}s";
+                      } else {
+                        buttonText = "Send Link";
+                      }
+
                       return SizedBox(
-                        width: double.infinity, // Make button full width
+                        width: double.infinity,
                         child: GradientButton(
-                          text: "Send Link",
-                          isLoading: controller.forgotisLoading.value,
-                          onPressed: handlesend,
+                          text: buttonText,
+                          isLoading: isLoading,
+                          onPressed: () {
+                            isButtonDisabled ? null : handleSendLink();
+                          },
                         ),
                       );
                     }),
-                   
                     const SizedBox(height: 30),
                     Row(
-                        mainAxisAlignment:MainAxisAlignment.center ,
-                        children: [
-                          const Text("Remember password?"),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                  context, AppRoutes.signin); // ✅
-                            },
-                            child: const Text("Login"),
-                          ),
-                        ],
-                      ),
-                    
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text("Remember password?"),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.signin); // ✅
+                          },
+                          child: const Text("Login"),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

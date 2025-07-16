@@ -6,6 +6,8 @@ class Params {
   static String refreshtoken = "null";
   static String employeeId = "null";
   static String tokenExpiry = "null";
+
+  static var employeeName;
 }
 
 class SetSharedPref {

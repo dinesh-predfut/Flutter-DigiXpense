@@ -34,11 +34,11 @@ class Urls {
   static const deleteProfilePicture =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userprofiles?UserId=";
   static const getPaidtoDropdown =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/merchants?TransactionDate=1746556200000";
+      "$baseURL/api/v1/expenseregistration/expenseregistration/merchants?TransactionDate=";
   static const getPaidwithDropdown =
       "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId%2CReimbursible";
   static const getProjectDropdown =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/projectid?EmployeeId=EMP001&TransactionDate=1749493800000";
+      "$baseURL/api/v1/expenseregistration/expenseregistration/projectid?EmployeeId=EMP001&TransactionDate=";
   static const taxGroup =
       "$baseURL/api/v1/expenseregistration/expenseregistration/taxgroups?filter_query=TAXTaxGroups.IsActive__eq%3Dtrue&page=1&sort_order=asc";
   static const unitDropdown =
@@ -55,10 +55,18 @@ class Urls {
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D";
   static const getSpecificGeneralExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+  static const getSpecificGeneralExpenseApproval =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
+  static const updateApprovalStatus =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
   static const getSpecificPerdiemExpense =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
+  static const getSpecificPerdiemExpenseApproval =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/detailedapproval?";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
+  static const approvalPerdiemreview =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/reviewperdiemregistration?";
   static const getExpensImage =
       "$baseURL/api/v1/expenseregistration/expenseregistration/getdocumentattachments?RecId=";
   static const autoScanExtract =
@@ -77,6 +85,37 @@ class Urls {
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/PerdiumRegistration?functionalentity=ExpenseRequisition";
   static const updatetheAllocation =
       "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion/";
-  static const deleteExpense=
+  static const deleteExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenses?RecId=";
+  static const pendingApprovals =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/pendingapprovals";
+  static const cancelApprovals =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expensecancel?";
+  static const empmileagevehicledetails =
+      "$baseURL/api/v1/mileageregistration/mileageregistration/empmileagevehicledetails?Emp_Id=";
+  static const mileageregistration =
+      "$baseURL/api/v1/mileageregistration/mileageregistration/mileageregistration?functionalentity=ExpenseRequisition&";
+  static const mileageregistrationview =
+      "$baseURL/api/v1/mileageregistration/mileageregistration/";
+  static const getNotifications = "$baseURL/api/v1/websocket/notifications1/";
+  static const getCustomField =
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype";
+  static const getdimensionsDropdownName =
+      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionhierarchiesanddimensionhierarchylines/?passeddate=";
+  static const getdimensionsDropdownValue =
+      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=asc";
+  static const reviewUpDate =
+      "$baseURL/api/v1/mileageregistration/mileageregistration/reviewmileageregistrations?";
+  static const reviewexpenseregistration =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/reviewexpenseregistration?";
+  static const cashAdvanceChart =
+      "$baseURL/api/v1/dashboard/widgets/CashAdvanceTrends?role=Spender&end_date=";
+  static const expenseChart =
+      "$baseURL/api/v1/dashboard/widgets/ExpensesThisMonth";
+  static const projectExpenseChart =
+      "$baseURL/api/v1/dashboard/widgets/ExpensesByProjects";
+  static const esCalateUserList =
+      "$baseURL/api/v1/masters/usersandrolesmgmt/user/users?filter_query=SYSUsersList.UserId__not_eq=";
+  static const cashAdvanceList =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid";
 }

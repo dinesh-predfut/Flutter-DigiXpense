@@ -226,10 +226,12 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
 
   void _cancelInput() {
     _controller.clear();
+
     setState(() {
       _errorText = null;
       isTyping = false;
     });
+   
   }
 
   final Map<String, dynamic> countryPhoneLengths = {};
@@ -385,9 +387,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 if (controller.isSameAsPermanent == true) {
                                   toggleSameAddress(
                                       controller.isSameAsPermanent);
-                                  controller.stateTextController.text =
-                                      value.toString();
-                                }
+                                                                }
                               },
                             ),
                             _textField(
@@ -397,8 +397,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 if (controller.isSameAsPermanent == true) {
                                   toggleSameAddress(
                                       controller.isSameAsPermanent);
-                                  controller.stateTextController.text =
-                                      value.toString();
+                                
                                 }
                               },
                             ),
@@ -1342,11 +1341,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                           children: [
                             const SizedBox(height: 20),
                             Obx(() {
-                              // show loading or empty placeholder while timezone data is loading
-                              if (controller.timezone.isEmpty) {
-                                return const SizedBox(); // or a loading spinner / placeholder
-                              }
-
                               return SearchableMultiColumnDropdownField<
                                   Timezone>(
                                 labelText: loc.timeZone,
@@ -1842,7 +1836,9 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
           children: [
             const SizedBox(height: 20),
             OutlinedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pop(context);
+              },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.gradientStart,
                 backgroundColor: Colors.white,

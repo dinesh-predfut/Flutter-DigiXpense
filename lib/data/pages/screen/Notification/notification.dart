@@ -1,7 +1,7 @@
+import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({Key? key}) : super(key: key);
@@ -10,14 +10,28 @@ class NotificationPage extends StatefulWidget {
   State<NotificationPage> createState() => _NotificationPageState();
 }
 
-class _NotificationPageState extends State<NotificationPage> with TickerProviderStateMixin {
+class _NotificationPageState extends State<NotificationPage>
+    with TickerProviderStateMixin {
   final controller = Get.put(Controller());
   late TabController _tabController;
 
   @override
   void initState() {
-    _tabController = TabController(length: 2, vsync: this);
     super.initState();
+
+    // Initialize TabController
+    _tabController = TabController(length: 2, vsync: this);
+
+    // Fetch notifications after widget builds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -28,12 +42,24 @@ class _NotificationPageState extends State<NotificationPage> with TickerProvider
         children: [
           _buildHeader(),
           _buildTabBar(),
-          Expanded(child: Obx(() {
-            final data = _tabController.index == 1
-                ? controller.unreadNotifications
-                : controller.notifications;
-            return _buildNotificationList(data);
-          })),
+          Expanded(
+            child: Obx(() {
+              // Reactive data based on selected tab
+              final notifications = _tabController.index == 1
+                  ? controller.unreadNotifications
+                  : controller.notifications;
+
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (notifications.isEmpty) {
+                return const Center(child: Text('No notifications found.'));
+              }
+
+              return _buildNotificationList(notifications);
+            }),
+          ),
         ],
       ),
     );
@@ -41,7 +67,7 @@ class _NotificationPageState extends State<NotificationPage> with TickerProvider
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.only(top: 50, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
       height: 140,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -49,17 +75,19 @@ class _NotificationPageState extends State<NotificationPage> with TickerProvider
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(30),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          BackButton(color: Colors.white),
-          SizedBox(width: 8),
-          Text(
-            'Notification',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Notifications',
+            style: TextStyle(
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -72,60 +100,56 @@ class _NotificationPageState extends State<NotificationPage> with TickerProvider
       height: 50,
       child: TabBar(
         controller: _tabController,
-        onTap: (_) => setState(() {}),
+        onTap: (_) {
+          setState(() {}); // Refresh UI on tab change
+        },
         indicatorColor: Colors.deepPurple,
         labelColor: Colors.black,
         unselectedLabelColor: Colors.grey,
         tabs: const [
-          Tab(text: "All Notification"),
+          Tab(text: "All Notifications"),
           Tab(text: "Unread"),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationList(List items) {
+  Widget _buildNotificationList(List<NotificationModel> items) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
       itemBuilder: (_, index) {
         final item = items[index];
         return GestureDetector(
-          onTap: () => controller.markAsRead(item),
+          onTap: () {
+            controller.markAsRead(item); // Mark notification as read
+          },
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: item.isRead ? Colors.white : const Color(0xFFF1F2F6),
+              color: item.read ? Colors.white : const Color(0xFFF1F2F6),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white,
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundImage: NetworkImage(item.imageUrl),
-                  ),
+                Text(
+                  item.notificationName,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item.time,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  item.notificationMessage,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  // formatDateTime(item.createdDatetime),
+                  "",
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -133,5 +157,11 @@ class _NotificationPageState extends State<NotificationPage> with TickerProvider
         );
       },
     );
+  }
+
+  /// Format timestamp to readable date
+  String formatDateTime( timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${date.day}-${date.month}-${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

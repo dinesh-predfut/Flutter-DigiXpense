@@ -13,15 +13,15 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../../../models.dart';
 
-class GeneralExpenseDashboard extends StatefulWidget {
-  const GeneralExpenseDashboard({super.key});
+class PendingApprovalDashboard extends StatefulWidget {
+  const PendingApprovalDashboard({super.key});
 
   @override
-  State<GeneralExpenseDashboard> createState() =>
-      _GeneralExpenseDashboardState();
+  State<PendingApprovalDashboard> createState() =>
+      _PendingApprovalDashboardState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
+class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     with TickerProviderStateMixin {
   final controllers = Get.put(Controller());
   bool isLoading = false;
@@ -38,7 +38,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
   final List<String> statusOptions = [
     "Un Reported",
-    "Approved",
+    "Approval",
     "Cancelled",
     "Rejected",
     "In Process",
@@ -86,7 +86,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               controller.selectedStatus = option;
                               controller.isLoadingGE1.value = false;
                             });
-                            controller.fetchGetallGExpense();
+                            controller.fetchPendingApprovals();
                             _toggleOverlay(); // close overlay
                           },
                         );
@@ -119,7 +119,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   }
 
   void _loadDataOnce() async {
-    await controller.fetchGetallGExpense();
+    await controller.fetchPendingApprovals();
     controller.isEnable.value = false;
     setState(() {});
   }
@@ -132,7 +132,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     });
     print("${controller.isEnable.value}isEnable");
     _loadDataOnce();
-    controller.fetchMileageRates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
@@ -342,7 +341,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 15),
                                 SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
@@ -362,7 +361,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 15),
                                 Center(
                                   child: SizedBox(
                                     width: 300,
@@ -395,50 +394,15 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                         ),
                       ),
 
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 2.0),
-                        child: CompositedTransformTarget(
-                          link: _layerLink,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: _toggleOverlay,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepPurple,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: const Icon(
-                                    Icons.menu,
-                                    color: Colors.white,
-                                    size: 24.0,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                controller.selectedStatus,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                       SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.45,
+                        height: MediaQuery.of(context).size.height * 0.50,
                         child: Obx(() {
                           if (controller.isLoadingGE1.value) {
                             return const SkeletonLoaderPage();
                           }
 
-                          final expenses = controller.getAllListGExpense;
+                          final expenses = controller.pendingApprovals;
+                          print("expenses$expenses");
                           final filteredExpenses = expenses.where((item) {
                             final query = controller.searchQuery.value;
                             if (query.isEmpty) return true;
@@ -471,19 +435,17 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                     setState(() => isLoading = true);
 
                                     if (item.expenseType == "PerDiem") {
-                                      await controller.fetchSecificPerDiemItem(
-                                          context, item.recId);
-                                    } else if (item.expenseType ==
-                                        "General Expenses") {
-                                      await controller.fetchSecificExpenseItem(
-                                          context, item.recId);
-                                      controller
-                                          .fetchExpenseHistory(item.recId);
-                                    } else if (item.expenseType == "Mileage") {
-                                      print("Its Call");
-                                      Navigator.pushNamed(context,
-                                          AppRoutes.mileageDetailsPage);
-                                    }
+        controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
+      } else if (item.expenseType == "General Expenses") {
+        print("Expenses${item.recId}");
+        controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+        controller.fetchExpenseHistory(item.recId);
+      } else if (item.expenseType == "Mileage") {
+        print("Expenses${item.recId}");
+        controller.fetchMileageDetailsApproval(context, item.workitemrecid);
+        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+        // controller.fetchExpenseHistory(item.recId);
+      }
 
                                     setState(() => isLoading = false);
                                     return false;
@@ -540,289 +502,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     );
   }
 
-  Widget _buildSection(
-      {required String title, required List<Widget> children}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ExpansionTile(
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.deepPurple,
-            ),
-          ),
-          backgroundColor: Colors.white,
-          collapsedBackgroundColor: Colors.white,
-          textColor: Colors.deepPurple,
-          iconColor: Colors.deepPurple,
-          collapsedIconColor: Colors.grey,
-          childrenPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          children: children,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCollapsibleItem(
-      String title, bool expanded, VoidCallback onToggle, Widget child) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          title: Text(
-            title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.indigo),
-          ),
-          trailing: Icon(
-              expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
-          onTap: onToggle,
-        ),
-        if (expanded) child,
-      ],
-    );
-  }
-
   // General TextField-like display
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    bool isReadOnly = false,
-    void Function(String)? onChanged, // 👈 add this
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          readOnly: isReadOnly,
-          enabled: !isReadOnly,
-          onChanged: onChanged, // 👈 use it here
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
-          decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            filled: true,
-            fillColor: isReadOnly ? Colors.grey.shade100 : Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: Colors.grey.shade400),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
 
   // Example itemized detail block
-  Widget _buildItemDetails() {
-    return Column(
-      children: [
-        ...controller.configList
-            .where((field) =>
-                field['IsEnabled'] == true &&
-                field['FieldName'] != 'Location' &&
-                field['FieldName'] != 'Refrence Id' &&
-                field['FieldName'] != 'Is Billable' &&
-                field['FieldName'] != 'is Reimbursible')
-            .map((field) {
-          final String label = field['FieldName'];
-          final bool isMandatory = field['IsMandatory'] ?? false;
-
-          Widget inputField;
-
-          if (label == 'Project Id') {
-            inputField = SearchableMultiColumnDropdownField<Project>(
-              labelText: 'Project Id ${isMandatory ? "*" : ""}',
-              columnHeaders: const ['Project Name', 'Project Id'],
-              items: controller.project,
-              selectedValue: controllers.selectedProject,
-              searchValue: (proj) => '${proj.name} ${proj.code}',
-              displayText: (proj) => proj.name,
-              validator: (proj) => isMandatory && proj == null
-                  ? 'Please select a Project'
-                  : null,
-              onChanged: (proj) {
-                setState(() {
-                  controllers.selectedProject = proj;
-                  controller.selectedProject = proj;
-                });
-              },
-              rowBuilder: (proj, searchQuery) {
-                Widget highlight(String text) {
-                  final lowerQuery = searchQuery.toLowerCase();
-                  final lowerText = text.toLowerCase();
-                  final start = lowerText.indexOf(lowerQuery);
-
-                  if (start == -1 || searchQuery.isEmpty) return Text(text);
-
-                  final end = start + searchQuery.length;
-                  return RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: text.substring(0, start),
-                          style: const TextStyle(color: Colors.black),
-                        ),
-                        TextSpan(
-                          text: text.substring(start, end),
-                          style: const TextStyle(
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextSpan(
-                          text: text.substring(end),
-                          style: const TextStyle(color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(child: highlight(proj.name)),
-                      Expanded(child: highlight(proj.code)),
-                    ],
-                  ),
-                );
-              },
-            );
-          } else if (label == 'Tax Group') {
-            inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
-              labelText: 'Tax Group ${isMandatory ? "*" : ""}',
-              columnHeaders: const ['Tax Group', 'Tax ID'],
-              items: controller.taxGroup,
-              selectedValue: controllers.selectedTax,
-              searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
-              displayText: (tax) => tax.taxGroupId,
-              validator: (tax) => isMandatory && tax == null
-                  ? 'Please select a Tax Group'
-                  : null,
-              onChanged: (tax) {
-                setState(() {
-                  controllers.selectedTax = tax;
-                  controller.selectedTax = tax;
-                });
-              },
-              rowBuilder: (tax, searchQuery) {
-                Widget highlight(String text) {
-                  final query = searchQuery.toLowerCase();
-                  final lower = text.toLowerCase();
-                  final start = lower.indexOf(query);
-
-                  if (start == -1 || query.isEmpty) return Text(text);
-
-                  final end = start + query.length;
-                  return RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: text.substring(0, start),
-                          style: const TextStyle(color: Colors.black),
-                        ),
-                        TextSpan(
-                          text: text.substring(start, end),
-                          style: const TextStyle(
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextSpan(
-                          text: text.substring(end),
-                          style: const TextStyle(color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(child: highlight(tax.taxGroup)),
-                      Expanded(child: highlight(tax.taxGroupId)),
-                    ],
-                  ),
-                );
-              },
-            );
-          } else if (label == 'Tax Amount') {
-            inputField = TextField(
-              keyboardType: TextInputType.number,
-              controller: controllers.taxAmount,
-              style: const TextStyle(color: Colors.black),
-              onChanged: (tax) {
-                setState(() {
-                  controller.taxAmount.text = tax;
-                });
-              },
-              decoration: InputDecoration(
-                labelText: '$label${isMandatory ? " *" : ""}',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
-          } else {
-            inputField = TextField(
-              decoration: InputDecoration(
-                labelText: '$label${isMandatory ? " *" : ""}',
-                border: const OutlineInputBorder(),
-              ),
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              inputField,
-              const SizedBox(height: 16),
-            ],
-          );
-        }).toList(),
-        // _buildTextField("Paid For", "Ola"),
-        // _buildTextField("Location", "Travel to office"),
-        // _buildTextField("Comments", "Travel to office"),
-        // _buildTextField("Line Requested %", "1.00"),
-        // _buildTextField("Unit", "1.00"),
-        // _buildTextField("Quantity", "1.00"),
-        // _buildTextField("Unit Estimated", "100"),
-        // _buildTextField("Rate", "100"),
-        // _buildTextField("Line Estimated", "100"),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {},
-            child: const Text("Accounting Distribution"),
-          ),
-        )
-      ],
-    );
-  }
 
   Widget _balanceCard(String title, String amount) {
     return Container(
@@ -910,19 +592,22 @@ Widget _buildSwipeActionRight() {
   );
 }
 
-Widget _buildCard(GExpense item, BuildContext context) {
+Widget _buildCard(ExpenseModel item, BuildContext context) {
   print("itemxxx ${item.expenseType}");
   final controller = Get.put(Controller());
   return GestureDetector(
     onTap: () {
       if (item.expenseType == "PerDiem") {
-        controller.fetchSecificPerDiemItem(context, item.recId);
+        controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
       } else if (item.expenseType == "General Expenses") {
         print("Expenses${item.recId}");
-        controller.fetchSecificExpenseItem(context, item.recId);
+        controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
         controller.fetchExpenseHistory(item.recId);
       } else if (item.expenseType == "Mileage") {
-        controller.fetchMileageDetails(context, item.recId);
+        print("Expenses${item.recId}");
+        controller.fetchMileageDetailsApproval(context, item.workitemrecid);
+        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+        // controller.fetchExpenseHistory(item.recId);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
@@ -946,11 +631,13 @@ Widget _buildCard(GExpense item, BuildContext context) {
                 Text(item.expenseId,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  item.receiptDate != null
-                      ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
-                      : 'No date',
+                  DateFormat('dd-MM-yyyy').format(
+                    DateTime.fromMillisecondsSinceEpoch(item.receiptDate),
+                  ),
                   style: const TextStyle(
-                      fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
+                    fontSize: 12,
+                    color: Color.fromARGB(255, 41, 41, 41),
+                  ),
                 ),
               ],
             ),
@@ -958,8 +645,12 @@ Widget _buildCard(GExpense item, BuildContext context) {
             const SizedBox(height: 4),
 
             // Category
-            Text(item.expenseCategoryId,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              (item.expenseCategoryId == null)
+                  ? ''
+                  : item.expenseCategoryId.toString(),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
 
             const SizedBox(height: 6),
 
@@ -971,16 +662,17 @@ Widget _buildCard(GExpense item, BuildContext context) {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 0, 110, 255),
+                    color: Colors.green[200],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    item.approvalStatus,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    item.stepType,
+                    style: const TextStyle(
+                        color: Color.fromARGB(255, 1, 90, 4), fontSize: 12),
                   ),
                 ),
                 Text(
-                  item.totalAmountReporting.toStringAsFixed(2),
+                  '${item.totalAmountReporting}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

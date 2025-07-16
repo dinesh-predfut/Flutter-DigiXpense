@@ -1,8 +1,6 @@
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/get_instance.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get.dart';
 
 import '../../../data/pages/screen/widget/router/router.dart';
 import '../../../data/service.dart';
@@ -19,6 +17,9 @@ class _MyDrawerState extends State<MyDrawer> {
   final TextStyle subTextStyle =
       const TextStyle(fontSize: 14, color: Colors.black87);
   final controller = Get.put(Controller());
+
+  String selectedMenu = ''; // Track selected menu
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -44,13 +45,15 @@ class _MyDrawerState extends State<MyDrawer> {
                               : null,
                     )),
                 const SizedBox(width: 12),
-                Text(controller.firstNameController.text ?? "Name",
+                Text(
+                    controller.firstNameController.text.isNotEmpty
+                        ? controller.firstNameController.text
+                        : "Name",
                     style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.black)),
                 const Spacer(),
-                // const Icon(Icons.chevron_left)
               ],
             ),
           ),
@@ -58,8 +61,18 @@ class _MyDrawerState extends State<MyDrawer> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text("MAIN", style: TextStyle(color: gray, fontSize: 12)),
           ),
-          const ListTile(
-              leading: Icon(Icons.home_outlined), title: Text('Dashboard')),
+          ListTile(
+            leading: const Icon(Icons.home_outlined),
+            title: const Text('Dashboard'),
+            selected: selectedMenu == 'Dashboard',
+            selectedTileColor: Colors.deepPurple.shade100,
+            onTap: () {
+              setState(() {
+                selectedMenu = 'Dashboard';
+              });
+              Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+            },
+          ),
           ExpansionTile(
             leading: const Icon(Icons.person_outline),
             title: const Text('Expenses'),
@@ -71,23 +84,49 @@ class _MyDrawerState extends State<MyDrawer> {
                   children: [
                     ListTile(
                       title: Text('My Expense', style: subTextStyle),
+                      selected: selectedMenu == 'My Expense',
+                      selectedTileColor: Colors.deepPurple.shade100,
                       onTap: () {
+                        setState(() {
+                          selectedMenu = 'My Expense';
+                        });
                         Navigator.pushNamed(context, AppRoutes.generalExpense);
                       },
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: ListTile(
-                        title: Text('My Team Expense', style: subTextStyle),
-                        selectedColor: AppColors.gradientEnd,
-                      ),
+                    ListTile(
+                      title: Text('My Team Expense', style: subTextStyle),
+                      selected: selectedMenu == 'My Team Expense',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'My Team Expense';
+                        });
+                        // Navigate if needed
+                      },
                     ),
                     ListTile(
-                        title: Text('Pending Approvals', style: subTextStyle)),
-                    ListTile(title: Text('Un Process', style: subTextStyle)),
+                      title: Text('Pending Approvals', style: subTextStyle),
+                      selected: selectedMenu == 'Pending Approvals',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'Pending Approvals';
+                        });
+                        Navigator.pushNamed(
+                            context, AppRoutes.approvalDashboard);
+                      },
+                    ),
+                    ListTile(
+                      title: Text('Un Process', style: subTextStyle),
+                      selected: selectedMenu == 'Un Process',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'Un Process';
+                        });
+                        // Navigate if needed
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -103,34 +142,114 @@ class _MyDrawerState extends State<MyDrawer> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ListTile(
-                        title: Text('My Cash Advance', style: subTextStyle)),
+                      title: Text('My Cash Advance', style: subTextStyle),
+                      selected: selectedMenu == 'My Cash Advance',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'My Cash Advance';
+                        });
+                        // Navigate if needed
+                      },
+                    ),
                     ListTile(
-                        title:
-                            Text('My Team cash Advance', style: subTextStyle)),
+                      title: Text('My Team cash Advance', style: subTextStyle),
+                      selected: selectedMenu == 'My Team cash Advance',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'My Team cash Advance';
+                        });
+                        // Navigate if needed
+                      },
+                    ),
                     ListTile(
-                        title: Text('Pending Approvals', style: subTextStyle)),
+                      title: Text('Pending Approvals', style: subTextStyle),
+                      selected: selectedMenu == 'Cash Pending Approvals',
+                      selectedTileColor: Colors.deepPurple.shade100,
+                      onTap: () {
+                        setState(() {
+                          selectedMenu = 'Cash Pending Approvals';
+                        });
+                        // Navigate if needed
+                      },
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const ListTile(
-              leading: Icon(Icons.mail_outline), title: Text('Email Hub')),
-          const ListTile(
-              leading: Icon(Icons.calendar_today), title: Text('Approval Hub')),
+          ListTile(
+            leading: const Icon(Icons.mail_outline),
+            title: const Text('Email Hub'),
+            selected: selectedMenu == 'Email Hub',
+            selectedTileColor: Colors.deepPurple.shade100,
+            onTap: () {
+              setState(() {
+                selectedMenu = 'Email Hub';
+              });
+              // Navigate if needed
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.calendar_today),
+            title: const Text('Approval Hub'),
+            selected: selectedMenu == 'Approval Hub',
+            selectedTileColor: Colors.deepPurple.shade100,
+            onTap: () {
+              setState(() {
+                selectedMenu = 'Approval Hub';
+              });
+              // Navigate if needed
+            },
+          ),
           const Divider(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child:
                 Text("SETTINGS", style: TextStyle(color: gray, fontSize: 12)),
           ),
-          const ListTile(
-              leading: Icon(Icons.settings_outlined), title: Text('Settings')),
-          const ListTile(
-              leading: Icon(Icons.help_outline), title: Text('Help')),
-          const ListTile(
-            leading: Icon(Icons.logout, color: Colors.red),
-            title: Text('Logout Account', style: TextStyle(color: Colors.red)),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Settings'),
+            selected: selectedMenu == 'Settings',
+            selectedTileColor: Colors.deepPurple.shade100,
+            onTap: () {
+              setState(() {
+                selectedMenu = 'Settings';
+              });
+              // Navigate if needed
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Help'),
+            selected: selectedMenu == 'Help',
+            selectedTileColor: Colors.deepPurple.shade100,
+            onTap: () {
+              setState(() {
+                selectedMenu = 'Help';
+              });
+              // Navigate if needed
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            onTap: () async {
+              setState(() {
+                controller.profileImage.value = null;
+              });
+
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.signin,
+                (route) => false,
+              );
+            },
+            title: const Text(
+              'Log out',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),

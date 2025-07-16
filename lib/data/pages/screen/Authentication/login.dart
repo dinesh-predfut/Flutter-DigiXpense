@@ -32,9 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     // detect keyboard status
-    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 100;
-
-    return Scaffold(
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 100; 
+     return WillPopScope(
+      onWillPop: () async {
+ 
+        Navigator.pushNamed(context, AppRoutes.login);
+        return true;
+      },
+      child:Scaffold(
         backgroundColor: const Color.fromARGB(255, 36, 10, 112),
         body: Stack(
           children: [
@@ -118,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity, // Make button full width
                         child: GradientButton(
                           text: "Log in",
-                          isLoading: controller.isLoading.value,
+                          isLoading: controller.isLoadingLogin.value,
                           onPressed: handleLogin,
                         ),
                       );
@@ -159,6 +164,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ],
-        ));
-  }
+        ))
+  );}
 }
