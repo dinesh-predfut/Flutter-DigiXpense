@@ -97,6 +97,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     controller.amountINR.text = widget.items!.totalAmountReporting.toString();
     controller.expenseID = widget.items!.expenseId;
     controller.recID = widget.items!.recId;
+    controller.isBillableCreate = widget.items!.isBillable;
     controller.currencyDropDowncontroller.text =
         widget.items!.currency.toString();
 
@@ -118,7 +119,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.categoryController.text = item.expenseCategoryId;
       controller.uomId.text = item.uomId;
       controller.isReimbursite = item.isReimbursable;
-      controller.isBillable = item.isBillable;
+      controller.isBillableCreate = item.isBillable;
       if (item.accountingDistributions != null) {
         controller.split = (item.accountingDistributions ?? []).map((dist) {
           return AccountingSplit(
@@ -196,8 +197,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           lineAmountTrans: 0,
           lineAmountReporting: 0,
           taxAmount: 0,
-          isReimbursable: false,
-          isBillable: false,
+          isReimbursable: controller.isReimbursiteCreate.value,
+          isBillable: controller.isBillableCreate,
           projectId: controller.projectDropDowncontroller.text ?? '',
           expenseCategoryId: controller.categoryController.text ?? "",
           uomId: controller.unit.isNotEmpty ? controller.unit.first.code : '',
@@ -226,7 +227,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
         newController.isReimbursite = newItem.isReimbursable;
-        newController.isBillable = newItem.isBillable;
+        newController.isBillableCreate = newItem.isBillable;
 
         // Set dropdown selections if available
         if (controller.project.isNotEmpty) {
@@ -517,6 +518,63 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                       },
                     ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              SearchableMultiColumnDropdownField<LocationModel>(
+                labelText: 'Cash Advance Request',
+                items: controller.location,
+                selectedValue: controller.selectedLocation,
+                enabled: controller.isEditModePerdiem,
+                controller: controller.locationController,
+                searchValue: (proj) => '${proj.location}',
+                displayText: (proj) => proj.location,
+                validator: (proj) =>
+                    proj == null ? 'Please select a Location' : null,
+                onChanged: (proj) {
+                  controller.selectedLocation = proj;
+                  controller.fetchPerDiemRates();
+                },
+                columnHeaders: const ['Request ID', 'Request Date'],
+                rowBuilder: (proj, searchQuery) {
+                  Widget highlight(String text) {
+                    final lowerQuery = searchQuery.toLowerCase();
+                    final lowerText = text.toLowerCase();
+                    final start = lowerText.indexOf(lowerQuery);
+                    if (start == -1 || searchQuery.isEmpty) return Text(text);
+
+                    final end = start + searchQuery.length;
+                    return RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: text.substring(0, start),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                          TextSpan(
+                            text: text.substring(start, end),
+                            style: const TextStyle(
+                              color: Colors.black,
+                            ),
+                          ),
+                          TextSpan(
+                            text: text.substring(end),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    child: Row(
+                      children: [
+                        // Expanded(child: Text(proj.location)),
+                        // Expanded(child: Text(proj.country)),
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               Column(
@@ -1237,30 +1295,44 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                     onChanged: controller.isEnable.value
                                         ? (val) {
                                             setState(() {
+                                              controller.isReimbursiteCreate
+                                                  .value = val;
+                                              widget.items!
+                                                      .expenseTrans[index] =
+                                                  itemController
+                                                      .toExpenseItemUpdateModel();
                                               itemController.isReimbursite =
                                                   val;
                                             });
                                           }
                                         : null,
                                   ),
-                                  SwitchListTile(
-                                    title: const Text("Is Billable",
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.black87)),
-                                    value: itemController.isBillable,
-                                    activeColor: Colors.blue,
-                                    inactiveThumbColor: Colors.grey.shade400,
-                                    inactiveTrackColor: Colors.grey.shade300,
-                                    onChanged: controller.isEnable.value
-                                        ? (val) {
-                                            setState(() {
-                                              itemController.isBillable = val;
-                                            });
-                                          }
-                                        : null,
-                                  ),
+                                  Obx(() => SwitchListTile(
+                                        title: const Text("Is Billable",
+                                            style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.black87)),
+                                        value: controller
+                                            .isBillableCreate, // ✅ Add .value
+                                        activeColor: Colors.blue,
+                                        inactiveThumbColor:
+                                            Colors.grey.shade400,
+                                        inactiveTrackColor:
+                                            Colors.grey.shade300,
+                                        onChanged: controller.isEnable.value
+                                            ? (val) {
+                                                setState(() {
+                                                  widget.items!
+                                                          .expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                  controller.isBillableCreate =
+                                                      val;
+                                                });
+                                              }
+                                            : null,
+                                      )),
                                   if (controller.isEnable.value)
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1411,57 +1483,147 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
               if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Rejected")
                 Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['resubmit'] ?? false;
                   return SizedBox(
                     width: double.infinity,
-                    child: GradientButton(
-                        text: "Resubmit",
-                        isLoading: controller.buttonLoader.value,
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, true, true, widget.items!.recId);
-                        }),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor:
+                            const Color(0xFF8E6EFF), // Purple gradient replaced
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              controller.setButtonLoading('resubmit', true);
+                              controller.addToFinalItems(widget.items!);
+                              controller
+                                  .saveinviewPageGeneralExpense(
+                                      context, true, true, widget.items!.recId)
+                                  .whenComplete(() {
+                                controller.setButtonLoading('resubmit', false);
+                              });
+                            },
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Resubmit",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
                   );
                 }),
               if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Created")
                 Obx(() {
+                  final isLoading = controller.buttonLoaders['submit'] ?? false;
                   return SizedBox(
                     width: double.infinity,
-                    child: GradientButton(
-                        text: "Submit",
-                        isLoading: controller.buttonLoader.value,
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, true, false, widget.items!.recId);
-                        }),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: Color.fromARGB(
+                            255, 26, 2, 110), // Purple gradient replaced
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              controller.setButtonLoading('submit', true);
+                              controller.addToFinalItems(widget.items!);
+                              controller
+                                  .saveinviewPageGeneralExpense(
+                                      context, true, false, widget.items!.recId)
+                                  .whenComplete(() {
+                                controller.setButtonLoading('submit', false);
+                              });
+                            },
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Submit",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
                   );
                 }),
+
               if (controller.isEnable.value) const SizedBox(height: 20),
+
               if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Rejected")
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, false, false, widget.items!.recId);
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 30, 117, 3)),
-                        child: const Text(
-                          "Update",
-                          style: TextStyle(color: Colors.white),
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['update'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('update', true);
+                                  controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .saveinviewPageGeneralExpense(context,
+                                          false, false, widget.items!.recId)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'update', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color(0xFF1E7503), // Green button
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Update",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => {controller.chancelButton(context)},
+                        onPressed: () {
+                          controller.chancelButton(context);
+                        },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
@@ -1476,25 +1638,50 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                   widget.items!.approvalStatus == "Created")
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, false, false, widget.items!.recId);
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 30, 117, 3)),
-                        child: const Text(
-                          "Save",
-                          style: TextStyle(color: Colors.white),
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['saveGE'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('saveGE', true);
+                                  controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .saveinviewPageGeneralExpense(context,
+                                          false, false, widget.items!.recId)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'saveGE', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color(0xFF1E7503), // Green button
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Save",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => {controller.chancelButton(context)},
+                        onPressed: () {
+                          controller.chancelButton(context);
+                        },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
@@ -1509,25 +1696,49 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                   widget.items!.approvalStatus == "Pending")
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          controller.cancelExpense(
-                              context, widget.items!.recId.toString());
-                        },
-                        style: ElevatedButton.styleFrom(
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['cancel'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('cancel', true);
+                                  controller
+                                      .cancelExpense(context,
+                                          widget.items!.recId.toString())
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'cancel', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 233, 151, 151)),
-                        child: const Text(
-                          "Cancel",
-                          style: TextStyle(color: Colors.red),
+                                const Color(0xFFE99797), // Red cancel button
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.red,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Cancel",
+                                  style: TextStyle(color: Colors.red),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => {controller.chancelButton(context)},
+                        onPressed: () {
+                          controller.chancelButton(context);
+                        },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
@@ -1540,13 +1751,15 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 )
               else
                 ElevatedButton(
-                  onPressed: () => {controller.chancelButton(context)},
+                  onPressed: () {
+                    controller.chancelButton(context);
+                  },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   child: const Text(
                     "Cancel",
                     style: TextStyle(color: Colors.black),
                   ),
-                )
+                ),
             ],
           ),
         ),

@@ -7,7 +7,7 @@ import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -25,10 +25,13 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     with TickerProviderStateMixin {
   final controllers = Get.put(Controller());
   bool isLoading = false;
-
+  final Controller controller = Controller();
+  late final ScrollController _scrollController;
+  late final AnimationController _animationController;
+  late final Animation<double> _animation;
   double _dragOffset = 0;
   final double _maxDragExtent = 600;
-  final Controller controller = Controller();
+  // final Controller controller = Controller();
   List<GExpense> _items = [];
   bool _item1Expanded = true;
   bool _item2Expanded = false;
@@ -127,6 +130,25 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
   @override
   void initState() {
     super.initState();
+     _scrollController = ScrollController();
+    controller.fetchManageExpensesCards().then((_) {
+      if (controller.manageExpensesCards.isNotEmpty) {
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        _animationController = AnimationController(
+          vsync: this,
+          duration: const Duration(seconds: 10),
+        )..repeat(reverse: false);
+
+        _animation =
+            Tween<double>(begin: 0, end: 1).animate(_animationController)
+              ..addListener(() {
+                if (_scrollController.hasClients) {
+                  final maxScroll = _scrollController.position.maxScrollExtent;
+                  _scrollController.jumpTo(_animation.value * maxScroll);
+                }
+              });
+      }
+    });
     setState(() {
       controller.isEnable.value = false;
     });
@@ -151,351 +173,413 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
               return true; // allow back navigation
             },
             child: Scaffold(
-                backgroundColor: const Color(0xFFF7F7F7),
-                body:
-                   Column(
-                    children: [
-                      // Top Content in scroll view
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+              backgroundColor: const Color(0xFFF7F7F7),
+              body: Column(
+                children: [
+                  // Top Content in scroll view
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Stack(
                               children: [
-                                Stack(
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      height: 130,
-                                      decoration: const BoxDecoration(
-                                        image: DecorationImage(
-                                          image:
-                                              AssetImage('assets/Vector.png'),
-                                          fit: BoxFit.cover,
-                                        ),
-                                        borderRadius: BorderRadius.only(
-                                          bottomLeft: Radius.circular(10),
-                                          bottomRight: Radius.circular(10),
+                                Container(
+                                  width: double.infinity,
+                                  height: 130,
+                                  decoration: const BoxDecoration(
+                                    image: DecorationImage(
+                                      image: AssetImage('assets/Vector.png'),
+                                      fit: BoxFit.cover,
+                                    ),
+                                    borderRadius: BorderRadius.only(
+                                      bottomLeft: Radius.circular(10),
+                                      bottomRight: Radius.circular(10),
+                                    ),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 40, 20, 20),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      // Left side (Welcome text + logo)
+                                      Flexible(
+                                        child: Column(
+                                          children: [
+                                            const Text(
+                                              'Welcome to',
+                                              style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8),
+                                            ),
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              child: Image.asset(
+                                                'assets/XpenseWhite.png',
+                                                width: 100,
+                                                height: 40,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      padding: const EdgeInsets.fromLTRB(
-                                          10, 40, 20, 20),
-                                      child: Row(
+                                      const SizedBox(height: 20),
+
+                                      // Right side (Language Dropdown + Bell + Profile)
+                                      Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          // Left side (Welcome text + logo)
-                                          Flexible(
-                                            child: Column(
-                                              children: [
-                                                const Text(
-                                                  'Welcome to',
-                                                  style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 8),
-                                                ),
-                                                ClipRRect(
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                  child: Image.asset(
-                                                    'assets/XpenseWhite.png',
-                                                    width: 100,
-                                                    height: 40,
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 20),
+                                          const LanguageDropdown(),
 
-                                          // Right side (Language Dropdown + Bell + Profile)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
+                                          // ✅ Notification Bell with Badge
+                                          Stack(
                                             children: [
-                                              const LanguageDropdown(),
-
-                                              // ✅ Notification Bell with Badge
-                                              Stack(
-                                                children: [
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                        Icons.notifications,
-                                                        color: Colors.white),
-                                                    onPressed: () {
-                                                      Navigator.pushNamed(
-                                                          context,
-                                                          AppRoutes
-                                                              .notification);
-                                                    },
-                                                  ),
-                                                  // Badge
-                                                  Obx(() {
-                                                    final unreadCount =
-                                                        controller
-                                                            .unreadNotifications
-                                                            .length;
-                                                    if (unreadCount == 0)
-                                                      return const SizedBox
-                                                          .shrink();
-                                                    return Positioned(
-                                                      right: 6,
-                                                      top: 6,
-                                                      child: Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .all(4),
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                          color: Colors.red,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                        constraints:
-                                                            const BoxConstraints(
-                                                          minWidth: 18,
-                                                          minHeight: 18,
-                                                        ),
-                                                        child: Text(
-                                                          '$unreadCount',
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 10,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                          textAlign:
-                                                              TextAlign.center,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }),
-                                                ],
-                                              ),
-
-                                              const SizedBox(width: 10),
-
-                                              // ✅ Profile Picture (Reactive)
-                                              GestureDetector(
-                                                onTap: () {
+                                              IconButton(
+                                                icon: const Icon(
+                                                    Icons.notifications,
+                                                    color: Colors.white),
+                                                onPressed: () {
                                                   Navigator.pushNamed(context,
-                                                      AppRoutes.personalInfo);
+                                                      AppRoutes.notification);
                                                 },
-                                                child: Obx(() => Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              2),
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        border: Border.all(
-                                                            color: Colors.white,
-                                                            width: 2),
+                                              ),
+                                              // Badge
+                                              Obx(() {
+                                                final unreadCount = controller
+                                                    .unreadNotifications.length;
+                                                if (unreadCount == 0)
+                                                  return const SizedBox
+                                                      .shrink();
+                                                return Positioned(
+                                                  right: 6,
+                                                  top: 6,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color: Colors.red,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    constraints:
+                                                        const BoxConstraints(
+                                                      minWidth: 18,
+                                                      minHeight: 18,
+                                                    ),
+                                                    child: Text(
+                                                      '$unreadCount',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
-                                                      child: ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(20),
-                                                        child: controller
-                                                                .isImageLoading
-                                                                .value
-                                                            ? const SizedBox(
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                    ),
+                                                  ),
+                                                );
+                                              }),
+                                            ],
+                                          ),
+
+                                          const SizedBox(width: 10),
+
+                                          // ✅ Profile Picture (Reactive)
+                                          GestureDetector(
+                                            onTap: () {
+                                              Navigator.pushNamed(context,
+                                                  AppRoutes.personalInfo);
+                                            },
+                                            child: Obx(() => Container(
+                                                  padding:
+                                                      const EdgeInsets.all(2),
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                        color: Colors.white,
+                                                        width: 2),
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20),
+                                                    child: controller
+                                                            .isImageLoading
+                                                            .value
+                                                        ? const SizedBox(
+                                                            width: 40,
+                                                            height: 40,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              color:
+                                                                  Colors.white,
+                                                              strokeWidth: 2,
+                                                            ),
+                                                          )
+                                                        : controller.profileImage
+                                                                    .value !=
+                                                                null
+                                                            ? Image.file(
+                                                                controller
+                                                                    .profileImage
+                                                                    .value!,
                                                                 width: 40,
                                                                 height: 40,
-                                                                child:
-                                                                    CircularProgressIndicator(
-                                                                  color: Colors
-                                                                      .white,
-                                                                  strokeWidth:
-                                                                      2,
-                                                                ),
+                                                                fit: BoxFit
+                                                                    .cover,
                                                               )
-                                                            : controller.profileImage
-                                                                        .value !=
-                                                                    null
-                                                                ? Image.file(
-                                                                    controller
-                                                                        .profileImage
-                                                                        .value!,
-                                                                    width: 40,
-                                                                    height: 40,
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                  )
-                                                                : const Icon(
-                                                                    Icons
-                                                                        .person,
-                                                                    size: 40,
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                      ),
-                                                    )),
-                                              ),
-                                            ],
+                                                            : const Icon(
+                                                                Icons.person,
+                                                                size: 40,
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
+                                                  ),
+                                                )),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 15),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: [
-                                      _balanceCard(
-                                          'Total Balance to Spend by category',
-                                          'Rs.23000'),
-                                      _balanceCard(
-                                          'Total Balance to Spend by category',
-                                          'Rs.23000'),
-                                      _balanceCard(
-                                          'Total Balance to Spend by category',
-                                          'Rs.23000'),
-                                      _balanceCard(
-                                          'Total Balance to Spend by category',
-                                          'Rs.23000'),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 15),
-                                Center(
-                                  child: SizedBox(
-                                    width: 300,
-                                    height: 48,
-                                    child: TextField(
-                                      controller: controller.searchController,
-                                      onChanged: (value) {
-                                        controller.searchQuery.value =
-                                            value.toLowerCase();
-                                      },
-                                      decoration: InputDecoration(
-                                        hintText: 'Search...',
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        isDense: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 12),
-                                        prefixIcon: const Icon(Icons.search,
-                                            color: Colors.grey),
-                                      ),
-                                    ),
-                                  ),
-                                )
                               ],
                             ),
-                          ),
+                            const SizedBox(height: 15),
+                            Obx(() {
+                              return SizedBox(
+                                height: 140,
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  physics:
+                                      const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
+                                  itemCount:
+                                      controller.manageExpensesCards.length,
+                                  itemBuilder: (context, index) {
+                                    final card =
+                                        controller.manageExpensesCards[index];
+                                    return _buildStyledCard(card);
+                                  },
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: 15),
+                            Center(
+                              child: SizedBox(
+                                width: 300,
+                                height: 48,
+                                child: TextField(
+                                  controller: controller.searchController,
+                                  onChanged: (value) {
+                                    controller.searchQuery.value =
+                                        value.toLowerCase();
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'Search...',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 12),
+                                    prefixIcon: const Icon(Icons.search,
+                                        color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            )
+                          ],
                         ),
                       ),
-
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.50,
-                        child: Obx(() {
-                          if (controller.isLoadingGE1.value) {
-                            return const SkeletonLoaderPage();
-                          }
-
-                          final expenses = controller.pendingApprovals;
-                          print("expenses$expenses");
-                          final filteredExpenses = expenses.where((item) {
-                            final query = controller.searchQuery.value;
-                            if (query.isEmpty) return true;
-                            return item.expenseType
-                                    .toLowerCase()
-                                    .contains(query) ||
-                                item.expenseType
-                                    .toLowerCase()
-                                    .contains(query) ||
-                                item.expenseId.toLowerCase().contains(query);
-                          }).toList();
-                          if (expenses.isEmpty) {
-                            return const Center(
-                                child: Text("No expenses found"));
-                          }
-
-                          return ListView.builder(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: filteredExpenses.length,
-                            itemBuilder: (ctx, idx) {
-                              final item = filteredExpenses[idx];
-
-                              return Dismissible(
-                                key: ValueKey(item.expenseId),
-                                background: _buildSwipeActionLeft(isLoading),
-                                secondaryBackground: _buildSwipeActionRight(),
-                                confirmDismiss: (direction) async {
-                                  if (direction ==
-                                      DismissDirection.startToEnd) {
-                                    setState(() => isLoading = true);
-
-                                    if (item.expenseType == "PerDiem") {
-        controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
-      } else if (item.expenseType == "General Expenses") {
-        print("Expenses${item.recId}");
-        controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-        controller.fetchExpenseHistory(item.recId);
-      } else if (item.expenseType == "Mileage") {
-        print("Expenses${item.recId}");
-        controller.fetchMileageDetailsApproval(context, item.workitemrecid);
-        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-        // controller.fetchExpenseHistory(item.recId);
-      }
-
-                                    setState(() => isLoading = false);
-                                    return false;
-                                  } else {
-                                    final shouldDelete = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Delete?'),
-                                        content:
-                                            Text('Delete "${item.expenseId}"?'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.of(ctx).pop(false),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () =>
-                                                Navigator.of(ctx).pop(true),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
-                                            ),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-
-                                    if (shouldDelete == true) {
-                                      setState(() => isLoading = true);
-                                      await controller
-                                          .deleteExpense(item.recId);
-                                      setState(() => isLoading = false);
-                                      return true; // This will remove the item from UI
-                                    }
-
-                                    return false;
-                                  }
-                                },
-                                child: _buildCard(item, context),
-                              );
-                            },
-                          );
-                        }),
-                      )
-                    ],
+                    ),
                   ),
-                ));
-  }
 
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.50,
+                    child: Obx(() {
+                      if (controller.isLoadingGE1.value) {
+                        return const SkeletonLoaderPage();
+                      }
+
+                      final expenses = controller.pendingApprovals;
+                      print("expenses$expenses");
+                      final filteredExpenses = expenses.where((item) {
+                        final query = controller.searchQuery.value;
+                        if (query.isEmpty) return true;
+                        return item.expenseType.toLowerCase().contains(query) ||
+                            item.expenseType.toLowerCase().contains(query) ||
+                            item.expenseId.toLowerCase().contains(query);
+                      }).toList();
+                      if (expenses.isEmpty) {
+                        return const Center(child: Text("No expenses found"));
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: filteredExpenses.length,
+                        itemBuilder: (ctx, idx) {
+                          final item = filteredExpenses[idx];
+
+                          return Dismissible(
+                            key: ValueKey(item.expenseId),
+                            background: _buildSwipeActionLeft(isLoading),
+                            secondaryBackground: _buildSwipeActionRight(),
+                            confirmDismiss: (direction) async {
+                              if (direction == DismissDirection.startToEnd) {
+                                setState(() => isLoading = true);
+
+                                if (item.expenseType == "PerDiem") {
+                                  controller.fetchSecificPerDiemItemApproval(
+                                      context, item.workitemrecid);
+                                } else if (item.expenseType ==
+                                    "General Expenses") {
+                                  print("Expenses${item.recId}");
+                                  controller.fetchSecificApprovalExpenseItem(
+                                      context, item.workitemrecid);
+                                  controller.fetchExpenseHistory(item.recId);
+                                } else if (item.expenseType == "Mileage") {
+                                  print("Expenses${item.recId}");
+                                  controller.fetchMileageDetailsApproval(
+                                      context, item.workitemrecid);
+                                  // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+                                  // controller.fetchExpenseHistory(item.recId);
+                                }
+
+                                setState(() => isLoading = false);
+                                return false;
+                              } else {
+                                final shouldDelete = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete?'),
+                                    content:
+                                        Text('Delete "${item.expenseId}"?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () =>
+                                            Navigator.of(ctx).pop(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                        ),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (shouldDelete == true) {
+                                  setState(() => isLoading = true);
+                                  await controller.deleteExpense(item.recId);
+                                  setState(() => isLoading = false);
+                                  return true; // This will remove the item from UI
+                                }
+
+                                return false;
+                              }
+                            },
+                            child: _buildCard(item, context),
+                          );
+                        },
+                      );
+                    }),
+                  )
+                ],
+              ),
+            ));
+
+  }
+ Widget _buildStyledCard(ManageExpensesCard card) {
+    return Container(
+      width: 180,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade400, Colors.teal.shade700],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.withOpacity(0.4),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getIconForStatus(card.status),
+            size: 30,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getTitle(card.status),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '₹${card.amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+ String _getTitle(String key) {
+    switch (key) {
+      case 'AmountSettled':
+        return ' Total Amount Settled';
+      case 'Inprogress':
+        return 'Total Advance In Progress';
+      case 'Pending':
+        return 'Total Amount Pending';
+      case 'TotalAmountReporting':
+        return 'Total Expenses';
+      default:
+        return key;
+    }
+  }
+  IconData _getIconForStatus(String status) {
+    switch (status) {
+      case 'AmountSettled':
+        return Icons.check_circle; // ✅
+      case 'Inprogress':
+        return Icons.sync; // 🔄
+      case 'Pending':
+        return Icons.hourglass_bottom; // ⏳
+      case 'TotalAmountReporting':
+        return Icons.bar_chart; // 📊
+      default:
+        return Icons.category; // fallback
+    }
+  }
   Widget circula() {
     return const Center(
       child: CircularProgressIndicator(),
@@ -686,4 +770,5 @@ Widget _buildCard(ExpenseModel item, BuildContext context) {
       ),
     ),
   );
+  
 }

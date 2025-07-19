@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:core';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:digi_xpense/data/models.dart';
 import 'package:flutter/material.dart';
@@ -118,12 +119,17 @@ class Controller extends GetxController {
   final TextEditingController perDiemController = TextEditingController();
   final TextEditingController amountInController = TextEditingController();
   final TextEditingController purposeController = TextEditingController();
-  late String digiSessionId;
+  String? digiSessionId;
   List<VehicleType> vehicleTypes = []; // Dropdown values from API
   VehicleType? selectedVehicleType; // Currently selected type
   MileageRateResponse? mileageRateResponse;
   List<Map<String, dynamic>> mileageRateLines = [];
   var projectExpenses = <ProjectExpense>[].obs;
+  var expensesByStatus = <ExpenseAmountByStatus>[].obs;
+  var manageExpensesCards = <ManageExpensesCard>[].obs;
+  var isUploadingCards = false.obs;
+  var isLoadingStatus = false.obs;
+  var callAPIDashBoard = true.obs;
   double calculatedAmountINR = 0;
   double calculatedAmountUSD = 0;
   double totalDistanceKm = 0;
@@ -132,12 +138,19 @@ class Controller extends GetxController {
   var notifications = <NotificationModel>[].obs;
   var unreadNotifications = <NotificationModel>[].obs;
   late List<ProjectData> chartData = [];
+  var projectExpensesbyCategory = <ProjectExpensebycategory>[].obs;
   var resendCountdown = 0.obs;
   @override
   void onInit() {
     super.onInit();
     loadSavedCredentials();
     fetchNotifications();
+  }
+
+  RxMap<String, bool> buttonLoaders = <String, bool>{}.obs;
+
+  void setButtonLoading(String buttonName, bool isLoading) {
+    buttonLoaders[buttonName] = isLoading;
   }
 
   String selectedStatus = "Un Reported";
@@ -155,6 +168,8 @@ class Controller extends GetxController {
   RxList<ExpenseModel> pendingApprovals = <ExpenseModel>[].obs;
   String maritalStatus = 'Single';
   var selectedCurrency = Rxn<Currency>();
+  var manageExpensesSummary = <ManageExpensesSummary>[].obs;
+  var isUploadingSummary = false.obs;
   // In your controller
   var searchQuery = ''.obs;
   final searchController = TextEditingController();
@@ -276,11 +291,19 @@ class Controller extends GetxController {
   RxList<File> imageFiles = <File>[].obs;
 // GeneralExpense
   bool isReimbursite = false;
-  bool isBillable = false;
+  // bool isBillable = false;
   bool isBillableCreate = false;
   RxBool isReimbursiteCreate = false.obs;
+  RxBool isBillable = false.obs; // ✅ Reactive
   RxBool isisBillablereate = false.obs;
   var checkboxValues = <String, bool>{}.obs;
+  Color getRandomMildColor() {
+    Random random = Random();
+    int red = (random.nextInt(128) + 127); // 127–255
+    int green = (random.nextInt(128) + 127); // 127–255
+    int blue = (random.nextInt(128) + 127); // 127–255
+    return Color.fromARGB(255, red, green, blue);
+  }
 
   Map<String, String> dateFormatMap = {
     'mm_dd_yyyy': 'MM/dd/yyyy',
@@ -392,6 +415,7 @@ class Controller extends GetxController {
   }
 
   void clearFormFields() {
+    buttonLoaders.clear();
     firstNameController.clear();
     manualPaidToController.clear();
     paidAmount.clear();
@@ -419,6 +443,8 @@ class Controller extends GetxController {
     isVisible.value = false;
     unitAmount.clear();
     isEnable.value = false;
+    isReimbursiteCreate.value = false;
+    isBillable.value = false;
   }
 
   void chancelButton(BuildContext context) {
@@ -438,8 +464,8 @@ class Controller extends GetxController {
       lineAmountReporting: double.tryParse(paidAmount.text) ?? 0,
       projectId: projectDropDowncontroller.text,
       description: descriptionController.text,
-      isReimbursable: isReimbursite,
-      isBillable: isBillable,
+      isReimbursable: isReimbursiteCreate.value,
+      isBillable: isBillable.value,
       //  "Description": descriptionController.text,
       //       "ExpenseCategoryId": selectedCategoryId,
       //       "ExpenseId": 2079768,
@@ -482,8 +508,8 @@ class Controller extends GetxController {
       lineAmountReporting: double.tryParse(paidAmount.text) ?? 0,
       projectId: selectedProject?.code,
       description: descriptionController.text,
-      isReimbursable: isReimbursite,
-      isBillable: isBillable,
+      isReimbursable: isReimbursiteCreate.value,
+      isBillable: isBillable.value,
       //  "Description": descriptionController.text,
       //       "ExpenseCategoryId": selectedCategoryId,
       //       "ExpenseId": 2079768,
@@ -522,7 +548,7 @@ class Controller extends GetxController {
       headers: {
         "Content-Type": "application/json",
         'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        'DigiSessionID': digiSessionId,
+        'DigiSessionID': digiSessionId.toString(),
       },
     );
 
@@ -1248,7 +1274,7 @@ class Controller extends GetxController {
   }
 
   Future<void> getProfilePicture() async {
-    profileImage.value = null;
+    profileImage.value = null; // Clear old image
     final url = Uri.parse('${Urls.getProfilePicture}${Params.userId}');
     try {
       final request = http.Request('GET', url)
@@ -1260,34 +1286,52 @@ class Controller extends GetxController {
       final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 200) {
-        print('✅ Profile picture saved to ${response.statusCode}');
-        final String base64String = response.body;
-        print('✅ Profile picture saved to $base64String');
+        print('✅ Profile picture fetched successfully');
 
+        final String base64String = response.body;
         final cleaned = base64String.contains(',')
             ? base64String.split(',')[1]
             : base64String;
 
         final Uint8List bytes = base64Decode(cleaned);
 
+        // Save image to temporary directory
         final dir = await getTemporaryDirectory();
         final file = File('${dir.path}/profile_image.png');
         await file.writeAsBytes(bytes);
 
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('profile_image_path', file.toString());
         profileImage.value = file;
 
-        print('✅ Profile image stored at: ${file.path}');
+        print(' Profile image stored at: ${file.path}');
       } else {
-        print('Failed to load countries');
+        print('Failed to fetch profile picture: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching countries: $e');
+      print(' Error fetching profile picture: $e');
+    }
+  }
+
+  Future<void> loadProfilePictureFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final filePath = prefs.getString('profile_image_path');
+
+    if (filePath != null) {
+      final file = File(filePath);
+      if (await file.exists()) {
+        profileImage.value = file;
+        print('✅ Loaded cached profile image from $filePath');
+      } else {
+        print('⚠️ Cached profile image not found on disk');
+        profileImage.value = null;
+      }
     }
   }
 
   Future<void> updateProfileDetails() async {
-    buttonLoader.value = true;
-    isUploading.value = true;
+    // buttonLoader.value = true;
+    isGEPersonalInfoLoading.value = true;
 
     final Map<String, dynamic> requestBody = {
       "ContactNumber": '${countryCodeController.text} ${phoneController.text}',
@@ -1324,8 +1368,8 @@ class Controller extends GetxController {
       );
 
       if (response.statusCode == 280) {
-        buttonLoader.value = false;
-        isUploading.value = false;
+        isGEPersonalInfoLoading.value = false;
+        // isUploading.value = false;
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
           msg: "Success: ${responseData['detail']['message']}}",
@@ -1346,12 +1390,12 @@ class Controller extends GetxController {
           fontSize: 16.0,
         );
         print("❌ Error: ${response.body}");
-        buttonLoader.value = false;
-        isUploading.value = false;
+        isGEPersonalInfoLoading.value = false;
+        // isUploading.value = false;
       }
     } catch (e) {
       print("❌ Exception: $e");
-      buttonLoader.value = false;
+      isGEPersonalInfoLoading.value = false;
     }
   }
 
@@ -1545,7 +1589,13 @@ class Controller extends GetxController {
       contactPostalController.text = cont['PostalCode'] ?? '';
       contactaddressID.text = cont['AddressId'] ?? '';
       contactCountryController = cont['Country'] ?? '';
+      final bool isSameAsPermanents = (perm['Street'] == cont['Street']) &&
+          (perm['City'] == cont['City']) &&
+          (perm['State'] == cont['State']) &&
+          (perm['PostalCode'] == cont['PostalCode']) &&
+          (perm['Country'] == cont['Country']);
 
+      isSameAsPermanent = isSameAsPermanents;
 // Delay mapping with Timer to ensure dropdown options are loaded
       Timer(const Duration(seconds: 5), () {
         selectedCountry.value = countries.firstWhere(
@@ -2240,7 +2290,7 @@ class Controller extends GetxController {
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
-          'DigiSessionID': digiSessionId,
+          'DigiSessionID': digiSessionId.toString(),
         },
         body: jsonEncode(payload),
       );
@@ -2329,7 +2379,7 @@ class Controller extends GetxController {
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
-          'DigiSessionID': digiSessionId,
+          'DigiSessionID': digiSessionId.toString(),
         },
         body: jsonEncode(requestBody),
       );
@@ -2523,6 +2573,7 @@ class Controller extends GetxController {
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
       "CashAdvReqId": '',
       "Location": "", // or locationController.text.trim()
+      "ReferenceNumber": referenceID.text,
       "PaymentMethod": paidWith,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
@@ -2530,7 +2581,7 @@ class Controller extends GetxController {
       "TotalAmountReporting":
           amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
 
-      "IsReimbursable": true,
+      if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
       "Currency": selectedCurrency.value?.code ?? 'INR',
       "ExchRate":
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
@@ -2538,7 +2589,7 @@ class Controller extends GetxController {
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
 
       "Source": "Web",
-      "IsBillable": false,
+      if (!hasValidUnit) "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
@@ -3079,6 +3130,8 @@ class Controller extends GetxController {
 
   void clearFormFieldsPerdiem() {
     // Clear text controllers
+    buttonLoaders.clear();
+
     isEditModePerdiem = false;
     isEditMode = true;
     setTheAllcationAmount = 0;
@@ -3849,7 +3902,7 @@ class Controller extends GetxController {
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
         'Content-Type': 'application/json',
-        'DigiSessionID': digiSessionId,
+        'DigiSessionID': digiSessionId.toString(),
       },
     );
 
@@ -3863,7 +3916,7 @@ class Controller extends GetxController {
 
   Future<void> fetchChartData() async {
     final int endDate = DateTime.now().millisecondsSinceEpoch;
-    isUploading.value = true;
+    isUploadingCards.value = true;
     final response = await http.get(
       Uri.parse(
           '${Urls.cashAdvanceChart}$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
@@ -3874,7 +3927,7 @@ class Controller extends GetxController {
     );
 
     if (response.statusCode == 200) {
-      isUploading.value = false;
+      isUploadingCards.value = false;
       final jsonResponse = json.decode(response.body);
       final xAxis = List<String>.from(jsonResponse['XAxis']);
       final yAxis = List<double>.from(
@@ -3884,12 +3937,12 @@ class Controller extends GetxController {
         xAxis.length,
         (index) => ProjectData(xAxis[index], yAxis[index]),
       );
-      isUploading.value = false;
+      isUploadingCards.value = false;
       print('chartData$chartData');
       // isLoading = false;
     } else {
       // Handle error
-      isUploading.value = false;
+      isUploadingCards.value = false;
       // isLoading = false;
 
       print('Error: ${response.statusCode} ${response.body}');
@@ -3897,7 +3950,7 @@ class Controller extends GetxController {
   }
 
   Future<void> fetchAndReplaceValue() async {
-    isUploading.value = true;
+    isUploadingCards.value = true;
     final int endDate = DateTime.now().millisecondsSinceEpoch;
     final int startDate = DateTime.now()
         .subtract(const Duration(days: 30))
@@ -3928,20 +3981,20 @@ class Controller extends GetxController {
         expenseChartvalue = (jsonData['Value'] as num).toDouble();
 
         print("Value $expenseChartvalue  API response");
-        isUploading.value = false;
+        isUploadingCards.value = false;
       } else {
         print("Value not found in API response");
-        isUploading.value = false;
+        isUploadingCards.value = false;
       }
     } else {
       print('Failed to fetch data: ${response.statusCode}');
-      isUploading.value = false;
+      isUploadingCards.value = false;
     }
   }
 
   Future<void> fetchExpensesByProjects() async {
     try {
-      isUploading.value = true;
+      isUploadingCards.value = true;
 
       const String apiUrl = '${Urls.projectExpenseChart}'
           '?role=Spender&page=1&limit=10&sort_by=y&sort_order=asc';
@@ -3960,20 +4013,143 @@ class Controller extends GetxController {
             jsonData.map((item) => ProjectExpense.fromJson(item)).toList();
 
         projectExpenses.value = expenses;
-        isUploading.value = false;
+        isUploadingCards.value = false;
       } else {
         Get.snackbar(
           "Error",
           "Failed to fetch data: ${response.statusCode}",
         );
-        isUploading.value = false;
+        isUploadingCards.value = false;
       }
     } catch (e) {
       print("Error: $e");
       Get.snackbar("Error", "Something went wrong!");
-      isUploading.value = false;
+      isUploadingCards.value = false;
     } finally {
-      isUploading.value = false;
+      isUploadingCards.value = false;
+    }
+  }
+
+  Future<void> fetchExpensesByCategory() async {
+    try {
+      isUploadingCards.value = true;
+
+      final response = await http.get(
+        Uri.parse(
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        isUploadingCards.value = false;
+
+        final data = json.decode(response.body);
+
+        List<String> categories = List<String>.from(data['XAxis']);
+        List<dynamic> yAxis = data['YAxis'];
+
+        // Combine data for each category (sum of all statuses)
+        List<ProjectExpensebycategory> expenses = [];
+        for (int i = 0; i < categories.length; i++) {
+          double total = 0.0;
+          for (var status in yAxis) {
+            total += (status['data'][i] ?? 0.0);
+          }
+          expenses.add(ProjectExpensebycategory(
+              x: categories[i], y: total, color: getRandomMildColor()));
+        }
+
+        projectExpensesbyCategory.assignAll(expenses);
+        isUploadingCards.value = false;
+      } else {
+        Get.snackbar('Error', 'Failed to fetch data: ${response.statusCode}');
+        isUploadingCards.value = false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to fetch data: $e');
+      isUploadingCards.value = false;
+    } finally {
+      isUploadingCards.value = false;
+    }
+  }
+
+  Future<void> fetchExpensesByStatus() async {
+    try {
+      isUploadingCards.value = true;
+      final response = await http.get(
+        Uri.parse(
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+        ),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+        List<String> xAxis = List<String>.from(jsonResponse['XAxis']);
+        List<double> yAxis =
+            List<double>.from(jsonResponse['YAxis'].map((e) => e.toDouble()));
+
+        final data = List.generate(
+          xAxis.length,
+          (index) => ExpenseAmountByStatus.fromJson(xAxis[index], yAxis[index]),
+        );
+
+        expensesByStatus.assignAll(data);
+        isUploadingCards.value = false;
+      } else {
+        Get.snackbar('Error', 'Failed to fetch data: ${response.statusCode}');
+        isUploadingCards.value = false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Something went wrong: $e');
+      isUploadingCards.value = false;
+    } finally {
+      isUploadingCards.value = false;
+    }
+  }
+
+  Future<void> fetchManageExpensesSummary() async {
+    try {
+      isUploadingCards.value = true;
+
+      final response = await http.get(
+        Uri.parse(
+            'https://api.digixpense.com/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}'),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+
+        // Convert Map<String, double> to List<ManageExpensesSummary>
+        final summary = jsonResponse.entries.map((e) {
+          return ManageExpensesSummary(
+            status: e.key,
+            amount: (e.value as num).toDouble(),
+          );
+        }).toList();
+
+        manageExpensesSummary.assignAll(summary);
+        isUploadingCards.value = false;
+      } else {
+        Get.snackbar(
+            'Error', 'Failed to fetch summary: ${response.statusCode}');
+        isUploadingCards.value = false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Something went wrong: $e');
+      isUploadingCards.value = false;
+    } finally {
+      isUploadingCards.value = false;
     }
   }
 
@@ -4007,7 +4183,7 @@ class Controller extends GetxController {
   Future<List<CashAdvanceReqModel>> fetchCashAdvanceRequests() async {
     final dateToUse = selectedDate ?? DateTime.now();
 
-    isLoading.value = true;
+    isUploadingCards.value = true;
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     String url = "${Urls.cashAdvanceList}"
@@ -4022,10 +4198,56 @@ class Controller extends GetxController {
     );
 
     if (response.statusCode == 200) {
+      isUploadingCards.value = false;
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => CashAdvanceReqModel.fromJson(json)).toList();
     } else {
+      isUploadingCards.value = false;
+
       throw Exception('Failed to load Cash Advance Requests');
+    }
+  }
+
+  Future<void> fetchManageExpensesCards() async {
+    print("manageExpensesCardsscalling22");
+    try {
+      isUploadingCards.value = true;
+
+      final response = await http.get(
+        Uri.parse(
+          'https://api.digixpense.com/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}',
+        ),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print("manageExpensesCardsscalling");
+        // Map API keys into the card model list
+        manageExpensesCards.assignAll([
+          ManageExpensesCard(
+              status: 'AmountSettled', amount: data['AmountSettled']),
+          ManageExpensesCard(status: 'Inprogress', amount: data['Inprogress']),
+          ManageExpensesCard(status: 'Pending', amount: data['Pending']),
+          ManageExpensesCard(
+              status: 'TotalAmountReporting',
+              amount: data['TotalAmountReporting']),
+        ]);
+        print("manageExpensesCardss$manageExpensesCards");
+        isUploadingCards.value = false;
+      } else {
+        Get.snackbar(
+            'Error', 'Failed to fetch expense cards: ${response.statusCode}');
+        isUploadingCards.value = false;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Something went wrong: $e');
+      isUploadingCards.value = false;
+    } finally {
+      isUploadingCards.value = false;
     }
   }
 }

@@ -3,8 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/theme/theme.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-
+import 'package:digi_xpense/l10n/app_localizations.dart';
 // import 'package:digi_xpense/generated/app_en.arb';
 // Locale notifier to switch language
 class LocaleNotifier extends ChangeNotifier {

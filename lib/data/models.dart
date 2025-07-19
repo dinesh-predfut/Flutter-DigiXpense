@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:ui';
+
 class Country {
   final String code;
   final String name;
@@ -656,6 +659,7 @@ class AllocationLine {
   final int effectiveTo;
   double perDayRate;
   double parsed;
+  String? errorText;
   AllocationLine({
     required this.perDiemId,
     required this.expenseCategoryId,
@@ -989,6 +993,7 @@ class ExpenseItem {
             accountingDistributions.map((e) => e.toJson()).toList(),
       };
 }
+
 class CashAdvanceReqModel {
   final String cashAdvanceReqId;
   final DateTime requestDate;
@@ -1547,6 +1552,7 @@ class GESpeficExpenseTrans {
     );
   }
 }
+
 double parseDouble(dynamic value) {
   if (value == null) return 0.0;
   if (value is double) return value;
@@ -1744,6 +1750,34 @@ class ProjectExpense {
   }
 }
 
+class ProjectExpensebycategory {
+  final String x; // Category name
+  final double y; // Expense amount
+  final Color color; // 👈 Add color for chart
+
+  ProjectExpensebycategory({
+    required this.x,
+    required this.y,
+    required this.color,
+  });
+
+  factory ProjectExpensebycategory.fromJson(Map<String, dynamic> json) {
+    return ProjectExpensebycategory(
+      x: json['x'] ?? '',
+      y: (json['y'] as num).toDouble(),
+      color: getRandomMildColor(),
+    );
+  }
+}
+
+Color getRandomMildColor() {
+  Random random = Random();
+  int red = (random.nextInt(128) + 127);
+  int green = (random.nextInt(128) + 127);
+  int blue = (random.nextInt(128) + 127);
+  return Color.fromARGB(255, red, green, blue);
+}
+
 class User {
   final String userId;
   final String userName;
@@ -1818,6 +1852,36 @@ class NotificationModel {
       modifiedDatetime: DateTime.parse(json['ModifiedDatetime']),
       modifiedBy: json['ModifiedBy'],
       read: json['Read'] ?? false,
+    );
+  }
+}
+
+class ManageExpensesSummary {
+  final String status;
+  final double amount;
+
+  ManageExpensesSummary({required this.status, required this.amount});
+}
+class ManageExpensesCard {
+  final String status;
+  final double amount;
+
+  ManageExpensesCard({required this.status, required this.amount});
+}
+
+class ExpenseAmountByStatus {
+  final String status; // XAxis label
+  final double amount; // YAxis value
+
+  ExpenseAmountByStatus({
+    required this.status,
+    required this.amount,
+  });
+
+  factory ExpenseAmountByStatus.fromJson(String status, double amount) {
+    return ExpenseAmountByStatus(
+      status: status,
+      amount: amount,
     );
   }
 }

@@ -17,8 +17,7 @@ import '../../../../core/comman/widgets/button.dart';
 import '../../../../core/comman/widgets/dateSelector.dart';
 import '../../../models.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-// import 'package:flutter_chips_input/flutter_chips_input.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart'; // import 'package:flutter_chips_input/flutter_chips_input.dart';
 
 class PersonalDetailsPage extends StatefulWidget {
   const PersonalDetailsPage({super.key});
@@ -155,6 +154,11 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
     // }
     Timer(const Duration(seconds: 3), () {
       controller.getUserPref();
+      if (controller.isSameAsPermanent) {
+        setState(() {
+          _disableField = false;
+        });
+      }
     });
     // controller.fetchState();
     controller.paymentMethode();
@@ -231,7 +235,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
       _errorText = null;
       isTyping = false;
     });
-   
   }
 
   final Map<String, dynamic> countryPhoneLengths = {};
@@ -387,7 +390,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 if (controller.isSameAsPermanent == true) {
                                   toggleSameAddress(
                                       controller.isSameAsPermanent);
-                                                                }
+                                }
                               },
                             ),
                             _textField(
@@ -397,7 +400,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 if (controller.isSameAsPermanent == true) {
                                   toggleSameAddress(
                                       controller.isSameAsPermanent);
-                                
                                 }
                               },
                             ),
@@ -594,7 +596,8 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                             stateField.errorText!,
                                             style: TextStyle(
                                                 color: Theme.of(context)
-                                                    .errorColor),
+                                                    .colorScheme
+                                                    .error),
                                           ),
                                         ),
                                     ],
@@ -805,7 +808,8 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                               stateField.errorText!,
                                               style: TextStyle(
                                                   color: Theme.of(context)
-                                                      .errorColor),
+                                                      .colorScheme
+                                                      .error),
                                             ),
                                           ),
                                       ],
@@ -1049,7 +1053,8 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                             stateField.errorText!,
                                             style: TextStyle(
                                                 color: Theme.of(context)
-                                                    .errorColor),
+                                                    .colorScheme
+                                                    .error),
                                           ),
                                         ),
                                     ],
@@ -1248,7 +1253,8 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                               stateField.errorText!,
                                               style: TextStyle(
                                                   color: Theme.of(context)
-                                                      .errorColor),
+                                                      .colorScheme
+                                                      .error),
                                             ),
                                           ),
                                       ],
@@ -1276,64 +1282,62 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               },
                             ),
                             const SizedBox(height: 20),
-                            // Row(
-                            //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            //   children: [
-                            //     OutlinedButton(
-                            //       onPressed: () {
-                            //         // Cancel logic
-                            //       },
-                            //       style: OutlinedButton.styleFrom(
-                            //         foregroundColor: AppColors.gradientStart,
-                            //         backgroundColor: Colors.white,
-                            //         side: const BorderSide(
-                            //             color: AppColors.gradientStart),
-                            //         padding: const EdgeInsets.symmetric(
-                            //             horizontal: 24, vertical: 12),
-                            //         shape: RoundedRectangleBorder(
-                            //           borderRadius: BorderRadius.circular(8),
-                            //         ),
-                            //       ),
-                            //       child: Text(loc.cancel),
-                            //     ),
-                            //     // Obx(() {
-                            //     //   return ElevatedButton(
-                            //     //     onPressed: (controller
-                            //     //                 .isGEPersonalInfoLoading
-                            //     //                 .value ||
-                            //     //             isButtonDisabled.value)
-                            //     //         ? null
-                            //     //         : () {
-                            //     //             controller.updateProfileDetails();
-                            //     //           },
-                            //     //     style: ElevatedButton.styleFrom(
-                            //     //       backgroundColor: AppColors.gradientStart,
-                            //     //       foregroundColor: Colors.white,
-                            //     //       padding: const EdgeInsets.symmetric(
-                            //     //           horizontal: 24, vertical: 12),
-                            //     //       shape: RoundedRectangleBorder(
-                            //     //         borderRadius: BorderRadius.circular(8),
-                            //     //       ),
-                            //     //       textStyle: const TextStyle(
-                            //     //         fontSize: 16,
-                            //     //         fontWeight: FontWeight.w500,
-                            //     //       ),
-                            //     //     ),
-                            //     //     child: controller
-                            //     //             .isGEPersonalInfoLoading.value
-                            //     //         ? const SizedBox(
-                            //     //             width: 20,
-                            //     //             height: 20,
-                            //     //             child: CircularProgressIndicator(
-                            //     //               color: Colors.white,
-                            //     //               strokeWidth: 2,
-                            //     //             ),
-                            //     //           )
-                            //     //         : Text(loc.save),
-                            //     //   );
-                            //     // })
-                            //   ],
-                            // )
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                OutlinedButton(
+                                  onPressed: () {
+                                    // Cancel logic
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.gradientStart,
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(
+                                        color: AppColors.gradientStart),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(loc.cancel),
+                                ),
+                                Obx(() {
+                                  return ElevatedButton(
+                                    onPressed: (controller
+                                            .isGEPersonalInfoLoading.value)
+                                        ? null
+                                        : () {
+                                            controller.updateProfileDetails();
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.gradientStart,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    child: controller
+                                            .isGEPersonalInfoLoading.value
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(loc.save),
+                                  );
+                                })
+                              ],
+                            )
                           ],
                         ),
                         _buildSection(
@@ -1816,6 +1820,73 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                             ),
                                           ],
                                         ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          const SizedBox(height: 20),
+                                          OutlinedButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  AppColors.gradientStart,
+                                              backgroundColor: Colors.white,
+                                              side: const BorderSide(
+                                                  color:
+                                                      AppColors.gradientStart),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(loc.cancel),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed:
+                                                controller.buttonLoader.value
+                                                    ? null
+                                                    : () {
+                                                        controller
+                                                            .userPreferences();
+                                                      },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.gradientStart,
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              textStyle: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            child: controller.buttonLoader.value
+                                                ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  )
+                                                : Text(loc.save),
+                                          ),
+                                          const SizedBox(height: 40),
+                                        ],
+                                      ),
                                     ],
                                   )
                                 ]),
@@ -1830,62 +1901,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
           ],
         ),
       ),
-      bottomNavigationBar: Obx(() {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.gradientStart,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: AppColors.gradientStart),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(loc.cancel),
-            ),
-            ElevatedButton(
-              onPressed: controller.buttonLoader.value
-                  ? null
-                  : () {
-                      controller.userPreferences();
-                      controller.updateProfileDetails();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.gradientStart,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              child: controller.buttonLoader.value
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(loc.submit),
-            ),
-            const SizedBox(height: 40),
-          ],
-        );
-      }),
     );
   }
 

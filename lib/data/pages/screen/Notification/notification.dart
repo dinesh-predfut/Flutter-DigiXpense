@@ -19,7 +19,7 @@ class _NotificationPageState extends State<NotificationPage>
   void initState() {
     super.initState();
 
-    // Initialize TabController
+    // Initialize TabController with Unread first
     _tabController = TabController(length: 2, vsync: this);
 
     // Fetch notifications after widget builds
@@ -45,7 +45,7 @@ class _NotificationPageState extends State<NotificationPage>
           Expanded(
             child: Obx(() {
               // Reactive data based on selected tab
-              final notifications = _tabController.index == 1
+              final notifications = _tabController.index == 0
                   ? controller.unreadNotifications
                   : controller.notifications;
 
@@ -107,8 +107,8 @@ class _NotificationPageState extends State<NotificationPage>
         labelColor: Colors.black,
         unselectedLabelColor: Colors.grey,
         tabs: const [
+          Tab(text: "Unread"), // Swapped tab labels
           Tab(text: "All Notifications"),
-          Tab(text: "Unread"),
         ],
       ),
     );
@@ -122,13 +122,21 @@ class _NotificationPageState extends State<NotificationPage>
         final item = items[index];
         return GestureDetector(
           onTap: () {
-            controller.markAsRead(item); // Mark notification as read
+            if (!item.read) {
+              // If unread, mark as read
+              controller.markAsRead(item);
+            } else {
+              // If already read, show popup
+              _showMessageDialog(item.notificationName, item.notificationMessage);
+            }
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: item.read ? Colors.white : const Color(0xFFF1F2F6),
+              color: item.read
+                  ? Colors.white
+                  : Color.fromARGB(185, 195, 224, 238), // ✅ Light blue for unread
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -145,11 +153,12 @@ class _NotificationPageState extends State<NotificationPage>
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  // formatDateTime(item.createdDatetime),
-                  "",
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                Text(
+                  formatDateTime(item.createdDatetime),
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic),
                 ),
               ],
             ),
@@ -159,9 +168,29 @@ class _NotificationPageState extends State<NotificationPage>
     );
   }
 
+  /// Show popup dialog for notification message
+  void _showMessageDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          )
+        ],
+      ),
+    );
+  }
+
   /// Format timestamp to readable date
-  String formatDateTime( timestamp) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    return '${date.day}-${date.month}-${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  String formatDateTime(dynamic timestamp) {
+    if (timestamp is int) {
+      final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      return '${date.day}-${date.month}-${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '';
   }
 }

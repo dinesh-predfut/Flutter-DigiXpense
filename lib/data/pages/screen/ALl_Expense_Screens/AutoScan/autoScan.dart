@@ -172,7 +172,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     controller.taxAmount.text = taxAmountController.text;
     controller.descriptionController.text = descriptionController.text;
     controller.rememberMe = _isReimbursable;
-    controller.isBillable = _isBillable;
+    controller.isBillable.value = _isBillable;
     controller.referenceController.text = referenceController.text;
     controller.receiptDateController.text = receiptDateController.text;
 

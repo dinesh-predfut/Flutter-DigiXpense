@@ -1135,13 +1135,13 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: Colors.black87)),
-                value: controller.isBillable,
+                value: controller.isBillable.value,
                 activeColor: Colors.blue,
                 inactiveThumbColor: Colors.grey.shade400,
                 inactiveTrackColor: Colors.grey.shade300,
                 onChanged: (val) {
                   setState(() {
-                    controller.isBillable = val;
+                    controller.isBillable.value = val;
                   });
                 }),
             Padding(

@@ -261,7 +261,7 @@ class _SearchableMultiColumnDropdownFieldState<T>
                   padding: const EdgeInsets.only(top: 4, left: 12),
                   child: Text(
                     fieldState.errorText!,
-                    style: TextStyle(color: Theme.of(context).errorColor),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
             ],

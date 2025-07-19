@@ -21,6 +21,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     with SingleTickerProviderStateMixin {
   final controller = Get.put(Controller());
   late Future<List<ExpenseHistory>> historyFuture;
+  bool _showProjectError = false;
 
   String selectedProject = '';
   String? projectError;
@@ -149,6 +150,16 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     }
   }
 
+  bool isFieldMandatory(String fieldName) {
+    return controller.configList.any(
+      (f) =>
+          (f['FieldName']?.toString().trim().toLowerCase() ==
+              fieldName.trim().toLowerCase()) &&
+          (f['IsEnabled'].toString().toLowerCase() == 'true') &&
+          (f['IsMandatory'].toString().toLowerCase() == 'true'),
+    );
+  }
+
   void handleSubmit() {
     setState(() {
       projectError = null;
@@ -163,7 +174,13 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       });
       isValid = false;
     }
-
+    final projectMandatory = isFieldMandatory('Project Id');
+    if (controller.selectedProject == null && projectMandatory) {
+      _showProjectError = true;
+      isValid = false;
+    } else {
+      _showProjectError = false;
+    }
     if (controller.mileageVehicleID.text.isEmpty) {
       setState(() {
         vehicleError = 'Please select a Vehicle Type';
@@ -218,7 +235,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
               widget.mileageId!.stepType!.isNotEmpty) {
             Navigator.pushNamed(context, AppRoutes.approvalDashboard);
           } else {
-            Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+            Navigator.pop(context);
           }
           return true; // allow back navigation
         },
@@ -235,7 +252,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                     TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
               actions: [
-                if (!controller.isEnable.value &&  widget.mileageId != null &&
+                if (!controller.isEnable.value &&
+                    widget.mileageId != null &&
                     widget.mileageId!.approvalStatus != "Cancelled" &&
                     widget.mileageId!.approvalStatus != "Approved")
                   IconButton(
@@ -333,8 +351,204 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                             color: Colors.red, fontSize: 12),
                                       ),
                                     ),
-                                  const SizedBox(height: 14),
+                                  ...controller.configList
+                                      .where((field) =>
+                                          field['FieldName'] == 'Project Id' &&
+                                          field['FieldName'] !=
+                                              'Location') // 👈 filter only Project Id
+                                      .map((field) {
+                                    final String label = field['FieldName'];
+                                    final bool isMandatory =
+                                        field['IsMandatory'] ?? false;
 
+                                    Widget inputField;
+
+                                    // Project dropdown logic
+                                    inputField = Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SearchableMultiColumnDropdownField<
+                                            Project>(
+                                          labelText:
+                                              'Project Id ${isMandatory ? "*" : ""}',
+                                          columnHeaders: const [
+                                            'Project Name',
+                                            'Project Id'
+                                          ],
+                                          enabled: controller.isEditModePerdiem,
+                                          controller:
+                                              controller.ProjectIdController,
+                                          items: controller.project,
+                                          selectedValue:
+                                              controller.selectedProject,
+                                          searchValue: (proj) =>
+                                              '${proj.name} ${proj.code}',
+                                          displayText: (proj) => proj.code,
+                                          onChanged: (proj) {
+                                            setState(() {
+                                              controller.selectedProject = proj;
+                                              controller.ProjectIdController
+                                                  .text = proj!.code;
+                                              if (proj != null) {
+                                                _showProjectError = false;
+                                              }
+                                            });
+                                            // controller.fetchExpenseCategory();
+                                          },
+                                          rowBuilder: (proj, searchQuery) {
+                                            Widget highlight(String text) {
+                                              final lowerQuery =
+                                                  searchQuery.toLowerCase();
+                                              final lowerText =
+                                                  text.toLowerCase();
+                                              final start =
+                                                  lowerText.indexOf(lowerQuery);
+                                              if (start == -1 ||
+                                                  searchQuery.isEmpty)
+                                                return Text(text);
+
+                                              final end =
+                                                  start + searchQuery.length;
+                                              return RichText(
+                                                text: TextSpan(
+                                                  children: [
+                                                    TextSpan(
+                                                      text: text.substring(
+                                                          0, start),
+                                                      style: const TextStyle(
+                                                          color: Colors.black),
+                                                    ),
+                                                    TextSpan(
+                                                      text: text.substring(
+                                                          start, end),
+                                                      style: const TextStyle(
+                                                        color: Colors.blue,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    TextSpan(
+                                                      text: text.substring(end),
+                                                      style: const TextStyle(
+                                                          color: Colors.black),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12,
+                                                      horizontal: 16),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                      child:
+                                                          highlight(proj.name)),
+                                                  Expanded(
+                                                      child:
+                                                          highlight(proj.code)),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        if (_showProjectError)
+                                          const Padding(
+                                            padding: EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              'Please select a Project',
+                                              style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 12),
+                                            ),
+                                          ),
+                                      ],
+                                    );
+
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 8),
+                                        inputField,
+                                        const SizedBox(height: 16),
+                                      ],
+                                    );
+                                  }).toList(),
+                                  const SizedBox(height: 14),
+                                  SearchableMultiColumnDropdownField<
+                                      LocationModel>(
+                                    labelText: 'Cash Advance Request',
+                                    items: controller.location,
+                                    selectedValue: controller.selectedLocation,
+                                    enabled: controller.isEditModePerdiem,
+                                    controller: controller.locationController,
+                                    searchValue: (proj) => '${proj.location}',
+                                    displayText: (proj) => proj.location,
+                                    validator: (proj) => proj == null
+                                        ? 'Please select a Location'
+                                        : null,
+                                    onChanged: (proj) {
+                                      controller.selectedLocation = proj;
+                                      controller.fetchPerDiemRates();
+                                    },
+                                    columnHeaders: const [
+                                      'Request ID',
+                                      'Request Date'
+                                    ],
+                                    rowBuilder: (proj, searchQuery) {
+                                      Widget highlight(String text) {
+                                        final lowerQuery =
+                                            searchQuery.toLowerCase();
+                                        final lowerText = text.toLowerCase();
+                                        final start =
+                                            lowerText.indexOf(lowerQuery);
+                                        if (start == -1 || searchQuery.isEmpty)
+                                          return Text(text);
+
+                                        final end = start + searchQuery.length;
+                                        return RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: text.substring(0, start),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                              TextSpan(
+                                                text:
+                                                    text.substring(start, end),
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: text.substring(end),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                            vertical: 12, horizontal: 16),
+                                        child: Row(
+                                          children: [
+                                            // Expanded(child: Text(proj.location)),
+                                            // Expanded(child: Text(proj.country)),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 14),
                                   // Vehicle Type Dropdown
                                   SearchableMultiColumnDropdownField<
                                       VehicleType>(

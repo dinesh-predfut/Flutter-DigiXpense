@@ -116,7 +116,7 @@ class _ApprovalViewEditExpensePageState
       controller.categoryController.text = item.expenseCategoryId;
       controller.uomId.text = item.uomId;
       controller.isReimbursite = item.isReimbursable;
-      controller.isBillable = item.isBillable;
+      controller.isBillable.value = item.isBillable;
       controller.split = (item.accountingDistributions ?? []).map((dist) {
         return AccountingSplit(
           paidFor: dist.dimensionValueId ?? '',
@@ -201,7 +201,7 @@ class _ApprovalViewEditExpensePageState
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
         newController.isReimbursite = newItem.isReimbursable;
-        newController.isBillable = newItem.isBillable;
+        newController.isBillable.value = newItem.isBillable;
 
         // Set dropdown selections if available
         if (controller.project.isNotEmpty) {
@@ -304,7 +304,9 @@ class _ApprovalViewEditExpensePageState
           title: Text(
               controller.isEnable.value ? 'Edit Expense' : 'Views Expense'),
           actions: [
-            if (widget.isReadOnly && widget.items != null  && widget.items!.approvalStatus != "Cancelled" )
+            if (widget.isReadOnly &&
+                widget.items != null &&
+                widget.items!.approvalStatus != "Cancelled")
               IconButton(
                 icon: const Icon(Icons.edit_document),
                 onPressed: () {
@@ -500,7 +502,63 @@ class _ApprovalViewEditExpensePageState
                     ),
                 ],
               ),
+              const SizedBox(height: 12),
+              SearchableMultiColumnDropdownField<LocationModel>(
+                labelText: 'Cash Advance Request',
+                items: controller.location,
+                selectedValue: controller.selectedLocation,
+                enabled: controller.isEditModePerdiem,
+                controller: controller.locationController,
+                searchValue: (proj) => '${proj.location}',
+                displayText: (proj) => proj.location,
+                validator: (proj) =>
+                    proj == null ? 'Please select a Location' : null,
+                onChanged: (proj) {
+                  controller.selectedLocation = proj;
+                  controller.fetchPerDiemRates();
+                },
+                columnHeaders: const ['Request ID', 'Request Date'],
+                rowBuilder: (proj, searchQuery) {
+                  Widget highlight(String text) {
+                    final lowerQuery = searchQuery.toLowerCase();
+                    final lowerText = text.toLowerCase();
+                    final start = lowerText.indexOf(lowerQuery);
+                    if (start == -1 || searchQuery.isEmpty) return Text(text);
 
+                    final end = start + searchQuery.length;
+                    return RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: text.substring(0, start),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                          TextSpan(
+                            text: text.substring(start, end),
+                            style: const TextStyle(
+                              color: Colors.black,
+                            ),
+                          ),
+                          TextSpan(
+                            text: text.substring(end),
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    child: Row(
+                      children: [
+                        // Expanded(child: Text(proj.location)),
+                        // Expanded(child: Text(proj.country)),
+                      ],
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,7 +736,7 @@ class _ApprovalViewEditExpensePageState
                                         ),
                                       ),
                                       TextSpan(
-                                  text: text.substring(end),
+                                        text: text.substring(end),
                                         style: const TextStyle(
                                             color: Colors.white),
                                       ),
@@ -1382,79 +1440,153 @@ class _ApprovalViewEditExpensePageState
                         onPressed: () {
                           controller.addToFinalItems(widget.items!);
                           controller.saveinviewPageGeneralExpense(
-                              context, true, true,widget.items!.recId);
+                              context, true, true, widget.items!.recId);
                         }),
                   );
                 }),
 
               if (controller.isEnable.value) const SizedBox(height: 20),
               if (controller.isEnable.value &&
-                      widget.items!.stepType == "Review"
-                  // widget.items!.approvalStatus == "Rejected"
-                  )
+                  widget.items!.stepType == "Review")
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.reviewGendralExpense(
-                              context, false, widget.items!.workitemrecid);
-                        },
-                        style: ElevatedButton.styleFrom(
+                    // 🔵 Update Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['update'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('update', true);
+                                  controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .reviewGendralExpense(context, false,
+                                          widget.items!.workitemrecid)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'update', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117)),
-                        child: const Text(
-                          "Update",
-                          style: TextStyle(color: Colors.white),
+                                const Color.fromARGB(255, 3, 20, 117),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Update",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
+
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => {
-                          controller.addToFinalItems(widget.items!),
-                          controller.reviewGendralExpense(
-                              context, true, widget.items!.workitemrecid),
-                        },
-                        style: ElevatedButton.styleFrom(
+
+                    // 🟢 Update & Accept Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['update_accept'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading(
+                                      'update_accept', true);
+                                  controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .reviewGendralExpense(context, true,
+                                          widget.items!.workitemrecid)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'update_accept', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117)),
-                        child: const Text(
-                          "Update & Accept",
-                          style: TextStyle(color: Colors.white),
+                                const Color.fromARGB(255, 3, 20, 117),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Update & Accept",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
+
               if (controller.isEnable.value &&
-                      widget.items!.stepType == "Review"
-                  // widget.items!.approvalStatus != "Rejected"
-                  )
+                  widget.items!.stepType == "Review")
                 Row(
                   children: [
+                    // 🔴 Reject Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['reject'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('reject', true);
+                                  controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .saveinviewPageGeneralExpense(context,
+                                          false, false, widget.items!.recId)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'reject', false);
+                                  });
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color.fromARGB(255, 238, 20, 20),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Reject",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                        ),
+                      );
+                    }),
+
+                    const SizedBox(width: 12),
+
+                    // ⚪ Close Button
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, false, false,widget.items!.recId);
+                          controller.chancelButton(context);
                         },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(255, 238, 20, 20)),
-                        child: const Text(
-                          "Reject",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => {controller.chancelButton(context)},
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
@@ -1465,71 +1597,135 @@ class _ApprovalViewEditExpensePageState
                     ),
                   ],
                 ),
+
               if (controller.isEnable.value &&
-                      widget.items!.stepType == "Approval"
-                  // widget.items!.approvalStatus == "Rejected"
-                  )
+                  widget.items!.stepType == "Approval")
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // controller.addToFinalItems(widget.items!);
-                          // controller.saveinviewPageGeneralExpense(
-                          //     context, false, false);
-                          showActionPopup(context, "Approve");
-                        },
-                        style: ElevatedButton.styleFrom(
+                    // ✅ Approve Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['approve'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('approve', true);
+                                  showActionPopup(context, "Approve");
+
+                                  controller.setButtonLoading('approve', false);
+                                },
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 30, 117, 3)),
-                        child: const Text(
-                          "Approve",
-                          style: TextStyle(color: Colors.white),
+                                const Color.fromARGB(255, 30, 117, 3),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Approve",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
+
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => {showActionPopup(context, "Reject")},
-                        style: ElevatedButton.styleFrom(
+
+                    // 🔴 Reject Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['reject_approval'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading(
+                                      'reject_approval', true);
+                                  showActionPopup(context, "Reject");
+
+                                  controller.setButtonLoading(
+                                      'reject_approval', false);
+                                },
+                          style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 238, 20, 20)),
-                        child: const Text(
-                          "Reject",
-                          style: TextStyle(color: Colors.white),
+                                const Color.fromARGB(255, 238, 20, 20),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Reject",
+                                  style: TextStyle(color: Colors.white),
+                                ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
+
               if (controller.isEnable.value &&
-                      widget.items!.stepType == "Approval"
-                  // widget.items!.approvalStatus != "Rejected"
-                  )
+                  widget.items!.stepType == "Approval")
                 Row(
                   children: [
+                    // 🔵 Escalate Button
+                    Obx(() {
+                      final isLoading =
+                          controller.buttonLoaders['escalate'] ?? false;
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.setButtonLoading('escalate', true);
+                                  showActionPopup(context, "Escalate");
+
+                                  controller.setButtonLoading(
+                                      'escalate', false);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color.fromARGB(255, 3, 20, 117),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Escalate",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                        ),
+                      );
+                    }),
+
+                    const SizedBox(width: 12),
+
+                    // ⚪ Close Button
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          showActionPopup(context, "Escalate");
-                          // controller.addToFinalItems(widget.items!);
-                          // controller.saveinviewPageGeneralExpense(
-                          //     context, false, false);
+                          controller.chancelButton(context);
                         },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117)),
-                        child: const Text(
-                          "Escalate",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => {controller.chancelButton(context)},
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
@@ -1540,15 +1736,18 @@ class _ApprovalViewEditExpensePageState
                     ),
                   ],
                 ),
+
               if (!controller.isEnable.value)
                 ElevatedButton(
-                  onPressed: () => {controller.chancelButton(context)},
+                  onPressed: () {
+                    controller.chancelButton(context);
+                  },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   child: const Text(
                     "Cancel",
                     style: TextStyle(color: Colors.black),
                   ),
-                )
+                ),
             ],
           ),
         ),
@@ -1697,7 +1896,7 @@ class _ApprovalViewEditExpensePageState
     );
   }
 
- void showActionPopup(BuildContext context, String status) {
+  void showActionPopup(BuildContext context, String status) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // Full height if needed
@@ -1741,7 +1940,7 @@ class _ApprovalViewEditExpensePageState
                   const SizedBox(height: 8),
                   SearchableMultiColumnDropdownField<User>(
                     labelText: 'User *',
-                
+
                     columnHeaders: const [
                       'User Name',
                       'User ID',
