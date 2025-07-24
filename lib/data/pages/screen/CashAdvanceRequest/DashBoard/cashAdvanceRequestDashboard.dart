@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:lottie/lottie.dart';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
@@ -14,16 +14,16 @@ import 'package:intl/intl.dart';
 import '../../../../models.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 
-class GeneralExpenseDashboard extends StatefulWidget {
-  const GeneralExpenseDashboard({super.key});
+class CashAdvanceRequestDashboard extends StatefulWidget {
+  const CashAdvanceRequestDashboard({super.key});
 
   @override
-  State<GeneralExpenseDashboard> createState() =>
-      _GeneralExpenseDashboardState();
+  State<CashAdvanceRequestDashboard> createState() =>
+      _CashAdvanceRequestDashboardState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
-    with TickerProviderStateMixin {
+class _CashAdvanceRequestDashboardState
+    extends State<CashAdvanceRequestDashboard> with TickerProviderStateMixin {
   final controllers = Get.put(Controller());
   bool isLoading = false;
 
@@ -91,7 +91,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               controller.selectedStatus = option;
                               controller.isLoadingGE1.value = false;
                             });
-                            controller.fetchGetallGExpense();
+                            controller.fetchCashAdvanceRequisitions();
                             _toggleOverlay(); // close overlay
                           },
                         );
@@ -124,7 +124,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   }
 
   void _loadDataOnce() async {
-    await controller.fetchGetallGExpense();
+    await controller.fetchCashAdvanceRequisitions();
     controller.isEnable.value = false;
     setState(() {});
   }
@@ -133,7 +133,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    controller.loadProfilePictureFromStorage();
+    // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
     controller.fetchManageExpensesCards().then((_) {
@@ -159,7 +159,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     });
     print("${controller.isEnable.value}isEnable");
     _loadDataOnce();
-    controller.fetchMileageRates();
+    // controller.fetchMileageRates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
@@ -170,7 +170,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-
     return
         // ignore: deprecated_member_use
         WillPopScope(
@@ -259,9 +258,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                               Obx(() {
                                                 final unreadCount = controller
                                                     .unreadNotifications.length;
-                                                if (unreadCount == 0)
+                                                if (unreadCount == 0) {
                                                   return const SizedBox
                                                       .shrink();
+                                                }
                                                 return Positioned(
                                                   right: 6,
                                                   top: 6,
@@ -434,57 +434,158 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 2.0),
-                    child: CompositedTransformTarget(
-                      link: _layerLink,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          GestureDetector(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        CompositedTransformTarget(
+                          link: _layerLink,
+                          child: GestureDetector(
                             onTap: _toggleOverlay,
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.deepPurple,
                                 borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.deepPurple.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                              padding: const EdgeInsets.all(8.0),
-                              child: const Icon(
-                                Icons.menu,
-                                color: Colors.white,
-                                size: 24.0,
+                              padding: const EdgeInsets.all(10.0),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.filter_list,
+                                      color: Colors.white, size: 20),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    controller.selectedStatus,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            controller.selectedStatus,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                        ),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                // Navigate to add screen
+                                Navigator.pushNamed(
+                                    context, AppRoutes.formCashAdvanceRequest);
+                              },
+                              icon: const Icon(Icons.add_circle,
+                                  size: 18, color: Colors.white),
+                              label: const Text(
+                                "Add Request",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor:
+                                    Colors.blue.shade800, // Deep blue
+                                elevation: 4,
+                                shadowColor:
+                                    Colors.blue.shade900.withOpacity(0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                textStyle: const TextStyle(fontSize: 14),
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
 
                   SizedBox(
                     height: MediaQuery.of(context).size.height * 0.45,
                     child: Obx(() {
-                      if (controller.isLoadingGE1.value) {
+                      if (controller.isLoadingCA.value) {
                         return const SkeletonLoaderPage();
                       }
 
-                      final expenses = controller.getAllListGExpense;
-                      final filteredExpenses = expenses.where((item) {
-                        final query = controller.searchQuery.value;
-                        if (query.isEmpty) return true;
-                        return item.expenseType.toLowerCase().contains(query) ||
-                            item.expenseType.toLowerCase().contains(query) ||
-                            item.expenseId.toLowerCase().contains(query);
-                      }).toList();
-                      if (expenses.isEmpty) {
-                        return const Center(child: Text("No expenses found"));
+                      // Get the full list from controller
+                      final List<CashAdvanceRequisition> expenses =
+                          controller.cashAdvanceListDashboard;
+                      print(
+                          "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@111111222r");
+
+                      // Apply search filter
+                      final query =
+                          controller.searchQuery.value.toLowerCase().trim();
+                      final filteredExpenses = query.isEmpty
+                          ? expenses
+                          : expenses.where((item) {
+                              final lowerReqId =
+                                  item.requisitionId.toLowerCase();
+                              final lowerEmployeeName =
+                                  item.employeeName.toLowerCase();
+                              final lowerStatus =
+                                  item.approvalStatus.toLowerCase();
+
+                              return lowerReqId.contains(query) ||
+                                  lowerEmployeeName.contains(query) ||
+                                  lowerStatus.contains(query);
+                            }).toList();
+
+                      if (filteredExpenses.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Lottie.asset(
+                              //   'assets/animations/no_data.json', // Place under /assets/animations/
+                              //   width: 200,
+                              //   height: 200,
+                              //   fit: BoxFit.cover,
+                              // ),
+                              const Text(
+                                "No Cash Advances Found",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                controller.searchQuery.value.isNotEmpty
+                                    ? 'Try a different search'
+                                    : 'You have no requests yet',
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.grey.shade600),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  controller.fetchCashAdvanceRequisitions();
+                                },
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text("Refresh"),
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.blue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
                       }
 
                       return ListView.builder(
@@ -494,65 +595,25 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                           final item = filteredExpenses[idx];
 
                           return Dismissible(
-                            key: ValueKey(item.expenseId),
-                            background: _buildSwipeActionLeft(isLoading),
-                            secondaryBackground: _buildSwipeActionRight(),
+                            key: ValueKey(
+                                item.requisitionId), // Unique key per item
+                            background: _buildSwipeActionLeft(
+                                isLoading), // View action (e.g., eye icon)
+                            secondaryBackground:
+                                _buildSwipeActionRight(), // Delete action
+
                             confirmDismiss: (direction) async {
                               if (direction == DismissDirection.startToEnd) {
-                                setState(() => isLoading = true);
-
-                                if (item.expenseType == "PerDiem") {
-                                  await controller.fetchSecificPerDiemItem(
-                                      context, item.recId);
-                                } else if (item.expenseType ==
-                                    "General Expenses") {
-                                  await controller.fetchSecificExpenseItem(
-                                      context, item.recId);
-                                  controller.fetchExpenseHistory(item.recId);
-                                } else if (item.expenseType == "Mileage") {
-                                  print("Its Call");
-                                  Navigator.pushNamed(
-                                      context, AppRoutes.mileageDetailsPage);
-                                }
-
-                                setState(() => isLoading = false);
-                                return false;
+                                // Swipe right → View Details
+                                await _handleViewAction(controller, item, ctx);
+                                return false; // Don't remove
                               } else {
-                                final shouldDelete = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Delete?'),
-                                    content:
-                                        Text('Delete "${item.expenseId}"?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red,
-                                        ),
-                                        child: const Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-
-                                if (shouldDelete == true) {
-                                  setState(() => isLoading = true);
-                                  await controller.deleteExpense(item.recId);
-                                  setState(() => isLoading = false);
-                                  return true; // This will remove the item from UI
-                                }
-
-                                return false;
+                                // Swipe left → Delete
+                                return await _showDeleteConfirmation(
+                                    ctx, item, controller);
                               }
                             },
-                            child: _buildCard(item, context),
+                            child: _buildCard(item, ctx),
                           );
                         },
                       );
@@ -561,6 +622,60 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                 ],
               ),
             ));
+  }
+
+  Future<void> _handleViewAction(
+    Controller controller,
+    CashAdvanceRequisition item,
+    BuildContext context,
+  ) async {
+    // Example navigation based on type (if needed later)
+    // For now, just navigate to details page
+    // await controller.fetchSpecificCashAdvance(item.recId); // Optional: fetch fresh data
+
+    Navigator.pushNamed(
+      context,
+      AppRoutes.dashboard_Main,
+      arguments: item,
+    );
+  }
+
+  Future<bool?> _showDeleteConfirmation(
+    BuildContext context,
+    CashAdvanceRequisition item,
+    Controller controller,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Request?'),
+        content:
+            Text('Are you sure you want to delete "${item.requisitionId}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          Obx(() => ElevatedButton(
+                onPressed: controller.isDeleting.value
+                    ? null
+                    : () async {
+                        await controller.deleteCashAdvance(item.recId);
+                        Navigator.pop(ctx, true); // Confirm dismissal
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: controller.isDeleting.value
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Delete'),
+              )),
+        ],
+      ),
+    );
   }
 
   Widget circula() {
@@ -660,12 +775,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     }
   }
 
+  // General TextField-like displa
 
-
- 
-
-  // General TextField-like display
- 
+  // Example itemized detail block
 }
 
 Widget _buildSwipeActionLeft(bool isLoading) {
@@ -716,24 +828,28 @@ Widget _buildSwipeActionRight() {
   );
 }
 
-Widget _buildCard(GExpense item, BuildContext context) {
-  print("itemxxx ${item.expenseType}");
+Widget _buildCard(CashAdvanceRequisition item, BuildContext context) {
+  // print("itemxxx ${item.expenseType}");
+  print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@${item}");
+
   final controller = Get.put(Controller());
   return GestureDetector(
     onTap: () {
-      if (item.expenseType == "PerDiem") {
-        controller.fetchSecificPerDiemItem(context, item.recId);
-      } else if (item.expenseType == "General Expenses") {
-        print("Expenses${item.recId}");
-        controller.fetchSecificExpenseItem(context, item.recId);
-        controller.fetchExpenseHistory(item.recId);
-      } else if (item.expenseType == "Mileage") {
-        controller.fetchMileageDetails(context, item.recId);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
-        );
-      }
+      controller.fetchSpecificCashAdvanceItem(context, item.recId);
+      // controller.
+      // if (item.expenseType == "PerDiem") {
+      //   controller.fetchSecificPerDiemItem(context, item.recId);
+      // } else if (item.expenseType == "General Expenses") {
+      //   print("Expenses${item.recId}");
+      //   controller.fetchSecificExpenseItem(context, item.recId);
+      //   controller.fetchExpenseHistory(item.recId);
+      // } else if (item.expenseType == "Mileage") {
+      //   controller.fetchMileageDetails(context, item.recId);
+      // } else {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
+      //   );
+      // }
     },
     child: Card(
       color: const Color.fromARGB(218, 245, 244, 244),
@@ -749,25 +865,23 @@ Widget _buildCard(GExpense item, BuildContext context) {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(item.expenseId,
+                Text(item.requisitionId,
                     style: const TextStyle(fontWeight: FontWeight.bold)),
                 Text(
-                  item.receiptDate != null
-                      ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                  item.requestDate != null
+                      ? DateFormat('dd-MM-yyyy').format(
+                          DateTime.fromMillisecondsSinceEpoch(item.requestDate),
+                        )
                       : 'No date',
                   style: const TextStyle(
-                      fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
+                    fontSize: 12,
+                    color: Color.fromARGB(255, 41, 41, 41),
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 4),
-
-            // Category
-            Text(item.expenseCategoryId,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-
-            const SizedBox(height: 6),
 
             // Status and Amount
             Row(
@@ -786,7 +900,8 @@ Widget _buildCard(GExpense item, BuildContext context) {
                   ),
                 ),
                 Text(
-                  item.totalAmountReporting.toStringAsFixed(2),
+                  NumberFormat('#,##,###')
+                      .format(item.totalRequestedAmountInReporting),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

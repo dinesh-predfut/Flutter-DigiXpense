@@ -42,6 +42,8 @@ class _DashboardPageState extends State<DashboardPage>
     if (!controller.isInitialized.value) {
       controller.digiSessionId = const Uuid().v4();
       Timer(const Duration(seconds: 2), () {
+        controller.getCashAdvanceAPI();
+        controller.getExpenseList();
         controller.fetchExpensesByCategory();
         controller.fetchManageExpensesSummary();
         controller.fetchExpensesByStatus();
@@ -200,9 +202,10 @@ class _DashboardPageState extends State<DashboardPage>
                                                   final unreadCount = controller
                                                       .unreadNotifications
                                                       .length;
-                                                  if (unreadCount == 0)
+                                                  if (unreadCount == 0) {
                                                     return const SizedBox
                                                         .shrink();
+                                                  }
                                                   return Positioned(
                                                     right: 6,
                                                     top: 6,
@@ -297,20 +300,45 @@ class _DashboardPageState extends State<DashboardPage>
                                 ],
                               ),
                               Obx(() {
-                                return SizedBox(
-                                  height: 140,
-                                  child: ListView.builder(
-                                    controller: _scrollController,
-                                    scrollDirection: Axis.horizontal,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
-                                    itemCount:
-                                        controller.manageExpensesCards.length,
-                                    itemBuilder: (context, index) {
-                                      final card =
-                                          controller.manageExpensesCards[index];
-                                      return _buildStyledCard(card);
-                                    },
+                                return NotificationListener<
+                                    UserScrollNotification>(
+                                  onNotification: (notification) {
+                                    // Stop auto-scroll when user starts interacting
+                                    if (_animationController.isAnimating) {
+                                      _animationController.stop();
+                                      print(
+                                          "Auto-scroll stopped because user started scrolling");
+                                    }
+                                    _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                    return false; // allow the scroll event to continue
+                                  },
+                                  child: SizedBox(
+                                    height: 140,
+                                    child: ListView.builder(
+                                      controller: _scrollController,
+                                      scrollDirection: Axis.horizontal,
+                                      physics:
+                                          const BouncingScrollPhysics(), // ✅ Manual scroll enabled
+                                      itemCount:
+                                          controller.manageExpensesCards.length,
+                                      itemBuilder: (context, index) {
+                                        final card = controller
+                                            .manageExpensesCards[index];
+                                        return GestureDetector(
+                                          onTap: () {
+                                            // Stop animation on card tap
+                                            if (_animationController
+                                                .isAnimating) {
+                                              _animationController.stop();
+                                              print(
+                                                  "Auto-scroll stopped because user tapped a card");
+                                            }
+                                            _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                          },
+                                          child: _buildStyledCard(card),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 );
                               }),
@@ -934,46 +962,87 @@ class _DashboardPageState extends State<DashboardPage>
 
                       // Draggable panel at the bottom
                       GestureDetector(
-                          onVerticalDragUpdate: (details) {
-                            setState(() {
-                              _dragOffset = (_dragOffset - details.delta.dy)
-                                  .clamp(_minDragExtent, _maxDragExtent);
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            height: _dragOffset,
-                            decoration: const BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(30))),
+                        onVerticalDragUpdate: (details) {
+                          setState(() {
+                            _dragOffset = (_dragOffset - details.delta.dy)
+                                .clamp(_minDragExtent, _maxDragExtent);
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          height: _dragOffset,
+                          decoration: BoxDecoration(
+                            // 👇 Gradient glass effect
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withOpacity(0.8),
+                                Colors.white.withOpacity(0.4),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(40),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(40)),
                             child: Column(
-                              // Now this is correct
                               children: [
-                                // Drag handle
+                                // 🔥 Custom drag handle
                                 Center(
-                                  child: Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 8),
-                                    child: Container(
-                                      width: 50,
-                                      height: 5,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[400],
-                                        borderRadius: BorderRadius.circular(5),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                        top: 10, bottom: 12),
+                                    width: 60,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Colors.blueAccent,
+                                          Colors.purpleAccent
+                                        ],
                                       ),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
                                 ),
-                                // Transaction list content
-                                Expanded(child: _transactionList()),
+
+                                // 🌊 Wavy top curve (Optional for unique feel)
+                                // CustomPaint(
+                                //   size: Size(double.infinity, 30),
+                                //   painter: _TopCurvePainter(),
+                                // ),
+
+                                // 🌟 Transaction list content
+                                Expanded(
+                                  child: _transactionList(),
+                                ),
                               ],
                             ),
-                          ))
+                          ),
+                        ),
+                      )
                     ],
                   );
           }),
         ));
+  }
+
+  void _restartAnimationAfterDelay() {
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!_animationController.isAnimating && mounted) {
+        _animationController.repeat(reverse: false);
+      }
+    });
   }
 
   // Rest of your helper methods (_balanceCard, _mostUsedButton, _transactionList) remain the same...
@@ -1046,40 +1115,160 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _transactionList() {
-    final List<Map<String, String>> transactions = [
-      {"id": "FD23001", "amount": "230.00", "date": "13 Oct 2021"},
-      {"id": "231", "amount": "390.00", "date": "11 Oct 2021"},
-      {"id": "Per Diem", "amount": "121.00", "date": "10 Oct 2021"},
-      {"id": "He2211", "amount": "143.00", "date": "08 Oct 2021"},
-    ];
+    return Obx(() {
+      return ListView(
+        children: [
+          // 🔹 Section 1: Cash Advance
+          _buildSectionHeader("Cash Advance", controller.cashAdvanceList.length,
+              () {
+            setState(() {
+              controller.showAllCashAdvance = !controller.showAllCashAdvance;
+            });
+          }),
+          _buildCashAdvanceSection(),
 
-    return ListView.builder(
-      itemCount: transactions.length,
-      itemBuilder: (context, index) {
-        final tx = transactions[index];
-        return ListTile(
-          leading: const CircleAvatar(
-            backgroundColor: Colors.green,
-            child: Icon(Icons.currency_rupee, color: Colors.white),
-          ),
-          title: Text('Expense Id: ${tx['id']}'),
-          subtitle: Text(tx['date']!),
-          trailing: Text('Rs.${tx['amount']}'),
-        );
-      },
+          // 🔹 Section 2: Expense
+          _buildSectionHeader("Expense", controller.expenseList.length, () {
+            setState(() {
+              controller.showAllExpense = !controller.showAllExpense;
+            });
+          }),
+          ..._buildExpenseList(),
+        ],
+      );
+    });
+  }
+
+  Widget _buildSectionHeader(String title, int count, VoidCallback onSeeMore) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          if (count > 5)
+            GestureDetector(
+              onTap: onSeeMore,
+              child: Text(
+                controller.showAllCashAdvance && title == "Cash Advance" ||
+                        controller.showAllExpense && title == "Expense"
+                    ? "See Less ▲"
+                    : "See More ▼",
+                style: const TextStyle(
+                    color: Color.fromARGB(255, 88, 61, 184),
+                    fontWeight: FontWeight.w800),
+              ),
+            ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildCashAdvanceSection() {
+    if (controller.cashAdvanceList.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.account_balance_wallet_outlined,
+                color: Colors.orange, size: 50),
+            SizedBox(height: 10),
+            Text(
+              "No Cash Advance Found",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final items = controller.showAllCashAdvance
+        ? controller.cashAdvanceList
+        : controller.cashAdvanceList.take(5).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // List of cash advances
+        ...items.map((tx) {
+          return ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.orange,
+              child: Icon(Icons.account_balance_wallet, color: Colors.white),
+            ),
+            title: Text('Requisition: ${tx.requisitionId}'),
+            subtitle: Text('Status: ${tx.approvalStatus}'),
+            trailing: Text('₹${tx.totalRequestedAmountInReporting}'),
+          );
+        }),
+      ],
+    );
+  }
+
+  List<Widget> _buildExpenseList() {
+    if (controller.expenseList.isEmpty) {
+      return [
+        const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.receipt_long, color: Colors.green, size: 50),
+              SizedBox(height: 10),
+              Text(
+                "No Expenses Found",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    final items = controller.showAllExpense
+        ? controller.expenseList
+        : controller.expenseList.take(5).toList();
+
+    return items.map((tx) {
+      return ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Icon(Icons.currency_rupee, color: Colors.white),
+        ),
+        title: Text('Expense Id: ${tx.expenseId}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Category: ${tx.expenseCategoryId}'),
+            Text(
+              'Status: ${tx.approvalStatus}', // 👈 added ApprovalStatus
+            ),
+          ],
+        ),
+        trailing: Text('₹${tx.totalAmountTrans}'),
+      );
+    }).toList();
   }
 
   String _getTitle(String key) {
     switch (key) {
-      case 'AmountSettled':
-        return ' Total Amount Settled';
       case 'Inprogress':
         return 'Total Advance In Progress';
       case 'Pending':
         return 'Total Amount Pending';
       case 'TotalAmountReporting':
         return 'Total Expenses';
+      case 'AmountSettled':
+        return ' Total Amount Settled';
       default:
         return key;
     }

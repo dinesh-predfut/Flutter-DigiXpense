@@ -33,13 +33,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   void initState() {
     super.initState();
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
-    final formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
+    final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
 
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.fetchProjectName();
       await controller.fetchMileageRates();
+      await controller.configuration();
 
       if (widget.mileageId != null) {
         controller.isEnable.value = false;
@@ -70,7 +71,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       controller.recID = expense.recId ?? 0; // Use 0 as fallback if null
       // controller.workitemrecid = expense.workitemRecId!;
       // controller.mileageVehicleName.text = expense.vehicalType ?? '';
-      controller.ProjectIdController.text = expense.projectId;
+      controller.projectIdController.text = expense.projectId;
       // controller.mileageVehicleID.text = expense.mileageRateId;
       controller.mileagDateController.text = formattedDate;
       controller.calculatedAmountINR = expense.totalAmountReporting;
@@ -85,14 +86,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       // }
       print("controller.calculatedAmountINR${controller.recID}");
       // controller.mileageVehicleName.text = expense.vehicalType!;
-      // if (expense.travelPoints.isNotEmpty &&
-      //     expense.travelPoints.first.fromLocation ==
-      //         expense.travelPoints.last.toLocation) {
-      //   controller.isRoundTrip = true;
-      // }
-      // else{
-      //    controller.isRoundTrip = false;
-      // }
+      if (expense.travelPoints.isNotEmpty &&
+          expense.travelPoints.first.fromLocation ==
+              expense.travelPoints.last.toLocation) {
+        controller.isRoundTrip = true;
+      }
+      else{
+         controller.isRoundTrip = false;
+      }
       if (expense.travelPoints.isNotEmpty) {
         // Check for round trip
         final firstFrom = expense.travelPoints.first.fromLocation;
@@ -168,14 +169,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
     bool isValid = true;
 
-    if (controller.ProjectIdController.text.isEmpty) {
+    if (controller.projectIdController.text.isEmpty) {
       setState(() {
         projectError = 'Please select a Project';
       });
       isValid = false;
     }
     final projectMandatory = isFieldMandatory('Project Id');
-    if (controller.selectedProject == null && projectMandatory) {
+    if (controller.projectIdController.text.isEmpty && projectMandatory) {
       _showProjectError = true;
       isValid = false;
     } else {
@@ -229,6 +230,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     return WillPopScope(
         onWillPop: () async {
           controller.resetFieldsMileage();
+          controller.clearFormFieldsPerdiem();
           if (widget.mileageId != null && widget.mileageId!.stepType!.isEmpty) {
             Navigator.pushNamed(context, AppRoutes.generalExpense);
           } else if (widget.mileageId != null &&
@@ -257,7 +259,10 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                     widget.mileageId!.approvalStatus != "Cancelled" &&
                     widget.mileageId!.approvalStatus != "Approved")
                   IconButton(
-                    icon: const Icon(Icons.edit_document, color: Colors.white),
+                    icon: const Icon(
+                      Icons.edit_document,
+                      color: Colors.white,
+                    ),
                     onPressed: () {
                       setState(() {
                         controller.isEnable.value = true;
@@ -305,52 +310,52 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                       controller.mileagDateController),
                                   // Project Dropdown
 
-                                  SearchableMultiColumnDropdownField<Project>(
-                                    labelText: 'Project *',
-                                    enabled: controller.isEnable.value,
-                                    columnHeaders: const [
-                                      'Project Name',
-                                      'Project Id'
-                                    ],
-                                    items: controller.project,
-                                    selectedValue: controller.selectedProject,
-                                    searchValue: (proj) =>
-                                        '${proj.name} ${proj.code}',
-                                    displayText: (proj) => proj.code,
-                                    onChanged: (proj) {
-                                      setState(() {
-                                        controller.selectedProject = proj;
-                                        controller.ProjectIdController.text =
-                                            proj!.code;
-                                        projectError =
-                                            null; // Clear error when user selects
-                                      });
-                                      controller.fetchExpenseCategory();
-                                    },
-                                    controller: controller.ProjectIdController,
-                                    rowBuilder: (proj, searchQuery) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12, horizontal: 16),
-                                        child: Row(
-                                          children: [
-                                            Expanded(child: Text(proj.name)),
-                                            Expanded(child: Text(proj.code)),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  if (projectError != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 4, left: 12),
-                                      child: Text(
-                                        projectError!,
-                                        style: const TextStyle(
-                                            color: Colors.red, fontSize: 12),
-                                      ),
-                                    ),
+                                  // SearchableMultiColumnDropdownField<Project>(
+                                  //   labelText: 'Project *',
+                                  //   enabled: controller.isEnable.value,
+                                  //   columnHeaders: const [
+                                  //     'Project Name',
+                                  //     'Project Id'
+                                  //   ],
+                                  //   items: controller.project,
+                                  //   selectedValue: controller.selectedProject,
+                                  //   searchValue: (proj) =>
+                                  //       '${proj.name} ${proj.code}',
+                                  //   displayText: (proj) => proj.code,
+                                  //   onChanged: (proj) {
+                                  //     setState(() {
+                                  //       controller.selectedProject = proj;
+                                  //       controller.projectIdController.text =
+                                  //           proj!.code;
+                                  //       projectError =
+                                  //           null; // Clear error when user selects
+                                  //     });
+                                  //     controller.fetchExpenseCategory();
+                                  //   },
+                                  //   controller: controller.projectIdController,
+                                  //   rowBuilder: (proj, searchQuery) {
+                                  //     return Padding(
+                                  //       padding: const EdgeInsets.symmetric(
+                                  //           vertical: 12, horizontal: 16),
+                                  //       child: Row(
+                                  //         children: [
+                                  //           Expanded(child: Text(proj.name)),
+                                  //           Expanded(child: Text(proj.code)),
+                                  //         ],
+                                  //       ),
+                                  //     );
+                                  //   },
+                                  // ),
+                                  // if (projectError != null)
+                                  //   Padding(
+                                  //     padding: const EdgeInsets.only(
+                                  //         top: 4, left: 12),
+                                  //     child: Text(
+                                  //       projectError!,
+                                  //       style: const TextStyle(
+                                  //           color: Colors.red, fontSize: 12),
+                                  //     ),
+                                  //   ),
                                   ...controller.configList
                                       .where((field) =>
                                           field['FieldName'] == 'Project Id' &&
@@ -376,9 +381,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                             'Project Name',
                                             'Project Id'
                                           ],
-                                          enabled: controller.isEditModePerdiem,
+                                          enabled: controller.isEnable.value,
                                           controller:
-                                              controller.ProjectIdController,
+                                              controller.projectIdController,
                                           items: controller.project,
                                           selectedValue:
                                               controller.selectedProject,
@@ -388,7 +393,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                           onChanged: (proj) {
                                             setState(() {
                                               controller.selectedProject = proj;
-                                              controller.ProjectIdController
+                                              controller.projectIdController
                                                   .text = proj!.code;
                                               if (proj != null) {
                                                 _showProjectError = false;
@@ -479,13 +484,13 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                       ],
                                     );
                                   }).toList(),
-                                  const SizedBox(height: 14),
+                                  // const SizedBox(height: 10),
                                   SearchableMultiColumnDropdownField<
                                       LocationModel>(
                                     labelText: 'Cash Advance Request',
                                     items: controller.location,
                                     selectedValue: controller.selectedLocation,
-                                    enabled: controller.isEditModePerdiem,
+                                    enabled: controller.isEnable.value,
                                     controller: controller.locationController,
                                     searchValue: (proj) => '${proj.location}',
                                     displayText: (proj) => proj.location,
@@ -791,15 +796,29 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       suffix: IconButton(
         icon: const Icon(Icons.calendar_today),
         onPressed: () async {
+          // 🟢 Set initialDate based on controllers.text or fallback to now
+          DateTime initialDate = DateTime.now();
+          if (controllers.text.isNotEmpty) {
+            try {
+              initialDate =
+                  DateFormat('yyyy-MM-dd') // <-- Match your text format
+                      .parseStrict(controllers.text.trim());
+            } catch (e) {
+              print("Invalid date in controllers.text: ${controllers.text}");
+              initialDate = DateTime.now(); // fallback
+            }
+          }
+
           final picked = await showDatePicker(
             context: context,
-            initialDate: DateTime.now(),
+            initialDate: initialDate,
             firstDate: DateTime(2000),
             lastDate: DateTime(2101),
           );
+
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = picked.toString().split(' ')[0];
+            controllers.text = DateFormat('yyyy-MM-dd').format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();

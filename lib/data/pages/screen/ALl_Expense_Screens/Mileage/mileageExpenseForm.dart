@@ -55,7 +55,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   @override
   void initState() {
     super.initState();
-
+    if (controller.totalDistanceKm != 0) {
+      _calculateAllDistances();
+    }
     if (widget.mileageId != null) {
       workitemrecid = widget.mileageId!.workitemRecId!;
       _calculateAllDistances();
@@ -641,7 +643,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                         ],
                       ),
                     // Add Stoqp + Round Trip Switch
-                    if (controller.isEnable.value)
+                    // if (controller.isEnable.value)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -707,8 +709,6 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                   zoomControlsEnabled: false,
                   myLocationEnabled: true,
                 ),
-                // Floating Info Card
-                // if (!shouldShow.value)
                 Positioned(
                   top: 16,
                   left: 16,
@@ -717,16 +717,15 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                     backgroundColor: Colors.white,
                     onPressed: () {
                       setState(() {
-                        // Toggle between Normal and Satellite
                         _currentMapType = _currentMapType == MapType.normal
-                            ? MapType.satellite
+                            ? MapType.hybrid
                             : MapType.normal;
                       });
                     },
                     child: Icon(
                       _currentMapType == MapType.normal
-                          ? Icons.satellite // Show satellite icon
-                          : Icons.map, // Show map icon
+                          ? Icons.satellite
+                          : Icons.map,
                       color: Colors.black,
                     ),
                   ),
@@ -744,8 +743,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             widget.mileageId!.approvalStatus != "Pending" &&
                             widget.mileageId!.approvalStatus != "Rejected")
                           Obx(() {
-                            final isLoading =
+                            final isSubmitLoading =
                                 controller.buttonLoaders['submit'] ?? false;
+                            final isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
+
                             return ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 padding:
@@ -755,20 +757,25 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 ),
                                 backgroundColor: AppColors.gradientEnd,
                               ),
-                              onPressed: isLoading
+                              onPressed: (isSubmitLoading || isAnyLoading)
                                   ? null
                                   : () async {
                                       controller.setButtonLoading(
                                           'submit', true);
                                       try {
                                         await controller.submitMileageExpense(
-                                            context, true, false);
+                                          context,
+                                          true,
+                                          false,
+                                          widget.mileageId!.recId,
+                                          widget.mileageId!.expenseId,
+                                        );
                                       } finally {
                                         controller.setButtonLoading(
                                             'submit', false);
                                       }
                                     },
-                              child: isLoading
+                              child: isSubmitLoading
                                   ? const CircularProgressIndicator(
                                       color: Colors.white,
                                       strokeWidth: 2,
@@ -784,12 +791,14 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             );
                           }),
 
-                        // Resubmit Button
                         if (controller.isEnable.value &&
                             widget.mileageId!.approvalStatus == "Rejected")
                           Obx(() {
-                            final isLoading =
+                            final isResubmitLoading =
                                 controller.buttonLoaders['resubmit'] ?? false;
+                            final isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
+
                             return ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 padding:
@@ -799,20 +808,24 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 ),
                                 backgroundColor: AppColors.gradientEnd,
                               ),
-                              onPressed: isLoading
+                              onPressed: (isResubmitLoading || isAnyLoading)
                                   ? null
                                   : () async {
                                       controller.setButtonLoading(
                                           'resubmit', true);
                                       try {
                                         await controller.submitMileageExpense(
-                                            context, true, true);
+                                            context,
+                                            true,
+                                            true,
+                                            widget.mileageId!.recId,
+                                            widget.mileageId!.expenseId);
                                       } finally {
                                         controller.setButtonLoading(
                                             'resubmit', false);
                                       }
                                     },
-                              child: isLoading
+                              child: isResubmitLoading
                                   ? const CircularProgressIndicator(
                                       color: Colors.white,
                                       strokeWidth: 2,
@@ -835,8 +848,12 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 widget.mileageId!.approvalStatus == "Created")
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading =
+                                  final isSaveLoading =
                                       controller.buttonLoaders['save'] ?? false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
                                   return ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green[100],
@@ -844,31 +861,38 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                     ),
-                                    onPressed: isLoading
+                                    onPressed: (isSaveLoading || isAnyLoading)
                                         ? null
                                         : () {
                                             isSubmitAttempted = true;
                                             if (_validateTrips()) {
-                                              isSubmitAttempted = false;
                                               controller.setButtonLoading(
-                                                  'submit', true);
+                                                  'save', true);
                                               controller
                                                   .submitMileageExpense(
-                                                      context, true, false)
+                                                context,
+                                                false,
+                                                false,
+                                                widget.mileageId!.recId,
+                                                widget.mileageId!.expenseId,
+                                              )
                                                   .whenComplete(() {
                                                 controller.setButtonLoading(
-                                                    'submit', false);
+                                                    'save',
+                                                    false); // ✅ Correct loader key
                                               });
                                             } else {
                                               isSubmitAttempted = true;
                                               // Show error if validation fails
-                                              Get.snackbar("Validation",
-                                                  "Please fill all trip fields",
-                                                  backgroundColor: Colors.red,
-                                                  colorText: Colors.white);
+                                              Get.snackbar(
+                                                "Validation",
+                                                "Please fill all trip fields",
+                                                backgroundColor: Colors.red,
+                                                colorText: Colors.white,
+                                              );
                                             }
                                           },
-                                    child: isLoading
+                                    child: isSaveLoading
                                         ? const CircularProgressIndicator(
                                             color: Colors.green,
                                             strokeWidth: 2,
@@ -885,9 +909,13 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 widget.mileageId!.approvalStatus == "Rejected")
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading = controller
+                                  final isUpdatedLoading = controller
                                           .buttonLoaders['update_rejected'] ??
                                       false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
                                   return ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green[100],
@@ -895,7 +923,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                     ),
-                                    onPressed: isLoading
+                                    onPressed: (isUpdatedLoading ||
+                                            isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -903,13 +932,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             try {
                                               await controller
                                                   .submitMileageExpense(
-                                                      context, false, false);
+                                                      context,
+                                                      false,
+                                                      false,
+                                                      widget.mileageId!.recId,
+                                                      widget.mileageId!
+                                                          .expenseId);
                                             } finally {
                                               controller.setButtonLoading(
                                                   'update_rejected', false);
                                             }
                                           },
-                                    child: isLoading
+                                    child: isUpdatedLoading
                                         ? const CircularProgressIndicator(
                                             color: Colors.green,
                                             strokeWidth: 2,
@@ -1016,15 +1050,20 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // 🔵 Row 1: Update & Accept + Update
                           Row(
                             children: [
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading = controller
+                                  final isLoadingAccept = controller
                                           .buttonLoaders['update_accept'] ??
                                       false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading == true);
+
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isLoadingAccept || isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -1044,7 +1083,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       backgroundColor:
                                           const Color.fromARGB(255, 3, 20, 117),
                                     ),
-                                    child: isLoading
+                                    child: isLoadingAccept
                                         ? const CircularProgressIndicator(
                                             color: Colors.white,
                                             strokeWidth: 2,
@@ -1060,11 +1099,15 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading = controller
+                                  final isLoadingUpdate = controller
                                           .buttonLoaders['update_review'] ??
                                       false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading == true);
+
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isLoadingUpdate || isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -1084,7 +1127,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       backgroundColor:
                                           const Color.fromARGB(255, 3, 20, 117),
                                     ),
-                                    child: isLoading
+                                    child: isLoadingUpdate
                                         ? const CircularProgressIndicator(
                                             color: Colors.white,
                                             strokeWidth: 2,
@@ -1099,15 +1142,22 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 12),
+
+                          // 🔴 Row 2: Reject + Close
                           Row(
                             children: [
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading = controller
+                                  final isLoadingReject = controller
                                           .buttonLoaders['reject_review'] ??
                                       false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading == true);
+
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isLoadingReject || isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -1124,7 +1174,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       backgroundColor: const Color.fromARGB(
                                           255, 238, 20, 20),
                                     ),
-                                    child: isLoading
+                                    child: isLoadingReject
                                         ? const CircularProgressIndicator(
                                             color: Colors.white,
                                             strokeWidth: 2,
@@ -1140,11 +1190,15 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Obx(() {
-                                  final isLoading = controller
+                                  final isLoadingClose = controller
                                           .buttonLoaders['close_review'] ??
                                       false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading == true);
+
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isLoadingClose || isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -1159,7 +1213,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey,
                                     ),
-                                    child: isLoading
+                                    child: isLoadingClose
                                         ? const CircularProgressIndicator(
                                             color: Colors.black,
                                             strokeWidth: 2,
@@ -1352,10 +1406,13 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Submit Button with Loader
+                        // 🔵 Submit Button with Loader
                         Obx(() {
-                          final isLoading =
+                          final isSubmitLoading =
                               controller.buttonLoaders['submit'] ?? false;
+                          final isAnyLoading = controller.buttonLoaders.values
+                              .any((loading) => loading);
+
                           return ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1364,7 +1421,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                               ),
                               backgroundColor: AppColors.gradientEnd,
                             ),
-                            onPressed: isLoading
+                            onPressed: (isSubmitLoading || isAnyLoading)
                                 ? null
                                 : () {
                                     isSubmitAttempted = true;
@@ -1373,14 +1430,14 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                           'submit', true);
                                       controller
                                           .submitMileageExpense(
-                                              context, true, false)
+                                              context, true, false, null, null)
                                           .whenComplete(() {
                                         controller.setButtonLoading(
                                             'submit', false);
                                       });
                                     }
                                   },
-                            child: isLoading
+                            child: isSubmitLoading
                                 ? const CircularProgressIndicator(
                                     color: Colors.white, strokeWidth: 2)
                                 : const Text(
@@ -1395,14 +1452,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                         }),
                         const SizedBox(height: 10),
 
-                        // Save and Cancel Buttons
+                        // 🟢 Save and Cancel Buttons
                         Row(
                           children: [
-                            // Save Button with Loader
+                            // 🟢 Save Button with Loader
                             Expanded(
                               child: Obx(() {
-                                final isLoading =
-                                    controller.buttonLoaders['submit'] ?? false;
+                                final isSaveLoading =
+                                    controller.buttonLoaders['save'] ?? false;
+                                final isAnyLoading = controller
+                                    .buttonLoaders.values
+                                    .any((loading) => loading);
+
                                 return ElevatedButton(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green[100],
@@ -1410,23 +1471,23 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                   ),
-                                  onPressed: isLoading
+                                  onPressed: (isSaveLoading || isAnyLoading)
                                       ? null
                                       : () {
                                           isSubmitAttempted = true;
                                           if (_validateTrips()) {
                                             controller.setButtonLoading(
-                                                'submit', true);
+                                                'save', true);
                                             controller
-                                                .submitMileageExpense(
-                                                    context, false, false)
+                                                .submitMileageExpense(context,
+                                                    false, false, null, null)
                                                 .whenComplete(() {
                                               controller.setButtonLoading(
-                                                  'submit', false);
+                                                  'save', false);
                                             });
                                           }
                                         },
-                                  child: isLoading
+                                  child: isSaveLoading
                                       ? const CircularProgressIndicator(
                                           color: Colors.green, strokeWidth: 2)
                                       : const Text(
@@ -1438,7 +1499,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             ),
                             const SizedBox(width: 12), // Space between buttons
 
-                            // Cancel Button (No loader needed)
+                            // ⚪ Cancel Button (No loader needed)
                             Expanded(
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(

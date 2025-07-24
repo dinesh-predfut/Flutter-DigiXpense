@@ -201,14 +201,17 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   Future<void> _initializeUnits() async {
     await controller.fetchUnit(); // Wait for units to be fetched
     Timer(const Duration(seconds: 5), () {
-      final defaultUnit = controller.unit.firstWhere(
-        (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
-        orElse: () => controller.unit.first,
-      );
-      setState(() {
-        controller.selectedunit ??= defaultUnit;
-        controller.selectedunit ??= defaultUnit;
-      });
+      print("controller.unit${controller.selectedunit}");
+      if (controller.selectedunit == null) {
+        final defaultUnit = controller.unit.firstWhere(
+          (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
+          orElse: () => controller.unit.first,
+        );
+        setState(() {
+          controller.selectedunit ??= defaultUnit;
+          controller.selectedunit ??= defaultUnit;
+        });
+      }
     });
   }
 
@@ -515,7 +518,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
   Widget expenseCreateForm2(BuildContext context, Controller controller) {
     // Use the provided controller parameter consistently
-    controller.selectedunit = controllerItems.selectedunit;
+    controller.selectedunit ??= controllerItems.selectedunit;
     controller.selectedDate = controllerItems.selectedDate;
     // controller.isReimbursite.vale = true;
     print("selecteduni${controller.selectedunit}");
@@ -1125,7 +1128,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                   inactiveTrackColor: Colors.grey.shade300,
                   onChanged: (val) {
                     controller.isReimbursiteCreate.value = val;
-                     controllerItems.isReimbursiteCreate.value = val;
+                    controllerItems.isReimbursiteCreate.value = val;
                   },
                 )),
             Obx(() => SwitchListTile(
@@ -1674,9 +1677,10 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                       SearchableMultiColumnDropdownField<LocationModel>(
                         labelText: 'Cash Advance Request',
                         items: controller.location,
-                        selectedValue: controller.selectedLocation,
-                        enabled: controller.isEditModePerdiem,
-                        controller: controller.locationController,
+                        // selectedValue: controller.selectedLocation,
+                        // enabled: controller.isEditModePerdiem,
+                        // controller: controller.locationController,
+                        // ignore: unnecessary_string_interpolations
                         searchValue: (proj) => '${proj.location}',
                         displayText: (proj) => proj.location,
                         validator: (proj) =>
@@ -2139,13 +2143,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   @override
-  void dispose() {
-    _photoViewController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
 
@@ -2343,7 +2340,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     Obx(() {
                       return Column(
                         children: [
-                          if (controller.isVisible.value)
+                          if (controller.isVisible.value &&
+                              controller.paidAmontIsEditable.value)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -2467,14 +2465,23 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         children: [
                           // 🚨 Submit Button
                           Obx(() {
-                            bool isLoading =
+                            bool isSubmitLoading =
                                 controller.buttonLoaders['submit'] ?? false;
+                            bool isSaveLoading =
+                                controller.buttonLoaders['save'] ?? false;
+                            bool isCancelLoading =
+                                controller.buttonLoaders['cancel'] ?? false;
+                            bool isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
 
                             return SizedBox(
                               width: 300,
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: isLoading
+                                onPressed: (isSubmitLoading ||
+                                        isSaveLoading ||
+                                        isCancelLoading ||
+                                        isAnyLoading)
                                     ? null
                                     : () async {
                                         _isSubmitAttempted = true;
@@ -2508,7 +2515,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                   ),
                                   backgroundColor: AppColors.gradientEnd,
                                 ),
-                                child: isLoading
+                                child: isSubmitLoading
                                     ? const SizedBox(
                                         height: 20,
                                         width: 20,
@@ -2536,11 +2543,23 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             children: [
                               Expanded(
                                 child: Obx(() {
-                                  bool isLoading =
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
                                       controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                          false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
 
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isSubmitLoading ||
+                                            isSaveLoading ||
+                                            isCancelLoading ||
+                                            isAnyLoading)
                                         ? null
                                         : () async {
                                             _isSubmitAttempted = true;
@@ -2577,7 +2596,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           const Color.fromARGB(241, 20, 94, 2),
                                       foregroundColor: Colors.white,
                                     ),
-                                    child: isLoading
+                                    child: isSaveLoading
                                         ? const SizedBox(
                                             width: 20,
                                             height: 20,
@@ -2593,12 +2612,23 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Obx(() {
-                                  bool isLoading =
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
                                       controller.buttonLoaders['cancel'] ??
                                           false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
 
                                   return ElevatedButton(
-                                    onPressed: isLoading
+                                    onPressed: (isSubmitLoading ||
+                                            isSaveLoading ||
+                                            isCancelLoading ||
+                                            isAnyLoading)
                                         ? null
                                         : () async {
                                             controller.setButtonLoading(
@@ -2614,7 +2644,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                       minimumSize: const Size(130, 50),
                                       backgroundColor: Colors.grey,
                                     ),
-                                    child: isLoading
+                                    child: isCancelLoading
                                         ? const SizedBox(
                                             width: 20,
                                             height: 20,
@@ -2636,7 +2666,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                           ),
                         ],
                       ),
-                    ),
+                    )
                   ],
                 ),
               ],

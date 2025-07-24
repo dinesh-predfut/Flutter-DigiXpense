@@ -8,6 +8,7 @@ import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -63,7 +64,10 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     controller.fetchTaxGroup();
     controller.currencyDropDown();
     // controller.fetchExchangeRate();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+     
+      calculateAmounts(widget.items!.exchRate.toString());
+    });
     controller.fetchExpenseDocImage(widget.items!.recId);
 
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
@@ -78,11 +82,20 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
     expenseIdController.text = widget.items!.expenseId.toString();
     receiptDateController.text = formatted;
+    if (widget.items?.merchantId == null) {
+      print("merchantIdfalse");
+      controller.isManualEntryMerchant = true;
+    } else {
+      controller.isManualEntryMerchant = false;
+      print("merchantIdtrue");
+    }
+
     controller.paidToController.text =
         widget.items?.merchantId?.toString() ?? '';
 
     print('--- AccountingDistributions Added ---');
-    referenceController.text = widget.items?.referenceNumber?.toString() ?? '';
+    controller.referenceID.text =
+        widget.items?.referenceNumber?.toString() ?? '';
     if (widget.items != null && widget.items!.paymentMethod != null) {
       controller.paidWithController.text = widget.items!.paymentMethod!;
     } else {
@@ -94,10 +107,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
     controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
     controller.unitRate.text = widget.items!.exchRate.toString();
+    // calculateAmounts(controller.exchangeRate.text);
     controller.amountINR.text = widget.items!.totalAmountReporting.toString();
     controller.expenseID = widget.items!.expenseId;
     controller.recID = widget.items!.recId;
     controller.isBillableCreate = widget.items!.isBillable;
+    if (widget.items!.merchantId == null) {
+      controller.manualPaidToController.text = widget.items!.merchantName!;
+    }
     controller.currencyDropDowncontroller.text =
         widget.items!.currency.toString();
 
@@ -111,14 +128,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
       controller.quantity.text = item.quantity.toString();
-      controller.unitAmountView.text = item.unitPriceTrans.toString();
+      controller.unitPriceTrans.text = item.unitPriceTrans.toString();
       controller.lineAmount.text = item.lineAmountTrans.toString();
       controller.lineAmountINR.text = item.lineAmountReporting.toString();
       controller.taxAmount.text = item.taxAmount.toString();
       controller.taxGroupController.text = item.taxGroup ?? '';
       controller.categoryController.text = item.expenseCategoryId;
       controller.uomId.text = item.uomId;
-      controller.isReimbursite = item.isReimbursable;
+      controller.isReimbursable = item.isReimbursable;
       controller.isBillableCreate = item.isBillable;
       if (item.accountingDistributions != null) {
         controller.split = (item.accountingDistributions ?? []).map((dist) {
@@ -186,6 +203,28 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     setState(() {});
   }
 
+  void calculateAmounts(String rateStr) {
+    final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
+    final rate = double.tryParse(rateStr) ?? 1.0;
+
+    // Perform calculation
+    final result = paid * rate;
+    controller.amountINR.text = result.toStringAsFixed(2);
+    controller.isVisible.value = true;
+
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final itemController = itemizeControllers[i];
+      final unitPrice =
+          double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
+
+      final lineAmountInINR = unitPrice * rate;
+      itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+
+      // Sync with the model
+      widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+    }
+  }
+
   void _addItemize() {
     if (_itemizeCount < 5) {
       setState(() {
@@ -197,7 +236,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           lineAmountTrans: 0,
           lineAmountReporting: 0,
           taxAmount: 0,
-          isReimbursable: controller.isReimbursiteCreate.value,
+          isReimbursable: controller.isReimbursable,
           isBillable: controller.isBillableCreate,
           projectId: controller.projectDropDowncontroller.text ?? '',
           expenseCategoryId: controller.categoryController.text ?? "",
@@ -217,7 +256,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         // Initialize controller with default values
         newController.descriptionController.text = newItem.description ?? '';
         newController.quantity.text = newItem.quantity.toString();
-        newController.unitAmountView.text = newItem.unitPriceTrans.toString();
+        newController.unitPriceTrans.text = newItem.unitPriceTrans.toString();
         newController.lineAmount.text = newItem.lineAmountTrans.toString();
         newController.lineAmountINR.text =
             newItem.lineAmountReporting.toString();
@@ -226,7 +265,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         newController.categoryController.text = newItem.expenseCategoryId;
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
-        newController.isReimbursite = newItem.isReimbursable;
+        newController.isReimbursable = newItem.isReimbursable;
         newController.isBillableCreate = newItem.isBillable;
 
         // Set dropdown selections if available
@@ -320,6 +359,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        controller.clearFormFields();
         controller.isEnable.value = false;
         controller.isLoadingGE1.value = false;
         Navigator.pushNamed(context, AppRoutes.generalExpense);
@@ -352,7 +392,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
             children: [
               const SizedBox(height: 10),
               GestureDetector(
-                onTap: () => _pickImage(ImageSource.gallery),
+                onTap: !controller.isEnable.value
+                    ? null
+                    : () => _pickImage(ImageSource.gallery),
                 child: Container(
                   height: 200,
                   decoration: BoxDecoration(
@@ -402,11 +444,12 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 controller: expenseIdController,
                 isReadOnly: false,
               ),
-              _buildTextField(
-                label: "Receipt Date",
-                controller: receiptDateController,
-                isReadOnly: controller.isEnable.value,
+              buildDateField(
+                "Receipt Date",
+                receiptDateController,
+                isReadOnly: !controller.isEnable.value, // pass manually
               ),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -434,10 +477,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         ),
                       ),
                     ),
-
                   const SizedBox(height: 8),
-
-                  // 👇 Conditional UI
                   if (!controller.isManualEntryMerchant)
                     AbsorbPointer(
                       absorbing: !controller.isEnable.value,
@@ -524,7 +564,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 labelText: 'Cash Advance Request',
                 items: controller.location,
                 selectedValue: controller.selectedLocation,
-                enabled: controller.isEditModePerdiem,
+                enabled: controller.isEnable.value,
                 controller: controller.locationController,
                 searchValue: (proj) => '${proj.location}',
                 displayText: (proj) => proj.location,
@@ -594,7 +634,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                     onChanged: (p) {
                       setState(() {
                         controller.selectedPaidWith = p;
-                        controller.paymentMethodeID = p!.paymentMethodId;
+                        controller.paymentMethodID = p!.paymentMethodId;
                         controller.paidWithController.text = p.paymentMethodId;
                       });
                     },
@@ -648,7 +688,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
               const SizedBox(height: 12),
               _buildTextField(
                 label: "Reference",
-                controller: referenceController,
+                controller: controller.referenceID,
                 isReadOnly: controller.isEnable.value,
               ),
               Row(
@@ -799,7 +839,23 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
                         controller.amountINR.text = result.toStringAsFixed(2);
                         controller.isVisible.value = true;
+                        for (int i = 0; i < itemizeControllers.length; i++) {
+                          final itemController = itemizeControllers[i];
+                          final unitPrice = double.tryParse(
+                                  itemController.unitPriceTrans.text) ??
+                              0.0;
 
+                          final lineAmountInINR = unitPrice * rate;
+                          itemController.lineAmountINR.text =
+                              lineAmountInINR.toStringAsFixed(2);
+
+                          // Sync with the model
+                          widget.items!.expenseTrans[i] =
+                              itemController.toExpenseItemUpdateModel();
+                        }
+
+                        // ✅ Trigger UI update
+                        setState(() {});
                         print("Paid Amount: $paid");
                         print("Rate: $rate");
                         print(
@@ -908,6 +964,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                     validator: (_) => null,
                                     onChanged: (p) {
                                       setState(() {
+                                        controller.selectedProject = p;
                                         itemController.selectedProject =
                                             p; // update controller state
                                         controller.projectDropDowncontroller
@@ -916,6 +973,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             itemController
                                                 .toExpenseItemUpdateModel(); // sync with parent list
                                       });
+                                      controller.fetchExpenseCategory();
                                     },
                                     controller: itemController
                                         .projectDropDowncontroller,
@@ -1145,6 +1203,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                     controller: itemController.quantity,
                                     isReadOnly: controller.isEnable.value,
                                     onChanged: (value) {
+                                      itemController
+                                          .calculateLineAmounts(itemController);
                                       setState(() {
                                         widget.items!.expenseTrans[index] =
                                             itemController
@@ -1154,12 +1214,17 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   ),
                                   _buildTextField(
                                     label: "Unit Amount *",
-                                    controller: itemController.unitAmountView,
+                                    controller: itemController.unitPriceTrans,
                                     isReadOnly: controller.isEnable.value,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(
+                                          10), // Max 10 digits
+                                    ],
                                     onChanged: (value) {
+                                      itemController
+                                          .calculateLineAmounts(itemController);
                                       setState(() {
-                                        itemController.unitAmountView.text =
-                                            value;
                                         widget.items!.expenseTrans[index] =
                                             itemController
                                                 .toExpenseItemUpdateModel();
@@ -1288,21 +1353,20 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
                                             color: Colors.black87)),
-                                    value: itemController.isReimbursite,
+                                    value: itemController.isReimbursable,
                                     activeColor: Colors.green,
                                     inactiveThumbColor: Colors.grey.shade400,
                                     inactiveTrackColor: Colors.grey.shade300,
                                     onChanged: controller.isEnable.value
                                         ? (val) {
                                             setState(() {
-                                              controller.isReimbursiteCreate
-                                                  .value = val;
+                                              itemController.isReimbursable =
+                                                  val;
+                                              controller.isReimbursite = val;
                                               widget.items!
                                                       .expenseTrans[index] =
                                                   itemController
                                                       .toExpenseItemUpdateModel();
-                                              itemController.isReimbursite =
-                                                  val;
                                             });
                                           }
                                         : null,
@@ -1329,6 +1393,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                           .toExpenseItemUpdateModel();
                                                   controller.isBillableCreate =
                                                       val;
+                                                  itemController
+                                                      .isBillableCreate = val;
                                                 });
                                               }
                                             : null,
@@ -1479,12 +1545,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 ],
               ),
               const SizedBox(height: 20),
-
               if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Rejected")
                 Obx(() {
-                  final isLoading =
+                  final isResubmitLoading =
                       controller.buttonLoaders['resubmit'] ?? false;
+                  final isAnyLoading =
+                      controller.buttonLoaders.values.any((loading) => loading);
+
                   return SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -1493,10 +1561,10 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        backgroundColor:
-                            const Color(0xFF8E6EFF), // Purple gradient replaced
+                        backgroundColor: Color.fromARGB(
+                            255, 29, 1, 128), // Purple gradient replaced
                       ),
-                      onPressed: isLoading
+                      onPressed: (isResubmitLoading || isAnyLoading)
                           ? null
                           : () {
                               controller.setButtonLoading('resubmit', true);
@@ -1508,7 +1576,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                 controller.setButtonLoading('resubmit', false);
                               });
                             },
-                      child: isLoading
+                      child: isResubmitLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
@@ -1527,52 +1595,6 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                     ),
                   );
                 }),
-              if (controller.isEnable.value &&
-                  widget.items!.approvalStatus == "Created")
-                Obx(() {
-                  final isLoading = controller.buttonLoaders['submit'] ?? false;
-                  return SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        backgroundColor: Color.fromARGB(
-                            255, 26, 2, 110), // Purple gradient replaced
-                      ),
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              controller.setButtonLoading('submit', true);
-                              controller.addToFinalItems(widget.items!);
-                              controller
-                                  .saveinviewPageGeneralExpense(
-                                      context, true, false, widget.items!.recId)
-                                  .whenComplete(() {
-                                controller.setButtonLoading('submit', false);
-                              });
-                            },
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              "Submit",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  );
-                }),
 
               if (controller.isEnable.value) const SizedBox(height: 20),
 
@@ -1581,11 +1603,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 Row(
                   children: [
                     Obx(() {
-                      final isLoading =
+                      final isUpdateLoading =
                           controller.buttonLoaders['update'] ?? false;
+                      final isAnyLoading = controller.buttonLoaders.values
+                          .any((loading) => loading);
+
                       return Expanded(
                         child: ElevatedButton(
-                          onPressed: isLoading
+                          onPressed: (isUpdateLoading || isAnyLoading)
                               ? null
                               : () {
                                   controller.setButtonLoading('update', true);
@@ -1602,7 +1627,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             backgroundColor:
                                 const Color(0xFF1E7503), // Green button
                           ),
-                          child: isLoading
+                          child: isUpdateLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
@@ -1635,15 +1660,71 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                   ],
                 )
               else if (controller.isEnable.value &&
-                  widget.items!.approvalStatus == "Created")
+                  widget.items!.approvalStatus == "Created") ...[
+                Obx(() {
+                  final isSubmitLoading =
+                      controller.buttonLoaders['submit'] ?? false;
+                  final isAnyLoading =
+                      controller.buttonLoaders.values.any((loading) => loading);
+
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: const Color.fromARGB(255, 26, 2, 110),
+                      ),
+                      onPressed: (isSubmitLoading || isAnyLoading)
+                          ? null
+                          : () {
+                              controller.setButtonLoading('submit', true);
+                              controller.addToFinalItems(widget.items!);
+                              controller
+                                  .saveinviewPageGeneralExpense(
+                                      context, true, false, widget.items!.recId)
+                                  .whenComplete(() {
+                                controller.setButtonLoading('submit', false);
+                              });
+                            },
+                      child: isSubmitLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Submit",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 12),
                 Row(
                   children: [
+                    // 🟢 Save Button
                     Obx(() {
-                      final isLoading =
+                      final isSaveLoading =
                           controller.buttonLoaders['saveGE'] ?? false;
+                      final isSubmitLoading =
+                          controller.buttonLoaders['submit'] ?? false;
+                      final isAnyLoading = controller.buttonLoaders.values
+                          .any((loading) => loading);
+
                       return Expanded(
                         child: ElevatedButton(
-                          onPressed: isLoading
+                          onPressed: (isSaveLoading ||
+                                  isSubmitLoading ||
+                                  isAnyLoading)
                               ? null
                               : () {
                                   controller.setButtonLoading('saveGE', true);
@@ -1660,7 +1741,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             backgroundColor:
                                 const Color(0xFF1E7503), // Green button
                           ),
-                          child: isLoading
+                          child: isSaveLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
@@ -1677,22 +1758,37 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                       );
                     }),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          controller.chancelButton(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey),
-                        child: const Text(
-                          "Cancel",
-                          style: TextStyle(color: Colors.black),
+
+                    // 🟠 Cancel Button
+                    Obx(() {
+                      final isAnyLoading = controller.buttonLoaders.values
+                          .any((loading) => loading);
+
+                      return Expanded(
+                        child: ElevatedButton(
+                          onPressed: isAnyLoading
+                              ? null
+                              : () {
+                                  controller.chancelButton(context);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                          ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(color: Colors.black),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ],
-                )
-              else if (controller.isEnable.value &&
+                ),
+                // Add space before Submit button
+
+                // 🟣 Submit Button
+              ],
+
+              if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Pending")
                 Row(
                   children: [
@@ -1749,7 +1845,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                     ),
                   ],
                 )
-              else
+              else if (!controller.isEnable.value)
                 ElevatedButton(
                   onPressed: () {
                     controller.chancelButton(context);
@@ -1870,6 +1966,56 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     );
   }
 
+  Widget buildDateField(
+    String label,
+    TextEditingController controllers, {
+    required bool isReadOnly,
+  }) {
+    return TextFormField(
+      controller: controllers,
+      readOnly: true, // Always readonly because we use the calendar
+      enabled: !isReadOnly, // Disable editing if readonly
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.calendar_today),
+          onPressed: isReadOnly
+              ? null // Disable button if readonly
+              : () async {
+                  // 🟢 Use controllers.text for initialDate or fallback
+                  DateTime initialDate = DateTime.now();
+                  if (controllers.text.isNotEmpty) {
+                    try {
+                      initialDate =
+                          DateFormat('yyyy-MM-dd') // Adjust your format
+                              .parseStrict(controllers.text.trim());
+                    } catch (e) {
+                      print("Invalid date format: ${controllers.text}");
+                      initialDate = DateTime.now(); // fallback
+                    }
+                  }
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+
+                  if (picked != null) {
+                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+                    controller.selectedDateMileage = picked;
+                    controller.fetchMileageRates();
+                    controller.selectedDate = picked;
+                    controller.fetchProjectName();
+                  }
+                },
+        ),
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1913,6 +2059,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     required TextEditingController controller,
     required bool isReadOnly,
     void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters, // ✅ optional inputFormatters
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1922,6 +2069,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           controller: controller,
           enabled: isReadOnly,
           onChanged: onChanged,
+          inputFormatters: inputFormatters, // ✅ apply if not null
           decoration: InputDecoration(
             labelText: label,
             contentPadding:

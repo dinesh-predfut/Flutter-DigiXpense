@@ -11,6 +11,7 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Appr
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalPendingEdit.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/cashAdvanceReturnForm.dart';
+import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/Notification/notification.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
 import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
@@ -22,6 +23,8 @@ import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/dashboard_Main.da
 import 'package:digi_xpense/data/pages/screen/Profile/changeLanguage.dart';
 import '../../ALl_Expense_Screens/AutoScan/autoScan.dart';
 import '../../ALl_Expense_Screens/GeneralExpense/dashboard.dart';
+import '../../CashAdvanceRequest/DashBoard/cashAdvanceRequestDashboard.dart';
+import '../../CashAdvanceRequest/cashAdvanceReturnEditForm.dart';
 import '../../Profile/profile.dart';
 import '../../landingLogo/widget.dart';
 
@@ -43,13 +46,21 @@ class AppRoutes {
   static const String autoScan = '/expense/outScan/view';
   static const String perDiem = '/expense/PerDiem/create';
   static const String mileageExpense = '/expense/mileageExpense/create';
+  static const String cashAdvanceRequestDashboard =
+      '/expense/formCashAdvanceRequest/formCashAdvanceRequest';
+       static const String viewCashAdvanseReturnForms =
+      '/expense/viewCashAdvanseReturnForms/viewCashAdvanseReturnForms';
   static const String notification = '/notification';
   static const String mileageExpensefirst =
       '/expense/mileageExpense/mileageExpensefirst';
   static const String cashAdvanceReturnForms =
       '/expense/cashAdvanceReturnForm/cashAdvanceReturnForm';
+  static const String formCashAdvanceRequest =
+      '/expense/cashAdvanceReturnForm/FormCashAdvanceRequest';
   static const String approvalDashboard =
       '/expense/pendingApprovals/approvalDashboard';
+  static const String approvalViewEdit =
+      '/expense/pendingApprovals/approvalViewEdit';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -66,8 +77,24 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const PersonalDetailsPage());
       case notification:
         return MaterialPageRoute(builder: (_) => const NotificationPage());
-         case cashAdvanceReturnForms:
+      case cashAdvanceReturnForms:
         return MaterialPageRoute(builder: (_) => const CashAdvanceReturnForm());
+      case cashAdvanceRequestDashboard:
+        return MaterialPageRoute(
+            builder: (_) => const CashAdvanceRequestDashboard());
+      case formCashAdvanceRequest:
+        return MaterialPageRoute(
+            builder: (_) => const FormCashAdvanceRequest());
+      case AppRoutes.viewCashAdvanseReturnForms:
+        final args = settings.arguments as Map<String, dynamic>?;
+        print("args$args");
+        return MaterialPageRoute(
+          builder: (_) => ViewCashAdvanseReturnForm(
+            items: args?['item'],
+            
+          ),
+        );
+
       case approvalDashboard:
         return MaterialPageRoute(
             builder: (_) => const PendingApprovalDashboard());

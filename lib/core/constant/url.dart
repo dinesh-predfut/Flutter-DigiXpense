@@ -15,6 +15,8 @@ class Urls {
       "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const geconfigureField =
       "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
+  static const geconfigureFieldCashAdvance =
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cashfieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DCashAdvanceRequisition&page=1&sort_order=asc&choosen_fields=FieldId,FieldName,IsEnabled,IsMandatory,FunctionalArea,RecId";
   static const defalutPayment =
       "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId";
   static const timeZoneDropdown =
@@ -115,7 +117,15 @@ class Urls {
   static const projectExpenseChart =
       "$baseURL/api/v1/dashboard/widgets/ExpensesByProjects";
   static const esCalateUserList =
-      "$baseURL/api/v1/masters/usersandrolesmgmt/user/users?filter_query=SYSUsersList.UserId__not_eq=";
+      "$baseURL/api/v1/masters/usersandrolesmgmt/user/users?filter_query=SYSUsersList.UserId__not_eq%3D";
   static const cashAdvanceList =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid";
+  static const cashAdvanceGetall =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader";
+  static const businessJustification =
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/businessjustification?filter_query=FINBusinessJustification.IsActive__eq%3DTrue&page=1&sort_order=asc";
+  static const maxAllowedPercentage =
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/maxallowedpercentage?";
+        static const getSpecificCashAdvance =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvance?";
 }

@@ -76,13 +76,12 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
     });
   }
 
-  String cleanSymbol(String symbol) {
-    // Detect corrupted ₹ based on UTF-8 misinterpretation
-    if (symbol.codeUnits.toString() == '[226, 130, 161]') {
-      print("Corrupted symbol found → Replacing with ₹");
-      return '₹';
+  String cleanSymbol(String? symbol) {
+    if (symbol == null || symbol.trim().isEmpty) {
+      return '';
     }
-    return symbol;
+    // Just sanitize nulls/empty, but keep actual symbols like ₹, $, €, £, ¥
+    return symbol.trim();
   }
 
   void _addEmails(String value) {
@@ -116,6 +115,9 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   @override
   void initState() {
     super.initState();
+    if (controller.isSameAsPermanent) {
+      toggleSameAddress(true);
+    }
     _presentCountryFocusNode.addListener(() {
       if (_presentCountryFocusNode.hasFocus) {
         setState(() {
@@ -169,7 +171,22 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
 
     print("controller.country${controller.language}");
   }
+String _safeSymbol(String? symbol) {
+  if (symbol == null || symbol.isEmpty) return '';
 
+  // Optional: Replace known broken encodings
+  final Map<String, String> symbolFixes = {
+    'â‚¹': '₹',
+    'â¬': '€',
+    'â£': '£',
+    'â': '\$', // Handle corrupted $
+  };
+
+  final fixed = symbolFixes[symbol.trim()] ?? symbol;
+
+  // Normalize whitespace and ensure clean output
+  return fixed.trim().isNotEmpty ? fixed : '?';
+}
   Future<void> fetchCountries() async {
     final response = await controller.fetchCountries();
     controller.countries.assignAll(response);
@@ -1287,7 +1304,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                               children: [
                                 OutlinedButton(
                                   onPressed: () {
-                                    // Cancel logic
+                                    Navigator.pop(context);
                                   },
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.gradientStart,
@@ -1420,76 +1437,6 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                             // Padding(
                             //   padding: const EdgeInsets.symmetric(horizontal: 8),
                             //   child:
-                            Obx(() =>
-                                SearchableMultiColumnDropdownField<Payment>(
-                                  labelText: loc.defaultPayment,
-                                  columnHeaders: const [
-                                    'PaymentMethodName',
-                                    'PaymentMethodId'
-                                  ],
-                                  items: controller.payment,
-                                  selectedValue:
-                                      controller.selectedPayment.value,
-                                  searchValue: (p) => '${p.name} ${p.code}',
-                                  displayText: (p) => p.name,
-                                  validator: (p) => p == null
-                                      ? 'Please select a payment method'
-                                      : null,
-                                  onChanged: (p) {
-                                    setState(() =>
-                                        controller.selectedPayment.value = p!);
-                                  },
-                                  rowBuilder: (p, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final query = searchQuery.toLowerCase();
-                                      final lower = text.toLowerCase();
-                                      final matchIndex = lower.indexOf(query);
-
-                                      if (matchIndex == -1 || query.isEmpty)
-                                        return Text(text);
-
-                                      final end = matchIndex + query.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  text.substring(0, matchIndex),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(
-                                                  matchIndex, end),
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
-
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12, horizontal: 16),
-                                      child: Row(
-                                        children: [
-                                          Expanded(child: highlight(p.name)),
-                                          Expanded(child: highlight(p.code)),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                )),
-                            const SizedBox(height: 20),
-
                             Obx(
                               () =>
                                   SearchableMultiColumnDropdownField<Currency>(
@@ -1499,9 +1446,9 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 selectedValue:
                                     controller.selectedCurrency.value,
                                 searchValue: (c) =>
-                                    '${c.code} ${c.name} ${cleanSymbol(c.symbol)}', // 🔧 Fix display
+                                    '${c.code} ${c.name} ${c?.symbol ?? ''}',
                                 displayText: (c) =>
-                                    '${c.code} ${c.name} ${cleanSymbol(c.symbol)}', // 🔧 Fix display
+                                    '${c.code} ${c.name} ${_safeSymbol(c.symbol)}',
                                 validator: (c) =>
                                     c == null ? 'Please pick a currency' : null,
                                 onChanged: (c) {
@@ -1518,7 +1465,8 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                         text,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          fontFamily: 'Roboto',
+                                          fontFamily: 'NotoSans',
+                                          color: Colors.black,
                                         ),
                                       );
                                     }
@@ -1532,7 +1480,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                             style: const TextStyle(
                                               color: Colors.black,
                                               fontSize: 11,
-                                              fontFamily: 'Roboto',
+                                              fontFamily: 'NotoSans',
                                             ),
                                           ),
                                           TextSpan(
@@ -1542,7 +1490,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                               color: Colors.black,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 11,
-                                              fontFamily: 'Roboto',
+                                              fontFamily: 'NotoSans',
                                             ),
                                           ),
                                           TextSpan(
@@ -1550,7 +1498,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                             style: const TextStyle(
                                               color: Colors.black,
                                               fontSize: 11,
-                                              fontFamily: 'Roboto',
+                                              fontFamily: 'NotoSans',
                                             ),
                                           ),
                                         ],
@@ -1563,19 +1511,109 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                         vertical: 12, horizontal: 16),
                                     child: Row(
                                       children: [
-                                        Expanded(child: highlight(c.code)),
-                                        Expanded(child: highlight(c.name)),
                                         Expanded(
-                                            child: highlight(
-                                                cleanSymbol(c.symbol))),
+                                            flex: 2, child: highlight(c.code)),
+                                        Expanded(
+                                            flex: 3, child: highlight(c.name)),
+                                        Expanded(
+                                          flex: 2,
+                                          child: highlight(_safeSymbol(c
+                                              .symbol)), // Safe symbol handling
+                                        ),
                                       ],
                                     ),
                                   );
                                 },
                               ),
                             ),
-
                             const SizedBox(height: 20),
+                           
+                            // Obx(
+                            //   () =>
+                            //       SearchableMultiColumnDropdownField<Currency>(
+                            //     labelText: loc.defaultCurrency,
+                            //     columnHeaders: const ['Code', 'Name', 'Symbol'],
+                            //     items: controller.currencies,
+                            //     selectedValue:
+                            //         controller.selectedCurrency.value,
+                            //     displayText: (c) =>
+                            //         '${c.code} ${c.name} ${c.symbol}',
+                            //     searchValue: (c) =>
+                            //         '${c.code} ${c.name} ${c.symbol}',
+                            //     validator: (c) =>
+                            //         c == null ? 'Please pick a currency' : null,
+                            //     onChanged: (c) {
+                            //       controller.selectedCurrency.value = c;
+                            //     },
+                            //     rowBuilder: (c, searchQuery) {
+                            //       Widget highlight(String text) {
+                            //         final query = searchQuery.toLowerCase();
+                            //         final lower = text.toLowerCase();
+                            //         final matchIndex = lower.indexOf(query);
+
+                            //         if (matchIndex == -1 || query.isEmpty) {
+                            //           return Text(
+                            //             text,
+                            //             style: const TextStyle(
+                            //               fontSize: 11,
+                            //               fontFamily: 'Roboto',
+                            //             ),
+                            //           );
+                            //         }
+
+                            //         final end = matchIndex + query.length;
+                            //         return RichText(
+                            //           text: TextSpan(
+                            //             children: [
+                            //               TextSpan(
+                            //                 text: text.substring(0, matchIndex),
+                            //                 style: const TextStyle(
+                            //                   color: Colors.black,
+                            //                   fontSize: 11,
+                            //                   fontFamily: 'Roboto',
+                            //                 ),
+                            //               ),
+                            //               TextSpan(
+                            //                 text:
+                            //                     text.substring(matchIndex, end),
+                            //                 style: const TextStyle(
+                            //                   color: Colors.black,
+                            //                   fontWeight: FontWeight.bold,
+                            //                   fontSize: 11,
+                            //                   fontFamily: 'Roboto',
+                            //                 ),
+                            //               ),
+                            //               TextSpan(
+                            //                 text: text.substring(end),
+                            //                 style: const TextStyle(
+                            //                   color: Colors.black,
+                            //                   fontSize: 11,
+                            //                   fontFamily: 'Roboto',
+                            //                 ),
+                            //               ),
+                            //             ],
+                            //           ),
+                            //         );
+                            //       }
+
+                            //       return Padding(
+                            //         padding: const EdgeInsets.symmetric(
+                            //             vertical: 12, horizontal: 16),
+                            //         child: Row(
+                            //           children: [
+                            //             Expanded(child: highlight(c.code)),
+                            //             Expanded(child: highlight(c.name)),
+                            //             Expanded(
+                            //                 child: highlight(
+                            //                     cleanSymbol(c.symbol))),
+                            //           ],
+                            //         ),
+                            //       );
+                            //     },
+                            //   ),
+                            // ),
+
+                            // const SizedBox(height: 20),
 
 // LOCALE DROPDOWN
                             Obx(() =>

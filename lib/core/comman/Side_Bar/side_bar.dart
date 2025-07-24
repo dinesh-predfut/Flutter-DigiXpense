@@ -1,6 +1,8 @@
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:digi_xpense/core/constant/Parames/params.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
 
 import '../../../data/pages/screen/widget/router/router.dart';
 import '../../../data/service.dart';
@@ -12,246 +14,300 @@ class MyDrawer extends StatefulWidget {
   State<MyDrawer> createState() => _MyDrawerState();
 }
 
-class _MyDrawerState extends State<MyDrawer> {
-  final Color gray = Colors.grey.shade700;
-  final TextStyle subTextStyle =
-      const TextStyle(fontSize: 14, color: Colors.black87);
+class _MyDrawerState extends State<MyDrawer>
+    with SingleTickerProviderStateMixin {
   final controller = Get.put(Controller());
-
   String selectedMenu = ''; // Track selected menu
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  /// Drawer Menu Item Widget
+  Widget _buildDrawerItem({
+    required String title,
+    required IconData icon,
+    required String menuKey,
+    VoidCallback? onTap,
+  }) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(-1, 0), // Slide from left
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeOutBack,
+        ),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: selectedMenu == menuKey ? Colors.deepPurple : Colors.black54,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: selectedMenu == menuKey ? Colors.deepPurple : Colors.black87,
+            fontWeight:
+                selectedMenu == menuKey ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        selected: selectedMenu == menuKey,
+        selectedTileColor: Colors.deepPurple.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        onTap: () {
+          setState(() {
+            selectedMenu = menuKey;
+          });
+          onTap?.call();
+        },
+      ),
+    );
+  }
+
+  /// Drawer Header Widget
+  Widget _buildDrawerHeader() {
+    return DrawerHeader(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.deepPurpleAccent.shade200,
+            Colors.deepPurple.shade400,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Obx(() => CircleAvatar(
+                radius: 35,
+                backgroundImage: controller.isImageLoading.value
+                    ? null
+                    : controller.profileImage.value != null
+                        ? FileImage(controller.profileImage.value!)
+                        : null,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                child: controller.isImageLoading.value
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : controller.profileImage.value == null
+                        ? const Icon(Icons.person,
+                            size: 40, color: Colors.white)
+                        : null,
+              )),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Animated Greeting
+                DefaultTextStyle(
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  child: AnimatedTextKit(
+                    animatedTexts: [
+                      TyperAnimatedText("Hello, 👋"),
+                      TyperAnimatedText("Hi there, "),
+                      TyperAnimatedText("Welcome back, "),
+                    ],
+                    repeatForever: true,
+                    isRepeatingAnimation: true,
+                    pause: const Duration(milliseconds: 800),
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Animated Name
+                DefaultTextStyle(
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  child: AnimatedTextKit(
+                    animatedTexts: [
+                      TypewriterAnimatedText(
+                        Params.userName.isNotEmpty
+                            ? Params.userName
+                            : "User Name",
+                        speed: const Duration(milliseconds: 100),
+                      ),
+                    ],
+                    totalRepeatCount: 1, // Play once
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      width: 270,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(),
-            child: Row(
+      width: 280,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.grey.shade200],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _buildDrawerHeader(),
+
+            // 🌟 Main Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text("MAIN",
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+            ),
+            _buildDrawerItem(
+              title: "Dashboard",
+              icon: Icons.home_outlined,
+              menuKey: "Dashboard",
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+              },
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text("Expenses"),
+              childrenPadding: const EdgeInsets.only(left: 16),
               children: [
-                Obx(() => CircleAvatar(
-                      radius: 40,
-                      backgroundImage: controller.isImageLoading.value
-                          ? null
-                          : controller.profileImage.value != null
-                              ? FileImage(controller.profileImage.value!)
-                              : null,
-                      child: controller.isImageLoading.value
-                          ? const CircularProgressIndicator()
-                          : controller.profileImage.value == null
-                              ? const Icon(Icons.person, size: 60)
-                              : null,
-                    )),
-                const SizedBox(width: 12),
-                Text(
-                    controller.firstNameController.text.isNotEmpty
-                        ? controller.firstNameController.text
-                        : "Name",
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black)),
-                const Spacer(),
+                _buildDrawerItem(
+                  title: "My Expenses",
+                  icon: Icons.arrow_right,
+                  menuKey: "My Expenses",
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.generalExpense);
+                  },
+                ),
+                _buildDrawerItem(
+                  title: "My Team Expenses",
+                  icon: Icons.arrow_right,
+                  menuKey: "My Team Expenses",
+                  onTap: () {},
+                ),
+                _buildDrawerItem(
+                  title: "Pending Approvals",
+                  icon: Icons.arrow_right,
+                  menuKey: "Pending Approvals",
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+                  },
+                ),
+                _buildDrawerItem(
+                  title: "Un Processed",
+                  icon: Icons.arrow_right,
+                  menuKey: "Un Processed",
+                  onTap: () {},
+                ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text("MAIN", style: TextStyle(color: gray, fontSize: 12)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.home_outlined),
-            title: const Text('Dashboard'),
-            selected: selectedMenu == 'Dashboard',
-            selectedTileColor: Colors.deepPurple.shade100,
-            onTap: () {
-              setState(() {
-                selectedMenu = 'Dashboard';
-              });
-              Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-            },
-          ),
-          ExpansionTile(
-            leading: const Icon(Icons.person_outline),
-            title: const Text('Expenses'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      title: Text('My Expense', style: subTextStyle),
-                      selected: selectedMenu == 'My Expense',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'My Expense';
-                        });
-                        Navigator.pushNamed(context, AppRoutes.generalExpense);
-                      },
-                    ),
-                    ListTile(
-                      title: Text('My Team Expense', style: subTextStyle),
-                      selected: selectedMenu == 'My Team Expense',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'My Team Expense';
-                        });
-                        // Navigate if needed
-                      },
-                    ),
-                    ListTile(
-                      title: Text('Pending Approvals', style: subTextStyle),
-                      selected: selectedMenu == 'Pending Approvals',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'Pending Approvals';
-                        });
-                        Navigator.pushNamed(
-                            context, AppRoutes.approvalDashboard);
-                      },
-                    ),
-                    ListTile(
-                      title: Text('Un Process', style: subTextStyle),
-                      selected: selectedMenu == 'Un Process',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'Un Process';
-                        });
-                        // Navigate if needed
-                      },
-                    ),
-                  ],
+            ExpansionTile(
+              leading: const Icon(Icons.money_outlined),
+              title: const Text("Cash Advances"),
+              childrenPadding: const EdgeInsets.only(left: 16),
+              children: [
+                _buildDrawerItem(
+                  title: "My Cash Advances",
+                  icon: Icons.arrow_right,
+                  menuKey: "My Cash Advances",
+                  onTap: () {
+                    Navigator.pushNamed(
+                        context, AppRoutes.cashAdvanceRequestDashboard);
+                  },
                 ),
-              ),
-            ],
-          ),
-          ExpansionTile(
-            leading: const Icon(Icons.money_outlined),
-            title: const Text('Cash Advance'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      title: Text('My Cash Advance', style: subTextStyle),
-                      selected: selectedMenu == 'My Cash Advance',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'My Cash Advance';
-                        });
-                        // Navigate if needed
-                      },
-                    ),
-                    ListTile(
-                      title: Text('My Team cash Advance', style: subTextStyle),
-                      selected: selectedMenu == 'My Team cash Advance',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'My Team cash Advance';
-                        });
-                        // Navigate if needed
-                      },
-                    ),
-                    ListTile(
-                      title: Text('Pending Approvals', style: subTextStyle),
-                      selected: selectedMenu == 'Cash Pending Approvals',
-                      selectedTileColor: Colors.deepPurple.shade100,
-                      onTap: () {
-                        setState(() {
-                          selectedMenu = 'Cash Pending Approvals';
-                        });
-                        // Navigate if needed
-                      },
-                    ),
-                  ],
+                _buildDrawerItem(
+                  title: "My Team Cash Advances",
+                  icon: Icons.arrow_right,
+                  menuKey: "My Team Cash Advances",
+                  onTap: () {},
                 ),
-              ),
-            ],
-          ),
-          ListTile(
-            leading: const Icon(Icons.mail_outline),
-            title: const Text('Email Hub'),
-            selected: selectedMenu == 'Email Hub',
-            selectedTileColor: Colors.deepPurple.shade100,
-            onTap: () {
-              setState(() {
-                selectedMenu = 'Email Hub';
-              });
-              // Navigate if needed
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_today),
-            title: const Text('Approval Hub'),
-            selected: selectedMenu == 'Approval Hub',
-            selectedTileColor: Colors.deepPurple.shade100,
-            onTap: () {
-              setState(() {
-                selectedMenu = 'Approval Hub';
-              });
-              // Navigate if needed
-            },
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child:
-                Text("SETTINGS", style: TextStyle(color: gray, fontSize: 12)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            selected: selectedMenu == 'Settings',
-            selectedTileColor: Colors.deepPurple.shade100,
-            onTap: () {
-              setState(() {
-                selectedMenu = 'Settings';
-              });
-              // Navigate if needed
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text('Help'),
-            selected: selectedMenu == 'Help',
-            selectedTileColor: Colors.deepPurple.shade100,
-            onTap: () {
-              setState(() {
-                selectedMenu = 'Help';
-              });
-              // Navigate if needed
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            onTap: () async {
-              setState(() {
-                controller.profileImage.value = null;
-              });
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                AppRoutes.signin,
-                (route) => false,
-              );
-            },
-            title: const Text(
-              'Log out',
-              style: TextStyle(color: Colors.red),
+                _buildDrawerItem(
+                  title: "Pending Approvals",
+                  icon: Icons.arrow_right,
+                  menuKey: "Pending Approvals",
+                  onTap: () {},
+                ),
+              ],
             ),
-          ),
-        ],
+
+            _buildDrawerItem(
+              title: "Email Hub",
+              icon: Icons.mail_outline,
+              menuKey: "Email Hub",
+            ),
+            _buildDrawerItem(
+              title: "Approval Hub",
+              icon: Icons.calendar_today,
+              menuKey: "Approval Hub",
+            ),
+
+            const Divider(),
+
+            // ⚙️ Settings Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text("SETTINGS",
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+            ),
+            _buildDrawerItem(
+              title: "Settings",
+              icon: Icons.settings_outlined,
+              menuKey: "Settings",
+            ),
+            _buildDrawerItem(
+              title: "Help",
+              icon: Icons.help_outline,
+              menuKey: "Help",
+            ),
+
+            // 🔴 Logout
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                "Log out",
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                controller.profileImage.value = null;
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.signin,
+                  (route) => false,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

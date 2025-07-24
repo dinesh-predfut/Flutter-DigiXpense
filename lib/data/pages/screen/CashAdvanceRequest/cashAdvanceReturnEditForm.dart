@@ -8,6 +8,7 @@ import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -16,27 +17,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
 
-class ApprovalViewEditExpensePage extends StatefulWidget {
-  final bool isReadOnly;
-  final GESpeficExpense? items;
-  const ApprovalViewEditExpensePage(
-      {Key? key, this.items, required this.isReadOnly})
+class ViewCashAdvanseReturnForm extends StatefulWidget {
+  final CashAdvanceRequestHeader? items;
+  const ViewCashAdvanseReturnForm({Key? key, this.items})
       : super(key: key);
 
   @override
-  State<ApprovalViewEditExpensePage> createState() =>
-      _ApprovalViewEditExpensePageState();
+  State<ViewCashAdvanseReturnForm> createState() => _ViewCashAdvanseReturnFormState();
 }
 
-class _ApprovalViewEditExpensePageState
-    extends State<ApprovalViewEditExpensePage> with TickerProviderStateMixin {
+class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
+    with TickerProviderStateMixin {
   final TextEditingController expenseIdController = TextEditingController();
-  final TextEditingController receiptDateController = TextEditingController();
+  final TextEditingController requestDateController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
-  final TextEditingController employeeName = TextEditingController();
-
-  final TextEditingController employyeID = TextEditingController();
-
   TextEditingController merhantName = TextEditingController();
   final PhotoViewController _photoViewController = PhotoViewController();
 
@@ -47,7 +41,7 @@ class _ApprovalViewEditExpensePageState
   String? selectedPaidTo;
   String? selectedPaidWith;
   bool _showHistory = false;
-  late int workitemrecid;
+
   // New state variables for itemize management
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
@@ -58,10 +52,9 @@ class _ApprovalViewEditExpensePageState
   void initState() {
     super.initState();
     expenseIdController.text = "";
-    receiptDateController.text = "";
-    employeeName.text = "";
-    employyeID.text = "";
+    requestDateController.text = "";
     merhantName.text = "";
+
     controller.fetchPaidto();
     controller.fetchPaidwith();
     controller.fetchProjectName();
@@ -69,64 +62,101 @@ class _ApprovalViewEditExpensePageState
     controller.fetchUnit();
     controller.fetchTaxGroup();
     controller.currencyDropDown();
-    controller.fetchExchangeRate();
-    controller.fetchUsers();
+    // controller.fetchExchangeRate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+     
+      // calculateAmounts(widget.items!..toString());
+    });
     controller.fetchExpenseDocImage(widget.items!.recId);
 
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
-    final formatted =
-        DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
-    controller.selectedDate = widget.items!.receiptDate;
-    receiptDateController.text = formatted;
-    employeeName.text = widget.items!.employeeName!;
-    employyeID.text = widget.items!.employeeId!;
-    controller.paymentMethodID = widget.items!.paymentMethod.toString();
-    expenseIdController.text = widget.items!.expenseId.toString();
-    receiptDateController.text = formatted;
-    controller.paidToController.text = widget.items!.merchantName.toString();
-    controller.paidWithController.text = widget.items!.paymentMethod!;
-    referenceController.text = widget.items!.referenceNumber.toString();
+
+    // final formatted =
+    //     DateFormat('dd/MM/yyyy').format(widget.items!.requestDate as DateTime);
+    // controller.selectedDate = widget.items!.requestDate;
+    // requestDateController.text = formatted;
+    if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
+      controller.paymentMethodID = widget.items!.prefferedPaymentMethod.toString();
+    }
+
+    expenseIdController.text = widget.items!.referenceId.toString();
+    // requestDateController.text = formatted;
+   
+
+ 
+
+    print('--- AccountingDistributions Added ---');
+    controller.referenceID.text =
+        widget.items?.referenceId?.toString() ?? '';
+    if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
+      controller.paidWithController.text = widget.items!.prefferedPaymentMethod!;
+    } else {
+      controller.paidWithController.text = ''; // or set a default value
+    }
+
     selectedPaidTo = paidToOptions.first;
     selectedPaidWith = paidWithOptions.first;
-    controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitRate.text = widget.items!.exchRate.toString();
-    controller.amountINR.text = widget.items!.totalAmountReporting.toString();
-    controller.expenseID = widget.items!.expenseId;
+    controller.paidAmount.text = widget.items!.totalEstimatedAmountInReporting.toString();
+    controller.unitAmount.text = widget.items!.totalEstimatedAmountInReporting.toString();
+    controller.unitRate.text = widget.items!.totalEstimatedAmountInReporting.toString();
+    // calculateAmounts(controller.exchangeRate.text);
+    controller.amountINR.text = widget.items!.totalEstimatedAmountInReporting.toString();
+    controller.expenseID = widget.items!.referenceId;
     controller.recID = widget.items!.recId;
-    workitemrecid = widget.items!.workitemrecid;
-    controller.currencyDropDowncontroller.text =
-        widget.items!.currency.toString();
+ 
+  
 
     // Initialize itemize controllers
     _initializeItemizeControllers();
   }
 
   void _initializeItemizeControllers() {
-    itemizeControllers = widget.items!.expenseTrans.map((item) {
+    itemizeControllers = widget.items!.cshCashAdvReqTrans.map((item) {
       final controller = Controller();
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
       controller.quantity.text = item.quantity.toString();
-      controller.unitAmountView.text = item.unitPriceTrans.toString();
-      controller.lineAmount.text = item.lineAmountTrans.toString();
-      controller.lineAmountINR.text = item.lineAmountReporting.toString();
+      controller.unitPriceTrans.text = item.unitEstimatedAmount.toString();
+      controller.lineAmount.text = item.unitEstimatedAmount.toString();
+      controller.lineAmountINR.text = item.unitEstimatedAmount.toString();
       controller.taxAmount.text = item.taxAmount.toString();
-      controller.taxGroupController.text = item.taxGroup!;
-      controller.categoryController.text = item.expenseCategoryId;
-      controller.uomId.text = item.uomId;
-      controller.isReimbursite = item.isReimbursable;
-      controller.isBillable.value = item.isBillable;
-      controller.split = (item.accountingDistributions ?? []).map((dist) {
-        return AccountingSplit(
-          paidFor: dist.dimensionValueId ?? '',
-          percentage: dist.allocationFactor ?? 0.0,
-          amount: dist.transAmount ?? 0.0,
+      controller.taxGroupController.text = item.taxGroup ?? '';
+      controller.categoryController.text = item.expenseCategoryId!;
+      controller.uomId.text = item.uomId!;
+  
+      if (item.accountingDistributions != null) {
+        controller.split = (item.accountingDistributions ?? []).map((dist) {
+          return AccountingSplit(
+            paidFor: dist.dimensionValueId ?? '',
+            percentage: dist.allocationFactor ?? 0.0,
+            amount: dist.transAmount ?? 0.0,
+          );
+        }).toList();
+      }
+      if (item.accountingDistributions != null) {
+        controller.accountingDistributions.clear(); // clear existing
+        controller.accountingDistributions.addAll(
+          item.accountingDistributions!.map((dist) {
+            return AccountingDistribution(
+              transAmount: dist.transAmount ?? 0.0,
+              reportAmount: dist.reportAmount ?? 0.0,
+              allocationFactor: dist.allocationFactor ?? 0.0,
+              dimensionValueId: dist.dimensionValueId ?? '',
+              // recId: dist.recId ?? 0,
+            );
+          }),
         );
-      }).toList();
+        print('--- AccountingDistributions Added ---');
+        for (var dist in controller.accountingDistributions) {
+          print(
+              'TransAmount: ${dist?.transAmount}, ReportAmount: ${dist?.reportAmount}, '
+              'AllocationFactor: ${dist?.allocationFactor}, DimensionValueId: ${dist?.dimensionValueId}');
+        }
+        print('--------------------------------------');
+      }
       return controller;
     }).toList();
-    _itemizeCount = widget.items!.expenseTrans.length;
+    _itemizeCount = widget.items!.cshCashAdvReqTrans.length;
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
@@ -140,7 +170,7 @@ class _ApprovalViewEditExpensePageState
 
     if (controller.paymentMethods.isNotEmpty) {
       controller.selectedPaidWith = controller.paymentMethods.firstWhere(
-        (e) => e.paymentMethodId == widget.items!.paymentMethod,
+        (e) => e.paymentMethodId == widget.items!.prefferedPaymentMethod,
         orElse: () => controller.paymentMethods.first,
       );
     }
@@ -151,13 +181,30 @@ class _ApprovalViewEditExpensePageState
         orElse: () => controller.project.first,
       );
     }
-    if (controller.currencies.isNotEmpty) {
-      controller.selectedCurrency.value = controller.currencies.firstWhere(
-        (e) => e.code == widget.items!.currency,
-        orElse: () => controller.currencies.first,
-      );
-    }
+  
     setState(() {});
+  }
+
+  void calculateAmounts(String rateStr) {
+    final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
+    final rate = double.tryParse(rateStr) ?? 1.0;
+
+    // Perform calculation
+    final result = paid * rate;
+    controller.amountINR.text = result.toStringAsFixed(2);
+    controller.isVisible.value = true;
+
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final itemController = itemizeControllers[i];
+      final unitPrice =
+          double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
+
+      final lineAmountInINR = unitPrice * rate;
+      itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+
+      // Sync with the model
+      // widget.items!.cshCashAdvReqTrans[i] = itemController.toExpenseItemUpdateModel();
+    }
   }
 
   void _addItemize() {
@@ -171,8 +218,8 @@ class _ApprovalViewEditExpensePageState
           lineAmountTrans: 0,
           lineAmountReporting: 0,
           taxAmount: 0,
-          isReimbursable: false,
-          isBillable: false,
+          isReimbursable: controller.isReimbursable,
+          isBillable: controller.isBillableCreate,
           projectId: controller.projectDropDowncontroller.text ?? '',
           expenseCategoryId: controller.categoryController.text ?? "",
           uomId: controller.unit.isNotEmpty ? controller.unit.first.code : '',
@@ -183,7 +230,7 @@ class _ApprovalViewEditExpensePageState
         );
         debugPrint("Added new item: ${newItem.toString()}");
 
-        widget.items!.expenseTrans.add(newItem);
+        // widget.items!.cshCashAdvReqTrans.add(newItem);
 
         // Create and initialize new controller
         final newController = Controller();
@@ -191,7 +238,7 @@ class _ApprovalViewEditExpensePageState
         // Initialize controller with default values
         newController.descriptionController.text = newItem.description ?? '';
         newController.quantity.text = newItem.quantity.toString();
-        newController.unitAmountView.text = newItem.unitPriceTrans.toString();
+        newController.unitPriceTrans.text = newItem.unitPriceTrans.toString();
         newController.lineAmount.text = newItem.lineAmountTrans.toString();
         newController.lineAmountINR.text =
             newItem.lineAmountReporting.toString();
@@ -200,8 +247,8 @@ class _ApprovalViewEditExpensePageState
         newController.categoryController.text = newItem.expenseCategoryId;
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
-        newController.isReimbursite = newItem.isReimbursable;
-        newController.isBillable.value = newItem.isBillable;
+        newController.isReimbursable = newItem.isReimbursable;
+        newController.isBillableCreate = newItem.isBillable;
 
         // Set dropdown selections if available
         if (controller.project.isNotEmpty) {
@@ -252,9 +299,9 @@ class _ApprovalViewEditExpensePageState
       setState(() {
         showItemizeDetails = false;
       });
-    } else if (index >= 0 && index < widget.items!.expenseTrans.length) {
+    } else if (index >= 0 && index < widget.items!.cshCashAdvReqTrans.length) {
       setState(() {
-        widget.items!.expenseTrans.removeAt(index);
+        widget.items!.cshCashAdvReqTrans.removeAt(index);
         itemizeControllers.removeAt(index);
         _itemizeCount--;
         if (_selectedItemizeIndex >= _itemizeCount) {
@@ -294,45 +341,27 @@ class _ApprovalViewEditExpensePageState
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        controller.clearFormFields();
         controller.isEnable.value = false;
         controller.isLoadingGE1.value = false;
-        controller.isApprovalEnable.value = false;
-        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
         return true;
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            (controller.isEnable.value || controller.isApprovalEnable.value)
-                ? 'Edit Expense Approval'
-                : 'View Expense Approval',
-            style: const TextStyle(
-              fontSize: 18, // 👈 smaller font size
-              fontWeight: FontWeight.bold, // optional: make weight normal
-              color: Colors.black, // optional: set color
-            ),
-          ),
+              controller.isEnable.value ? 'Edit Expense' : 'Views Expense'),
           actions: [
-            if (widget.isReadOnly &&
+            if (
                 widget.items != null &&
-                widget.items!.approvalStatus != "Cancelled" &&
-                widget.items!.stepType != "Approval")
+                widget.items!.approvalStatus != "Approved" &&
+                widget.items!.approvalStatus != "Cancelled")
               IconButton(
                 icon: const Icon(Icons.edit_document),
                 onPressed: () {
+                  // controller.fetchExchangeRate();
                   setState(() {
                     controller.isEnable.value = true;
-                  });
-                },
-              ),
-            if (widget.isReadOnly &&
-                widget.items != null &&
-                widget.items!.stepType == "Approval")
-              IconButton(
-                icon: const Icon(Icons.edit_document),
-                onPressed: () {
-                  setState(() {
-                    controller.isApprovalEnable.value = true;
                   });
                 },
               ),
@@ -399,19 +428,10 @@ class _ApprovalViewEditExpensePageState
               ),
               buildDateField(
                 "Receipt Date",
-                receiptDateController,
+                requestDateController,
                 isReadOnly: !controller.isEnable.value, // pass manually
               ),
-              _buildTextField(
-                label: "Employee Name",
-                controller: employeeName,
-                isReadOnly: false,
-              ),
-              _buildTextField(
-                label: "Employee",
-                controller: employyeID,
-                isReadOnly: false,
-              ),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -439,19 +459,15 @@ class _ApprovalViewEditExpensePageState
                         ),
                       ),
                     ),
-
                   const SizedBox(height: 8),
-
-                  // 👇 Conditional UI
                   if (!controller.isManualEntryMerchant)
                     AbsorbPointer(
-                      absorbing:
-                          !controller.isEnable.value, // 🔥 disables dropdown
+                      absorbing: !controller.isEnable.value,
                       child: SearchableMultiColumnDropdownField<MerchantModel>(
+                        enabled: controller.isEnable.value,
                         labelText: 'Select Merchant',
                         columnHeaders: const ['Merchant Name', 'Merchant ID'],
                         items: controller.paidTo,
-                        enabled: controller.isEnable.value,
                         selectedValue: controller.selectedPaidto,
                         searchValue: (p) =>
                             '${p.merchantNames} ${p.merchantId}',
@@ -600,7 +616,7 @@ class _ApprovalViewEditExpensePageState
                     onChanged: (p) {
                       setState(() {
                         controller.selectedPaidWith = p;
-                        controller.paymentMethodeID = p!.paymentMethodId;
+                        controller.paymentMethodID = p!.paymentMethodId;
                         controller.paidWithController.text = p.paymentMethodId;
                       });
                     },
@@ -654,7 +670,7 @@ class _ApprovalViewEditExpensePageState
               const SizedBox(height: 12),
               _buildTextField(
                 label: "Reference",
-                controller: referenceController,
+                controller: controller.referenceID,
                 isReadOnly: controller.isEnable.value,
               ),
               Row(
@@ -664,7 +680,7 @@ class _ApprovalViewEditExpensePageState
                       enabled: false,
                       controller: controller.paidAmount,
                       onChanged: (_) {
-                        controller.fetchExchangeRate();
+                        // controller.fetchExchangeRate();
 
                         final paid =
                             double.tryParse(controller.paidAmount.text) ?? 0.0;
@@ -739,7 +755,7 @@ class _ApprovalViewEditExpensePageState
                                 if (matchIndex == -1 || query.isEmpty) {
                                   return Text(text,
                                       style:
-                                          const TextStyle(color: Colors.white));
+                                          const TextStyle(color: Colors.black));
                                 }
 
                                 final end = matchIndex + query.length;
@@ -749,7 +765,7 @@ class _ApprovalViewEditExpensePageState
                                       TextSpan(
                                         text: text.substring(0, matchIndex),
                                         style: const TextStyle(
-                                            color: Colors.white),
+                                            color: Colors.black),
                                       ),
                                       TextSpan(
                                         text: text.substring(matchIndex, end),
@@ -761,7 +777,7 @@ class _ApprovalViewEditExpensePageState
                                       TextSpan(
                                         text: text.substring(end),
                                         style: const TextStyle(
-                                            color: Colors.white),
+                                            color: Colors.black),
                                       ),
                                     ],
                                   ),
@@ -816,8 +832,8 @@ class _ApprovalViewEditExpensePageState
                               lineAmountInINR.toStringAsFixed(2);
 
                           // Sync with the model
-                          widget.items!.expenseTrans[i] =
-                              itemController.toExpenseItemUpdateModel();
+                          // widget.items!.cshCashAdvReqTrans[i] =
+                          //     itemController.toExpenseItemUpdateModel();
                         }
 
                         // ✅ Trigger UI update
@@ -862,9 +878,9 @@ class _ApprovalViewEditExpensePageState
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: widget.items!.expenseTrans.length,
+                    itemCount: widget.items!.cshCashAdvReqTrans.length,
                     itemBuilder: (context, index) {
-                      final item = widget.items!.expenseTrans[index];
+                      final item = widget.items!.cshCashAdvReqTrans[index];
                       final itemController = itemizeControllers[index];
 
                       return Card(
@@ -889,7 +905,7 @@ class _ApprovalViewEditExpensePageState
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       if (controller.isEnable.value &&
-                                          widget.items!.expenseTrans.length > 1)
+                                          widget.items!.cshCashAdvReqTrans.length > 1)
                                         IconButton(
                                           icon: const Icon(Icons.delete,
                                               color: Colors.red),
@@ -935,9 +951,9 @@ class _ApprovalViewEditExpensePageState
                                             p; // update controller state
                                         controller.projectDropDowncontroller
                                             .text = p!.code;
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel(); // sync with parent list
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel(); // sync with parent list
                                       });
                                       controller.fetchExpenseCategory();
                                     },
@@ -1014,9 +1030,9 @@ class _ApprovalViewEditExpensePageState
                                         itemController.selectedCategory = p;
                                         itemController.selectedCategoryId =
                                             p!.categoryId;
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                         itemController.categoryController.text =
                                             p.categoryId;
                                       });
@@ -1083,9 +1099,9 @@ class _ApprovalViewEditExpensePageState
                                     isReadOnly: controller.isEnable.value,
                                     onChanged: (value) {
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1105,9 +1121,9 @@ class _ApprovalViewEditExpensePageState
                                       setState(() {
                                         itemController.selectedunit = tax;
                                         itemController.uomId.text = tax!.code;
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                     controller: itemController.uomId,
@@ -1172,9 +1188,9 @@ class _ApprovalViewEditExpensePageState
                                       itemController
                                           .calculateLineAmounts(itemController);
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1182,18 +1198,18 @@ class _ApprovalViewEditExpensePageState
                                     label: "Unit Amount *",
                                     controller: itemController.unitPriceTrans,
                                     isReadOnly: controller.isEnable.value,
-                                    // inputFormatters: [
-                                    //   FilteringTextInputFormatter.digitsOnly,
-                                    //   LengthLimitingTextInputFormatter(
-                                    //       10), // Max 10 digits
-                                    // ],
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(
+                                          10), // Max 10 digits
+                                    ],
                                     onChanged: (value) {
                                       itemController
                                           .calculateLineAmounts(itemController);
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1203,9 +1219,9 @@ class _ApprovalViewEditExpensePageState
                                     isReadOnly: false,
                                     onChanged: (value) {
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                            // itemController
+                                            //     .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1215,9 +1231,9 @@ class _ApprovalViewEditExpensePageState
                                     isReadOnly: false,
                                     onChanged: (value) {
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1237,9 +1253,9 @@ class _ApprovalViewEditExpensePageState
                                     onChanged: (tax) {
                                       setState(() {
                                         itemController.selectedTax = tax;
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                         itemController.taxGroupController.text =
                                             tax!.taxGroupId;
                                       });
@@ -1306,9 +1322,9 @@ class _ApprovalViewEditExpensePageState
                                     isReadOnly: controller.isEnable.value,
                                     onChanged: (value) {
                                       setState(() {
-                                        widget.items!.expenseTrans[index] =
-                                            itemController
-                                                .toExpenseItemUpdateModel();
+                                        // widget.items!.expenseTrans[index] =
+                                        //     itemController
+                                        //         .toExpenseItemUpdateModel();
                                       });
                                     },
                                   ),
@@ -1329,10 +1345,10 @@ class _ApprovalViewEditExpensePageState
                                               itemController.isReimbursable =
                                                   val;
                                               controller.isReimbursite = val;
-                                              widget.items!
-                                                      .expenseTrans[index] =
-                                                  itemController
-                                                      .toExpenseItemUpdateModel();
+                                              // widget.items!
+                                              //         .expenseTrans[index] =
+                                              //     itemController
+                                              //         .toExpenseItemUpdateModel();
                                             });
                                           }
                                         : null,
@@ -1353,10 +1369,10 @@ class _ApprovalViewEditExpensePageState
                                         onChanged: controller.isEnable.value
                                             ? (val) {
                                                 setState(() {
-                                                  widget.items!
-                                                          .expenseTrans[index] =
-                                                      itemController
-                                                          .toExpenseItemUpdateModel();
+                                                  // widget.items!
+                                                  //         .expenseTrans[index] =
+                                                  //     itemController
+                                                  //         .toExpenseItemUpdateModel();
                                                   controller.isBillableCreate =
                                                       val;
                                                   itemController
@@ -1376,10 +1392,10 @@ class _ApprovalViewEditExpensePageState
                                                         .lineAmount.text) ??
                                                     0.0;
                                             if (itemController.split.isEmpty &&
-                                                item.accountingDistributions
+                                                item.accountingDistributions!
                                                     .isNotEmpty) {
                                               itemController.split.assignAll(
-                                                item.accountingDistributions
+                                                item.accountingDistributions!
                                                     .map((e) {
                                                   return AccountingSplit(
                                                     paidFor: e.dimensionValueId,
@@ -1430,9 +1446,9 @@ class _ApprovalViewEditExpensePageState
                                                     onDistributionChanged:
                                                         (newList) {
                                                       if (!mounted) return;
-                                                      item.accountingDistributions
+                                                      item.accountingDistributions!
                                                           .clear();
-                                                      item.accountingDistributions
+                                                      item.accountingDistributions!
                                                           .addAll(newList);
                                                     },
                                                   ),
@@ -1511,106 +1527,79 @@ class _ApprovalViewEditExpensePageState
                 ],
               ),
               const SizedBox(height: 20),
-
               if (controller.isEnable.value &&
                   widget.items!.approvalStatus == "Rejected")
                 Obx(() {
+                  final isResubmitLoading =
+                      controller.buttonLoaders['resubmit'] ?? false;
+                  final isAnyLoading =
+                      controller.buttonLoaders.values.any((loading) => loading);
+
                   return SizedBox(
                     width: double.infinity,
-                    child: GradientButton(
-                        text: "Resubmit",
-                        isLoading: controller.buttonLoader.value,
-                        onPressed: () {
-                          controller.addToFinalItems(widget.items!);
-                          controller.saveinviewPageGeneralExpense(
-                              context, true, true, widget.items!.recId);
-                        }),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: Color.fromARGB(
+                            255, 29, 1, 128), // Purple gradient replaced
+                      ),
+                      onPressed: (isResubmitLoading || isAnyLoading)
+                          ? null
+                          : () {
+                              controller.setButtonLoading('resubmit', true);
+                              // controller.addToFinalItems(widget.items!);
+                              controller
+                                  .saveinviewPageGeneralExpense(
+                                      context, true, true, widget.items!.recId)
+                                  .whenComplete(() {
+                                controller.setButtonLoading('resubmit', false);
+                              });
+                            },
+                      child: isResubmitLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Resubmit",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
                   );
                 }),
 
               if (controller.isEnable.value) const SizedBox(height: 20),
 
-              // 🔵 Update Button
-              // Obx(() {
-              //   final isUpdateLoading =
-              //       controller.buttonLoaders['update'] ?? false;
-              //   final isUpdateAcceptLoading =
-              //       controller.buttonLoaders['update_accept'] ?? false;
-              //   final isAnyLoading = controller.buttonLoaders.values
-              //       .any((loading) => loading);
-
-              //   return Expanded(
-              //     child: ElevatedButton(
-              //       onPressed: (isUpdateLoading ||
-              //               isUpdateAcceptLoading ||
-              //               isAnyLoading)
-              //           ? null
-              //           : () {
-              //               controller.setButtonLoading('update', true);
-              //               controller.addToFinalItems(widget.items!);
-              //               controller
-              //                   .reviewGendralExpense(context, false,
-              //                       widget.items!.workitemrecid)
-              //                   .whenComplete(() {
-              //                 controller.setButtonLoading(
-              //                     'update', false);
-              //               });
-              //             },
-              //       style: ElevatedButton.styleFrom(
-              //         backgroundColor:
-              //             const Color.fromARGB(255, 3, 20, 117),
-              //       ),
-              //       child: isUpdateLoading
-              //           ? const SizedBox(
-              //               height: 20,
-              //               width: 20,
-              //               child: CircularProgressIndicator(
-              //                 color: Colors.white,
-              //                 strokeWidth: 2,
-              //               ),
-              //             )
-              //           : const Text(
-              //               "Update",
-              //               style: TextStyle(color: Colors.white),
-              //             ),
-              //     ),
-              //   );
-              // }),
-
-              // const SizedBox(width: 12),
-
-              // 🟢 Update & Accept Button
-              // if (controller.isEnable.value &&
-              //     widget.items!.stepType == "Review")
-              // 🟦 Update & Accept Row
               if (controller.isEnable.value &&
-                  widget.items!.stepType == "Review")
+                  widget.items!.approvalStatus == "Rejected")
                 Row(
                   children: [
-                    // 🔵 Update Button
                     Obx(() {
                       final isUpdateLoading =
                           controller.buttonLoaders['update'] ?? false;
-                      final isUpdateAcceptLoading =
-                          controller.buttonLoaders['update_accept'] ?? false;
-                      final isRejectLoading =
-                          controller.buttonLoaders['reject'] ?? false;
                       final isAnyLoading = controller.buttonLoaders.values
                           .any((loading) => loading);
 
                       return Expanded(
                         child: ElevatedButton(
-                          onPressed: (isUpdateLoading ||
-                                  isUpdateAcceptLoading ||
-                                  isRejectLoading ||
-                                  isAnyLoading)
+                          onPressed: (isUpdateLoading || isAnyLoading)
                               ? null
                               : () {
                                   controller.setButtonLoading('update', true);
-                                  controller.addToFinalItems(widget.items!);
+                                  // controller.addToFinalItems(widget.items!);
                                   controller
-                                      .reviewGendralExpense(context, false,
-                                          widget.items!.workitemrecid)
+                                      .saveinviewPageGeneralExpense(context,
+                                          false, false, widget.items!.recId)
                                       .whenComplete(() {
                                     controller.setButtonLoading(
                                         'update', false);
@@ -1618,7 +1607,7 @@ class _ApprovalViewEditExpensePageState
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117),
+                                const Color(0xFF1E7503), // Green button
                           ),
                           child: isUpdateLoading
                               ? const SizedBox(
@@ -1636,159 +1625,105 @@ class _ApprovalViewEditExpensePageState
                         ),
                       );
                     }),
-
-                    const SizedBox(width: 12),
-
-                    // 🟢 Update & Accept Button
-                    Obx(() {
-                      final isUpdateLoading =
-                          controller.buttonLoaders['update'] ?? false;
-                      final isUpdateAcceptLoading =
-                          controller.buttonLoaders['update_accept'] ?? false;
-                      final isRejectLoading =
-                          controller.buttonLoaders['reject'] ?? false;
-                      final isAnyLoading = controller.buttonLoaders.values
-                          .any((loading) => loading);
-
-                      return Expanded(
-                        child: ElevatedButton(
-                          onPressed: (isUpdateAcceptLoading ||
-                                  isUpdateLoading ||
-                                  isRejectLoading ||
-                                  isAnyLoading)
-                              ? null
-                              : () {
-                                  controller.setButtonLoading(
-                                      'update_accept', true);
-                                  controller.addToFinalItems(widget.items!);
-                                  controller
-                                      .reviewGendralExpense(context, true,
-                                          widget.items!.workitemrecid)
-                                      .whenComplete(() {
-                                    controller.setButtonLoading(
-                                        'update_accept', false);
-                                  });
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117),
-                          ),
-                          child: isUpdateAcceptLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  "Update & Accept",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              if (controller.isEnable.value &&
-                  widget.items!.stepType == "Review")
-                const SizedBox(height: 12), // space between rows
-
-              //  if (controller.isEnable.value &&
-              //       widget.items!.stepType == "Review")
-              if (controller.isEnable.value &&
-                  widget.items!.stepType == "Review")
-                Row(
-                  children: [
-                    Obx(() {
-                      final isUpdateLoading =
-                          controller.buttonLoaders['update'] ?? false;
-                      final isUpdateAcceptLoading =
-                          controller.buttonLoaders['update_accept'] ?? false;
-                      final isRejectLoading =
-                          controller.buttonLoaders['reject'] ?? false;
-                      final isAnyLoading = controller.buttonLoaders.values
-                          .any((loading) => loading);
-
-                      return Expanded(
-                        child: ElevatedButton(
-                          onPressed: (isRejectLoading ||
-                                  isUpdateLoading ||
-                                  isUpdateAcceptLoading ||
-                                  isAnyLoading)
-                              ? null
-                              : () {
-                                  controller.setButtonLoading('reject', true);
-                                  controller.addToFinalItems(widget.items!);
-                                  controller
-                                      .saveinviewPageGeneralExpense(context,
-                                          false, false, widget.items!.recId)
-                                      .whenComplete(() {
-                                    controller.setButtonLoading(
-                                        'reject', false);
-                                  });
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(255, 238, 20, 20),
-                          ),
-                          child: isRejectLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  "Reject",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                        ),
-                      );
-                    }),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.pop(context);
+                          controller.chancelButton(context);
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
                         child: const Text(
-                          "Close",
+                          "Cancel",
                           style: TextStyle(color: Colors.black),
                         ),
                       ),
                     ),
                   ],
-                ),
+                )
+              else if (controller.isEnable.value &&
+                  widget.items!.approvalStatus == "Created") ...[
+                Obx(() {
+                  final isSubmitLoading =
+                      controller.buttonLoaders['submit'] ?? false;
+                  final isAnyLoading =
+                      controller.buttonLoaders.values.any((loading) => loading);
 
-              if (controller.isApprovalEnable.value &&
-                  widget.items!.stepType == "Approval")
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: const Color.fromARGB(255, 26, 2, 110),
+                      ),
+                      onPressed: (isSubmitLoading || isAnyLoading)
+                          ? null
+                          : () {
+                              controller.setButtonLoading('submit', true);
+                              // controller.addToFinalItems(widget.items!);
+                              controller
+                                  .saveinviewPageGeneralExpense(
+                                      context, true, false, widget.items!.recId)
+                                  .whenComplete(() {
+                                controller.setButtonLoading('submit', false);
+                              });
+                            },
+                      child: isSubmitLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Submit",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    // ✅ Approve Button
+                    // 🟢 Save Button
                     Obx(() {
-                      final isLoading =
-                          controller.buttonLoaders['approve'] ?? false;
+                      final isSaveLoading =
+                          controller.buttonLoaders['saveGE'] ?? false;
+                      final isSubmitLoading =
+                          controller.buttonLoaders['submit'] ?? false;
+                      final isAnyLoading = controller.buttonLoaders.values
+                          .any((loading) => loading);
+
                       return Expanded(
                         child: ElevatedButton(
-                          onPressed: isLoading
+                          onPressed: (isSaveLoading ||
+                                  isSubmitLoading ||
+                                  isAnyLoading)
                               ? null
                               : () {
-                                  controller.setButtonLoading('approve', true);
-                                  showActionPopup(context, "Approve");
-
-                                  controller.setButtonLoading('approve', false);
+                                  controller.setButtonLoading('saveGE', true);
+                                  // controller.addToFinalItems(widget.items!);
+                                  controller
+                                      .saveinviewPageGeneralExpense(context,
+                                          false, false, widget.items!.recId)
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'saveGE', false);
+                                  });
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 30, 117, 3),
+                                const Color(0xFF1E7503), // Green button
                           ),
-                          child: isLoading
+                          child: isSaveLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
@@ -1798,97 +1733,85 @@ class _ApprovalViewEditExpensePageState
                                   ),
                                 )
                               : const Text(
-                                  "Approve",
+                                  "Save",
                                   style: TextStyle(color: Colors.white),
                                 ),
                         ),
                       );
                     }),
-
                     const SizedBox(width: 12),
 
-                    // 🔴 Reject Button
+                    // 🟠 Cancel Button
                     Obx(() {
-                      final isLoading =
-                          controller.buttonLoaders['reject_approval'] ?? false;
+                      final isAnyLoading = controller.buttonLoaders.values
+                          .any((loading) => loading);
+
                       return Expanded(
                         child: ElevatedButton(
-                          onPressed: isLoading
+                          onPressed: isAnyLoading
                               ? null
                               : () {
-                                  controller.setButtonLoading(
-                                      'reject_approval', true);
-                                  showActionPopup(context, "Reject");
-
-                                  controller.setButtonLoading(
-                                      'reject_approval', false);
+                                  controller.chancelButton(context);
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color.fromARGB(255, 238, 20, 20),
+                            backgroundColor: Colors.grey,
                           ),
-                          child: isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  "Reject",
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(color: Colors.black),
+                          ),
                         ),
                       );
                     }),
                   ],
                 ),
+                // Add space before Submit button
 
-              if (controller.isApprovalEnable.value &&
-                  widget.items!.stepType == "Approval")
+                // 🟣 Submit Button
+              ],
+
+              if (controller.isEnable.value &&
+                  widget.items!.approvalStatus == "Pending")
                 Row(
                   children: [
-                    // 🔵 Escalate Button
                     Obx(() {
                       final isLoading =
-                          controller.buttonLoaders['escalate'] ?? false;
+                          controller.buttonLoaders['cancel'] ?? false;
                       return Expanded(
                         child: ElevatedButton(
                           onPressed: isLoading
                               ? null
                               : () {
-                                  controller.setButtonLoading('escalate', true);
-                                  showActionPopup(context, "Escalate");
-
-                                  controller.setButtonLoading(
-                                      'escalate', false);
+                                  controller.setButtonLoading('cancel', true);
+                                  controller
+                                      .cancelExpense(context,
+                                          widget.items!.recId.toString())
+                                      .whenComplete(() {
+                                    controller.setButtonLoading(
+                                        'cancel', false);
+                                  });
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                const Color.fromARGB(255, 3, 20, 117),
+                                const Color(0xFFE99797), // Red cancel button
                           ),
                           child: isLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
                                   child: CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: Colors.red,
                                     strokeWidth: 2,
                                   ),
                                 )
                               : const Text(
-                                  "Escalate",
-                                  style: TextStyle(color: Colors.white),
+                                  "Cancel",
+                                  style: TextStyle(color: Colors.red),
                                 ),
                         ),
                       );
                     }),
-
                     const SizedBox(width: 12),
-
-                    // ⚪ Close Button
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
@@ -1903,14 +1826,11 @@ class _ApprovalViewEditExpensePageState
                       ),
                     ),
                   ],
-                ),
-
-              if (!controller.isEnable.value &&
-                  !controller.isApprovalEnable.value)
+                )
+              else if (!controller.isEnable.value)
                 ElevatedButton(
                   onPressed: () {
                     controller.chancelButton(context);
-                    controller.isApprovalEnable.value = false;
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   child: const Text(
@@ -1921,56 +1841,6 @@ class _ApprovalViewEditExpensePageState
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget buildDateField(
-    String label,
-    TextEditingController controllers, {
-    required bool isReadOnly,
-  }) {
-    return TextFormField(
-      controller: controllers,
-      readOnly: true, // Always readonly because we use the calendar
-      enabled: !isReadOnly, // Disable editing if readonly
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.calendar_today),
-          onPressed: isReadOnly
-              ? null // Disable button if readonly
-              : () async {
-                  // 🟢 Use controllers.text for initialDate or fallback
-                  DateTime initialDate = DateTime.now();
-                  if (controllers.text.isNotEmpty) {
-                    try {
-                      initialDate =
-                          DateFormat('yyyy-MM-dd') // Adjust your format
-                              .parseStrict(controllers.text.trim());
-                    } catch (e) {
-                      print("Invalid date format: ${controllers.text}");
-                      initialDate = DateTime.now(); // fallback
-                    }
-                  }
-
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: initialDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
-                  );
-
-                  if (picked != null) {
-                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
-                    controller.selectedDate = picked;
-                    controller.fetchProjectName();
-                  }
-                },
-        ),
-        border: const OutlineInputBorder(),
       ),
     );
   }
@@ -2078,6 +1948,56 @@ class _ApprovalViewEditExpensePageState
     );
   }
 
+  Widget buildDateField(
+    String label,
+    TextEditingController controllers, {
+    required bool isReadOnly,
+  }) {
+    return TextFormField(
+      controller: controllers,
+      readOnly: true, // Always readonly because we use the calendar
+      enabled: !isReadOnly, // Disable editing if readonly
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.calendar_today),
+          onPressed: isReadOnly
+              ? null // Disable button if readonly
+              : () async {
+                  // 🟢 Use controllers.text for initialDate or fallback
+                  DateTime initialDate = DateTime.now();
+                  if (controllers.text.isNotEmpty) {
+                    try {
+                      initialDate =
+                          DateFormat('yyyy-MM-dd') // Adjust your format
+                              .parseStrict(controllers.text.trim());
+                    } catch (e) {
+                      print("Invalid date format: ${controllers.text}");
+                      initialDate = DateTime.now(); // fallback
+                    }
+                  }
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+
+                  if (picked != null) {
+                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+                    controller.selectedDateMileage = picked;
+                    controller.fetchMileageRates();
+                    controller.selectedDate = picked;
+                    controller.fetchProjectName();
+                  }
+                },
+        ),
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2116,156 +2036,12 @@ class _ApprovalViewEditExpensePageState
     );
   }
 
-  void showActionPopup(BuildContext context, String status) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // Full height if needed
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final TextEditingController commentController = TextEditingController();
-
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets, // for keyboard
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Action",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (status == "Escalate") ...[
-                  const Text(
-                    'Select User *',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Obx(
-                    () => SearchableMultiColumnDropdownField<User>(
-                      labelText: 'User *',
-                      columnHeaders: const [
-                        'User Name',
-                        'User ID',
-                      ],
-                      items: controller.userList, // reactive list
-                      selectedValue: controller
-                          .selectedUser.value, // reactive selected user
-                      searchValue: (user) => '${user.userName} ${user.userId}',
-                      displayText: (user) => user.userName,
-                      onChanged: (user) {
-                        controller.userIdController.text = user?.userId ?? '';
-                        controller.selectedUser.value =
-                            user; // update selected user
-                      },
-                      controller: controller.userIdController,
-                      rowBuilder: (user, searchQuery) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 16),
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(user.userName)),
-                              Expanded(child: Text(user.userId)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const SizedBox(height: 16),
-                const Text(
-                  'Comment',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your comment here',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close the popup
-                      },
-                      child: const Text('Close'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final comment = commentController.text.trim();
-                        if (comment.isNotEmpty) {
-                          final success = await controller.postApprovalAction(
-                            context,
-                            workitemrecid: [workitemrecid],
-                            decision: status,
-                            comment: commentController.text,
-                          );
-                          if (!context.mounted) return;
-                          if (success) {
-                            Navigator.pushNamed(context,
-                                AppRoutes.approvalDashboard); // Close popup
-                            controller.isApprovalEnable.value = false;
-                          } else {
-                            // ignore: use_build_context_synchronously
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Failed to submit action')),
-                            );
-                          }
-
-                          // Navigator.pop(context); // Close after action
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(status),
-                    ),
-                  ],
-                )
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required bool isReadOnly,
     void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters, // ✅ optional inputFormatters
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2275,6 +2051,7 @@ class _ApprovalViewEditExpensePageState
           controller: controller,
           enabled: isReadOnly,
           onChanged: onChanged,
+          inputFormatters: inputFormatters, // ✅ apply if not null
           decoration: InputDecoration(
             labelText: label,
             contentPadding:
