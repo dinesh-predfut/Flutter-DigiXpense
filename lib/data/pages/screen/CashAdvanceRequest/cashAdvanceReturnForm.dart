@@ -9,6 +9,7 @@ import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:digi_xpense/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -38,11 +39,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   final controllerItems = Get.put(Controller());
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
-
+  bool allowDocAttachments = false;
   int _currentStep = 0;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
   int _selectedCategoryIndex = -1;
+  bool _showExpenseIdError = false;
   bool _showPaidForError = false;
   bool _showPaidWithError = false;
   bool _showQuantityError = false;
@@ -76,6 +78,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     controller.configuration();
     controller.isManualEntryMerchant = false;
     _initializeUnits();
+    _loadSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.fetchMaxAllowedPercentage();
       controller.fetchCashAdvanceRequests();
@@ -94,6 +97,19 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     });
   }
 
+  Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowDocAttachments = settings.allowDocAttachments;
+        print("allowDocAttachments$allowDocAttachments");
+        // isLoading = false;
+      });
+    } else {
+      // setState(() => isLoading = false);
+    }
+  }
+
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
       (f) =>
@@ -110,13 +126,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     // Validate Paid To
     if (controller.selectedjustification == null) {
       setState(() {
-        paidToError = 'Please select a merchant';
+        paidToError = 'Please select a Business Justification';
       });
       isValid = false;
-    } else if (controller.isManualEntryMerchant &&
-        controller.manualPaidToController.text.trim().isEmpty) {
+    } else if (controller.expenseIdController.text.trim().isEmpty) {
       setState(() {
-        paidToError = 'Please enter a merchant name';
+        _showExpenseIdError = true;
       });
       isValid = false;
     } else {
@@ -481,7 +496,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       children: [
                         expenseCreationFormStep1(context),
                         _buildItemizePage(),
-                        const CreateExpensePage(),
+                        CreateExpensePage(
+                            allowDocAttachments: allowDocAttachments)
                       ],
                     ),
                   ),
@@ -689,6 +705,79 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     onChanged: (loc) {
                       controller.selectedLocation = loc;
                       controller.fetchMaxAllowedPercentage();
+                      if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+                      // Start a new debounce timer
+                      _debounce =
+                          Timer(const Duration(milliseconds: 400), () async {
+                        final paidAmountText =
+                            controller.paidAmountCA1.text.trim();
+                        controller.unitAmount.text =
+                            controller.paidAmountCA1.text;
+                        final double paidAmounts =
+                            double.tryParse(paidAmountText) ?? 0.0;
+                        final currency =
+                            controller.currencyDropDowncontrollerCA3.text;
+
+                        // Only proceed if currency and amount are provided
+                        if (currency.isNotEmpty && paidAmountText.isNotEmpty) {
+                          // Fire API calls concurrently
+                          final results = await Future.wait([
+                            controller.fetchExchangeRateCA(
+                                currency, paidAmountText),
+                            controller.fetchMaxAllowedPercentage(),
+                          ]);
+
+                          // Process the first exchange rate response
+                          final exchangeResponse1 =
+                              results[0] as ExchangeRateResponse?;
+                          if (exchangeResponse1 != null) {
+                            controller.unitRateCA1.text =
+                                exchangeResponse1.exchangeRate.toString();
+                            controller.amountINRCA1.text = exchangeResponse1
+                                .totalAmount
+                                .toStringAsFixed(2);
+                            controller.isVisible.value = true;
+                          }
+
+                          // Process max allowed percentage
+                          final maxPercentage = results[1] as double?;
+
+                          if (maxPercentage != null && maxPercentage > 0) {
+                            final double calculatedPercentage =
+                                (paidAmounts * maxPercentage) / 100;
+
+                            controller.totalRequestedAmount.text =
+                                calculatedPercentage.toString();
+                            controller.calculatedPercentage.value =
+                                calculatedPercentage;
+
+                            final percentageStr =
+                                maxPercentage.toInt().toString();
+                            controller.requestedPercentage.text =
+                                '$percentageStr %';
+                          }
+                          final reqPaidAmount =
+                              controller.totalRequestedAmount.text.trim();
+                          final reqCurrency =
+                              controller.currencyDropDowncontrollerCA2.text;
+                          if (reqCurrency.isNotEmpty &&
+                              reqPaidAmount.isNotEmpty) {
+                            final exchangeResponse =
+                                await controller.fetchExchangeRateCA(
+                                    reqCurrency, reqPaidAmount);
+
+                            if (exchangeResponse != null) {
+                              controller.unitRateCA2.text =
+                                  exchangeResponse.exchangeRate.toString();
+                              controller.amountINRCA2.text = exchangeResponse
+                                  .totalAmount
+                                  .toStringAsFixed(2);
+                              // controller.isVisible.value = true;
+                            }
+                          }
+                        }
+                      });
                       field['Error'] = null; // Clear error when value selected
                     },
                     rowBuilder: (loc, searchQuery) {
@@ -940,7 +1029,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             final double calculatedPercentage =
                                 (paidAmounts * maxPercentage) / 100;
 
-                            controller.paidAmountCA2.text =
+                            controller.totalRequestedAmount.text =
                                 calculatedPercentage.toString();
                             controller.calculatedPercentage.value =
                                 calculatedPercentage;
@@ -948,18 +1037,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 maxPercentage.toInt().toString();
                             controller.requestedPercentage.text =
                                 '$percentageStr %';
-
-                            if (calculatedPercentage > 100) {
-                              Fluttertoast.showToast(
-                                msg:
-                                    'Paid amount exceeds maximum allowed percentage!',
-                                backgroundColor: Colors.red,
-                                textColor: Colors.white,
-                              );
-                            }
                           }
                           final reqPaidAmount =
-                              controller.paidAmountCA2.text.trim();
+                              controller.totalRequestedAmount.text.trim();
                           final reqCurrency =
                               controller.currencyDropDowncontrollerCA2.text;
                           if (reqCurrency.isNotEmpty &&
@@ -989,7 +1069,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: "Unit Amount *",
+                      labelText: "Unit Estimated Amount *",
                       errorText: _showUnitAmountError
                           ? 'Unit Amount is required'
                           : null,
@@ -1073,7 +1153,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               final double calculatedPercentage =
                                   (paidAmounts * maxPercentage) / 100;
 
-                              controller.paidAmountCA2.text =
+                              controller.totalRequestedAmount.text =
                                   calculatedPercentage.toString();
                               controller.calculatedPercentage.value =
                                   calculatedPercentage;
@@ -1081,18 +1161,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   maxPercentage.toInt().toString();
                               controller.requestedPercentage.text =
                                   '$percentageStr %';
-
-                              if (calculatedPercentage > 100) {
-                                Fluttertoast.showToast(
-                                  msg:
-                                      'Paid amount exceeds maximum allowed percentage!',
-                                  backgroundColor: Colors.red,
-                                  textColor: Colors.white,
-                                );
-                              }
                             }
                             final reqPaidAmount =
-                                controller.paidAmountCA2.text.trim();
+                                controller.totalRequestedAmount.text.trim();
                             final reqCurrency =
                                 controller.currencyDropDowncontrollerCA2.text;
                             if (reqCurrency.isNotEmpty &&
@@ -1132,69 +1203,69 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     )),
                 ],
               ),
-            if (controller.lineAmount.text.isNotEmpty)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      final double lineAmount =
-                          double.tryParse(controller.lineAmount.text) ?? 0.0;
+            // if (controller.lineAmount.text.isNotEmpty)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    final double lineAmount =
+                        double.tryParse(controller.totalRequestedAmount.text) ??
+                            0.0;
 
-                      // Only initialize splits if empty
-                      if (controller.split.isEmpty &&
-                          controller.accountingDistributions.isNotEmpty) {
-                        controller.split.assignAll(
-                          controller.accountingDistributions.map((e) {
-                            return AccountingSplit(
-                              paidFor: e!.dimensionValueId,
-                              percentage: e.allocationFactor,
-                              amount: e.transAmount,
-                            );
-                          }).toList(),
-                        );
-                      } else if (controller.split.isEmpty) {
-                        controller.split
-                            .add(AccountingSplit(percentage: 100.0));
-                      }
-
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(16)),
-                        ),
-                        builder: (context) => Padding(
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(context).viewInsets.bottom,
-                            left: 16,
-                            right: 16,
-                            top: 24,
-                          ),
-                          child: SingleChildScrollView(
-                            child: AccountingDistributionWidget(
-                              splits: controller.split,
-                              lineAmount: lineAmount,
-                              onChanged: (i, updatedSplit) {
-                                if (!mounted) return;
-                                controller.split[i] = updatedSplit;
-                              },
-                              onDistributionChanged: (newList) {
-                                if (!mounted) return;
-                                controller.accountingDistributions.clear();
-                                controller.accountingDistributions
-                                    .addAll(newList);
-                              },
-                            ),
-                          ),
-                        ),
+                    // Only initialize splits if empty
+                    if (controller.split.isEmpty &&
+                        controller.accountingDistributions.isNotEmpty) {
+                      controller.split.assignAll(
+                        controller.accountingDistributions.map((e) {
+                          return AccountingSplit(
+                            paidFor: e!.dimensionValueId,
+                            percentage: e.allocationFactor,
+                            amount: e.transAmount,
+                          );
+                        }).toList(),
                       );
-                    },
-                    child: const Text('Account Distribution'),
-                  ),
-                ],
-              ),
+                    } else if (controller.split.isEmpty) {
+                      controller.split.add(AccountingSplit(percentage: 100.0));
+                    }
+
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      builder: (context) => Padding(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                          left: 16,
+                          right: 16,
+                          top: 24,
+                        ),
+                        child: SingleChildScrollView(
+                          child: AccountingDistributionWidget(
+                            splits: controller.split,
+                            lineAmount: lineAmount,
+                            onChanged: (i, updatedSplit) {
+                              if (!mounted) return;
+                              controller.split[i] = updatedSplit;
+                            },
+                            onDistributionChanged: (newList) {
+                              if (!mounted) return;
+                              controller.accountingDistributions.clear();
+                              controller.accountingDistributions
+                                  .addAll(newList);
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Account Distribution'),
+                ),
+              ],
+            ),
             if (showItemizeDetails) const SizedBox(height: 24),
             Card(
               elevation: 4,
@@ -1283,7 +1354,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                     final double calculatedPercentage =
                                         (paidAmounts * maxPercentage) / 100;
 
-                                    controller.paidAmountCA2.text =
+                                    controller.totalRequestedAmount.text =
                                         calculatedPercentage.toString();
                                     controller.calculatedPercentage.value =
                                         calculatedPercentage;
@@ -1292,18 +1363,10 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                         maxPercentage.toInt().toString();
                                     controller.requestedPercentage.text =
                                         '$percentageStr %';
-
-                                    if (calculatedPercentage > 100) {
-                                      Fluttertoast.showToast(
-                                        msg:
-                                            'Paid amount exceeds maximum allowed percentage!',
-                                        backgroundColor: Colors.red,
-                                        textColor: Colors.white,
-                                      );
-                                    }
                                   }
-                                  final reqPaidAmount =
-                                      controller.paidAmountCA2.text.trim();
+                                  final reqPaidAmount = controller
+                                      .totalRequestedAmount.text
+                                      .trim();
                                   final reqCurrency = controller
                                       .currencyDropDowncontrollerCA2.text;
                                   if (reqCurrency.isNotEmpty &&
@@ -1341,6 +1404,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           () => SizedBox(
                             width: 90,
                             child: SearchableMultiColumnDropdownField<Currency>(
+                              enabled: !showItemizeDetails,
                               labelText: "",
                               alignLeft: -90,
                               dropdownWidth: 280,
@@ -1497,7 +1561,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         Expanded(
                           flex: 2,
                           child: TextFormField(
-                            controller: controller.paidAmountCA2,
+                            controller: controller.totalRequestedAmount,
                             enabled: false,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
@@ -1512,7 +1576,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             ),
                             onChanged: (_) async {
                               final paidAmount =
-                                  controller.paidAmountCA2.text.trim();
+                                  controller.totalRequestedAmount.text.trim();
                               final currency =
                                   controller.currencyDropDowncontrollerCA2.text;
 
@@ -1532,10 +1596,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               }
                             },
                             onEditingComplete: () {
-                              String text = controller.paidAmountCA2.text;
+                              String text =
+                                  controller.totalRequestedAmount.text;
                               double? value = double.tryParse(text);
                               if (value != null) {
-                                controller.paidAmountCA2.text =
+                                controller.totalRequestedAmount.text =
                                     value.toStringAsFixed(2);
                               }
                             },
@@ -1581,7 +1646,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                     c?.code ?? '';
 
                                 final paidAmount =
-                                    controller.paidAmountCA2.text.trim();
+                                    controller.totalRequestedAmount.text.trim();
                                 if (paidAmount.isNotEmpty) {
                                   final exchangeResponse = await controller
                                       .fetchExchangeRateCA(c!.code, paidAmount);
@@ -1706,35 +1771,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Obx(() => SwitchListTile(
-                title: const Text("Is Reimbursable",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87)),
-                value: controller.isReimbursiteCreate.value,
-                activeColor: Colors.green,
-                inactiveThumbColor: Colors.grey.shade400,
-                inactiveTrackColor: Colors.grey.shade300,
-                onChanged: (val) {
-                  controller.isReimbursiteCreate.value = val;
-                })),
-            SwitchListTile(
-                title: const Text("Is Billable",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87)),
-                value: controller.isBillable.value,
-                activeColor: Colors.blue,
-                inactiveThumbColor: Colors.grey.shade400,
-                inactiveTrackColor: Colors.grey.shade300,
-                onChanged: (val) {
-                  setState(() {
-                    controller.isBillable.value = val;
-                  });
-                }),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -1798,13 +1834,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           isValid = false;
                         }
                       }
-                      final taxAmountMandatory = isFieldMandatory('Tax Amount');
-                      // Validate other mandatory fields
-                      if (controller.taxAmount.text.isEmpty &&
-                          taxAmountMandatory) {
-                        setState(() => _showTaxAmountError = true);
-                        isValid = false;
-                      }
+
                       // Validate Project Id if mandatory
                       final projectIdMandatory = isFieldMandatory('Project Id');
 
@@ -1831,7 +1861,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               "📝 CashAdvanceRequestItemize: ${jsonEncode(item.toJson())}");
                         }
 
-                        controllerItems.finalItemsCashAdvance = items;
+                        controllerItems.finalItemsCashAdvanceNew = items;
                         _nextStep();
                       }
                     },
@@ -1899,9 +1929,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     Color color,
     Color textColor,
     String? icon,
-    Controller controllers,
+    Controller controller,
   ) {
-    final isSelected = controllers.selectedCategoryId == item.categoryId;
+    final isSelected = controller.selectedCategoryId == item.categoryId;
 
     Widget _buildIcon(String? icon) {
       const fallbackUrl =
@@ -1961,11 +1991,67 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
           _selectedCategoryIndex = index;
         });
         _showPaidForError = false;
-        controllers.selectedCategoryId = item.categoryId;
+        controller.selectedCategoryId = item.categoryId;
         controller.selectedCategoryId = item.categoryId;
         controller.fetchMaxAllowedPercentage();
+        if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+        // Start a new debounce timer
+        _debounce = Timer(const Duration(milliseconds: 400), () async {
+          final paidAmountText = controller.paidAmountCA1.text.trim();
+          controller.unitAmount.text = controller.paidAmountCA1.text;
+          final double paidAmounts = double.tryParse(paidAmountText) ?? 0.0;
+          final currency = controller.currencyDropDowncontrollerCA3.text;
+          print("currency${currency}and${paidAmountText}");
+          // Only proceed if currency and amount are provided
+
+          // Fire API calls concurrently
+          final results = await Future.wait([
+            controller.fetchExchangeRateCA(currency, paidAmountText),
+            controller.fetchMaxAllowedPercentage(),
+          ]);
+
+          // Process the first exchange rate response
+          final exchangeResponse1 = results[0] as ExchangeRateResponse?;
+          if (exchangeResponse1 != null) {
+            controller.unitRateCA1.text =
+                exchangeResponse1.exchangeRate.toString();
+            controller.amountINRCA1.text =
+                exchangeResponse1.totalAmount.toStringAsFixed(2);
+            controller.isVisible.value = true;
+          }
+
+          // Process max allowed percentage
+          final maxPercentage = results[1] as double?;
+
+          if (maxPercentage != null && maxPercentage > 0) {
+            final double calculatedPercentage =
+                (paidAmounts * maxPercentage) / 100;
+
+            controller.totalRequestedAmount.text =
+                calculatedPercentage.toString();
+            controller.calculatedPercentage.value = calculatedPercentage;
+
+            final percentageStr = maxPercentage.toInt().toString();
+            controller.requestedPercentage.text = '$percentageStr %';
+          }
+          final reqPaidAmount = controller.totalRequestedAmount.text.trim();
+          final reqCurrency = controller.currencyDropDowncontrollerCA2.text;
+          if (reqCurrency.isNotEmpty && reqPaidAmount.isNotEmpty) {
+            final exchangeResponse = await controller.fetchExchangeRateCA(
+                reqCurrency, reqPaidAmount);
+
+            if (exchangeResponse != null) {
+              controller.unitRateCA2.text =
+                  exchangeResponse.exchangeRate.toString();
+              controller.amountINRCA2.text =
+                  exchangeResponse.totalAmount.toStringAsFixed(2);
+              // controller.isVisible.value = true;
+            }
+          }
+        });
         print("Tapped Category Name: ${item.categoryName}");
-        print("Tapped Category ID: ${controllers.selectedCategoryId}");
+        print("Tapped Category ID: ${controller.selectedCategoryId}");
 
         // // Optionally store or process them
         // selectedCategoryName = item.categoryName;
@@ -2037,16 +2123,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextFormField(
-                        controller: controller.cashAdvanceRequisitionID,
-                        decoration: InputDecoration(
-                          labelText: 'Cash Advance Requisition ID *',
-                          // filled: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       FormField<DateTime>(
                         validator: (value) {
@@ -2059,6 +2135,17 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              _buildTextField(
+                                label: "Cash Advance Requisition ID *",
+                                controller: controller.expenseIdController,
+                                isReadOnly: true,
+                                showError: _showExpenseIdError,
+                                onChanged: (value) {
+                                  if (value.isNotEmpty && _showExpenseIdError) {
+                                    setState(() => _showExpenseIdError = false);
+                                  }
+                                },
+                              ),
                               InkWell(
                                 onTap: () async {
                                   await _selectDate(context);
@@ -2178,9 +2265,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             onChanged: (p) {
                               setState(() {
                                 controller.selectedjustification = p;
+                                controller.justificationController.text =
+                                    p!.name;
                                 paidToError = null;
                               });
                             },
+                            controller: controller.justificationController,
                             rowBuilder: (p, searchQuery) {
                               Widget highlight(String text) {
                                 final lowerQuery = searchQuery.toLowerCase();
@@ -2310,6 +2400,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   groupValue: controller.paidWith,
                                   onChanged: (String? value) {
                                     controller.paymentMethodeID = value;
+                                    controller.paidWithController.text = value!;
                                     setState(() {
                                       controller.paidWith = value;
                                     });
@@ -2446,8 +2537,47 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   }
 }
 
+Widget _buildTextField({
+  required String label,
+  required TextEditingController controller,
+  required bool isReadOnly,
+  bool showError = false,
+  String? errorMessage,
+  void Function(String)? onChanged,
+  List<TextInputFormatter>? inputFormatters,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 4),
+      TextField(
+        controller: controller,
+        enabled: isReadOnly,
+        onChanged: onChanged,
+        inputFormatters: inputFormatters,
+        decoration: InputDecoration(
+          labelText: label,
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+          ),
+          errorText:
+              showError ? errorMessage ?? 'This field is required' : null,
+        ),
+      ),
+      const SizedBox(height: 12),
+    ],
+  );
+}
+
 class CreateExpensePage extends StatefulWidget {
-  const CreateExpensePage({super.key});
+  final bool allowDocAttachments;
+
+  const CreateExpensePage({
+    super.key,
+    required this.allowDocAttachments,
+  });
 
   @override
   _CreateExpensePageState createState() => _CreateExpensePageState();
@@ -2591,7 +2721,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     @override
     void initState() {
       super.initState();
-
+      controller.isLoading.value = false;
       if (controller.paidAmount.text.isNotEmpty) {
         // final amount = double.tryParse(controller.paidAmount.text) ?? 0.0;
         // final unit = double.tryParse(controller.unitRate.text) ?? 0.0;
@@ -2613,9 +2743,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (controller.imageFiles.isEmpty) {
+              if (controller.imageFiles.isEmpty) {
                 return const Center(child: Text('Tap to Upload Document(s)'));
               } else {
                 return ListView.builder(
@@ -2687,24 +2815,25 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildImageArea(),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Upload"),
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text("Capture"),
-                  onPressed: () => _pickImage(ImageSource.camera),
-                ),
-              ],
-            ),
+            if (widget.allowDocAttachments) _buildImageArea(),
+            if (widget.allowDocAttachments) const SizedBox(height: 20),
+            if (widget.allowDocAttachments)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text("Upload"),
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text("Capture"),
+                    onPressed: () => _pickImage(ImageSource.camera),
+                  ),
+                ],
+              ),
             const SizedBox(height: 20),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2824,7 +2953,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                           text: "Submit",
                           isLoading: controller.isGESubmitBTNLoading.value,
                           onPressed: () {
-                            controller.saveCashAdvance(context, true, false);
+                            controller.saveCashAdvance(
+                                context, true, false, null, null);
                           },
                         );
                       }),
@@ -2872,7 +3002,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                               onPressed: controller.isUploading.value
                                   ? null
                                   : () {
-                                     controller.saveCashAdvance(context, false, false);
+                                      controller.saveCashAdvance(
+                                          context, false, false, null, null);
                                     },
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(130, 50),

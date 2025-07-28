@@ -2366,6 +2366,121 @@ class ExpenseAmountByStatus {
     );
   }
 }
+class PendingCashAdvanceApproval {
+  final double amountPaid;
+  final double amountPaidReporting;
+  final double amountSettled;
+  final String approvalStatus;
+  final String businessJustification;
+  final String createdBy;
+  final int createdDatetime;
+  final String? description;
+  final String employeeId;
+  final String employeeName;
+  final String? estimatedCurrency;
+  final double? estimatedExchangerate;
+  final String? expenseCategoryId;
+  final String? location;
+  final String modifiedBy;
+  final int modifiedDatetime;
+  final int organizationId;
+  final double? percentage;
+  final String prefferedPaymentMethod;
+  final String? projectId;
+  final int recId;
+  final String referenceId;
+  final int requestDate;
+  final String? requestedCurrency;
+  final double? requestedExchangerate;
+  final String requisitionId;
+  final String stepType;
+  final int subOrganizationId;
+  final double totalApprovedAmount;
+  final double? totalEstimatedAmount;
+  final double totalEstimatedAmountInReporting;
+  final double totalRejectedAmount;
+  final double? totalRequestedAmount;
+  final double totalRequestedAmountInReporting;
+  final int workitemrecid;
+
+  PendingCashAdvanceApproval({
+    required this.amountPaid,
+    required this.amountPaidReporting,
+    required this.amountSettled,
+    required this.approvalStatus,
+    required this.businessJustification,
+    required this.createdBy,
+    required this.createdDatetime,
+    this.description,
+    required this.employeeId,
+    required this.employeeName,
+    this.estimatedCurrency,
+    this.estimatedExchangerate,
+    this.expenseCategoryId,
+    this.location,
+    required this.modifiedBy,
+    required this.modifiedDatetime,
+    required this.organizationId,
+    this.percentage,
+    required this.prefferedPaymentMethod,
+    this.projectId,
+    required this.recId,
+    required this.referenceId,
+    required this.requestDate,
+    this.requestedCurrency,
+    this.requestedExchangerate,
+    required this.requisitionId,
+    required this.stepType,
+    required this.subOrganizationId,
+    required this.totalApprovedAmount,
+    this.totalEstimatedAmount,
+    required this.totalEstimatedAmountInReporting,
+    required this.totalRejectedAmount,
+    this.totalRequestedAmount,
+    required this.totalRequestedAmountInReporting,
+    required this.workitemrecid,
+  });
+
+  factory PendingCashAdvanceApproval.fromJson(Map<String, dynamic> json) {
+    return PendingCashAdvanceApproval(
+      amountPaid: json['AmountPaid'] ?? 0.0,
+      amountPaidReporting: json['AmountPaidReporting'] ?? 0.0,
+      amountSettled: json['AmountSettled'] ?? 0.0,
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      businessJustification: json['BusinessJustification'] ?? '',
+      createdBy: json['CreatedBy'] ?? '',
+      createdDatetime: json['CreatedDatetime'] ?? 0,
+      description: json['Description'],
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      estimatedCurrency: json['EstimatedCurrency'],
+      estimatedExchangerate: (json['EstimatedExchangerate'] ?? 0).toDouble(),
+      expenseCategoryId: json['ExpenseCategoryId'],
+      location: json['Location'],
+      modifiedBy: json['ModifiedBy'] ?? '',
+      modifiedDatetime: json['ModifiedDatetime'] ?? 0,
+      organizationId: json['OrganizationId'] ?? 0,
+      percentage: (json['Percentage'] != null) ? (json['Percentage'] as num).toDouble() : null,
+      prefferedPaymentMethod: json['PrefferedPaymentMethod'] ?? '',
+      projectId: json['ProjectId'],
+      recId: json['RecId'] ?? 0,
+      referenceId: json['ReferenceId'] ?? '',
+      requestDate: json['RequestDate'] ?? 0,
+      requestedCurrency: json['RequestedCurrency'],
+      requestedExchangerate: (json['RequestedExchangerate'] ?? 0).toDouble(),
+      requisitionId: json['RequisitionId'] ?? '',
+      stepType: json['StepType'] ?? '',
+      subOrganizationId: json['SubOrganizationId'] ?? 0,
+      totalApprovedAmount: json['TotalApprovedAmount'] ?? 0.0,
+      totalEstimatedAmount: (json['TotalEstimatedAmount'] != null) ? (json['TotalEstimatedAmount'] as num).toDouble() : null,
+      totalEstimatedAmountInReporting: json['TotalEstimatedAmountInReporting'] ?? 0.0,
+      totalRejectedAmount: json['TotalRejectedAmount'] ?? 0.0,
+      totalRequestedAmount: (json['TotalRequestedAmount'] != null) ? (json['TotalRequestedAmount'] as num).toDouble() : null,
+      totalRequestedAmountInReporting: json['TotalRequestedAmountInReporting'] ?? 0.0,
+      workitemrecid: json['workitemrecid'] ?? 0,
+    );
+  }
+}
 
 class TravelPoint {
   final double quantity;
@@ -2435,8 +2550,7 @@ class DimensionValue {
     );
   }
 }
-
-class CashAdvanceRequestItemize {
+class CashAdvanceRequestItemizeFornew {
   List<AccountingDistribution>? accountingDistributions;
   int? baseUnit;
   int? baseUnitRequested;
@@ -2469,7 +2583,7 @@ class CashAdvanceRequestItemize {
   String? projectId;
   int? quantity;
   int? requestDate;
-  String? requisitionId;
+
   double? totalEstimatedAmount;
   double? totalEstimatedAmountInReporting;
   double? totalRequestedAmount;
@@ -2485,7 +2599,8 @@ class CashAdvanceRequestItemize {
   bool? isReimbursable;
   String? taxGroup;
 
-  CashAdvanceRequestItemize({
+  CashAdvanceRequestItemizeFornew({
+   
     this.accountingDistributions,
     this.baseUnit,
     this.baseUnitRequested,
@@ -2518,7 +2633,6 @@ class CashAdvanceRequestItemize {
     this.projectId,
     this.quantity,
     this.requestDate,
-    this.requisitionId,
     this.totalEstimatedAmount,
     this.totalEstimatedAmountInReporting,
     this.totalRequestedAmount,
@@ -2535,12 +2649,14 @@ class CashAdvanceRequestItemize {
     this.taxGroup,
   });
 
-  factory CashAdvanceRequestItemize.fromJson(Map<String, dynamic> json) {
-    return CashAdvanceRequestItemize(
-      accountingDistributions: (json['AccountingDistributions'] as List<dynamic>?)
-              ?.map((e) => AccountingDistribution.fromJson(e))
-              .toList() ??
-          [],
+  factory CashAdvanceRequestItemizeFornew.fromJson(Map<String, dynamic> json) {
+    return CashAdvanceRequestItemizeFornew(
+      accountingDistributions:
+          (json['AccountingDistributions'] as List<dynamic>?)
+                  ?.map((e) => AccountingDistribution.fromJson(e))
+                  .toList() ??
+              [],
+      
       baseUnit: _toIntOrNull(json['BaseUnit']),
       baseUnitRequested: _toIntOrNull(json['BaseunitRequested']),
       businessJustification: json['BusinessJustification'] != null
@@ -2583,7 +2699,6 @@ class CashAdvanceRequestItemize {
       projectId: json['ProjectId'] ?? '',
       quantity: _toIntOrNull(json['Quantity']),
       requestDate: _toIntOrNull(json['RequestDate']),
-      requisitionId: json['RequisitionId'] ?? '',
       totalEstimatedAmount: _toDoubleOrNull(json['TotalEstimatedAmount']),
       totalEstimatedAmountInReporting:
           _toDoubleOrNull(json['TotalEstimatedAmountInReporting']),
@@ -2613,7 +2728,7 @@ class CashAdvanceRequestItemize {
 
   Map<String, dynamic> toJson() {
     return {
-      "RecId": 122330,
+    
       "CashAdvReqHeader": 220,
       "ExpenseCategoryId": expenseCategoryId ?? '',
       "Quantity": quantity ?? 1,
@@ -2639,13 +2754,234 @@ class CashAdvanceRequestItemize {
       "CSHTransCategoryCustomFieldValues": [],
       "AccountingDistributions":
           accountingDistributions?.map((e) => e.toJson()).toList() ?? [],
-
       if (businessJustification != null)
         "BusinessJustification": businessJustification!.toJson(),
-
       if (prefferedPaymentMethod != null)
         "PrefferedPaymentMethod": prefferedPaymentMethod!.toJson(),
+      if (documentAttachment != null)
+        "DocumentAttachment":
+            documentAttachment!.map((e) => e.toJson()).toList(),
+    };
+  }
 
+  /// Helper to safely convert numbers
+  static double? _toDoubleOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    return double.tryParse(value.toString());
+  }
+
+  static int? _toIntOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+}
+class CashAdvanceRequestItemize {
+  List<AccountingDistribution>? accountingDistributions;
+  int? baseUnit;
+  int? baseUnitRequested;
+  BusinessJustification? businessJustification;
+  String? businessJustificationHeader;
+  String? createdBy;
+  int? createdDatetime;
+  String? description;
+  List<DocumentAttachment>? documentAttachment;
+  String? employeeId;
+  String? estimatedCurrency;
+  double? estimatedExchangerate;
+  double? exchRate;
+  String? expenseCategoryId;
+  double? lineAdvanceRequested;
+  double? lineEstimatedAmount;
+  double? lineEstimatedAmountInReporting;
+  String? lineEstimatedCurrency;
+  double? lineEstimatedExchangerate;
+  double? lineRequestedAdvanceInReporting;
+  String? lineRequestedCurrency;
+  double? lineRequestedExchangerate;
+  String? location;
+  int? maxAllowedPercentage;
+  int? percentage;
+  PrefferedPaymentMethod? prefferedPaymentMethod;
+  String? paymentMethodId;
+  String? paymentMethodName;
+  bool? isSelected;
+  String? projectId;
+  int? quantity;
+  int? requestDate;
+  int? recId;
+  double? totalEstimatedAmount;
+  double? totalEstimatedAmountInReporting;
+  double? totalRequestedAmount;
+  double? totalRequestedAmountInReporting;
+  String? uomId;
+  double? unitEstimatedAmount;
+  double? userExchRate;
+  List<CustomFieldValue>? cshHeaderCategoryCustomFieldValues;
+  List<CustomFieldValue>? cshHeaderCustomFieldValues;
+  List<dynamic>? cashAdvTrans;
+  double? taxAmount;
+
+
+  CashAdvanceRequestItemize({
+    this.recId,
+    this.accountingDistributions,
+    this.baseUnit,
+    this.baseUnitRequested,
+    this.businessJustification,
+    this.businessJustificationHeader,
+    this.createdBy,
+    this.createdDatetime,
+    this.description,
+    this.documentAttachment,
+    this.employeeId,
+    this.estimatedCurrency,
+    this.estimatedExchangerate,
+    this.exchRate,
+    this.expenseCategoryId,
+    this.lineAdvanceRequested,
+    this.lineEstimatedAmount,
+    this.lineEstimatedAmountInReporting,
+    this.lineEstimatedCurrency,
+    this.lineEstimatedExchangerate,
+    this.lineRequestedAdvanceInReporting,
+    this.lineRequestedCurrency,
+    this.lineRequestedExchangerate,
+    this.location,
+    this.maxAllowedPercentage,
+    this.percentage,
+    this.prefferedPaymentMethod,
+    this.paymentMethodId,
+    this.paymentMethodName,
+    this.isSelected,
+    this.projectId,
+    this.quantity,
+    this.requestDate,
+    this.totalEstimatedAmount,
+    this.totalEstimatedAmountInReporting,
+    this.totalRequestedAmount,
+    this.totalRequestedAmountInReporting,
+    this.uomId,
+    this.unitEstimatedAmount,
+    this.userExchRate,
+    this.cshHeaderCategoryCustomFieldValues,
+    this.cshHeaderCustomFieldValues,
+    this.cashAdvTrans,
+    this.taxAmount,
+ 
+ 
+  });
+
+  factory CashAdvanceRequestItemize.fromJson(Map<String, dynamic> json) {
+    return CashAdvanceRequestItemize(
+      accountingDistributions:
+          (json['AccountingDistributions'] as List<dynamic>?)
+                  ?.map((e) => AccountingDistribution.fromJson(e))
+                  .toList() ??
+              [],
+      recId: _toIntOrNull(json['RecId'] ?? ''),
+      baseUnit: _toIntOrNull(json['BaseUnit']),
+      baseUnitRequested: _toIntOrNull(json['BaseunitRequested']),
+      businessJustification: json['BusinessJustification'] != null
+          ? BusinessJustification.fromJson(json['BusinessJustification'])
+          : null,
+      businessJustificationHeader: json['BusinessJustificationHeader'] ?? '',
+      createdBy: json['CreatedBy'] ?? '',
+      createdDatetime: _toIntOrNull(json['CreatedDatetime']),
+      description: json['Description'] ?? '',
+      documentAttachment: (json['DocumentAttachment'] as List<dynamic>?)
+              ?.map((e) => DocumentAttachment.fromJson(e))
+              .toList() ??
+          [],
+      employeeId: json['EmployeeId'] ?? '',
+      estimatedCurrency: json['EstimatedCurrency'] ?? '',
+      estimatedExchangerate: _toDoubleOrNull(json['EstimatedExchangerate']),
+      exchRate: _toDoubleOrNull(json['ExchRate']),
+      expenseCategoryId: json['ExpenseCategoryId'] ?? '',
+      lineAdvanceRequested: _toDoubleOrNull(json['LineAdvanceRequested']),
+      lineEstimatedAmount: _toDoubleOrNull(json['LineEstimatedAmount']),
+      lineEstimatedAmountInReporting:
+          _toDoubleOrNull(json['LineEstimatedAmountInReporting']),
+      lineEstimatedCurrency: json['LineEstimatedCurrency'] ?? '',
+      lineEstimatedExchangerate:
+          _toDoubleOrNull(json['LineEstimatedExchangerate']),
+      lineRequestedAdvanceInReporting:
+          _toDoubleOrNull(json['LineRequestedAdvanceInReporting']),
+      lineRequestedCurrency: json['LineRequestedCurrency'] ?? '',
+      lineRequestedExchangerate:
+          _toDoubleOrNull(json['LineRequestedExchangerate']),
+      location: json['Location'] ?? '',
+      maxAllowedPercentage: _toIntOrNull(json['MaxAllowedPercentage']),
+      percentage: _toIntOrNull(json['Percentage']),
+      prefferedPaymentMethod: json['PrefferedPaymentMethod'] != null
+          ? PrefferedPaymentMethod.fromJson(json['PrefferedPaymentMethod'])
+          : null,
+      paymentMethodId: json['PaymentMethodId'] ?? '',
+      paymentMethodName: json['PaymentMethodName'] ?? '',
+      isSelected: json['isSelected'] ?? false,
+      projectId: json['ProjectId'] ?? '',
+      quantity: _toIntOrNull(json['Quantity']),
+      requestDate: _toIntOrNull(json['RequestDate']),
+      totalEstimatedAmount: _toDoubleOrNull(json['TotalEstimatedAmount']),
+      totalEstimatedAmountInReporting:
+          _toDoubleOrNull(json['TotalEstimatedAmountInReporting']),
+      totalRequestedAmount: _toDoubleOrNull(json['TotalRequestedAmount']),
+      totalRequestedAmountInReporting:
+          _toDoubleOrNull(json['TotalRequestedAmountInReporting']),
+      uomId: json['UOMId'] ?? '',
+      unitEstimatedAmount: _toDoubleOrNull(json['UnitEstimatedAmount']),
+      userExchRate: _toDoubleOrNull(json['UserExchRate']),
+      cshHeaderCategoryCustomFieldValues:
+          (json['CSHHeaderCategoryCustomFieldValues'] as List<dynamic>?)
+                  ?.map((e) => CustomFieldValue.fromJson(e))
+                  .toList() ??
+              [],
+      cshHeaderCustomFieldValues:
+          (json['CSHHeaderCustomFieldValues'] as List<dynamic>?)
+                  ?.map((e) => CustomFieldValue.fromJson(e))
+                  .toList() ??
+              [],
+      cashAdvTrans: json['CashAdvTrans'] ?? [],
+
+
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "RecId": recId,
+      "CashAdvReqHeader": 220,
+      "ExpenseCategoryId": expenseCategoryId ?? '',
+      "Quantity": quantity ?? 1,
+      "UOMId": uomId ?? '',
+      "Percentage": percentage ?? 100,
+      "UnitEstimatedAmount": unitEstimatedAmount ?? 0,
+      "LineEstimatedCurrency": lineEstimatedCurrency ?? "INR",
+      "LineRequestedCurrency": lineRequestedCurrency ?? "INR",
+      "Description": description ?? '',
+      "ProjectId": projectId ?? '',
+      "Location": location ?? '',
+      "LineEstimatedAmount": lineEstimatedAmount ?? 0,
+      "LineEstimatedAmountInReporting": lineEstimatedAmountInReporting ?? 1,
+      "LineAdvanceRequested": lineAdvanceRequested ?? 10,
+      "LineRequestedAdvanceInReporting": lineRequestedAdvanceInReporting ?? 1,
+      "LineRequestedExchangerate": lineRequestedExchangerate ?? 1,
+      "LineEstimatedExchangerate": lineEstimatedExchangerate ?? 1,
+      
+      "MaxAllowedPercentage": maxAllowedPercentage ?? 100,
+      "BaseUnit": baseUnit ?? 1,
+      "BaseunitRequested": baseUnitRequested ?? 1,
+      "CSHTransCustomFieldValues": [],
+      "CSHTransCategoryCustomFieldValues": [],
+      "AccountingDistributions":
+          accountingDistributions?.map((e) => e.toJson()).toList() ?? [],
+      if (businessJustification != null)
+        "BusinessJustification": businessJustification!.toJson(),
+      if (prefferedPaymentMethod != null)
+        "PrefferedPaymentMethod": prefferedPaymentMethod!.toJson(),
       if (documentAttachment != null)
         "DocumentAttachment":
             documentAttachment!.map((e) => e.toJson()).toList(),
@@ -2818,6 +3154,8 @@ class CashAdvanceRequestHeader {
   final String? referenceId;
   final String? description;
   final String? location;
+  final String? stepType; 
+  final int? workitemrecid;
   final List<dynamic> cshHeaderCustomFieldValues;
   final List<dynamic> cshHeaderCategoryCustomFieldValues;
   final List<CashAdvanceRequestItemize> cshCashAdvReqTrans;
@@ -2848,6 +3186,8 @@ class CashAdvanceRequestHeader {
     this.referenceId,
     this.description,
     this.location,
+    this.stepType,
+    this.workitemrecid,
     required this.cshHeaderCustomFieldValues,
     required this.cshHeaderCategoryCustomFieldValues,
     required this.cshCashAdvReqTrans,
@@ -2882,10 +3222,12 @@ class CashAdvanceRequestHeader {
       referenceId: json['ReferenceId'],
       description: json['Description'],
       location: json['Location'],
-      // cshHeaderCustomFieldValues:
-      //     List<dynamic>.from(json['CSHHeaderCustomFieldValues'] ?? []),
-      cshHeaderCustomFieldValues: [],
-      cshHeaderCategoryCustomFieldValues: [],
+      stepType: json['StepType'],
+      workitemrecid: json['workitemrecid'],
+      cshHeaderCustomFieldValues:
+          List<dynamic>.from(json['CSHHeaderCustomFieldValues'] ?? []),
+      cshHeaderCategoryCustomFieldValues:
+          List<dynamic>.from(json['CSHHeaderCategoryCustomFieldValues'] ?? []),
       cshCashAdvReqTrans: (json['CSHCashAdvReqTrans'] as List<dynamic>?)
               ?.map((e) => CashAdvanceRequestItemize.fromJson(e))
               .toList() ??
@@ -2920,6 +3262,8 @@ class CashAdvanceRequestHeader {
       'ReferenceId': referenceId,
       'Description': description,
       'Location': location,
+      'StepType': stepType,
+      'workitemrecid': workitemrecid,
       'CSHHeaderCustomFieldValues': cshHeaderCustomFieldValues,
       'CSHHeaderCategoryCustomFieldValues': cshHeaderCategoryCustomFieldValues,
       'CSHCashAdvReqTrans': cshCashAdvReqTrans.map((e) => e.toJson()).toList(),
@@ -2927,10 +3271,51 @@ class CashAdvanceRequestHeader {
   }
 }
 
+
 double? _toDoubleOrNull(dynamic value) {
   if (value == null) return null;
   if (value is double) return value;
   if (value is int) return value.toDouble();
   if (value is String) return double.tryParse(value);
   return null;
+}
+class CashAdvanceGeneralSettings {
+  final bool allowCashAdvAgainstExpenseReg;
+  final bool allowDocAttachments;
+  final bool allowMultipleCashAdvancesPerExpenseReg;
+  final bool allowMultipleExpenseSettlementsPerCashAdv;
+  final bool enableAutoCashAdvanceSettlement;
+  final bool isApprovalRequired;
+  final bool isDocAttachmentMandatory;
+  final int organizationId;
+  final int recId;
+  final int subOrganizationId;
+
+  CashAdvanceGeneralSettings({
+    required this.allowCashAdvAgainstExpenseReg,
+    required this.allowDocAttachments,
+    required this.allowMultipleCashAdvancesPerExpenseReg,
+    required this.allowMultipleExpenseSettlementsPerCashAdv,
+    required this.enableAutoCashAdvanceSettlement,
+    required this.isApprovalRequired,
+    required this.isDocAttachmentMandatory,
+    required this.organizationId,
+    required this.recId,
+    required this.subOrganizationId,
+  });
+
+  factory CashAdvanceGeneralSettings.fromJson(Map<String, dynamic> json) {
+    return CashAdvanceGeneralSettings(
+      allowCashAdvAgainstExpenseReg: json['AllowCashAdvAgainstExpenseReg'] ?? false,
+      allowDocAttachments: json['AllowDocAttachments'] ?? false,
+      allowMultipleCashAdvancesPerExpenseReg: json['AllowMultipleCashAdvancesPerExpenseReg'] ?? false,
+      allowMultipleExpenseSettlementsPerCashAdv: json['AllowMultipleExpenseSettlementsPerCashAdv'] ?? false,
+      enableAutoCashAdvanceSettlement: json['EnableAutoCashAdvanceSettlement'] ?? false,
+      isApprovalRequired: json['IsApprovalRequired'] ?? false,
+      isDocAttachmentMandatory: json['IsDocAttachmentMandatory'] ?? false,
+      organizationId: json['OrganizationId'] ?? 0,
+      recId: json['RecId'] ?? 0,
+      subOrganizationId: json['SubOrganizationId'] ?? 0,
+    );
+  }
 }

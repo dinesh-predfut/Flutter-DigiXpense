@@ -61,12 +61,16 @@ class Urls {
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const updateApprovalStatus =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
+      static const updateApprovalStatusCashAdvance =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
   static const getSpecificPerdiemExpense =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
   static const getSpecificPerdiemExpenseApproval =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/detailedapproval?";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
+        static const cashadvanceTracking =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancelogs?filter_query=CSHCashAdvTransLog.";
   static const approvalPerdiemreview =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/reviewperdiemregistration?";
   static const getExpensImage =
@@ -126,6 +130,14 @@ class Urls {
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/businessjustification?filter_query=FINBusinessJustification.IsActive__eq%3DTrue&page=1&sort_order=asc";
   static const maxAllowedPercentage =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/maxallowedpercentage?";
-        static const getSpecificCashAdvance =
+  static const getSpecificCashAdvance =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvance?";
+  static const getApprovalDashboardData =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/";
+  static const myPendingApproval =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
+  static const cashadvanceregistration =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
+       static const cashadvanceGeneralSettings =
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
 }

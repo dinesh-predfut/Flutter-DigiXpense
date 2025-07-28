@@ -71,7 +71,7 @@ class Controller extends GetxController {
   final TextEditingController unitRateCA1 = TextEditingController();
   final TextEditingController unitRateCA2 = TextEditingController();
 
-  final TextEditingController quantity = TextEditingController();
+  final TextEditingController quantity = TextEditingController(text:"1.00");
   final TextEditingController uomId = TextEditingController();
   final TextEditingController contactPostalController = TextEditingController();
   final TextEditingController addressID = TextEditingController();
@@ -79,7 +79,7 @@ class Controller extends GetxController {
   final TextEditingController paidAmount = TextEditingController();
   final TextEditingController paidAmountCA1 = TextEditingController();
 
-  final TextEditingController paidAmountCA2 = TextEditingController();
+  final TextEditingController totalRequestedAmount = TextEditingController();
 
   final TextEditingController amountINR = TextEditingController();
   final TextEditingController estimatedamountINR = TextEditingController();
@@ -88,7 +88,7 @@ class Controller extends GetxController {
   final TextEditingController amountINRCA2 = TextEditingController();
   final TextEditingController lineAmount = TextEditingController();
   final TextEditingController lineAmountINR = TextEditingController();
-  final TextEditingController unitAmount = TextEditingController();
+  late final TextEditingController unitAmount = TextEditingController();
   final TextEditingController taxAmount = TextEditingController();
   final TextEditingController referenceID = TextEditingController();
   final TextEditingController expenseIdController = TextEditingController();
@@ -149,9 +149,11 @@ class Controller extends GetxController {
   var projectExpenses = <ProjectExpense>[].obs;
   var expensesByStatus = <ExpenseAmountByStatus>[].obs;
   var manageExpensesCards = <ManageExpensesCard>[].obs;
+  var managecashAdvanceCards = <ManageExpensesCard>[].obs;
   RxList<CashAdvanceModel> cashAdvanceList = <CashAdvanceModel>[].obs;
   RxList<ExpenseListModel> expenseList = <ExpenseListModel>[].obs;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+  List<PendingCashAdvanceApproval> pendingApprovalcashAdvanse = [];
   var isUploadingCards = false.obs;
   var isLoadingStatus = false.obs;
   var callAPIDashBoard = true.obs;
@@ -169,6 +171,10 @@ class Controller extends GetxController {
   var resendCountdown = 0.obs;
 
   // CashAdvanceRequest@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  final TextEditingController justificationController = TextEditingController();
+  final TextEditingController totalunitEstimatedAmount =
+      TextEditingController();
+//  final TextEditingController expenseIdController = TextEditingController();
   RxDouble calculatedPercentage = 0.0.obs;
   final TextEditingController requestedPercentage = TextEditingController();
   final TextEditingController requisitionIdController = TextEditingController();
@@ -207,7 +213,9 @@ class Controller extends GetxController {
   Rx<PerDiemResponseModel?> perdiemResponse = Rx<PerDiemResponseModel?>(null);
   // List<ExpenseItem> expenseItems = [];
   List<ExpenseItem> finalItems = [];
+  // List<CashAdvanceRequestItemize> finalItemsForCashadvance = [];
   List<CashAdvanceRequestItemize> finalItemsCashAdvance = [];
+  List<CashAdvanceRequestItemizeFornew> finalItemsCashAdvanceNew = [];
   List<AccountingDistribution?> accountingDistributions = [];
   RxList<GExpense> getAllListGExpense = <GExpense>[].obs;
   RxList<ExpenseModel> pendingApprovals = <ExpenseModel>[].obs;
@@ -465,6 +473,8 @@ class Controller extends GetxController {
   }
 
   void clearFormFields() {
+    justificationController.clear();
+    amountINRCA1.clear();
     referenceID.clear();
     buttonLoaders.clear();
     firstNameController.clear();
@@ -472,10 +482,12 @@ class Controller extends GetxController {
     paidAmount.clear();
     amountINR.clear();
     unitRate.clear();
+    expenseIdController.clear();
     // paymentMethodID = null;
     descriptionController.clear();
     taxAmount.clear();
     selectedPaidWith = null;
+    selectedjustification = null;
     selectedPaidto = null;
     selectedunit = null;
     selectedCurrency.value = null;
@@ -497,6 +509,7 @@ class Controller extends GetxController {
     isEnable.value = false;
     isReimbursiteCreate.value = false;
     isBillable.value = false;
+    finalItemsCashAdvance = [];
   }
 
   void chancelButton(BuildContext context) {
@@ -2264,7 +2277,73 @@ class Controller extends GetxController {
       return false;
     }
   }
+  Future<bool> postApprovalActioncashAdvance(
+    BuildContext context, {
+    required List<int> workitemrecid,
+    required String decision,
+    required String comment,
+    // required String userId,
+  }) async {
+    final String status;
+    if (decision == "Approve") {
+      status = "Approved";
+    } else if (decision == "Reject") {
+      status = "Rejected";
+    } else if (decision == "Escalate") {
+      status = "Escalated";
+    } else {
+      status = decision; // Any other status stays the same
+    }
 
+    final Map<String, dynamic> payload = {
+      "workitemrecid": workitemrecid,
+      "decision": status,
+      "comment": comment,
+      "usedFor": "MyPendingApproval",
+      "userId": status == "Escalated" && userIdController.text.isNotEmpty
+          ? userIdController.text
+          : null,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(Urls.updateApprovalStatusCashAdvance),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken}',
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 202) {
+        Fluttertoast.showToast(
+          msg: response.body,
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+        clearFormFields();
+
+        print("✅ Approval Action Success: ${response.body}");
+        return true;
+      } else {
+        Fluttertoast.showToast(
+          msg: response.body,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+        return false;
+      }
+    } catch (e) {
+      print("❌ API Error: $e");
+      return false;
+    }
+  }
   Future<List<GESpeficExpense>> fetchSecificApprovalExpenseItem(
       context, int recId) async {
     isLoadingGE1.value = true;
@@ -2484,7 +2563,7 @@ class Controller extends GetxController {
   }
 
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
-    ;
+    
     final response = await http.get(
       Uri.parse(
           '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc'),
@@ -2501,7 +2580,24 @@ class Controller extends GetxController {
       throw Exception('Failed to load expense history: ${response.statusCode}');
     }
   }
+  Future<List<ExpenseHistory>> cashadvanceTracking(int? recId) async {
+    
+    final response = await http.get(
+      Uri.parse(
+          '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_order=asc'),
+      headers: {
+        'Authorization': 'Bearer ${Params.userToken}',
+        'Content-Type': 'application/json',
+      },
+    );
 
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => ExpenseHistory.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to load expense history: ${response.statusCode}');
+    }
+  }
   Future<List<File>> fetchExpenseDocImage([int? recId]) async {
     // isLoadingviewImage.value = true;
     const String token = 'your_token_here';
@@ -2580,6 +2676,53 @@ class Controller extends GetxController {
     }
 
     return files;
+  }
+
+  void cashAdvanceReturnFinalItem(CashAdvanceRequestHeader expense) {
+    final items = expense.cshCashAdvReqTrans.map((trans) {
+      final taxGroupValue =
+          (taxGroup.isNotEmpty) ? taxGroup.first.taxGroupId : '';
+      print("&&&&&&${trans.description}");
+      final newItem = CashAdvanceRequestItemize(
+        recId: trans.recId,
+        description: trans.description,
+        quantity: trans.quantity,
+        uomId: trans.uomId,
+        percentage: trans.percentage,
+        unitEstimatedAmount: trans.unitEstimatedAmount,
+        lineEstimatedCurrency: trans.lineEstimatedCurrency,
+        lineRequestedCurrency: trans.lineRequestedCurrency,
+        projectId: trans.projectId,
+        location: trans.location,
+        lineEstimatedAmount: trans.lineEstimatedAmount,
+        lineEstimatedAmountInReporting: trans.lineEstimatedAmountInReporting,
+        // lineAdvanceRequested: double.tryParse(paidAmount.text) ?? 0.0,
+        lineRequestedAdvanceInReporting: trans.lineRequestedAdvanceInReporting,
+        lineRequestedExchangerate: trans.estimatedExchangerate,
+        lineEstimatedExchangerate: trans.lineEstimatedAmount,
+        maxAllowedPercentage: trans.maxAllowedPercentage,
+        baseUnit: trans.baseUnit,
+        baseUnitRequested: trans.baseUnitRequested,
+        expenseCategoryId: trans.expenseCategoryId,
+
+        accountingDistributions: accountingDistributions.map((controller) {
+          return AccountingDistribution(
+              transAmount:
+                  double.tryParse(controller?.transAmount.toString() ?? '') ??
+                      0.0,
+              reportAmount:
+                  double.tryParse(controller?.reportAmount.toString() ?? '') ??
+                      0.0,
+              allocationFactor: controller?.allocationFactor ?? 0.0,
+              dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+              currency: selectedCurrency.value?.code ?? "IND");
+        }).toList(),
+      );
+
+      return newItem;
+    }).toList();
+
+    finalItemsCashAdvance.addAll(items);
   }
 
   void addToFinalItems(GESpeficExpense expense) {
@@ -2739,8 +2882,8 @@ class Controller extends GetxController {
     }
   }
 
-  CashAdvanceRequestItemize toCashAdvanceRequestItemize() {
-    return CashAdvanceRequestItemize(
+  CashAdvanceRequestItemizeFornew toCashAdvanceRequestItemize() {
+    return CashAdvanceRequestItemizeFornew(
       expenseCategoryId: selectedCategoryId ?? '',
       quantity: (double.tryParse(quantity.text) ?? 0).toInt(),
       uomId: selectedunit?.code ?? '',
@@ -2773,16 +2916,16 @@ class Controller extends GetxController {
       // paymentMethodId: paymentMethodId?.'',
       // paymentMethodName: selectedPaymentMethod?.paymentMethodName ?? '',
       userExchRate: double.tryParse(quantity.text) ?? 1,
-      requisitionId: "",
+
       totalEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
       totalEstimatedAmountInReporting:
           double.tryParse(paidAmountCA1.text) ?? 0.0,
-      totalRequestedAmount: double.tryParse(paidAmountCA2.text) ?? 0.0,
+      totalRequestedAmount: double.tryParse(totalRequestedAmount.text) ?? 0.0,
       totalRequestedAmountInReporting:
-          double.tryParse(paidAmountCA2.text) ?? 0.0,
-      lineAdvanceRequested: double.tryParse(paidAmountCA2.text) ?? 0.0,
+          double.tryParse(totalRequestedAmount.text) ?? 0.0,
+      lineAdvanceRequested: double.tryParse(totalRequestedAmount.text) ?? 0.0,
       lineRequestedAdvanceInReporting:
-          double.tryParse(paidAmountCA2.text) ?? 0.0,
+          double.tryParse(totalRequestedAmount.text) ?? 0.0,
       lineRequestedCurrency: currencyDropDowncontrollerCA3.text ?? "",
       lineRequestedExchangerate: double.tryParse(unitRateCA1.text) ?? 0.0,
       maxAllowedPercentage:
@@ -2851,7 +2994,8 @@ class Controller extends GetxController {
   }
 
   Future<void> saveCashAdvance(
-      BuildContext context, bool submit, bool? reSubmit) async {
+      BuildContext context, bool submit, bool? reSubmit, int? recId,
+      [String? reqID]) async {
     try {
       print("cashAdvTransPayload");
       // Format the request date
@@ -2865,24 +3009,24 @@ class Controller extends GetxController {
 
       // Build CashAdvTrans items
       final cashAdvTransPayload =
-          finalItemsCashAdvance.map((item) => item.toJson()).toList();
+          finalItemsCashAdvanceNew.map((item) => item.toJson()).toList();
       print("cashAdvTransPayload$cashAdvTransPayload");
 
       // Construct request body
       final Map<String, dynamic> requestBody = {
-        "RequisitionId": '',
         "RequestDate": requestDate,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": firstNameController.text.trim(),
+        "EmployeeName": Params.userName,
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
         "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
             ? double.tryParse(estimatedamountINR.text) ?? 0
             : 0,
-        "PrefferedPaymentMethod": paidWith,
-        "BusinessJustification": selectedjustification?.name ?? '',
+        "PrefferedPaymentMethod": paidWithController.text,
+        "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
+        "RequisitionId":expenseIdController.text,
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
         "DocumentAttachment": {"File": []},
@@ -2904,7 +3048,7 @@ class Controller extends GetxController {
       print("📥 API Response: ${response.statusCode} ${response.body}");
 
       // Handle response
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 280) {
         final data = jsonDecode(response.body);
         final message = data['detail']['message'] ?? 'Cash advance created';
         final recId = data['detail']['RecId'];
@@ -2942,6 +3086,196 @@ class Controller extends GetxController {
     }
   }
 
+  Future<void> saveinEditCashAdvance(
+      BuildContext context, bool submit, bool? reSubmit, int? recId,
+      [String? reqID]) async {
+    try {
+      print("cashAdvTransPayload");
+      // Format the request date
+      final formattedDate =
+          DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
+      final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
+      final requestDate = parsedDate.millisecondsSinceEpoch;
+      print("cashAdvTransPayload2");
+      // Build attachments
+      // final attachmentPayload = await buildDocumentAttachment(imageFiles);
+
+      // Build CashAdvTrans items
+      final cashAdvTransPayload =
+          finalItemsCashAdvance.map((item) => item.toJson()).toList();
+      print("cashAdvTransPayload$cashAdvTransPayload");
+
+      // Construct request body
+      final Map<String, dynamic> requestBody = {
+        "RequisitionId": reqID ?? "",
+        "RecId": recId ?? "",
+        "RequestDate": requestDate,
+        "EmployeeId": Params.employeeId,
+        "EmployeeName": Params.userName,
+        "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
+            ? double.tryParse(requestamountINR.text) ?? 0
+            : 0,
+        "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
+            ? double.tryParse(estimatedamountINR.text) ?? 0
+            : 0,
+        "PrefferedPaymentMethod": paidWithController.text,
+        "BusinessJustification": justificationController.text,
+        "ReferenceId": referenceID.text.trim(),
+        "CashAdvTrans": cashAdvTransPayload,
+        "CSHHeaderCustomFieldValues": [],
+        "DocumentAttachment": {"File": []},
+      };
+
+      print("🔗 API Request Body: $requestBody");
+
+      // API call
+      final response = await http.post(
+        Uri.parse(
+            "${Urls.cashadvanceregistration}registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print("📥 API Response: ${response.statusCode} ${response.body}");
+
+      // Handle response
+      if (response.statusCode == 201 || response.statusCode == 280) {
+        final data = jsonDecode(response.body);
+        final message = data['detail']['message'] ?? 'Cash advance created';
+        final recId = data['detail']['RecId'];
+
+        clearFormFields();
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+
+        Fluttertoast.showToast(
+          msg: "$message (RecId: $recId)",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error: ${response.body}",
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+        finalItemsCashAdvance = [];
+      }
+    } catch (e) {
+      print("❌ API Exception: $e");
+      Fluttertoast.showToast(
+        msg: "Something went wrong: $e",
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+      finalItemsCashAdvance = [];
+    }
+  }
+ Future<void> reviewandUpdateCashAdvance(
+      BuildContext context, bool submit, int? recId,
+      [String? reqID]) async {
+    try {
+      print("cashAdvTransPayload");
+      // Format the request date
+      final formattedDate =
+          DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
+      final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
+      final requestDate = parsedDate.millisecondsSinceEpoch;
+      print("cashAdvTransPayload2");
+      // Build attachments
+      // final attachmentPayload = await buildDocumentAttachment(imageFiles);
+
+      // Build CashAdvTrans items
+      final cashAdvTransPayload =
+          finalItemsCashAdvance.map((item) => item.toJson()).toList();
+      print("cashAdvTransPayload$cashAdvTransPayload");
+
+      // Construct request body
+      final Map<String, dynamic> requestBody = {
+        "RequisitionId": reqID ?? "",
+        "RecId": recId ?? "",
+        "RequestDate": requestDate,
+        "EmployeeId": Params.employeeId,
+        "EmployeeName": Params.userName,
+        "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
+            ? double.tryParse(requestamountINR.text) ?? 0
+            : 0,
+        "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
+            ? double.tryParse(estimatedamountINR.text) ?? 0
+            : 0,
+        "PrefferedPaymentMethod": paidWithController.text,
+        "BusinessJustification": justificationController.text,
+        "ReferenceId": referenceID.text.trim(),
+        "CashAdvTrans": cashAdvTransPayload,
+        "CSHHeaderCustomFieldValues": [],
+        "DocumentAttachment": {"File": []},
+      };
+
+      print("🔗 API Request Body: $requestBody");
+
+      // API call
+      final response = await http.put(
+        Uri.parse(
+            "${Urls.cashadvanceregistration}reviewcashadvancerequisition?updateandaccept=$submit&screen_name=MyPendingApproval"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      print("📥 API Response: ${response.statusCode} ${response.body}");
+
+      // Handle response
+      if (response.statusCode == 201 || response.statusCode == 280) {
+        final data = jsonDecode(response.body);
+        final message = data['detail']['message'] ?? 'Cash advance created';
+        final recId = data['detail']['RecId'];
+
+        clearFormFields();
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+
+        Fluttertoast.showToast(
+          msg: "$message (RecId: $recId)",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error: ${response.body}",
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+        finalItemsCashAdvance = [];
+      }
+    } catch (e) {
+      print("❌ API Exception: $e");
+      Fluttertoast.showToast(
+        msg: "Something went wrong: $e",
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+      finalItemsCashAdvance = [];
+    }
+  }
   Future<void> saveinviewPageGeneralExpense(
       context, bool bool, bool? reSubmit, int recId) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
@@ -4870,7 +5204,7 @@ class Controller extends GetxController {
     // final String amount = parsedAmount != null ? parsedAmount.toInt().toString() : '0';
 
     final url = Uri.parse(
-      '${Urls.exchangeRate}/$amount/$currencyCode/$fromDate',
+      '${Urls.exchangeRate}/${amount ?? 0}/${currencyCode ?? "INR"}/$fromDate',
     );
 
     try {
@@ -4912,7 +5246,7 @@ class Controller extends GetxController {
     final String requestDateEpoch = dateToUse.millisecondsSinceEpoch.toString();
     final String employeeId = Params.employeeId;
     final String expenseCategory = selectedCategoryId;
-    final String location = selectedLocation?.city ?? '';
+    final String location = locationController.text ?? '';
 
     final url = Uri.parse(
       '${Urls.maxAllowedPercentage}'
@@ -5018,6 +5352,188 @@ class Controller extends GetxController {
       isLoadingCA.value = false;
       print('Error fetching Cash Advance: $e');
       return [];
+    }
+  }
+
+  Future<Object> fetchSpecificCashAdvanceApprovalItem(
+      BuildContext context, int workitemrecid) async {
+    isLoadingCA.value = true;
+
+    // Build the URL with query parameters
+    final url = Uri.parse(
+      '${Urls.myPendingApproval}detailedapproval?workitemrecid=$workitemrecid&lock_id=$workitemrecid&&screen_name=MyPendingApproval',
+    );
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        specificCashAdvanceList.value = (data as List)
+            .map((item) => CashAdvanceRequestHeader.fromJson(item))
+            .toList();
+
+        // Example: Fill controllers from first item
+        if (specificCashAdvanceList.isNotEmpty) {
+          final cashAdvance = specificCashAdvanceList[0];
+          requisitionIdController.text = cashAdvance.requisitionId ?? '';
+          requestDateController.text = cashAdvance.requestDate != null
+              ? DateFormat('dd/MM/yyyy').format(
+                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!))
+              : '';
+          // Add more controllers if needed
+          print("Requisition ID: ${requisitionIdController.text}");
+        }
+
+        isLoadingCA.value = false;
+
+        // Navigate to ViewCashAdvanseReturnForm
+
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(
+          context,
+          AppRoutes.viewCashAdvanseReturnForms,
+          arguments: {
+            'item': specificCashAdvanceList[0],
+          },
+        );
+        return specificCashAdvanceList;
+      } else {
+        isLoadingCA.value = false;
+        print(
+            'Failed to load Cash Advance. Status code: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      isLoadingCA.value = false;
+      print('Error fetching Cash Advance: $e');
+      return [];
+    }
+  }
+
+  Timer? _debounce;
+
+  void calculateAndFetchAmounts() {
+    final qty = double.tryParse(quantity.text) ?? 0.0;
+    final unit = double.tryParse(unitAmount.text) ?? 0.0;
+
+    final calculatedLineAmount = qty * unit;
+
+    totalunitEstimatedAmount.text = calculatedLineAmount.toStringAsFixed(2);
+    paidAmount.text = calculatedLineAmount.toStringAsFixed(2);
+
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final paidAmountText = totalunitEstimatedAmount.text.trim();
+      final double paidAmounts = double.tryParse(paidAmountText) ?? 0.0;
+      final currency = currencyDropDowncontrollerCA3.text;
+
+      if (currency.isNotEmpty && paidAmountText.isNotEmpty) {
+        final results = await Future.wait([
+          fetchExchangeRateCA(currency, paidAmountText),
+          fetchMaxAllowedPercentage(),
+        ]);
+
+        final exchangeResponse1 = results[0] as ExchangeRateResponse?;
+        if (exchangeResponse1 != null) {
+          unitRateCA1.text = exchangeResponse1.exchangeRate.toString();
+          amountINRCA1.text = exchangeResponse1.totalAmount.toStringAsFixed(2);
+          isVisible.value = true;
+        }
+
+        final maxPercentage = results[1] as double?;
+        if (maxPercentage != null && maxPercentage > 0) {
+          double calculatedPercentage = (paidAmounts * maxPercentage) / 100;
+
+          totalRequestedAmount.text = calculatedPercentage.toString();
+          calculatedPercentage = calculatedPercentage;
+          requestedPercentage.text = '${maxPercentage.toInt()} %';
+
+          if (calculatedPercentage > 100) {
+            Fluttertoast.showToast(
+              msg: 'Paid amount exceeds maximum allowed percentage!',
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+            );
+          }
+        }
+
+        final reqPaidAmount = totalRequestedAmount.text.trim();
+        final reqCurrency = currencyDropDowncontrollerCA2.text;
+
+        if (reqCurrency.isNotEmpty && reqPaidAmount.isNotEmpty) {
+          final exchangeResponse =
+              await fetchExchangeRateCA(reqCurrency, reqPaidAmount);
+
+          if (exchangeResponse != null) {
+            unitRateCA2.text = exchangeResponse.exchangeRate.toString();
+            amountINRCA2.text = exchangeResponse.totalAmount.toStringAsFixed(2);
+          }
+        }
+      }
+    });
+    print("SuccesFully call All Data");
+  }
+
+  Future<void> fetchAndAppendPendingApprovals() async {
+    isLoadingGE1.value = true;
+    final url = Uri.parse(
+      '${Urls.getApprovalDashboardData}pendingcashasvanceapprovals?filter_query=CSHCashAdvReqHeader.ApprovalStatus__eq%3DPending&page=1&sort_order=asc',
+    );
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = jsonDecode(response.body);
+
+      final List<PendingCashAdvanceApproval> newApprovals = jsonData
+          .map((item) => PendingCashAdvanceApproval.fromJson(item))
+          .toList();
+
+      pendingApprovalcashAdvanse.addAll(newApprovals);
+
+      // ✅ Append to the existing list
+      pendingApprovalcashAdvanse.addAll(newApprovals);
+
+      isLoadingGE1.value = false;
+    } else {
+      isLoadingGE1.value = false;
+      throw Exception('Failed to load pending approvals');
+    }
+  }
+   Future<CashAdvanceGeneralSettings?> fetchGeneralSettings() async {
+    final url = Uri.parse(Urls.cashadvanceGeneralSettings);
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer ${Params.userToken}',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      // Assuming the response is a list or has `data` array
+      final settingsJson = (decoded is List ? decoded[0] : decoded['data'][0]);
+      return CashAdvanceGeneralSettings.fromJson(settingsJson);
+    } else {
+      print("Failed to fetch settings: ${response.statusCode}");
+      return null;
     }
   }
 }

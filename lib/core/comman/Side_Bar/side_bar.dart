@@ -255,7 +255,10 @@ class _MyDrawerState extends State<MyDrawer>
                   title: "Pending Approvals",
                   icon: Icons.arrow_right,
                   menuKey: "Pending Approvals",
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pushNamed(
+                        context, AppRoutes.approvalDashboardForDashboard);
+                  },
                 ),
               ],
             ),
