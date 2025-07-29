@@ -261,7 +261,9 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                       Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnForms);
+                      //  Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnForms);
+                      Navigator.pushNamed(
+                          context, AppRoutes.formCashAdvanceRequest);
                     },
                     child: Image.asset("assets/cashAdvanse.png"),
                   ),
@@ -271,7 +273,8 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.mileageExpensefirst);
+                      Navigator.pushNamed(
+                          context, AppRoutes.mileageExpensefirst);
                     },
                     child: Image.asset("assets/vodometer.png"),
                   ),

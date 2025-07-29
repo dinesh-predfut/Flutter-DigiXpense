@@ -71,7 +71,7 @@ class Controller extends GetxController {
   final TextEditingController unitRateCA1 = TextEditingController();
   final TextEditingController unitRateCA2 = TextEditingController();
 
-  final TextEditingController quantity = TextEditingController(text:"1.00");
+  final TextEditingController quantity = TextEditingController(text: "1.00");
   final TextEditingController uomId = TextEditingController();
   final TextEditingController contactPostalController = TextEditingController();
   final TextEditingController addressID = TextEditingController();
@@ -2277,6 +2277,7 @@ class Controller extends GetxController {
       return false;
     }
   }
+
   Future<bool> postApprovalActioncashAdvance(
     BuildContext context, {
     required List<int> workitemrecid,
@@ -2344,6 +2345,7 @@ class Controller extends GetxController {
       return false;
     }
   }
+
   Future<List<GESpeficExpense>> fetchSecificApprovalExpenseItem(
       context, int recId) async {
     isLoadingGE1.value = true;
@@ -2563,7 +2565,6 @@ class Controller extends GetxController {
   }
 
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
-    
     final response = await http.get(
       Uri.parse(
           '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc'),
@@ -2580,8 +2581,8 @@ class Controller extends GetxController {
       throw Exception('Failed to load expense history: ${response.statusCode}');
     }
   }
+
   Future<List<ExpenseHistory>> cashadvanceTracking(int? recId) async {
-    
     final response = await http.get(
       Uri.parse(
           '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_order=asc'),
@@ -2598,6 +2599,7 @@ class Controller extends GetxController {
       throw Exception('Failed to load expense history: ${response.statusCode}');
     }
   }
+
   Future<List<File>> fetchExpenseDocImage([int? recId]) async {
     // isLoadingviewImage.value = true;
     const String token = 'your_token_here';
@@ -3026,7 +3028,7 @@ class Controller extends GetxController {
         "PrefferedPaymentMethod": paidWithController.text,
         "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
-        "RequisitionId":expenseIdController.text,
+        "RequisitionId": expenseIdController.text,
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
         "DocumentAttachment": {"File": []},
@@ -3181,7 +3183,8 @@ class Controller extends GetxController {
       finalItemsCashAdvance = [];
     }
   }
- Future<void> reviewandUpdateCashAdvance(
+
+  Future<void> reviewandUpdateCashAdvance(
       BuildContext context, bool submit, int? recId,
       [String? reqID]) async {
     try {
@@ -3276,6 +3279,7 @@ class Controller extends GetxController {
       finalItemsCashAdvance = [];
     }
   }
+
   Future<void> saveinviewPageGeneralExpense(
       context, bool bool, bool? reSubmit, int recId) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
@@ -5515,7 +5519,8 @@ class Controller extends GetxController {
       throw Exception('Failed to load pending approvals');
     }
   }
-   Future<CashAdvanceGeneralSettings?> fetchGeneralSettings() async {
+
+  Future<CashAdvanceGeneralSettings?> fetchGeneralSettings() async {
     final url = Uri.parse(Urls.cashadvanceGeneralSettings);
 
     final response = await http.get(
@@ -5536,4 +5541,39 @@ class Controller extends GetxController {
       return null;
     }
   }
+Future<SequenceNumber?> fetchCashAdvanceSequence() async {
+ final url = Uri.parse(Urls.cashadvancerequisition,
+    );
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}',
+      },
+    );
+
+  print('Status Codes: ${response.statusCode}');
+  print('Response Body: ${response.body}');
+
+  if (response.statusCode == 200) {
+     final List<dynamic> jsonList = json.decode(response.body);
+
+    final sequence = jsonList.firstWhere(
+      (item) =>
+          item['Module'] == 'CashAdvance' &&
+          item['Area'] == 'CashAdvanceRequisitionNo',
+      orElse: () => null,
+    );
+    print("sequencess$sequence");
+    if (sequence != null) {
+      return SequenceNumber.fromJson(sequence);
+    }
+  } else {
+    throw Exception('Failed to load sequence numbers');
+  }
+  return null;
+}
+
+ 
 }

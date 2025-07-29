@@ -474,41 +474,41 @@ class _CashAdvanceRequestDashboardState
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                // Navigate to add screen
-                                Navigator.pushNamed(
-                                    context, AppRoutes.formCashAdvanceRequest);
-                              },
-                              icon: const Icon(Icons.add_circle,
-                                  size: 18, color: Colors.white),
-                              label: const Text(
-                                "Add Request",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                backgroundColor:
-                                    Colors.blue.shade800, // Deep blue
-                                elevation: 4,
-                                shadowColor:
-                                    Colors.blue.shade900.withOpacity(0.4),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                                textStyle: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
+                        // Expanded(
+                        //   child: Align(
+                        //     alignment: Alignment.centerRight,
+                        //     child: ElevatedButton.icon(
+                        //       onPressed: () {
+                        //         // Navigate to add screen
+                        //         Navigator.pushNamed(
+                        //             context, AppRoutes.formCashAdvanceRequest);
+                        //       },
+                        //       icon: const Icon(Icons.add_circle,
+                        //           size: 18, color: Colors.white),
+                        //       label: const Text(
+                        //         "Add Request",
+                        //         style: TextStyle(
+                        //           fontSize: 14,
+                        //           fontWeight: FontWeight.w600,
+                        //         ),
+                        //       ),
+                        //       style: ElevatedButton.styleFrom(
+                        //         foregroundColor: Colors.white,
+                        //         backgroundColor:
+                        //             Colors.blue.shade800, // Deep blue
+                        //         elevation: 4,
+                        //         shadowColor:
+                        //             Colors.blue.shade900.withOpacity(0.4),
+                        //         shape: RoundedRectangleBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         padding: const EdgeInsets.symmetric(
+                        //             horizontal: 16, vertical: 12),
+                        //         textStyle: const TextStyle(fontSize: 14),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),

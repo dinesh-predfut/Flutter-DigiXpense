@@ -3003,6 +3003,21 @@ class CashAdvanceRequestItemize {
     return int.tryParse(value.toString());
   }
 }
+class SequenceNumber {
+  final String module;
+  final String area;
+  final String? nextNumber;
+
+  SequenceNumber({required this.module, required this.area, this.nextNumber});
+
+  factory SequenceNumber.fromJson(Map<String, dynamic> json) {
+    return SequenceNumber(
+      module: json['Module'],
+      area: json['Area'],
+      nextNumber: json['NextNumber'],
+    );
+  }
+}
 
 class DocumentAttachment {
   String fileName;

@@ -41,6 +41,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   List<Controller> itemizeControllers = [];
   bool allowDocAttachments = false;
   int _currentStep = 0;
+  RxBool showField = true.obs;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
   int _selectedCategoryIndex = -1;
@@ -80,6 +81,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     _initializeUnits();
     _loadSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      loadSequenceAndUpdateUI();
       await controller.fetchMaxAllowedPercentage();
       controller.fetchCashAdvanceRequests();
       controller.getconfigureFieldCashAdvance();
@@ -95,6 +97,18 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       controller.fetchBusinessjustification();
       controller.fetchLocation();
     });
+  }
+
+  void loadSequenceAndUpdateUI() async {
+    final sequence = await controller.fetchCashAdvanceSequence();
+
+    if (sequence != null &&
+        sequence.nextNumber != null &&
+        sequence.nextNumber!.isNotEmpty) {
+      showField.value = false; // hide the field
+    } else {
+      showField.value = true; // show the field
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -2135,17 +2149,25 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildTextField(
-                                label: "Cash Advance Requisition ID *",
-                                controller: controller.expenseIdController,
-                                isReadOnly: true,
-                                showError: _showExpenseIdError,
-                                onChanged: (value) {
-                                  if (value.isNotEmpty && _showExpenseIdError) {
-                                    setState(() => _showExpenseIdError = false);
-                                  }
-                                },
-                              ),
+                              Obx(() {
+                                return showField.value
+                                    ? _buildTextField(
+                                        label: "Cash Advance Requisition ID *",
+                                        controller:
+                                            controller.expenseIdController,
+                                        isReadOnly: true,
+                                        showError: _showExpenseIdError,
+                                        onChanged: (value) {
+                                          if (value.isNotEmpty &&
+                                              _showExpenseIdError) {
+                                            setState(() =>
+                                                _showExpenseIdError = false);
+                                          }
+                                        },
+                                      )
+                                    : const SizedBox
+                                        .shrink(); // hides the field
+                              }),
                               InkWell(
                                 onTap: () async {
                                   await _selectDate(context);

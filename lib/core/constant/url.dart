@@ -61,7 +61,7 @@ class Urls {
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const updateApprovalStatus =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
-      static const updateApprovalStatusCashAdvance =
+  static const updateApprovalStatusCashAdvance =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
   static const getSpecificPerdiemExpense =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
@@ -69,7 +69,7 @@ class Urls {
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/detailedapproval?";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
-        static const cashadvanceTracking =
+  static const cashadvanceTracking =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancelogs?filter_query=CSHCashAdvTransLog.";
   static const approvalPerdiemreview =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/reviewperdiemregistration?";
@@ -138,6 +138,8 @@ class Urls {
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
   static const cashadvanceregistration =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
-       static const cashadvanceGeneralSettings =
+  static const cashadvanceGeneralSettings =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
+  static const cashadvancerequisition=
+      "$baseURL/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_by=ModifiedDatetime&sort_order=desc";
 }
