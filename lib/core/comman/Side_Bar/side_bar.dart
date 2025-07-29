@@ -213,7 +213,9 @@ class _MyDrawerState extends State<MyDrawer>
                   title: "My Team Expenses",
                   icon: Icons.arrow_right,
                   menuKey: "My Team Expenses",
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.myTeamExpenseList);
+                  },
                 ),
                 _buildDrawerItem(
                   title: "Pending Approvals",
@@ -246,10 +248,20 @@ class _MyDrawerState extends State<MyDrawer>
                   },
                 ),
                 _buildDrawerItem(
+                  title: "Cash Advance Return",
+                  icon: Icons.arrow_right,
+                  menuKey: "Cash Advance Return",
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnList);
+                  },
+                ),
+                _buildDrawerItem(
                   title: "My Team Cash Advances",
                   icon: Icons.arrow_right,
                   menuKey: "My Team Cash Advances",
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.myTeamCashAdvanceList);
+                  },
                 ),
                 _buildDrawerItem(
                   title: "Pending Approvals",
@@ -267,11 +279,17 @@ class _MyDrawerState extends State<MyDrawer>
               title: "Email Hub",
               icon: Icons.mail_outline,
               menuKey: "Email Hub",
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.emailHubList);
+              },
             ),
             _buildDrawerItem(
               title: "Approval Hub",
               icon: Icons.calendar_today,
               menuKey: "Approval Hub",
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.approvalHubList);
+              },
             ),
 
             const Divider(),

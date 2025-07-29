@@ -3108,10 +3108,6 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.square,
-      ],
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',

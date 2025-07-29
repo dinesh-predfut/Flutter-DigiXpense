@@ -175,8 +175,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         // ignore: deprecated_member_use
         WillPopScope(
             onWillPop: () async {
-              Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-              return true; // allow back navigation
+              // Navigate back to main dashboard properly
+              Navigator.pop(context);
+              return false; // prevent default back behavior
             },
             child: Scaffold(
               backgroundColor: const Color(0xFFF7F7F7),

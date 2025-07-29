@@ -35,9 +35,24 @@ class _LoginScreenState extends State<LoginScreen> {
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 100; 
      return WillPopScope(
       onWillPop: () async {
- 
-        Navigator.pushNamed(context, AppRoutes.login);
-        return true;
+        // Show exit confirmation dialog instead of redirecting to login
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Exit App'),
+            content: const Text('Are you sure you want to exit the app?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+        ) ?? false;
       },
       child:Scaffold(
         backgroundColor: const Color.fromARGB(255, 36, 10, 112),

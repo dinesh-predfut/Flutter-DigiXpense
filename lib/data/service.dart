@@ -27,7 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'pages/screen/widget/router/router.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:libphonenumber/libphonenumber.dart';
+import 'package:flutter_libphonenumber/flutter_libphonenumber.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';

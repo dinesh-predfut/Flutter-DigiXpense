@@ -140,4 +140,36 @@ class Urls {
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
        static const cashadvanceGeneralSettings =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
+  
+  // Cash Advance Return APIs
+  static const cashAdvanceReturnList =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancereturnheader";
+  static const cashAdvanceReturnCreate =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancereturn?functionalentity=CashAdvanceReturn";
+  static const cashAdvanceReturnGet =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancereturn?";
+  static const cashAdvanceReturnUpdate =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancereturn?functionalentity=CashAdvanceReturn";
+  
+  // Email Hub APIs (Forward Email Management)
+  static const emailHubList =
+      "$baseURL/api/v1/forwardemailmanagement/fetchallemails";
+  static const emailHubGetSpecific =
+      "$baseURL/api/v1/forwardemailmanagement/fetch_specific_emails";
+  static const emailHubProcess =
+      "$baseURL/api/v1/forwardemailmanagement/processemail";
+  static const emailHubReject =
+      "$baseURL/api/v1/forwardemailmanagement/rejectemail";
+  
+  // My Team Expense APIs
+  static const myTeamExpenseList =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__in_team&";
+  static const myTeamExpenseGet =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+  
+  // My Team Cash Advance APIs
+  static const myTeamCashAdvanceList =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader?filter_query=CSHCashAdvHeader.CreatedBy__in_team&";
+  static const myTeamCashAdvanceGet =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvance?";
 }

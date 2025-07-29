@@ -1,3 +1,3 @@
 class Images {
-  static const String logo = "assets/xpense.png";
+  static const String logo = "assets/Xpense.png";
 }

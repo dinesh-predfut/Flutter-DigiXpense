@@ -28,6 +28,11 @@ import '../../CashAdvanceRequest/Pending Approval/approvalDashboardCashAdvance.d
 import '../../CashAdvanceRequest/cashAdvanceReturnEditForm.dart';
 import '../../Profile/profile.dart';
 import '../../landingLogo/widget.dart';
+import '../../CashAdvanceReturn/cash_advance_return_list_screen.dart';
+import '../../EmailHub/email_hub_screen.dart';
+import '../../ApprovalHub/approval_hub_screen.dart';
+import '../../MyTeamExpense/my_team_expense_screen.dart';
+import '../../MyTeamCashAdvance/my_team_cash_advance_screen.dart';
 
 class AppRoutes {
   static const String signin = '/home';
@@ -64,6 +69,11 @@ class AppRoutes {
       '/expense/pendingApprovals/approvalDashboardForDashboard';
   static const String approvalViewEdit =
       '/expense/pendingApprovals/approvalViewEdit';
+  static const String cashAdvanceReturnList = '/cashAdvanceReturn/list';
+  static const String emailHubList = '/emailHub/list';
+  static const String approvalHubList = '/approvalHub/list';
+  static const String myTeamExpenseList = '/myTeamExpense/list';
+  static const String myTeamCashAdvanceList = '/myTeamCashAdvance/list';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -210,6 +220,31 @@ class AppRoutes {
             items: args?['item'],
             isReadOnly: true,
           ),
+        );
+
+      case cashAdvanceReturnList:
+        return MaterialPageRoute(
+          builder: (_) => const CashAdvanceReturnListScreen(),
+        );
+
+      case emailHubList:
+        return MaterialPageRoute(
+          builder: (_) => const EmailHubScreen(),
+        );
+
+      case approvalHubList:
+        return MaterialPageRoute(
+          builder: (_) => const ApprovalHubScreen(),
+        );
+
+      case myTeamExpenseList:
+        return MaterialPageRoute(
+          builder: (_) => const MyTeamExpenseScreen(),
+        );
+
+      case myTeamCashAdvanceList:
+        return MaterialPageRoute(
+          builder: (_) => const MyTeamCashAdvanceScreen(),
         );
 
       default:

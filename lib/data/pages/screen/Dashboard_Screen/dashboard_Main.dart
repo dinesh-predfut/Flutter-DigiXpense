@@ -119,10 +119,24 @@ class _DashboardPageState extends State<DashboardPage>
 
     return WillPopScope(
         onWillPop: () async {
-          // controller.isEnable.value = false;
-          // controller.isLoadingGE1.value = false;
-          Navigator.pushNamed(context, AppRoutes.signin);
-          return true;
+          // Show exit confirmation dialog instead of redirecting to login
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Exit App'),
+              content: const Text('Are you sure you want to exit the app?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Exit'),
+                ),
+              ],
+            ),
+          ) ?? false;
         },
         child: Scaffold(
           backgroundColor: const Color(0xFFF7F7F7),
@@ -354,16 +368,16 @@ class _DashboardPageState extends State<DashboardPage>
                                     children: [
                                       _mostUsedButton(Icons.money, 'Expense',
                                           () {
-                                        print('Button Pressed');
+                                        Navigator.pushNamed(context, AppRoutes.generalExpense);
                                       }),
                                       const SizedBox(width: 20),
                                       _mostUsedButton(
                                           Icons.verified, 'Approvals', () {
-                                        print('Button Pressed');
+                                        Navigator.pushNamed(context, AppRoutes.approvalHubList);
                                       }),
                                       const SizedBox(width: 20),
                                       _mostUsedButton(Icons.mail, 'Mail', () {
-                                        print('Button Pressed');
+                                        Navigator.pushNamed(context, AppRoutes.emailHubList);
                                       }),
                                     ],
                                   ),

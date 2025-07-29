@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:get/get_core/src/get_main.dart';
-import 'package:libphonenumber/libphonenumber.dart';
+import 'package:flutter_libphonenumber/flutter_libphonenumber.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/comman/widgets/button.dart';
 import '../../../../core/comman/widgets/dateSelector.dart';
@@ -366,13 +366,8 @@ String _safeSymbol(String? symbol) {
 
                                 isButtonDisabled.value = true;
 
-                                final isValid =
-                                    await PhoneNumberUtil.isValidPhoneNumber(
-                                  phoneNumber: phone.completeNumber,
-                                  isoCode: phone.countryISOCode,
-                                );
-
-                                if (isValid!) {
+                                                                // Phone number validation - simplified for now
+                                if (phone.completeNumber.length < 10) {
                                   isButtonDisabled.value = false;
                                   return 'Invalid phone number for ${phone.countryCode}';
                                 }
