@@ -362,7 +362,13 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         controller.clearFormFields();
         controller.isEnable.value = false;
         controller.isLoadingGE1.value = false;
+        if(widget.isReadOnly){
         Navigator.pushNamed(context, AppRoutes.generalExpense);
+        }
+        else{
+        Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
+
+        }
         return true;
       },
       child: Scaffold(

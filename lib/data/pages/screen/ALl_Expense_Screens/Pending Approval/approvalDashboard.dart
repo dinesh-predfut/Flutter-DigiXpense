@@ -692,6 +692,12 @@ Widget _buildCard(ExpenseModel item, BuildContext context) {
         controller.fetchMileageDetailsApproval(context, item.workitemrecid);
         // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
         // controller.fetchExpenseHistory(item.recId);
+      }
+      else if (item.expenseType == "CashAdvanceReturn") {
+        
+        controller.fetchSecificCashAdvanceReturnApproval(context, item.workitemrecid);
+        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+        // controller.fetchExpenseHistory(item.recId);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),

@@ -6,91 +6,57 @@ import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../../../models.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 
-class GeneralExpenseDashboard extends StatefulWidget {
-  const GeneralExpenseDashboard({super.key});
+class UnProcessed extends StatefulWidget {
+  const UnProcessed({super.key});
 
   @override
-  State<GeneralExpenseDashboard> createState() =>
-      _GeneralExpenseDashboardState();
+  State<UnProcessed> createState() =>
+      _UnProcessedState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
+class _UnProcessedState extends State<UnProcessed>
     with TickerProviderStateMixin {
   late final Controller controller;
-  late final ScrollController _scrollController;
-  late final AnimationController _animationController;
-  late final Animation<double> _animation;
+
   bool isLoading = false;
-  final List<String> statusOptions = [
-    "Un Reported",
-    "Approved",
-    "Cancelled",
-    "Rejected",
-    "In Process",
-    "All",
-  ];
+  
 
   @override
   void initState() {
     super.initState();
     controller = Get.find(); // Use existing controller
 
-    _scrollController = ScrollController();
 
-    // Load data
-    controller.loadProfilePictureFromStorage();
-    controller.fetchNotifications();
-    controller.getPersonalDetails(context);
-    controller.fetchMileageRates();
-    controller.fetchManageExpensesCards().then((_) {
-      if (controller.manageExpensesCards.isNotEmpty && mounted) {
-        _animationController = AnimationController(
-          vsync: this,
-          duration: const Duration(seconds: 10),
-        );
-        _animation =
-            Tween<double>(begin: 0, end: 1).animate(_animationController)
-              ..addListener(() {
-                if (_scrollController.hasClients &&
-                    _animationController.isAnimating) {
-                  final max = _scrollController.position.maxScrollExtent;
-                  _scrollController.jumpTo(_animation.value * max);
-                }
-              });
-        _animationController.repeat();
-      }
-    });
 
-    controller.fetchGetallGExpense().then((_) {
-      controller.isEnable.value = false;
+    controller.fetchUnprocessExpense().then((_) {
+      controller.isLoadingGE1.value = false;
     });
   }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
+  // @override
+  // void dispose() {
+  //   _animationController.dispose();
+  //   _scrollController.dispose();
+  //   super.dispose();
+  // }
 
-  // Restart animation after user scrolls
-  void _onUserScroll() {
-    if (_animationController.isAnimating) {
-      _animationController.stop();
-    }
-    Future.delayed(const Duration(seconds: 8), () {
-      if (!mounted) return;
-      if (!_animationController.isAnimating) {
-        _animationController.repeat();
-      }
-    });
-  }
+  // // Restart animation after user scrolls
+  // void _onUserScroll() {
+  //   if (_animationController.isAnimating) {
+  //     _animationController.stop();
+  //   }
+  //   Future.delayed(const Duration(seconds: 8), () {
+  //     if (!mounted) return;
+  //     if (!_animationController.isAnimating) {
+  //       _animationController.repeat();
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +120,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   child: Padding(
                     padding: EdgeInsets.only(left: 16.0), // Like margin-left
                     child: Text(
-                      "Expense Dashboard",
+                      "Un Processed Expense",
                       style: TextStyle(
                         color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -166,42 +132,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // 🔹 Auto-Scrolling Cards
-                SizedBox(
-                  height: 140,
-                  child: Obx(() {
-                    if (controller.manageExpensesCards.isEmpty) {
-                      return const Center(child: Text("No data"));
-                    }
-                    return NotificationListener<UserScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification.direction == ScrollDirection.idle) {
-                          _onUserScroll();
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: controller.manageExpensesCards.length,
-                        itemBuilder: (context, index) {
-                          final card = controller.manageExpensesCards[index];
-                          return GestureDetector(
-                            onTap: _onUserScroll,
-                            child: _buildCard(card, isSmallScreen),
-                          );
-                        },
-                      ),
-                    );
-                  }),
-                ),
+            
 
                 const SizedBox(height: 16),
 
-                // 🔹 Responsive Search Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: SizedBox(
@@ -229,109 +163,8 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                 ),
 
                 const SizedBox(height: 12),
-
-                // 🔹 Add Buttons (Scrollable)
-                SizedBox(
-                  height: 56,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemCount: 4,
-                    itemBuilder: (context, index) {
-                      final buttons = [
-                        {
-                          'label': 'Add Expense',
-                          'icon': Icons.receipt,
-                          'route': AppRoutes.expenseForm
-                        },
-                        {
-                          'label': 'Add Per Diem',
-                          'icon': Icons.food_bank,
-                          'route': AppRoutes.perDiem
-                        },
-                        {
-                          'label': 'Add Cash Advance',
-                          'icon': Icons.attach_money,
-                          'route': AppRoutes.cashAdvanceReturnForms
-                        },
-                        {
-                          'label': 'Add Mileage',
-                          'icon': Icons.directions_car,
-                          'route': AppRoutes.mileageExpensefirst
-                        },
-                      ];
-                      final btn = buttons[index];
-                      return ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(
-                            context, btn['route'].toString()),
-                        icon: Icon(btn['icon'] as IconData?,
-                            size: 18, color: Colors.white),
-                        label: Text(
-                          btn['label'].toString(),
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0E4C92),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // 🔹 Filter Dropdown (Replaces Overlay)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Obx(() => DropdownButton<String>(
-                          value: controller.selectedStatusDropDown
-                              .value, // ← Make sure it's .value for RxString
-                          isExpanded: true,
-                          underline: Container(), // Removes default underline
-                          borderRadius: BorderRadius.circular(10),
-                          style: const TextStyle(color: Colors.deepPurple),
-                          icon: const Icon(Icons.arrow_drop_down,
-                              color: Colors.deepPurple),
-                          onChanged: (String? newValue) {
-                            if (newValue != null &&
-                                newValue != controller.selectedStatus) {
-                              controller.selectedStatus = newValue;
-                              controller.selectedStatusDropDown.value =
-                                  newValue; // Update reactive value
-                              controller.fetchGetallGExpense(); // Refetch data
-                            }
-                          },
-                          items: statusOptions
-                              .map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              enabled: true,
-                              child: Text(
-                                value,
-                                style: const TextStyle(color: Colors.black),
-                              ),
-                            );
-                          }).toList(),
-                        )),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
                 Expanded(
-                  // height: MediaQuery.of(context).size.height * 0.45,
+            
                   child: Obx(() {
                     if (controller.isLoadingGE1.value) {
                       return const SkeletonLoaderPage();
@@ -494,74 +327,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     );
   }
 
-  Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
-    return Container(
-      width: isSmallScreen ? 150 : 180,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
-          const SizedBox(height: 6),
-          Text(
-            _getTitle(card.status),
-            style: const TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '₹${card.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
+ 
 
-  IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'AmountSettled':
-        return Icons.check_circle;
-      case 'Inprogress':
-        return Icons.sync;
-      case 'Pending':
-        return Icons.hourglass_bottom;
-      case 'TotalAmountReporting':
-        return Icons.bar_chart;
-      default:
-        return Icons.category;
-    }
-  }
 
-  String _getTitle(String key) {
-    return {
-          'AmountSettled': 'Total Amount Settled',
-          'Inprogress': 'Total Advance In Progress',
-          'Pending': 'Total Amount Pending',
-          'TotalAmountReporting': 'Total Expenses',
-        }[key] ??
-        key;
-  }
+ 
 
   Widget _buildSwipeActionLeft(bool isLoading) {
     return Container(
@@ -685,7 +454,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                     ),
                   ),
                   Text(
-                    item.totalAmountReporting.toStringAsFixed(2),
+                    item.totalAmountTrans.toStringAsFixed(2),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

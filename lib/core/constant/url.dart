@@ -53,10 +53,18 @@ class Urls {
       "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion";
   static const saveGenderalExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistrationscreen?functionalentity=ExpenseRequisition";
+  static const cashadvancerequisitions =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/returncashadvance?functionalentity=ExpenseRequisition";
   static const getallGeneralExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D";
+  static const getallMyteamsGeneralExpense =
+      "$baseURL/api/v1/expenseregistration/expenseregistration/myteamexpenses?";
+  static const getallMyteamsCashAdvanseRequest =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/myteamcashadvances?";
   static const getSpecificGeneralExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+  static const getSpecificCashAdvanceApproval =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const getSpecificGeneralExpenseApproval =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const updateApprovalStatus =
@@ -69,6 +77,8 @@ class Urls {
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/detailedapproval?";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
+ static const unProcessedList =  
+      "$baseURL/api/v1/expenseregistration/expenseregistration/unprocessedexpenseheader?filter_query=EXPUnProcessedExpenses.CreatedBy__eq%3D";
   static const cashadvanceTracking =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvancelogs?filter_query=CSHCashAdvTransLog.";
   static const approvalPerdiemreview =
@@ -140,6 +150,6 @@ class Urls {
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
   static const cashadvanceGeneralSettings =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
-  static const cashadvancerequisition=
+  static const cashadvancerequisition =
       "$baseURL/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_by=ModifiedDatetime&sort_order=desc";
 }

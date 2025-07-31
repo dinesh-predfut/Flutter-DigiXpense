@@ -1402,6 +1402,8 @@ class LocationModel {
 }
 
 class ExpenseItem {
+  final int? recId; // ✅ Optional field added
+  final String? expenseId;
   final String expenseCategoryId;
   final double quantity;
   final String uomId;
@@ -1417,6 +1419,8 @@ class ExpenseItem {
   final List<AccountingDistribution> accountingDistributions;
 
   ExpenseItem({
+    this.recId, // ✅ Constructor optional
+    this.expenseId,
     required this.expenseCategoryId,
     required this.quantity,
     required this.uomId,
@@ -1434,6 +1438,8 @@ class ExpenseItem {
 
   factory ExpenseItem.fromJson(Map<String, dynamic> json) {
     return ExpenseItem(
+      recId: json['RecId'], // ✅ Parse from JSON if available
+      expenseId:json['ExpenseId'],
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
       uomId: json['UomId'] ?? '',
@@ -1455,6 +1461,8 @@ class ExpenseItem {
   }
 
   Map<String, dynamic> toJson() => {
+        'RecId': recId, // ✅ Only include if non-null
+        'ExpenseId':expenseId,
         'ExpenseCategoryId': expenseCategoryId,
         'Quantity': quantity,
         'UomId': uomId,
@@ -1499,12 +1507,13 @@ class CashAdvanceReqModel {
 }
 
 class ExpenseItemUpdate {
+  final int? recId; // ✅ Optional recId field
   final String expenseCategoryId;
   final double quantity;
   final String uomId;
   final double unitPriceTrans;
   final double taxAmount;
-  final String? taxGroup; // <-- make nullable
+  final String? taxGroup;
   final double lineAmountTrans;
   final double lineAmountReporting;
   final String? projectId;
@@ -1515,6 +1524,7 @@ class ExpenseItemUpdate {
   late final List<AccountingDistribution> accountingDistributions;
 
   ExpenseItemUpdate({
+    this.recId, // ✅ Include in constructor
     required this.expenseCategoryId,
     required this.quantity,
     required this.uomId,
@@ -1532,12 +1542,13 @@ class ExpenseItemUpdate {
 
   factory ExpenseItemUpdate.fromJson(Map<String, dynamic> json) {
     return ExpenseItemUpdate(
+      recId: json['RecId'], // ✅ Parse from JSON if present
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
       uomId: json['UomId'] ?? '',
       unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
-      taxGroup: json['TaxGroup'], // nullable
+      taxGroup: json['TaxGroup'],
       lineAmountTrans: (json['LineAmountTrans'] ?? 0).toDouble(),
       lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
       projectId: json['ProjectId'],
@@ -1552,6 +1563,8 @@ class ExpenseItemUpdate {
   }
 
   Map<String, dynamic> toJson() => {
+        // if (recId != null)
+        'RecId': recId, // ✅ Include only if non-null
         'ExpenseCategoryId': expenseCategoryId,
         'Quantity': quantity,
         'UomId': uomId,
@@ -1623,6 +1636,7 @@ class GESpeficExpense {
   final String? country;
   final int recId;
   final String? expenseStatus;
+  final String cashAdvReqId;
   final String? location;
   final int workitemrecid;
   final String? stepType;
@@ -1642,6 +1656,7 @@ class GESpeficExpense {
     required this.receiptDate,
     this.approvalStatus,
     this.currency,
+    required this.cashAdvReqId,
     this.referenceNumber,
     this.description,
     this.source,
@@ -1688,6 +1703,7 @@ class GESpeficExpense {
       isPreauthorised: json['IsPreauthorised'] ?? false,
       expenseType: json['ExpenseType']?.toString(),
       taxGroup: json['TaxGroup']?.toString(),
+      cashAdvReqId: json['CashAdvReqId'] ?? '',
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
       isReimbursable: json['IsReimbursable'] ?? false,
       country: json['Country']?.toString(),
@@ -2366,6 +2382,7 @@ class ExpenseAmountByStatus {
     );
   }
 }
+
 class PendingCashAdvanceApproval {
   final double amountPaid;
   final double amountPaidReporting;
@@ -2460,7 +2477,9 @@ class PendingCashAdvanceApproval {
       modifiedBy: json['ModifiedBy'] ?? '',
       modifiedDatetime: json['ModifiedDatetime'] ?? 0,
       organizationId: json['OrganizationId'] ?? 0,
-      percentage: (json['Percentage'] != null) ? (json['Percentage'] as num).toDouble() : null,
+      percentage: (json['Percentage'] != null)
+          ? (json['Percentage'] as num).toDouble()
+          : null,
       prefferedPaymentMethod: json['PrefferedPaymentMethod'] ?? '',
       projectId: json['ProjectId'],
       recId: json['RecId'] ?? 0,
@@ -2472,11 +2491,17 @@ class PendingCashAdvanceApproval {
       stepType: json['StepType'] ?? '',
       subOrganizationId: json['SubOrganizationId'] ?? 0,
       totalApprovedAmount: json['TotalApprovedAmount'] ?? 0.0,
-      totalEstimatedAmount: (json['TotalEstimatedAmount'] != null) ? (json['TotalEstimatedAmount'] as num).toDouble() : null,
-      totalEstimatedAmountInReporting: json['TotalEstimatedAmountInReporting'] ?? 0.0,
+      totalEstimatedAmount: (json['TotalEstimatedAmount'] != null)
+          ? (json['TotalEstimatedAmount'] as num).toDouble()
+          : null,
+      totalEstimatedAmountInReporting:
+          json['TotalEstimatedAmountInReporting'] ?? 0.0,
       totalRejectedAmount: json['TotalRejectedAmount'] ?? 0.0,
-      totalRequestedAmount: (json['TotalRequestedAmount'] != null) ? (json['TotalRequestedAmount'] as num).toDouble() : null,
-      totalRequestedAmountInReporting: json['TotalRequestedAmountInReporting'] ?? 0.0,
+      totalRequestedAmount: (json['TotalRequestedAmount'] != null)
+          ? (json['TotalRequestedAmount'] as num).toDouble()
+          : null,
+      totalRequestedAmountInReporting:
+          json['TotalRequestedAmountInReporting'] ?? 0.0,
       workitemrecid: json['workitemrecid'] ?? 0,
     );
   }
@@ -2550,6 +2575,7 @@ class DimensionValue {
     );
   }
 }
+
 class CashAdvanceRequestItemizeFornew {
   List<AccountingDistribution>? accountingDistributions;
   int? baseUnit;
@@ -2600,7 +2626,6 @@ class CashAdvanceRequestItemizeFornew {
   String? taxGroup;
 
   CashAdvanceRequestItemizeFornew({
-   
     this.accountingDistributions,
     this.baseUnit,
     this.baseUnitRequested,
@@ -2656,7 +2681,6 @@ class CashAdvanceRequestItemizeFornew {
                   ?.map((e) => AccountingDistribution.fromJson(e))
                   .toList() ??
               [],
-      
       baseUnit: _toIntOrNull(json['BaseUnit']),
       baseUnitRequested: _toIntOrNull(json['BaseunitRequested']),
       businessJustification: json['BusinessJustification'] != null
@@ -2728,7 +2752,6 @@ class CashAdvanceRequestItemizeFornew {
 
   Map<String, dynamic> toJson() {
     return {
-    
       "CashAdvReqHeader": 220,
       "ExpenseCategoryId": expenseCategoryId ?? '',
       "Quantity": quantity ?? 1,
@@ -2779,6 +2802,7 @@ class CashAdvanceRequestItemizeFornew {
     return int.tryParse(value.toString());
   }
 }
+
 class CashAdvanceRequestItemize {
   List<AccountingDistribution>? accountingDistributions;
   int? baseUnit;
@@ -2825,7 +2849,6 @@ class CashAdvanceRequestItemize {
   List<dynamic>? cashAdvTrans;
   double? taxAmount;
 
-
   CashAdvanceRequestItemize({
     this.recId,
     this.accountingDistributions,
@@ -2871,8 +2894,6 @@ class CashAdvanceRequestItemize {
     this.cshHeaderCustomFieldValues,
     this.cashAdvTrans,
     this.taxAmount,
- 
- 
   });
 
   factory CashAdvanceRequestItemize.fromJson(Map<String, dynamic> json) {
@@ -2945,8 +2966,6 @@ class CashAdvanceRequestItemize {
                   .toList() ??
               [],
       cashAdvTrans: json['CashAdvTrans'] ?? [],
-
-
     );
   }
 
@@ -2970,7 +2989,6 @@ class CashAdvanceRequestItemize {
       "LineRequestedAdvanceInReporting": lineRequestedAdvanceInReporting ?? 1,
       "LineRequestedExchangerate": lineRequestedExchangerate ?? 1,
       "LineEstimatedExchangerate": lineEstimatedExchangerate ?? 1,
-      
       "MaxAllowedPercentage": maxAllowedPercentage ?? 100,
       "BaseUnit": baseUnit ?? 1,
       "BaseunitRequested": baseUnitRequested ?? 1,
@@ -3003,6 +3021,7 @@ class CashAdvanceRequestItemize {
     return int.tryParse(value.toString());
   }
 }
+
 class SequenceNumber {
   final String module;
   final String area;
@@ -3169,7 +3188,7 @@ class CashAdvanceRequestHeader {
   final String? referenceId;
   final String? description;
   final String? location;
-  final String? stepType; 
+  final String? stepType;
   final int? workitemrecid;
   final List<dynamic> cshHeaderCustomFieldValues;
   final List<dynamic> cshHeaderCategoryCustomFieldValues;
@@ -3286,7 +3305,6 @@ class CashAdvanceRequestHeader {
   }
 }
 
-
 double? _toDoubleOrNull(dynamic value) {
   if (value == null) return null;
   if (value is double) return value;
@@ -3294,6 +3312,7 @@ double? _toDoubleOrNull(dynamic value) {
   if (value is String) return double.tryParse(value);
   return null;
 }
+
 class CashAdvanceGeneralSettings {
   final bool allowCashAdvAgainstExpenseReg;
   final bool allowDocAttachments;
@@ -3321,11 +3340,15 @@ class CashAdvanceGeneralSettings {
 
   factory CashAdvanceGeneralSettings.fromJson(Map<String, dynamic> json) {
     return CashAdvanceGeneralSettings(
-      allowCashAdvAgainstExpenseReg: json['AllowCashAdvAgainstExpenseReg'] ?? false,
+      allowCashAdvAgainstExpenseReg:
+          json['AllowCashAdvAgainstExpenseReg'] ?? false,
       allowDocAttachments: json['AllowDocAttachments'] ?? false,
-      allowMultipleCashAdvancesPerExpenseReg: json['AllowMultipleCashAdvancesPerExpenseReg'] ?? false,
-      allowMultipleExpenseSettlementsPerCashAdv: json['AllowMultipleExpenseSettlementsPerCashAdv'] ?? false,
-      enableAutoCashAdvanceSettlement: json['EnableAutoCashAdvanceSettlement'] ?? false,
+      allowMultipleCashAdvancesPerExpenseReg:
+          json['AllowMultipleCashAdvancesPerExpenseReg'] ?? false,
+      allowMultipleExpenseSettlementsPerCashAdv:
+          json['AllowMultipleExpenseSettlementsPerCashAdv'] ?? false,
+      enableAutoCashAdvanceSettlement:
+          json['EnableAutoCashAdvanceSettlement'] ?? false,
       isApprovalRequired: json['IsApprovalRequired'] ?? false,
       isDocAttachmentMandatory: json['IsDocAttachmentMandatory'] ?? false,
       organizationId: json['OrganizationId'] ?? 0,
@@ -3333,4 +3356,26 @@ class CashAdvanceGeneralSettings {
       subOrganizationId: json['SubOrganizationId'] ?? 0,
     );
   }
+}
+
+class CashAdvanceDropDownModel {
+  final String cashAdvanceReqId;
+  final int requestDate;
+
+  CashAdvanceDropDownModel({
+    required this.cashAdvanceReqId,
+    required this.requestDate,
+  });
+
+  factory CashAdvanceDropDownModel.fromJson(Map<String, dynamic> json) {
+    return CashAdvanceDropDownModel(
+      cashAdvanceReqId: json['CashAdvanceReqId'] ?? '',
+      requestDate: json['RequestDate'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'CashAdvanceReqId': cashAdvanceReqId,
+        'RequestDate': requestDate,
+      };
 }

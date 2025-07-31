@@ -213,7 +213,9 @@ class _MyDrawerState extends State<MyDrawer>
                   title: "My Team Expenses",
                   icon: Icons.arrow_right,
                   menuKey: "My Team Expenses",
-                  onTap: () {},
+                  onTap: () {
+                     Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
+                  },
                 ),
                 _buildDrawerItem(
                   title: "Pending Approvals",
@@ -227,7 +229,9 @@ class _MyDrawerState extends State<MyDrawer>
                   title: "Un Processed",
                   icon: Icons.arrow_right,
                   menuKey: "Un Processed",
-                  onTap: () {},
+                  onTap: () {
+                     Navigator.pushNamed(context, AppRoutes.unProcessed);
+                  },
                 ),
               ],
             ),
@@ -249,7 +253,10 @@ class _MyDrawerState extends State<MyDrawer>
                   title: "My Team Cash Advances",
                   icon: Icons.arrow_right,
                   menuKey: "My Team Cash Advances",
-                  onTap: () {},
+                  onTap: () {
+                     Navigator.pushNamed(
+                        context, AppRoutes.myTeamcashAdvanceDashboard);
+                  },
                 ),
                 _buildDrawerItem(
                   title: "Pending Approvals",

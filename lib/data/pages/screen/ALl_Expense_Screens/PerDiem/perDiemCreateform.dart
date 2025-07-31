@@ -12,8 +12,9 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class CreatePerDiemPage extends StatefulWidget {
+    final bool isReadOnly;
   final PerdiemResponseModel? item;
-  const CreatePerDiemPage({super.key, this.item});
+  const CreatePerDiemPage({super.key, this.item,required this.isReadOnly});
 
   @override
   State<CreatePerDiemPage> createState() => _CreatePerDiemPageState();
@@ -31,6 +32,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     super.initState();
     controller.fetchCustomFields();
     controller.configuration();
+    print("isReadOnly${widget.isReadOnly}");
     if (widget.item == null) {
       setState(() {
         controller.isEditModePerdiem = true;
@@ -209,7 +211,7 @@ if(widget.item == null){
               ),
               iconTheme: const IconThemeData(color: Colors.white),
               actions: [
-                if (!controller.isEditModePerdiem &&
+                if (!controller.isEditModePerdiem && !widget.isReadOnly &&
                     widget.item != null &&
                     widget.item!.approvalStatus != "Approved")
                   IconButton(

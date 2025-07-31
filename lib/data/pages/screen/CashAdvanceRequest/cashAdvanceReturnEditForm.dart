@@ -69,12 +69,12 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
     controller.fetchExpenseCategory();
     controller.fetchBusinessjustification();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // calculateAmounts(widget.items!..toString());
-    });
-    controller.fetchExpenseDocImage(widget.items!.recId);
+      controller.fetchExpenseDocImage(widget.items!.recId);
 
     historyFuture = controller.cashadvanceTracking(widget.items!.recId);
 
+    });
+   
     final timestamp = widget.items!.requestDate; // assuming this is int
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
     final formatted = DateFormat('dd/MM/yyyy').format(dateTime);

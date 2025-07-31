@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
 import 'package:digi_xpense/core/comman/widgets/button.dart';
+import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
@@ -37,18 +38,22 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   final controllerItems = Get.put(Controller());
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
-
+  RxList<CashAdvanceDropDownModel> cashAdvanceList =
+      <CashAdvanceDropDownModel>[].obs;
   int _currentStep = 0;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
   int _selectedCategoryIndex = -1;
   bool _showPaidForError = false;
   bool _showPaidWithError = false;
+  //  bool cashAdvanceField = false;
   bool _showQuantityError = false;
   bool _showUnitAmountError = false;
   bool _showUnitError = false;
   bool _showProjectError = false;
   bool setQuality = true;
+  bool allowMultSelect = false;
+
   bool clearField = false;
   bool _showTaxAmountError = false;
   bool showItemizeDetails = false;
@@ -56,6 +61,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   bool? isThereReferenceID = false;
   String? paidToError;
   final RxnString paidwithError = RxnString();
+  final RxnString cashAdvanceField = RxnString();
   String? selectDate;
   String? selectReferenceIDError;
   final PageController _pageController = PageController();
@@ -75,7 +81,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     controller.isManualEntryMerchant = false;
     _initializeUnits();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.fetchCashAdvanceRequests();
+      // Safe to update observables here
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
@@ -84,8 +90,33 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       controller.currencyDropDown();
       controller.getUserPref();
       controller.fetchExpenseCategory();
-      controller.fetchExchangeRate();
+      _loadSettings();
+      loadAndAppendCashAdvanceList();
+      // controller.fetchExchangeRate();
     });
+  }
+
+  Future<void> loadAndAppendCashAdvanceList() async {
+    try {
+      final newItems = await controller.fetchCashAdvanceList();
+      controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
+      print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    }
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        print("allowDocAttachments$allowMultSelect");
+        // isLoading = false;
+      });
+    } else {
+      // setState(() => isLoading = false);
+    }
   }
 
   bool isFieldMandatory(String fieldName) {
@@ -101,38 +132,33 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   bool validateDropdowns() {
     bool isValid = true;
 
-    // Validate Paid To
-    if (!controller.isManualEntryMerchant &&
-        controller.selectedPaidto == null) {
+    if (allowMultSelect) {
+       print("allowMultSelect$allowMultSelect");
+      if (controller.cashAdvanceIds.text.isEmpty) {
+        cashAdvanceField.value = 'Please select a Cash Advance';
+        isValid = false;
+      }
+      else {
       setState(() {
-        paidToError = 'Please select a merchant';
+        // selectReferenceIDError = null;
+        cashAdvanceField.value= null;
       });
-      isValid = false;
-    } else if (controller.isManualEntryMerchant &&
-        controller.manualPaidToController.text.trim().isEmpty) {
+    }
+    } else {
+      cashAdvanceField.value = 'Please select a Cash Advance';
+      // isValid = false;
+    }
+    if (controller.paidWith == null) {
+      print("PaidWithError");
       setState(() {
-        paidToError = 'Please enter a merchant name';
+        paidwithError.value = 'Please select a Payment Method';
       });
       isValid = false;
     } else {
-      // Clear error if valid
       setState(() {
-        paidToError = null;
+        paidwithError.value = null;
       });
     }
-
-    // Validate Paid With
-    // if (controller.paidWith == null) {
-    //   print("PaidWithError");
-    //   setState(() {
-    //     paidwithError.value = 'Please select a Payment Method';
-    //   });
-    //   isValid = false;
-    // } else {
-    //   setState(() {
-    //     paidwithError.value = null;
-    //   });
-    // }
 
     // Validate Date
     // if (controller.selectedDate == null) {
@@ -201,14 +227,17 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   Future<void> _initializeUnits() async {
     await controller.fetchUnit(); // Wait for units to be fetched
     Timer(const Duration(seconds: 5), () {
-      final defaultUnit = controller.unit.firstWhere(
-        (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
-        orElse: () => controller.unit.first,
-      );
-      setState(() {
-        controller.selectedunit ??= defaultUnit;
-        controller.selectedunit ??= defaultUnit;
-      });
+      print("controller.unit${controller.selectedunit}");
+      if (controller.selectedunit == null) {
+        final defaultUnit = controller.unit.firstWhere(
+          (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
+          orElse: () => controller.unit.first,
+        );
+        setState(() {
+          controller.selectedunit ??= defaultUnit;
+          controller.selectedunit ??= defaultUnit;
+        });
+      }
     });
   }
 
@@ -457,9 +486,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
             child: Scaffold(
               appBar: AppBar(
                   title: const Text(
-                "Return Form",
-                style: TextStyle(fontWeight: FontWeight.w800),
-                textAlign: TextAlign.center,
+                "Cash Advance Return Form ",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               )),
               body: Column(
                 children: [
@@ -520,7 +548,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
   Widget expenseCreateForm2(BuildContext context, Controller controller) {
     // Use the provided controller parameter consistently
-    controller.selectedunit = controllerItems.selectedunit;
+    controller.selectedunit ??= controllerItems.selectedunit;
     controller.selectedDate = controllerItems.selectedDate;
     // controller.isReimbursite.vale = true;
     print("selecteduni${controller.selectedunit}");
@@ -1115,35 +1143,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Obx(() => SwitchListTile(
-                title: const Text("Is Reimbursable",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87)),
-                value: controller.isReimbursiteCreate.value,
-                activeColor: Colors.green,
-                inactiveThumbColor: Colors.grey.shade400,
-                inactiveTrackColor: Colors.grey.shade300,
-                onChanged: (val) {
-                  controller.isReimbursiteCreate.value = val;
-                })),
-            SwitchListTile(
-                title: const Text("Is Billable",
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87)),
-                value: controller.isBillable.value,
-                activeColor: Colors.blue,
-                inactiveThumbColor: Colors.grey.shade400,
-                inactiveTrackColor: Colors.grey.shade300,
-                onChanged: (val) {
-                  setState(() {
-                    controller.isBillable.value = val;
-                  });
-                }),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -1413,7 +1412,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     return Scaffold(
       body: Obx(() {
         return controller.isLoadingGE2.value
-            ? SkeletonLoaderPage()
+            ? const SkeletonLoaderPage()
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
@@ -1440,7 +1439,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Retrun Date *',
+                                    labelText: 'Request Date *',
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -1472,7 +1471,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         },
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 6),
 
                       // Reference ID Field
                       Obx(() {
@@ -1538,69 +1537,44 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         );
                       }),
 
-                      const SizedBox(height: 16),
+                      // const SizedBox(height: 10),
 
-                      // Paid To Dropdown
                       Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Cash Advance Request *',
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-
-                          // 🔁 Toggle Button
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  controller.isManualEntryMerchant =
-                                      !controller.isManualEntryMerchant;
-                                  if (controller.isManualEntryMerchant) {
-                                    controller.selectedPaidto = null;
-                                  } else {
-                                    controller.manualPaidToController.clear();
-                                  }
-                                  paidToError = null;
-                                });
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MultiSelectMultiColumnDropdownField<
+                                CashAdvanceDropDownModel>(
+                              labelText: 'Cash Advance Request',
+                              items: controller.cashAdvanceListDropDown,
+                              isMultiSelect: allowMultSelect ?? false,
+                              selectedValue: controller.singleSelectedItem,
+                              selectedValues: controller.multiSelectedItems,
+                              // selectedValue: controller.selectedLocation,
+                              // enabled: controller.isEditModePerdiem,
+                              // controller: controller.locationController,
+                              // ignore: unnecessary_string_interpolations
+                              searchValue: (proj) => '${proj.cashAdvanceReqId}',
+                              displayText: (proj) => proj.cashAdvanceReqId,
+                              validator: (proj) => proj == null
+                                  ? 'Please select a CashAdvance Field'
+                                  : null,
+                              onChanged: (item) {
+                              cashAdvanceField.value = null;
                               },
-                              child: Text(controller.isManualEntryMerchant
-                                  ? 'Select from Merchant List'
-                                  : "Can't find merchant? Enter manually"),
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // 👇 Conditional UI
-                          if (!controller.isManualEntryMerchant)
-                            SearchableMultiColumnDropdownField<MerchantModel>(
-                              labelText: 'Select Merchant',
+                              onMultiChanged: (items) {
+                              
+                              },
                               columnHeaders: const [
-                                'Merchant Name',
-                                'Merchant ID'
+                                'Request ID',
+                                'Request Date'
                               ],
-                              items: controller.paidTo,
-                              selectedValue: controller.selectedPaidto,
-                              searchValue: (p) =>
-                                  '${p.merchantNames} ${p.merchantId}',
-                              displayText: (p) => p.merchantNames,
-                              validator: (_) => null,
-                              onChanged: (p) {
-                                setState(() {
-                                  controller.selectedPaidto = p;
-                                  paidToError = null;
-                                });
-                              },
-                              rowBuilder: (p, searchQuery) {
+                              rowBuilder: (proj, searchQuery) {
                                 Widget highlight(String text) {
                                   final lowerQuery = searchQuery.toLowerCase();
                                   final lowerText = text.toLowerCase();
                                   final start = lowerText.indexOf(lowerQuery);
-
-                                  if (start == -1 || searchQuery.isEmpty) {
+                                  if (start == -1 || searchQuery.isEmpty)
                                     return Text(text);
-                                  }
 
                                   final end = start + searchQuery.length;
                                   return RichText(
@@ -1633,44 +1607,35 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                   child: Row(
                                     children: [
                                       Expanded(
-                                          child: highlight(p.merchantNames)),
-                                      Expanded(child: highlight(p.merchantId)),
+                                          child: Text(proj.cashAdvanceReqId)),
+                                      Expanded(
+                                          child: Text(
+                                              proj.requestDate.toString())),
                                     ],
                                   ),
                                 );
                               },
-                            )
-                          else
-                            TextFormField(
-                              controller: controller.manualPaidToController,
-                              decoration: InputDecoration(
-                                labelText: 'Enter Merchant Name',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                            ),
+                            if (selectReferenceIDError != null)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 8.0, bottom: 8),
+                                child: Text(
+                                  selectReferenceIDError.toString(),
+                                  style: const TextStyle(color: Colors.red),
                                 ),
                               ),
-                              onChanged: (val) {
-                                setState(() {
-                                  paidToError = null;
-                                });
-                              },
-                            ),
-
-                          const SizedBox(height: 8),
-
-                          if (paidToError != null)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 8.0, bottom: 8),
-                              child: Text(
-                                paidToError!,
-                                style: const TextStyle(color: Colors.red),
+                            if (cashAdvanceField.value != null)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 8.0, bottom: 8),
+                                child: Text(
+                                  cashAdvanceField.value!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
+                          ]),
+                      const SizedBox(height: 14),
                       const Text(
                         'Paid With',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -1736,7 +1701,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                     ],
                                   ),
                                   value: method.paymentMethodId,
-                                  groupValue: controller.paidWith,
+                                  groupValue: controller.paidWith,  
                                   onChanged: (String? value) {
                                     controller.paymentMethodeID = value;
                                     setState(() {
@@ -1884,7 +1849,8 @@ class CreateExpensePage extends StatefulWidget {
 
 class _CreateExpensePageState extends State<CreateExpensePage> {
   // bool controller._isVisible = false;
-
+  final _formKey = GlobalKey<FormState>();
+  bool _isSubmitAttempted = false;
   final FocusNode _focusNode = FocusNode();
   final PhotoViewController _photoViewController = PhotoViewController();
   final controller = Get.put(Controller());
@@ -2042,9 +2008,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (controller.imageFiles.isEmpty) {
+              // if (controller.isLoading.value) {
+              //   return const Center(child: CircularProgressIndicator());
+              // } else
+              if (controller.imageFiles.isEmpty) {
                 return const Center(child: Text('Tap to Upload Document(s)'));
               } else {
                 return ListView.builder(
@@ -2078,13 +2045,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   @override
-  void dispose() {
-    _photoViewController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   void initState() {
     super.initState();
 
@@ -2108,451 +2068,578 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildImageArea(),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey, // Add form key for validation
+            child: Column(
               children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Upload"),
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text("Capture"),
-                  onPressed: () => _pickImage(ImageSource.camera),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Paid Amount
+                _buildImageArea(),
+                const SizedBox(height: 20),
+
+                // Upload & Capture Buttons
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: controller.paidAmount,
-                        enabled: controller.paidAmontIsEditable.value,
-                        onChanged: (_) {
-                          controller.fetchExchangeRate();
-
-                          final paid =
-                              double.tryParse(controller.paidAmount.text) ??
-                                  0.0;
-                          final rate =
-                              double.tryParse(controller.unitRate.text) ?? 1.0;
-
-                          final result = paid * rate;
-
-                          controller.amountINR.text = result.toStringAsFixed(2);
-                          controller.isVisible.value = true;
-                        },
-                        focusNode: _focusNode,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Paid Amount *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.only(
-                                topRight: Radius.circular(0),
-                                bottomRight: Radius.circular(0),
-                                topLeft: Radius.circular(10),
-                                bottomLeft: Radius.circular(10)),
-                          ),
-                        ),
-                        onEditingComplete: () {
-                          String text = controller.paidAmount.text;
-                          double? value = double.tryParse(text);
-                          if (value != null) {
-                            controller.paidAmount.text =
-                                value.toStringAsFixed(2); // Format value
-                          }
-                          // Call once
-                          // Dismiss keyboard
-                        },
-                      ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text("Upload"),
+                      onPressed: () => _pickImage(ImageSource.gallery),
                     ),
-                    Expanded(
-                        child: Obx(
-                      () => SearchableMultiColumnDropdownField<Currency>(
-                        alignLeft: -90,
-                        dropdownWidth: 280,
-                        labelText: "",
-                        columnHeaders: const ['Code', 'Name', 'Symbol'],
-                        items: controller.currencies,
-                        selectedValue: controller.selectedCurrency.value,
-                        backgroundColor: const Color.fromARGB(255, 22, 2, 92),
-                        searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
-                        displayText: (c) => c.code,
-                        inputDecoration: const InputDecoration(
-                          suffixIcon: Icon(Icons.arrow_drop_down_outlined),
-                          filled: true,
-                          fillColor: Color.fromARGB(55, 5, 23, 128),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(0),
-                              bottomLeft: Radius.circular(0),
-                              topRight: Radius.circular(10),
-                              bottomRight: Radius.circular(10),
-                            ),
-                          ),
-                        ),
-                        validator: (c) =>
-                            c == null ? 'Please pick a currency' : null,
-                        onChanged: (c) {
-                          controller.selectedCurrency.value = c;
-                          controller.fetchExchangeRate();
-                          // controller.userPreferences()
-                        },
-                        rowBuilder: (c, searchQuery) {
-                          Widget highlight(String text) {
-                            final lowerQuery = searchQuery.toLowerCase();
-                            final lowerText = text.toLowerCase();
-                            final start = lowerText.indexOf(lowerQuery);
-
-                            if (start == -1 || searchQuery.isEmpty) {
-                              return Text(text);
-                            }
-
-                            final end = start + searchQuery.length;
-                            return RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: text.substring(0, start),
-                                    style: const TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(start, end),
-                                    style: const TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(end),
-                                    style: const TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
-                            child: Row(
-                              children: [
-                                Expanded(child: highlight(c.code)),
-                                Expanded(child: highlight(c.name)),
-                                Expanded(child: highlight(c.symbol)),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    )),
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: controller.unitRate,
-                        decoration: InputDecoration(
-                          labelText: 'Rate *',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        // initialValue: controller.unitRate,
-                      ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Capture"),
+                      onPressed: () => _pickImage(ImageSource.camera),
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
 
-                Obx(() {
-                  return Column(
-                    children: [
-                      if (controller.isVisible.value)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                final double lineAmount = double.tryParse(
-                                        controller.paidAmount.text) ??
-                                    0.0;
-                                controller.isManualEntry = false;
-                                print(lineAmount);
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(16)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Paid Amount + Currency + Rate
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: controller.paidAmount,
+                            enabled: controller.paidAmontIsEditable.value,
+                            focusNode: _focusNode,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Paid Amount *',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.only(
+                                  topRight: Radius.circular(0),
+                                  bottomRight: Radius.circular(0),
+                                  topLeft: Radius.circular(10),
+                                  bottomLeft: Radius.circular(10),
+                                ),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Paid amount is required';
+                              }
+                              final parsed = double.tryParse(value);
+                              if (parsed == null || parsed <= 0) {
+                                return 'Enter a valid amount';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) {
+                              final paid =
+                                  double.tryParse(controller.paidAmount.text) ??
+                                      0.0;
+                              final rate =
+                                  double.tryParse(controller.unitRate.text);
+                              if (rate != null) {
+                                final result = paid * rate;
+                                controller.amountINR.text =
+                                    result.toStringAsFixed(2);
+                                controller.isVisible.value = true;
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Obx(() {
+                            return SearchableMultiColumnDropdownField<Currency>(
+                              alignLeft: -90,
+                              dropdownWidth: 280,
+                              labelText: "Currency *",
+                              columnHeaders: const ['Code', 'Name', 'Symbol'],
+                              items: controller.currencies,
+                              selectedValue: controller.selectedCurrency.value,
+                              backgroundColor:
+                                  const Color.fromARGB(255, 22, 2, 92),
+                              searchValue: (c) =>
+                                  '${c.code} ${c.name} ${c.symbol}',
+                              displayText: (c) => c.code,
+                              inputDecoration: const InputDecoration(
+                                suffixIcon:
+                                    Icon(Icons.arrow_drop_down_outlined),
+                                filled: true,
+                                fillColor: Color.fromARGB(55, 5, 23, 128),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(0),
+                                    bottomLeft: Radius.circular(0),
+                                    topRight: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
                                   ),
-                                  builder: (context) => Padding(
-                                    padding: EdgeInsets.only(
-                                      bottom: MediaQuery.of(context)
-                                          .viewInsets
-                                          .bottom,
-                                      left: 16,
-                                      right: 16,
-                                      top: 24,
-                                    ),
-                                    child: SingleChildScrollView(
-                                      child: AccountingDistributionWidget(
-                                        splits: controller.split,
-                                        lineAmount: lineAmount,
-                                        onChanged: (i, updatedSplit) {
-                                          if (!mounted) return;
-                                          controller.split[i] = updatedSplit;
-                                        },
-                                        onDistributionChanged: (newList) {
-                                          if (!mounted) return;
-                                          controller.accountingDistributions
-                                              .clear();
-                                          controller.accountingDistributions
-                                              .addAll(newList);
-                                        },
-                                      ),
-                                    ),
+                                ),
+                              ),
+                              validator: (c) =>
+                                  c == null ? 'Please select a currency' : null,
+                              onChanged: (c) {
+                                controller.selectedCurrency.value = c;
+                                controller.currencyDropDowncontroller.text =
+                                    c!.code;
+                                controller.fetchExchangeRate();
+                              },
+                              controller: controller.currencyDropDowncontroller,
+                              rowBuilder: (c, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 16),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text(c.code)),
+                                      Expanded(child: Text(c.name)),
+                                      Expanded(child: Text(c.symbol)),
+                                    ],
                                   ),
                                 );
                               },
-                              child: const Text('Account Distribution'),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }),
-                // Amount in INR
-                TextFormField(
-                  controller: controller.amountINR,
-                  enabled: false,
-                  decoration: InputDecoration(
-                    labelText: 'Amount in INR *',
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // Policy Violations Header
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Policy Violations',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text(
-                      'Check Policies',
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Policy Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Policy 1001',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Icon(Icons.check, color: Colors.green),
-                          SizedBox(width: 8),
-                          Expanded(child: Text("Expense Amount Under Limit")),
-                        ],
-                      ),
-                      SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.check, color: Colors.green),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "Receipt Required Amount :Amount  in any expense\nRecorded Should have a receipt",
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.close, color: Colors.red),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "if description has been made mandatory by the Admin for all expense",
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.error_outline, color: Colors.orange),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              "An expense that has expired is Considered a Policy",
-                              style: TextStyle(color: Colors.black87),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Buttons
-                Center(
-                  child: Column(
-                    children: [
-                      Obx(() {
-                        return GradientButton(
-                          text: "Submit",
-                          isLoading: controller.isGESubmitBTNLoading.value,
-                          onPressed: () {
-                            controller.saveGeneralExpense(context, true, false);
-                          },
-                        );
-                      }),
-                      // SizedBox(
-                      //   width: 200,
-                      //   height: 48,
-                      //   child: ElevatedButton(
-                      //     onPressed: () {
-                      //       // Your action here
-                      //     },
-                      //     style: ElevatedButton.styleFrom(
-                      //       padding: EdgeInsets.zero,
-                      //       shape: RoundedRectangleBorder(
-                      //         borderRadius: BorderRadius.circular(24),
-                      //       ),
-                      //       backgroundColor: Colors.transparent, // Important!
-                      //       shadowColor: Colors.transparent,
-                      //     ),
-                      //     child: Ink(
-                      //       decoration: BoxDecoration(
-                      //         gradient: const LinearGradient(
-                      //           colors: [Colors.indigo, Colors.blueAccent],
-                      //         ),
-                      //         borderRadius: BorderRadius.circular(24),
-                      //       ),
-                      //       child: Container(
-                      //         alignment: Alignment.center,
-                      //         child: const Text(
-                      //           'Submit',
-                      //           style: TextStyle(
-                      //             color: Colors.white,
-                      //             fontWeight: FontWeight.bold,
-                      //           ),
-                      //         ),
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Obx(() {
-                            return ElevatedButton(
-                              onPressed: controller.isUploading.value
-                                  ? null
-                                  : () {
-                                      controller.saveGeneralExpense(
-                                          context, false, false);
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(130, 50),
-                                backgroundColor: Color.fromARGB(241, 20, 94, 2),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              child: controller.isUploading.value
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text("Save"),
                             );
                           }),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(130, 50),
-                              backgroundColor: Colors.grey,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            controller: controller.unitRate,
+                            keyboardType:
+                                TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'Rate *',
+                              border: OutlineInputBorder(),
                             ),
-                            onPressed: () {
-                              controller.chancelButton(context);
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Rate is required';
+                              }
+                              final parsed = double.tryParse(value);
+                              if (parsed == null || parsed <= 0) {
+                                return 'Enter a valid rate';
+                              }
+                              return null;
                             },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 12),
-                              child: Text("Cancel",
-                                  style: TextStyle(
-                                      letterSpacing: 1.5, color: Colors.white)),
+                            onChanged: (val) {
+                              final paid =
+                                  double.tryParse(controller.paidAmount.text) ??
+                                      0.0;
+                              final rate = double.tryParse(val) ?? 1.0;
+                              final result = paid * rate;
+                              controller.amountINR.text =
+                                  result.toStringAsFixed(2);
+                              controller.isVisible.value = true;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Account Distribution Button
+                    Obx(() {
+                      return Column(
+                        children: [
+                          if (controller.isVisible.value &&
+                              controller.paidAmontIsEditable.value)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    final double lineAmount = double.tryParse(
+                                            controller.paidAmount.text) ??
+                                        0.0;
+                                    if (controller.split.isEmpty &&
+                                        controller.accountingDistributions
+                                            .isNotEmpty) {
+                                      controller.split.assignAll(
+                                        controller.accountingDistributions
+                                            .map((e) {
+                                          return AccountingSplit(
+                                            paidFor: e!.dimensionValueId,
+                                            percentage: e.allocationFactor,
+                                            amount: e.transAmount,
+                                          );
+                                        }).toList(),
+                                      );
+                                    } else if (controller.split.isEmpty) {
+                                      controller.split.add(
+                                          AccountingSplit(percentage: 100.0));
+                                    }
+                                    print(lineAmount);
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(16)),
+                                      ),
+                                      builder: (context) => Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: MediaQuery.of(context)
+                                              .viewInsets
+                                              .bottom,
+                                          left: 16,
+                                          right: 16,
+                                          top: 24,
+                                        ),
+                                        child: SingleChildScrollView(
+                                          child: AccountingDistributionWidget(
+                                            splits: controller.split,
+                                            lineAmount: lineAmount,
+                                            onChanged: (i, updatedSplit) {
+                                              if (!mounted) return;
+                                              controller.split[i] =
+                                                  updatedSplit;
+                                            },
+                                            onDistributionChanged: (newList) {
+                                              if (!mounted) return;
+
+                                              // 🔥 Print each item in newList for debugging
+                                              for (var dist in newList) {
+                                                print("onDistributionChanged:");
+                                                print(
+                                                    "  TransAmount: ${dist.transAmount}");
+                                                print(
+                                                    "  ReportAmount: ${dist.reportAmount}");
+                                                print(
+                                                    "  AllocationFactor: ${dist.allocationFactor}");
+                                                print(
+                                                    "  DimensionValueId: ${dist.dimensionValueId}");
+                                              }
+
+                                              controller.accountingDistributions
+                                                  .clear();
+                                              controller.accountingDistributions
+                                                  .addAll(newList);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Account Distribution'),
+                                ),
+                              ],
                             ),
+                          const SizedBox(height: 20),
+                        ],
+                      );
+                    }),
+
+                    // Amount in INR (readonly)
+                    TextFormField(
+                      controller: controller.amountINR,
+                      enabled: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Amount in INR *',
+                        filled: true,
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // Policy Violations
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Policy Violations',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'Check Policies',
+                          style: TextStyle(color: Colors.blue),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPolicyCard(),
+                    const SizedBox(height: 40),
+
+                    // Buttons: Submit, Save, Cancel
+                    Center(
+                      child: Column(
+                        children: [
+                          // 🚨 Submit Button
+                          Obx(() {
+                            bool isSubmitLoading =
+                                controller.buttonLoaders['submit'] ?? false;
+                            bool isSaveLoading =
+                                controller.buttonLoaders['save'] ?? false;
+                            bool isCancelLoading =
+                                controller.buttonLoaders['cancel'] ?? false;
+                            bool isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
+
+                            return SizedBox(
+                              width: 300,
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: (isSubmitLoading ||
+                                        isSaveLoading ||
+                                        isCancelLoading ||
+                                        isAnyLoading)
+                                    ? null
+                                    : () async {
+                                        _isSubmitAttempted = true;
+                                        if (_formKey.currentState?.validate() ??
+                                            false) {
+                                          controller.setButtonLoading(
+                                              'submit', true);
+                                          try {
+                                            await controller
+                                                .createcashAdvanceReturn(
+                                                    context, true, false);
+                                          } finally {
+                                            controller.setButtonLoading(
+                                                'submit', false);
+                                          }
+                                        } else {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Please fill all required fields.'),
+                                              backgroundColor: Colors.redAccent,
+                                            ),
+                                          );
+                                          setState(
+                                              () {}); // Refresh UI for inline errors
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  backgroundColor: AppColors.gradientEnd,
+                                ),
+                                child: isSubmitLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Submit',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            );
+                          }),
+
+                          const SizedBox(height: 20),
+
+                          // 💾 Save & Cancel Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                          false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
+                                  return ElevatedButton(
+                                    onPressed: (isSubmitLoading ||
+                                            isSaveLoading ||
+                                            isCancelLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            _isSubmitAttempted = true;
+                                            if (_formKey.currentState
+                                                    ?.validate() ??
+                                                false) {
+                                              controller.setButtonLoading(
+                                                  'save', true);
+                                              try {
+                                                await controller
+                                                    .createcashAdvanceReturn(
+                                                        context, false, false);
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                    'save', false);
+                                              }
+                                            } else {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                      'Please fill all required fields.'),
+                                                  backgroundColor:
+                                                      Colors.redAccent,
+                                                ),
+                                              );
+                                              setState(
+                                                  () {}); // Refresh UI for inline errors
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: const Size(130, 50),
+                                      backgroundColor:
+                                          const Color.fromARGB(241, 20, 94, 2),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: isSaveLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text("Save"),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Obx(() {
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                          false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
+                                  return ElevatedButton(
+                                    onPressed: (isSubmitLoading ||
+                                            isSaveLoading ||
+                                            isCancelLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                                'cancel', true);
+                                            try {
+                                              controller.chancelButton(context);
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                  'cancel', false);
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: const Size(130, 50),
+                                      backgroundColor: Colors.grey,
+                                    ),
+                                    child: isCancelLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            "Cancel",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                            ],
                           ),
                         ],
-                      )
-                    ],
-                  ),
+                      ),
+                    )
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
-    ));
+    );
+  }
+
+  Widget _buildPolicyCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Policy 1001', style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.check, color: Colors.green),
+              SizedBox(width: 8),
+              Expanded(child: Text("Expense Amount Under Limit")),
+            ],
+          ),
+          SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.check, color: Colors.green),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Receipt Required Amount: Any expense recorded should have a receipt",
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.close, color: Colors.red),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "If description has been made mandatory by the Admin for all expense",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "An expense that has expired is considered a Policy",
+                  style: TextStyle(color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -261,11 +261,17 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: AppColors.gradientEnd,
                     onPressed: () {
-                      //  Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnForms);
                       Navigator.pushNamed(
-                          context, AppRoutes.formCashAdvanceRequest);
+                          context, AppRoutes.cashAdvanceReturnForms);
+                      // Navigator.pushNamed(
+                      //     context, AppRoutes.formCashAdvanceRequest);
                     },
-                    child: Image.asset("assets/cashAdvanse.png"),
+                    child: Image.asset(
+                      "assets/CashReturn.png",
+                      width: 25, // adjust as needed
+                      height: 25
+                      , // adjust as needed
+                    ),
                   ),
                   const SizedBox(height: 10),
                   FloatingActionButton(
@@ -277,6 +283,18 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                           context, AppRoutes.mileageExpensefirst);
                     },
                     child: Image.asset("assets/vodometer.png"),
+                  ),
+                  const SizedBox(height: 10),
+                  FloatingActionButton(
+                    heroTag: 'addFab3',
+                    mini: true,
+                    backgroundColor: AppColors.gradientEnd,
+                    onPressed: () {
+                      //  Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnForms);
+                      Navigator.pushNamed(
+                          context, AppRoutes.formCashAdvanceRequest);
+                    },
+                    child: Image.asset("assets/cashAdvanse.png"),
                   ),
                 ],
               ),

@@ -12,26 +12,21 @@ import 'package:intl/intl.dart';
 import '../../../../models.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 
-class GeneralExpenseDashboard extends StatefulWidget {
-  const GeneralExpenseDashboard({super.key});
+class MyTeamExpenseDashboard extends StatefulWidget {
+  const MyTeamExpenseDashboard({super.key});
 
   @override
-  State<GeneralExpenseDashboard> createState() =>
-      _GeneralExpenseDashboardState();
+  State<MyTeamExpenseDashboard> createState() => _MyTeamExpenseDashboardState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
+class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
     with TickerProviderStateMixin {
   late final Controller controller;
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   bool isLoading = false;
-  final List<String> statusOptions = [
-    "Un Reported",
-    "Approved",
-    "Cancelled",
-    "Rejected",
+  final List<String> statusOptionsmyTeam = [
     "In Process",
     "All",
   ];
@@ -40,14 +35,14 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   void initState() {
     super.initState();
     controller = Get.find(); // Use existing controller
-
+    controller.selectedStatusmyteam = "In Process";
     _scrollController = ScrollController();
 
     // Load data
     controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
-    controller.fetchMileageRates();
+    // controller.fetchMileageRates();
     controller.fetchManageExpensesCards().then((_) {
       if (controller.manageExpensesCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
@@ -67,8 +62,8 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
       }
     });
 
-    controller.fetchGetallGExpense().then((_) {
-      controller.isEnable.value = false;
+    controller.fetchAllmyTeamsExpens().then((_) {
+      controller.isLoadingGE1.value = false;
     });
   }
 
@@ -154,7 +149,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   child: Padding(
                     padding: EdgeInsets.only(left: 16.0), // Like margin-left
                     child: Text(
-                      "Expense Dashboard",
+                      "My Team Expense Dashboard",
                       style: TextStyle(
                         color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -230,63 +225,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
                 const SizedBox(height: 12),
 
-                // 🔹 Add Buttons (Scrollable)
-                SizedBox(
-                  height: 56,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemCount: 4,
-                    itemBuilder: (context, index) {
-                      final buttons = [
-                        {
-                          'label': 'Add Expense',
-                          'icon': Icons.receipt,
-                          'route': AppRoutes.expenseForm
-                        },
-                        {
-                          'label': 'Add Per Diem',
-                          'icon': Icons.food_bank,
-                          'route': AppRoutes.perDiem
-                        },
-                        {
-                          'label': 'Add Cash Advance',
-                          'icon': Icons.attach_money,
-                          'route': AppRoutes.cashAdvanceReturnForms
-                        },
-                        {
-                          'label': 'Add Mileage',
-                          'icon': Icons.directions_car,
-                          'route': AppRoutes.mileageExpensefirst
-                        },
-                      ];
-                      final btn = buttons[index];
-                      return ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(
-                            context, btn['route'].toString()),
-                        icon: Icon(btn['icon'] as IconData?,
-                            size: 18, color: Colors.white),
-                        label: Text(
-                          btn['label'].toString(),
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0E4C92),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
                 // 🔹 Filter Dropdown (Replaces Overlay)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -297,7 +235,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Obx(() => DropdownButton<String>(
-                          value: controller.selectedStatusDropDown
+                          value: controller.selectedStatusDropDownmyteam
                               .value, // ← Make sure it's .value for RxString
                           isExpanded: true,
                           underline: Container(), // Removes default underline
@@ -307,14 +245,15 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               color: Colors.deepPurple),
                           onChanged: (String? newValue) {
                             if (newValue != null &&
-                                newValue != controller.selectedStatus) {
-                              controller.selectedStatus = newValue;
-                              controller.selectedStatusDropDown.value =
+                                newValue != controller.selectedStatusmyteam) {
+                              controller.selectedStatusmyteam = newValue;
+                              controller.selectedStatusDropDownmyteam.value =
                                   newValue; // Update reactive value
-                              controller.fetchGetallGExpense(); // Refetch data
+                              controller
+                                  .fetchAllmyTeamsExpens(); // Refetch data
                             }
                           },
-                          items: statusOptions
+                          items: statusOptionsmyTeam
                               .map<DropdownMenuItem<String>>((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
@@ -365,11 +304,11 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
                               if (item.expenseType == "PerDiem") {
                                 await controller.fetchSecificPerDiemItem(
-                                    context, item.recId,false);
+                                    context, item.recId, true);
                               } else if (item.expenseType ==
                                   "General Expenses") {
                                 await controller.fetchSecificExpenseItem(
-                                    context, item.recId,true);
+                                    context, item.recId);
                                 controller.fetchExpenseHistory(item.recId);
                               } else if (item.expenseType == "Mileage") {
                                 print("Its Call");
@@ -618,15 +557,16 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     return GestureDetector(
       onTap: () {
         if (item.expenseType == "PerDiem") {
-          controller.fetchSecificPerDiemItem(context, item.recId,false);
+          controller.fetchSecificPerDiemItem(context, item.recId,true);
+          controller.isEditModePerdiem = false;
         } else if (item.expenseType == "General Expenses") {
           print("Expenses${item.recId}");
-          controller.fetchSecificExpenseItem(context, item.recId,true);
+          controller.fetchSecificExpenseItem(context, item.recId, false);
           controller.fetchExpenseHistory(item.recId);
         } else if (item.expenseType == "Mileage") {
           controller.fetchMileageDetails(context, item.recId);
         } else if (item.expenseType == "CashAdvanceReturn") {
-          controller.fetchSecificCashAdvanceReturn(context, item.recId,true);
+        controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

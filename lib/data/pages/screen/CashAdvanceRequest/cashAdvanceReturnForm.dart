@@ -141,13 +141,17 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     if (controller.selectedjustification == null) {
       setState(() {
         paidToError = 'Please select a Business Justification';
+        isValid = false;
       });
-      isValid = false;
-    } else if (controller.expenseIdController.text.trim().isEmpty) {
+      
+    } else 
+    if(showField.value){
+      if (controller.expenseIdController.text.trim().isEmpty) {
       setState(() {
         _showExpenseIdError = true;
+        
       });
-      isValid = false;
+      }
     } else {
       // Clear error if valid
       setState(() {

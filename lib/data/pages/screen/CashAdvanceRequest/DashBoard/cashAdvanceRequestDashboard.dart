@@ -439,80 +439,95 @@ class _CashAdvanceRequestDashboardState
                       crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        CompositedTransformTarget(
-                          link: _layerLink,
-                          child: GestureDetector(
-                            onTap: _toggleOverlay,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.deepPurple.withOpacity(0.3),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
+                        // 🔹 Responsive Dropdown Filter
+                        Expanded(
+                          flex: 3, // Takes 3 parts of available space
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Obx(() => DropdownButton<String>(
+                                  value:
+                                      controller.selectedStatusDropDown.value,
+                                  isExpanded: true,
+                                  underline: Container(),
+                                  borderRadius: BorderRadius.circular(10),
+                                  style: const TextStyle(
+                                      color: Colors.deepPurple, fontSize: 14),
+                                  icon: const Icon(Icons.arrow_drop_down,
+                                      color: Colors.deepPurple),
+                                  onChanged: (String? newValue) {
+                                    if (newValue != null &&
+                                        newValue != controller.selectedStatus) {
+                                      // Update both legacy and reactive values for backward compatibility
+                                      controller.selectedStatus = newValue;
+                                      controller.selectedStatusDropDown.value =
+                                          newValue;
+                                      controller.fetchCashAdvanceRequisitions(); // Refetch with new filter
+                                    }
+                                  },
+                                  items: statusOptions
+                                      .map<DropdownMenuItem<String>>(
+                                          (String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(
+                                        value,
+                                        style: const TextStyle(
+                                            color: Colors.black),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  hint: const Text(
+                                    "Select Status",
+                                    style: TextStyle(color: Colors.grey),
                                   ),
-                                ],
+                                )),
+                          ),
+                        ),
+
+                        const SizedBox(
+                            width: 12), // Spacing between dropdown and button
+
+                        // 🔹 Add Request Button
+                        Expanded(
+                          flex:
+                              3, // Takes 2 parts of space (smaller than dropdown)
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                  context, AppRoutes.formCashAdvanceRequest);
+                            },
+                            icon: const Icon(Icons.add_circle,
+                                size: 18, color: Colors.white),
+                            label: const Text(
+                              "Add Request",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                              padding: const EdgeInsets.all(10.0),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.filter_list,
-                                      color: Colors.white, size: 20),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    controller.selectedStatus,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.blue.shade800,
+                              elevation: 4,
+                              shadowColor:
+                                  Colors.blue.shade900.withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              textStyle: const TextStyle(fontSize: 14),
                             ),
                           ),
                         ),
-                        // Expanded(
-                        //   child: Align(
-                        //     alignment: Alignment.centerRight,
-                        //     child: ElevatedButton.icon(
-                        //       onPressed: () {
-                        //         // Navigate to add screen
-                        //         Navigator.pushNamed(
-                        //             context, AppRoutes.formCashAdvanceRequest);
-                        //       },
-                        //       icon: const Icon(Icons.add_circle,
-                        //           size: 18, color: Colors.white),
-                        //       label: const Text(
-                        //         "Add Request",
-                        //         style: TextStyle(
-                        //           fontSize: 14,
-                        //           fontWeight: FontWeight.w600,
-                        //         ),
-                        //       ),
-                        //       style: ElevatedButton.styleFrom(
-                        //         foregroundColor: Colors.white,
-                        //         backgroundColor:
-                        //             Colors.blue.shade800, // Deep blue
-                        //         elevation: 4,
-                        //         shadowColor:
-                        //             Colors.blue.shade900.withOpacity(0.4),
-                        //         shape: RoundedRectangleBorder(
-                        //           borderRadius: BorderRadius.circular(12),
-                        //         ),
-                        //         padding: const EdgeInsets.symmetric(
-                        //             horizontal: 16, vertical: 12),
-                        //         textStyle: const TextStyle(fontSize: 14),
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ),
                       ],
                     ),
                   ),
-
                   SizedBox(
                     height: MediaQuery.of(context).size.height * 0.45,
                     child: Obx(() {

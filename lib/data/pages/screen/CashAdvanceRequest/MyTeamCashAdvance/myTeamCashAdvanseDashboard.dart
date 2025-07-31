@@ -12,26 +12,22 @@ import 'package:intl/intl.dart';
 import '../../../../models.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 
-class GeneralExpenseDashboard extends StatefulWidget {
-  const GeneralExpenseDashboard({super.key});
+class MyTeamCashAdvanceDashboard extends StatefulWidget {
+  const MyTeamCashAdvanceDashboard({super.key});
 
   @override
-  State<GeneralExpenseDashboard> createState() =>
-      _GeneralExpenseDashboardState();
+  State<MyTeamCashAdvanceDashboard> createState() =>
+      _MyTeamCashAdvanceDashboardState();
 }
 
-class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
+class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     with TickerProviderStateMixin {
   late final Controller controller;
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   bool isLoading = false;
-  final List<String> statusOptions = [
-    "Un Reported",
-    "Approved",
-    "Cancelled",
-    "Rejected",
+  final List<String> statusOptionsmyTeam = [
     "In Process",
     "All",
   ];
@@ -47,7 +43,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
-    controller.fetchMileageRates();
+    // controller.fetchMileageRates();
     controller.fetchManageExpensesCards().then((_) {
       if (controller.manageExpensesCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
@@ -66,9 +62,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         _animationController.repeat();
       }
     });
-
-    controller.fetchGetallGExpense().then((_) {
-      controller.isEnable.value = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchAllmyTeamsCashAdvanse().then((_) {
+        controller.isLoadingGE1.value = false;
+      });
     });
   }
 
@@ -95,7 +92,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-
     return WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
@@ -154,7 +150,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   child: Padding(
                     padding: EdgeInsets.only(left: 16.0), // Like margin-left
                     child: Text(
-                      "Expense Dashboard",
+                      "My Team Cash Advances",
                       style: TextStyle(
                         color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -230,63 +226,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
                 const SizedBox(height: 12),
 
-                // 🔹 Add Buttons (Scrollable)
-                SizedBox(
-                  height: 56,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemCount: 4,
-                    itemBuilder: (context, index) {
-                      final buttons = [
-                        {
-                          'label': 'Add Expense',
-                          'icon': Icons.receipt,
-                          'route': AppRoutes.expenseForm
-                        },
-                        {
-                          'label': 'Add Per Diem',
-                          'icon': Icons.food_bank,
-                          'route': AppRoutes.perDiem
-                        },
-                        {
-                          'label': 'Add Cash Advance',
-                          'icon': Icons.attach_money,
-                          'route': AppRoutes.cashAdvanceReturnForms
-                        },
-                        {
-                          'label': 'Add Mileage',
-                          'icon': Icons.directions_car,
-                          'route': AppRoutes.mileageExpensefirst
-                        },
-                      ];
-                      final btn = buttons[index];
-                      return ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(
-                            context, btn['route'].toString()),
-                        icon: Icon(btn['icon'] as IconData?,
-                            size: 18, color: Colors.white),
-                        label: Text(
-                          btn['label'].toString(),
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0E4C92),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
                 // 🔹 Filter Dropdown (Replaces Overlay)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -297,7 +236,8 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Obx(() => DropdownButton<String>(
-                          value: controller.selectedStatusDropDown
+                          value: controller
+                              .selectedStatusDropDownmyteamCashAdvance
                               .value, // ← Make sure it's .value for RxString
                           isExpanded: true,
                           underline: Container(), // Removes default underline
@@ -307,14 +247,18 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               color: Colors.deepPurple),
                           onChanged: (String? newValue) {
                             if (newValue != null &&
-                                newValue != controller.selectedStatus) {
-                              controller.selectedStatus = newValue;
-                              controller.selectedStatusDropDown.value =
-                                  newValue; // Update reactive value
-                              controller.fetchGetallGExpense(); // Refetch data
+                                newValue !=
+                                    controller
+                                        .selectedStatusmyteamCashAdvance) {
+                              controller.selectedStatusmyteamCashAdvance =
+                                  newValue;
+                              controller.selectedStatusDropDownmyteamCashAdvance
+                                  .value = newValue; // Update reactive value
+                              controller
+                                  .fetchAllmyTeamsCashAdvanse(); // Refetch data
                             }
                           },
-                          items: statusOptions
+                          items: statusOptionsmyTeam
                               .map<DropdownMenuItem<String>>((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
@@ -336,15 +280,23 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                     if (controller.isLoadingGE1.value) {
                       return const SkeletonLoaderPage();
                     }
+                    final List<CashAdvanceRequestHeader> expenses =
+                        controller.getAllListCashAdvanseMyteams;
+                    final query =
+                        controller.searchQuery.value.toLowerCase().trim();
+                    final filteredExpenses = query.isEmpty
+                        ? expenses
+                        : expenses.where((item) {
+                            final lowerReqId = item.requisitionId.toLowerCase();
+                            final lowerEmployeeName =
+                                item.employeeName.toLowerCase();
+                            final lowerStatus =
+                                item.approvalStatus.toLowerCase();
 
-                    final expenses = controller.getAllListGExpense;
-                    final filteredExpenses = expenses.where((item) {
-                      final query = controller.searchQuery.value;
-                      if (query.isEmpty) return true;
-                      return item.expenseType.toLowerCase().contains(query) ||
-                          item.expenseType.toLowerCase().contains(query) ||
-                          item.expenseId.toLowerCase().contains(query);
-                    }).toList();
+                            return lowerReqId.contains(query) ||
+                                lowerEmployeeName.contains(query) ||
+                                lowerStatus.contains(query);
+                          }).toList();
                     if (expenses.isEmpty) {
                       return const Center(child: Text("No expenses found"));
                     }
@@ -356,26 +308,14 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                         final item = filteredExpenses[idx];
 
                         return Dismissible(
-                          key: ValueKey(item.expenseId),
+                          key: ValueKey(item.referenceId),
                           background: _buildSwipeActionLeft(isLoading),
                           secondaryBackground: _buildSwipeActionRight(),
                           confirmDismiss: (direction) async {
                             if (direction == DismissDirection.startToEnd) {
                               setState(() => isLoading = true);
 
-                              if (item.expenseType == "PerDiem") {
-                                await controller.fetchSecificPerDiemItem(
-                                    context, item.recId,false);
-                              } else if (item.expenseType ==
-                                  "General Expenses") {
-                                await controller.fetchSecificExpenseItem(
-                                    context, item.recId,true);
-                                controller.fetchExpenseHistory(item.recId);
-                              } else if (item.expenseType == "Mileage") {
-                                print("Its Call");
-                                Navigator.pushNamed(
-                                    context, AppRoutes.mileageDetailsPage);
-                              }
+                             
 
                               setState(() => isLoading = false);
                               return false;
@@ -384,7 +324,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('Delete?'),
-                                  content: Text('Delete "${item.expenseId}"?'),
+                                  content: Text('Delete "${item.referenceId}"?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
@@ -612,27 +552,27 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     );
   }
 
-  Widget _buildStyledCard(GExpense item, BuildContext context) {
-    print("itemxxx ${item.expenseType}");
+  Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
+    // print("itemxxx ${item.expenseType}");
     final controller = Get.put(Controller());
     return GestureDetector(
       onTap: () {
-        if (item.expenseType == "PerDiem") {
-          controller.fetchSecificPerDiemItem(context, item.recId,false);
-        } else if (item.expenseType == "General Expenses") {
-          print("Expenses${item.recId}");
-          controller.fetchSecificExpenseItem(context, item.recId,true);
-          controller.fetchExpenseHistory(item.recId);
-        } else if (item.expenseType == "Mileage") {
-          controller.fetchMileageDetails(context, item.recId);
-        } else if (item.expenseType == "CashAdvanceReturn") {
-          controller.fetchSecificCashAdvanceReturn(context, item.recId,true);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text("Unknown expense type: ${item.expenseType}")),
-          );
-        }
+        // if (item.expenseType == "PerDiem") {
+        //   controller.fetchSecificPerDiemItem(context, item.recId, false);
+        // } else if (item.expenseType == "General Expenses") {
+        //   print("Expenses${item.recId}");
+        //   controller.fetchSecificExpenseItem(context, item.recId, false);
+        //   controller.fetchExpenseHistory(item.recId);
+        // } else if (item.expenseType == "Mileage") {
+        //   controller.fetchMileageDetails(context, item.recId);
+        // } else if (item.expenseType == "CashAdvanceReturn") {
+          controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
+        // } else {
+        //   ScaffoldMessenger.of(context).showSnackBar(
+        //     SnackBar(
+        //         content: Text("Unknown expense type: ${item.expenseType}")),
+        //   );
+        // }
       },
       child: Card(
         color: const Color.fromARGB(218, 245, 244, 244),
@@ -648,11 +588,11 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(item.expenseId,
+                  Text(item.requisitionId,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text(
-                    item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                    item.requestDate != null
+                        ? DateFormat('dd-MM-yyyy').format(item.requestDate as DateTime)
                         : 'No date',
                     style: const TextStyle(
                         fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
@@ -663,7 +603,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
               const SizedBox(height: 4),
 
               // Category
-              Text(item.expenseCategoryId,
+              Text(item.expenseCategoryId.toString(),
                   style: const TextStyle(fontWeight: FontWeight.bold)),
 
               const SizedBox(height: 6),
@@ -685,7 +625,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                     ),
                   ),
                   Text(
-                    item.totalAmountReporting.toStringAsFixed(2),
+                    item.totalRequestedAmount.toString(),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
