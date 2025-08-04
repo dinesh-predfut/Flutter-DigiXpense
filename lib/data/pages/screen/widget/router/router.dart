@@ -10,6 +10,7 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/viewAn
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalPendingEdit.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsdashboard.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/UnProcess/unprocessed.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
@@ -23,9 +24,12 @@ import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart
 import 'package:digi_xpense/data/pages/screen/Authentication/login.dart';
 import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/dashboard_Main.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/changeLanguage.dart';
+import '../../../ApprovalHub/ApprovalPages/hubMileage/hubMileage_2.dart';
+import '../../../ApprovalHub/approvalHubMain.dart';
 import '../../ALl_Expense_Screens/AutoScan/autoScan.dart';
 import '../../ALl_Expense_Screens/GeneralExpense/dashboard.dart';
 import '../../ALl_Expense_Screens/My Team Expense/myTeamExpenseDashboard.dart';
+import '../../ALl_Expense_Screens/Reports/reportsCreateForm.dart';
 import '../../ALl_Expense_Screens/cashAdvanceReturn/viewCashAdvanceReturn.dart';
 import '../../CashAdvanceRequest/DashBoard/cashAdvanceRequestDashboard.dart';
 import '../../CashAdvanceRequest/Pending Approval/approvalDashboardCashAdvance.dart';
@@ -55,6 +59,7 @@ class AppRoutes {
   static const String autoScan = '/expense/outScan/view';
   static const String perDiem = '/expense/PerDiem/create';
   static const String mileageExpense = '/expense/mileageExpense/create';
+  static const String hubmileageExpense = '/expense/hubmileageExpense/create';
   static const String cashAdvanceRequestDashboard =
       '/expense/formCashAdvanceRequest/formCashAdvanceRequest';
   static const String viewCashAdvanseReturnForms =
@@ -72,8 +77,13 @@ class AppRoutes {
       '/expense/pendingApprovals/approvalDashboard';
   static const String approvalDashboardForDashboard =
       '/expense/pendingApprovals/approvalDashboardForDashboard';
-  static const String unProcessed =
-      '/expense/unProcessed/unProcessed';
+  static const String unProcessed = '/expense/unProcessed/unProcessed';
+  static const String approvalHubMain =
+      '/expense/approvalHubMain/approvalHubMain';
+  static const String reportsDashboard =
+      '/expense/reportsDashboard/reportsDashboard';
+  static const String reportCreateScreen =
+      '/expense/reportCreateScreen/reportCreateScreen';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -95,18 +105,24 @@ class AppRoutes {
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
             builder: (_) => const MyTeamExpenseDashboard());
-            case unProcessed:
-        return MaterialPageRoute(
-            builder: (_) => const UnProcessed());
+      case unProcessed:
+        return MaterialPageRoute(builder: (_) => const UnProcessed());
       case cashAdvanceRequestDashboard:
         return MaterialPageRoute(
             builder: (_) => const CashAdvanceRequestDashboard());
+      case reportCreateScreen:
+        return MaterialPageRoute(
+            builder: (_) => const ReportCreateScreen());
+      case reportsDashboard:
+        return MaterialPageRoute(builder: (_) => const MyReportsDashboard());
       case myTeamcashAdvanceDashboard:
         return MaterialPageRoute(
             builder: (_) => const MyTeamCashAdvanceDashboard());
       case formCashAdvanceRequest:
         return MaterialPageRoute(
             builder: (_) => const FormCashAdvanceRequest());
+      case approvalHubMain:
+        return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
       case AppRoutes.viewCashAdvanseReturnForms:
         final args = settings.arguments as Map<String, dynamic>?;
         print("args$args");
@@ -134,7 +150,7 @@ class AppRoutes {
             builder: (_) => const GeneralExpenseDashboard());
       case perDiem:
         final args = settings.arguments as Map<String, dynamic>?;
-         final bool readOnly = args?['readOnly'] == true; 
+        final bool readOnly = args?['readOnly'] == true;
         if (args != null) {
           print("argsperDiems${args['readOnly']}");
           return MaterialPageRoute(
@@ -151,7 +167,22 @@ class AppRoutes {
             ),
           );
         }
+      case hubmileageExpense:
+        final args = settings.arguments as Map<String, dynamic>;
 
+        final bool isEditMode = args['isEditMode'] as bool? ?? false;
+        final ExpenseModelMileage? mileageId =
+            args['mileageId'] as ExpenseModelMileage?;
+
+        debugPrint("✅ isEditMode: $isEditMode");
+        debugPrint("✅ mileageId: $mileageId");
+
+        return MaterialPageRoute(
+          builder: (_) => HubMileageSecondFrom(
+            mileageId: mileageId,
+            isEditMode: isEditMode,
+          ),
+        );
       case mileageExpense:
         final args = settings.arguments as Map<String, dynamic>;
 

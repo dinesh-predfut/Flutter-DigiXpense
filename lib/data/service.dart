@@ -150,7 +150,12 @@ class Controller extends GetxController {
   var expensesByStatus = <ExpenseAmountByStatus>[].obs;
   var manageExpensesCards = <ManageExpensesCard>[].obs;
   var managecashAdvanceCards = <ManageExpensesCard>[].obs;
+// Define this at the class level
+  Set<int> skippedWorkItems = {};
 
+  final RxBool showSkipButton = true.obs;
+  SharedPreferences? _prefs;
+  final String skippedItemsKey = 'skippedWorkItems';
   RxList<CashAdvanceModel> cashAdvanceList = <CashAdvanceModel>[].obs;
   RxList<ExpenseListModel> expenseList = <ExpenseListModel>[].obs;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -158,6 +163,7 @@ class Controller extends GetxController {
   var isUploadingCards = false.obs;
   var isLoadingStatus = false.obs;
   var callAPIDashBoard = true.obs;
+  final RxBool showCancelIcon = true.obs;
   bool showAllCashAdvance = false; // Track see more
   bool showAllExpense = false;
   double calculatedAmountINR = 0;
@@ -210,7 +216,7 @@ class Controller extends GetxController {
   final selectedStatusDropDown = "Un Reported".obs;
   String selectedStatusmyteam = "In Process";
   final selectedStatusDropDownmyteam = "In Process".obs;
-   String selectedStatusmyteamCashAdvance = "In Process";
+  String selectedStatusmyteamCashAdvance = "In Process";
   final selectedStatusDropDownmyteamCashAdvance = "In Process".obs;
   var countryCode = ''.obs;
   var phoneNumber = ''.obs;
@@ -228,7 +234,8 @@ class Controller extends GetxController {
   List<CashAdvanceRequestItemizeFornew> finalItemsCashAdvanceNew = [];
   List<AccountingDistribution?> accountingDistributions = [];
   RxList<GExpense> getAllListGExpense = <GExpense>[].obs;
-    RxList<CashAdvanceRequestHeader> getAllListCashAdvanseMyteams = <CashAdvanceRequestHeader>[].obs;
+  RxList<CashAdvanceRequestHeader> getAllListCashAdvanseMyteams =
+      <CashAdvanceRequestHeader>[].obs;
   RxList<ExpenseModel> pendingApprovals = <ExpenseModel>[].obs;
   String maritalStatus = 'Single';
   var selectedCurrency = Rxn<Currency>();
@@ -2400,6 +2407,76 @@ class Controller extends GetxController {
     }
   }
 
+  Future<bool> approvalHubpostApprovalAction(
+    BuildContext context, {
+    required List<int> workitemrecid,
+    required String decision,
+    required String comment,
+    // required String userId,
+  }) async {
+    final String status;
+    if (decision == "Approve") {
+      status = "Approved";
+    } else if (decision == "Reject") {
+      status = "Rejected";
+    } else if (decision == "Escalate") {
+      status = "Escalated";
+    } else {
+      status = decision; // Any other status stays the same
+    }
+
+    final Map<String, dynamic> payload = {
+      "workitemrecid": workitemrecid,
+      "decision": status,
+      "comment": comment,
+      "usedFor": "MyPendingApproval",
+      "userId": status == "Escalated" && userIdController.text.isNotEmpty
+          ? userIdController.text
+          : null,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse(Urls.updateApprovalStatus),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken}',
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 202) {
+        Fluttertoast.showToast(
+          msg: response.body,
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+        clearFormFields();
+
+        print("✅ Approval Action Success: ${response.body}");
+        return true;
+      } else {
+        Fluttertoast.showToast(
+          msg: response.body,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+        return false;
+      }
+    } catch (e) {
+      print("❌ API Error: $e");
+      return false;
+    }
+  }
+
   Future<bool> postApprovalActioncashAdvance(
     BuildContext context, {
     required List<int> workitemrecid,
@@ -2685,6 +2762,94 @@ class Controller extends GetxController {
       );
     }
   }
+Future<void> hubreviewGendralExpense(
+      context, bool action, int workitemrecid) async {
+    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
+    print("finalItems${finalItems.length}");
+
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "workitemrecid": workitemrecid,
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseID,
+      "RecId": recID,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": firstNameController.text.trim(),
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : selectedPaidto?.merchantNames ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": '',
+      "Location": "", // or locationController.text.trim()
+      "PaymentMethod": paidWithController.text ?? '',
+      "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      "IsReimbursable": true,
+      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "Source": "Web",
+      "IsBillable": false,
+      "ExpenseType": "General Expenses",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+
+      "DocumentAttachment": {
+        "File": attachmentPayload,
+      },
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
+    };
+
+    final url = Uri.parse(
+      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
+    );
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+          'DigiSessionID': digiSessionId.toString(),
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        resetFieldsMileage();
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Error: $e',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+    }
+  }
 
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
     final response = await http.get(
@@ -2858,6 +3023,7 @@ class Controller extends GetxController {
       return ExpenseItem(
         quantity: trans.quantity,
         recId: recID,
+        expenseId: trans.expenseId,
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
         unitPriceTrans: trans.unitPriceTrans,
@@ -3944,9 +4110,11 @@ class Controller extends GetxController {
       return [];
     }
   }
- Future<List<GExpense>> fetchUnprocessExpense() async {
+
+  Future<List<GExpense>> fetchUnprocessExpense() async {
     isLoadingGE1.value = true;
-    final url = Uri.parse('${Urls.unProcessedList}${Params.userId}&page=1&sort_order=asc');
+    final url = Uri.parse(
+        '${Urls.unProcessedList}${Params.userId}&page=1&sort_order=asc');
 
     try {
       final request = http.Request('GET', url)
@@ -4078,8 +4246,9 @@ class Controller extends GetxController {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        getAllListCashAdvanseMyteams.value =
-            (data as List).map((item) => CashAdvanceRequestHeader.fromJson(item)).toList();
+        getAllListCashAdvanseMyteams.value = (data as List)
+            .map((item) => CashAdvanceRequestHeader.fromJson(item))
+            .toList();
 
         print("✅ Fetched Expenses: $getAllListGExpense");
         isLoadingGE1.value = false;
@@ -4484,6 +4653,98 @@ class Controller extends GetxController {
         clearFormFieldsPerdiem();
         fetchPerDiemRates();
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        final responseData = jsonDecode(response.body);
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 88, 1, 250),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        // print("✅ ");
+      } else {
+        Fluttertoast.showToast(
+          msg: "Error:  ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌ Error: ${response.body}");
+        buttonLoader.value = false;
+        isUploading.value = false;
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+      buttonLoader.value = false;
+    }
+  }
+
+  Future<void> hubperdiemApprovalReview(context, bool bool, int? workitemrecid,
+      String? recId, String expenseID) async {
+    // buttonLoader.value = true;
+    // isUploading.value = true;
+    print(recId);
+    Map<String, dynamic> buildPayload() {
+      return {
+        "ExpenseId": expenseID ?? '',
+        "RecId": recId,
+        "ProjectId": selectedProject != null ? selectedProject?.code : null,
+        "TotalAmountTrans":
+            amountInController.text.isNotEmpty ? amountInController.text : '0',
+        "TotalAmountReporting":
+            amountInController.text.isNotEmpty ? amountInController.text : '0',
+        "EmployeeId": Params.employeeId ?? '',
+        "EmployeeName":
+            firstNameController.text.isNotEmpty ? firstNameController.text : '',
+        "ReceiptDate": fromDateController.text.isNotEmpty
+            ? parseDateToEpoch(fromDateController.text)
+            : null,
+        "Currency": "INR",
+        "Description":
+            purposeController.text.isNotEmpty ? purposeController.text : '',
+        "Source": "Web",
+        "ExchRate": 1,
+        "ExpenseType": "PerDiem",
+        "Location": selectedLocation?.location ?? '',
+        "CashAdvReqId": "",
+        "workitemrecid": workitemrecid,
+        "FromDate": fromDateController.text.isNotEmpty
+            ? parseDateToEpoch(fromDateController.text)
+            : null,
+        "ToDate": toDateController.text.isNotEmpty
+            ? parseDateToEpoch(toDateController.text)
+            : null,
+        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+        "AccountingDistributions": accountingDistributions.isNotEmpty
+            ? accountingDistributions.map((e) => e?.toJson()).toList()
+            : [],
+        "AllocationLines": allocationLines.isNotEmpty
+            ? allocationLines.map((e) => e.toJson()).toList()
+            : [],
+      };
+    }
+
+    try {
+      final response = await http.put(
+        Uri.parse(
+            '${Urls.approvalPerdiemreview}updateandaccept=$bool&screen_name=MyPendingApproval'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(buildPayload()),
+      );
+
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        buttonLoader.value = false;
+        isUploading.value = false;
+        clearFormFieldsPerdiem();
+        fetchPerDiemRates();
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
           msg: "Success: ${responseData['detail']['message']}}",
@@ -4959,6 +5220,87 @@ class Controller extends GetxController {
           textColor: Colors.green[800],
         );
         Navigator.pushNamed(context, AppRoutes.generalExpense);
+      } else {
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+        expenseTrans = [];
+        expenseTrans.clear();
+        // print("Error: ${response.body}");
+      }
+    } catch (e) {
+      print("🔥 Exception during API call: $e");
+    }
+  }
+
+  Future<void> approvalHubsubmitMileageExpense(
+      context, bool bool, bool submit, int? recId,
+      [String? expenseId]) async {
+    try {
+      // Build ExpenseTrans payload
+      final expenseTranArray = buildExpenseTrans();
+      Map<String, dynamic> expenseTransMap = {};
+      for (int i = 0; i < expenseTranArray.length; i++) {
+        expenseTransMap[i.toString()] = expenseTranArray[i];
+      }
+      // Prepare main payload
+      final payload = {
+        "TotalAmountTrans": calculatedAmountINR,
+        "TotalAmountReporting": calculatedAmountINR,
+        "EmployeeId": Params.employeeId,
+        "EmployeeName": Params.employeeName,
+        "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
+        "Source": "Web",
+        "ExchRate": 1,
+        "ExpenseId": expenseId ?? "",
+        "ExpenseType": "Mileage",
+        "RecId": recId,
+        "Currency": "INR",
+        "MileageRateId": mileageVehicleID.text,
+        "VehicleType": selectedVehicleType?.name ?? "Car",
+        "FromLocation": tripControllers.first.text,
+        "ToLocation": tripControllers.last.text,
+        // "RecId": null,
+        "CashAdvReqId": "",
+        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+        "AccountingDistributions": [],
+        "ExpenseTrans": expenseTransMap,
+        "ProjectId": projectIdController.text,
+      };
+
+      // Print payload for debugging
+      print(jsonEncode(payload));
+
+      // Send POST API request
+      final response = await http.post(
+        Uri.parse(
+            '${Urls.mileageregistration}Submit=$bool&Resubmit=$submit&screen_name=MileageRegistration'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 208 ||
+          response.statusCode == 280) {
+        resetFieldsMileage();
+        clearFormFieldsPerdiem();
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
       } else {
         Fluttertoast.showToast(
           msg: response.body,
@@ -6148,4 +6490,224 @@ class Controller extends GetxController {
     print('Semicolon-separated for backend: $preloadedCashAdvReqIds');
     viewCashAdvanceLoader.value = false;
   }
+
+  Future<void> approvalHubreviewGendralExpense(
+      context, bool action, int workitemrecid) async {
+    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
+    print("finalItems${finalItems.length}");
+
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "workitemrecid": workitemrecid,
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseID,
+      "RecId": recID,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": firstNameController.text.trim(),
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : selectedPaidto?.merchantNames ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": '',
+      "Location": "", // or locationController.text.trim()
+      "PaymentMethod": paidWithController.text ?? '',
+      "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      "IsReimbursable": true,
+      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "Source": "Web",
+      "IsBillable": false,
+      "ExpenseType": "General Expenses",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+
+      "DocumentAttachment": {
+        "File": attachmentPayload,
+      },
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
+    };
+
+    final url = Uri.parse(
+      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
+    );
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+          'DigiSessionID': digiSessionId.toString(),
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+        resetFieldsMileage();
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: response.body,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Error: $e',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+    }
+  }
+
+
+Future<SharedPreferences> get prefs async {
+  _prefs ??= await SharedPreferences.getInstance();
+  return _prefs!;
+}
+
+// Load skipped work items from SharedPreferences
+Future<void> loadSkippedItems() async {
+  final storage = await prefs;
+  final savedList = storage.getStringList('skippedWorkItems');
+
+  // ✅ Always assign as Set<int>
+  skippedWorkItems = savedList != null
+      ? savedList.map((e) => int.tryParse(e) ?? 0).where((e) => e != 0).toSet()
+      : <int>{};
+
+  showSkipButton.value = skippedWorkItems.isNotEmpty;
+}
+
+// Save skipped work items to SharedPreferences
+Future<void> saveSkippedItems() async {
+  final storage = await prefs;
+
+  // ✅ Convert Set<int> to List<String> before saving
+  await storage.setStringList(
+    'skippedWorkItems',
+    skippedWorkItems.map((e) => e.toString()).toList(),
+  );
+}
+
+// Skip the current item and update storage + UI
+Future<void> skipCurrentItem(int workitemrecid, BuildContext context) async {
+  try {
+    final wasAdded = skippedWorkItems.add(workitemrecid); // ✅ Set ensures no duplicates
+
+    if (wasAdded) {
+      await saveSkippedItems();
+      showSkipButton.value = true;
+
+      if (context.mounted) {
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+        Fluttertoast.showToast(
+          msg: "Expense skipped",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      }
+    } else {
+      if (context.mounted) {
+        Fluttertoast.showToast(
+          msg: "Already skipped this expense!",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.orange[100],
+          textColor: Colors.orange[800],
+        );
+      }
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error skipping item: $e')),
+      );
+    }
+  }
+}
+
+// Clear skipped work items from memory and SharedPreferences
+Future<void> clearSkippedItems(BuildContext context) async {
+  try {
+    skippedWorkItems.clear(); // ✅ Clears Set<int>
+
+    final storage = await prefs;
+    await storage.remove('skippedWorkItems');
+
+    showSkipButton.value = false;
+    update(); // If using GetX
+
+    if (context.mounted) {
+      Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+      Fluttertoast.showToast(
+        msg: "Skipped items cleared",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.green[100],
+        textColor: Colors.green[800],
+      );
+    }
+  } catch (e) {
+    print('Error clearing skipped items: $e');
+    rethrow;
+  }
+}
+
+// Fetch approval data using unique workitemrecids
+Future<Map<String, dynamic>> fetchApprovalData(List<int> workitemrecids) async {
+  print("Items Calling");
+
+  final uniqueIds = workitemrecids.toSet().toList();
+  final idsParam = uniqueIds.isEmpty ? '0' : uniqueIds.join(',');
+
+  print("Original IDs: $workitemrecids");
+  print("Unique IDs: $uniqueIds");
+  print("Calling API with: $idsParam");
+
+  final url = Uri.parse(
+    'https://api.digixpense.com/api/v1/masters/approvalmanagement/workflowapproval/userapproval?workitemrecid=$idsParam',
+  );
+
+  final response = await http.get(
+    url,
+    headers: {
+      'Authorization': 'Bearer ${Params.userToken}',
+      'Content-Type': 'application/json',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    final List<dynamic> jsonData = jsonDecode(response.body);
+    if (jsonData.isNotEmpty && jsonData[0] is Map<String, dynamic>) {
+      return jsonData[0] as Map<String, dynamic>;
+    } else {
+      throw Exception('Invalid or empty data');
+    }
+  } else {
+    throw Exception('Failed to load approval data');
+  }
+}
 }

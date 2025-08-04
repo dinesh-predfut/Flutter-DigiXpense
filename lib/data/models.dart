@@ -766,6 +766,29 @@ class TaxGroupModel {
   }
 }
 
+// models/base_expense.dart
+class BaseExpense {
+  final String expenseId;
+  final String projectId;
+  final double totalAmountTrans;
+  final String currency;
+  final String employeeName;
+  final String approvalStatus;
+  final int workitemrecid;
+  final String expenseType;
+
+  BaseExpense({
+    required this.expenseId,
+    required this.projectId,
+    required this.totalAmountTrans,
+    required this.currency,
+    required this.employeeName,
+    required this.approvalStatus,
+    required this.workitemrecid,
+    required this.expenseType,
+  });
+}
+
 class GExpense {
   final String expenseId;
   final String expenseStatus;
@@ -1439,7 +1462,7 @@ class ExpenseItem {
   factory ExpenseItem.fromJson(Map<String, dynamic> json) {
     return ExpenseItem(
       recId: json['RecId'], // ✅ Parse from JSON if available
-      expenseId:json['ExpenseId'],
+      expenseId: json['ExpenseId'],
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
       uomId: json['UomId'] ?? '',
@@ -1462,7 +1485,7 @@ class ExpenseItem {
 
   Map<String, dynamic> toJson() => {
         'RecId': recId, // ✅ Only include if non-null
-        'ExpenseId':expenseId,
+        'ExpenseId': expenseId,
         'ExpenseCategoryId': expenseCategoryId,
         'Quantity': quantity,
         'UomId': uomId,
@@ -1507,7 +1530,7 @@ class CashAdvanceReqModel {
 }
 
 class ExpenseItemUpdate {
-  final int? recId; // ✅ Optional recId field
+  final int? recId;
   final String expenseCategoryId;
   final double quantity;
   final String uomId;
@@ -1518,13 +1541,13 @@ class ExpenseItemUpdate {
   final double lineAmountReporting;
   final String? projectId;
   final String? description;
+  final String? expenseId; // Added ExpenseId field
   bool isReimbursable;
   bool isBillable;
-
   late final List<AccountingDistribution> accountingDistributions;
 
   ExpenseItemUpdate({
-    this.recId, // ✅ Include in constructor
+    this.recId,
     required this.expenseCategoryId,
     required this.quantity,
     required this.uomId,
@@ -1535,6 +1558,7 @@ class ExpenseItemUpdate {
     required this.lineAmountReporting,
     this.projectId,
     this.description,
+    this.expenseId, // Added to constructor
     required this.isReimbursable,
     required this.isBillable,
     required this.accountingDistributions,
@@ -1542,7 +1566,7 @@ class ExpenseItemUpdate {
 
   factory ExpenseItemUpdate.fromJson(Map<String, dynamic> json) {
     return ExpenseItemUpdate(
-      recId: json['RecId'], // ✅ Parse from JSON if present
+      recId: json['RecId'],
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
       uomId: json['UomId'] ?? '',
@@ -1553,6 +1577,7 @@ class ExpenseItemUpdate {
       lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
       projectId: json['ProjectId'],
       description: json['Description'],
+      expenseId: json['ExpenseId'], // Added JSON parsing
       isReimbursable: json['IsReimbursable'] ?? false,
       isBillable: json['IsBillable'] ?? false,
       accountingDistributions:
@@ -1563,8 +1588,7 @@ class ExpenseItemUpdate {
   }
 
   Map<String, dynamic> toJson() => {
-        // if (recId != null)
-        'RecId': recId, // ✅ Include only if non-null
+        'RecId': recId,
         'ExpenseCategoryId': expenseCategoryId,
         'Quantity': quantity,
         'UomId': uomId,
@@ -1575,6 +1599,7 @@ class ExpenseItemUpdate {
         'LineAmountReporting': lineAmountReporting,
         'ProjectId': projectId,
         'Description': description,
+        'ExpenseId': expenseId, // Added to JSON output
         'IsReimbursable': isReimbursable,
         'IsBillable': isBillable,
         'ExpenseTransCustomFieldValues': [],
@@ -1582,6 +1607,35 @@ class ExpenseItemUpdate {
         'AccountingDistributions':
             accountingDistributions.map((e) => e.toJson()).toList(),
       };
+}
+class FilterItem {
+  final String id;
+  final String label;
+
+  FilterItem({required this.id, required this.label});
+
+  factory FilterItem.fromJson(Map<String, dynamic> json) {
+    return FilterItem(
+      id: json['id'] as String,
+      label: json['label'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+      };
+
+  @override
+  String toString() => label;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FilterItem && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class ItemizedExpense {
@@ -3378,4 +3432,37 @@ class CashAdvanceDropDownModel {
         'CashAdvanceReqId': cashAdvanceReqId,
         'RequestDate': requestDate,
       };
+}
+class Report {
+  String reportName;
+  String functionalArea;
+  String dataSet;
+  String description;
+  String applicableFor;
+  List<FilterRule> filterRules;
+  List<String> selectedFields;
+
+  Report({
+    required this.reportName,
+    required this.functionalArea,
+    required this.dataSet,
+    required this.description,
+    required this.applicableFor,
+    required this.filterRules,
+    required this.selectedFields,
+  });
+}
+
+class FilterRule {
+  String table;
+  String column;
+  String condition;
+  String value;
+
+  FilterRule({
+    required this.table,
+    required this.column,
+    required this.condition,
+    required this.value,
+  });
 }

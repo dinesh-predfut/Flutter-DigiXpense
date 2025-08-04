@@ -1721,13 +1721,8 @@ class _ApprovalViewEditExpensePageState
                               : () {
                                   controller.setButtonLoading('reject', true);
                                   controller.addToFinalItems(widget.items!);
-                                  controller
-                                      .saveinviewPageGeneralExpense(context,
-                                          false, false, widget.items!.recId)
-                                      .whenComplete(() {
-                                    controller.setButtonLoading(
-                                        'reject', false);
-                                  });
+                                  showActionPopup(context, "Reject");
+                               
                                 },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:

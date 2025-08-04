@@ -1939,7 +1939,7 @@ class _ViewCashAdvanceExpensePageState extends State<ViewCashAdvanceExpensePage>
                                             controller
                                                 .addToFinalItems(widget.items!);
                                             controller
-                                                .reviewGendralExpense(
+                                                .hubreviewGendralExpense(
                                                     context,
                                                     false,
                                                     widget.items!.workitemrecid)
@@ -1998,7 +1998,7 @@ class _ViewCashAdvanceExpensePageState extends State<ViewCashAdvanceExpensePage>
                                             controller
                                                 .addToFinalItems(widget.items!);
                                             controller
-                                                .reviewGendralExpense(
+                                                .hubreviewGendralExpense(
                                                     context,
                                                     true,
                                                     widget.items!.workitemrecid)
@@ -2041,45 +2041,26 @@ class _ViewCashAdvanceExpensePageState extends State<ViewCashAdvanceExpensePage>
                           Row(
                             children: [
                               Obx(() {
-                                final isUpdateLoading =
-                                    controller.buttonLoaders['update'] ?? false;
-                                final isUpdateAcceptLoading =
-                                    controller.buttonLoaders['update_accept'] ??
-                                        false;
-                                final isRejectLoading =
-                                    controller.buttonLoaders['reject'] ?? false;
-                                final isAnyLoading = controller
-                                    .buttonLoaders.values
-                                    .any((loading) => loading);
-
+                                final isLoading = controller
+                                        .buttonLoaders['reject_approval'] ??
+                                    false;
                                 return Expanded(
                                   child: ElevatedButton(
-                                    onPressed: (isRejectLoading ||
-                                            isUpdateLoading ||
-                                            isUpdateAcceptLoading ||
-                                            isAnyLoading)
+                                    onPressed: isLoading
                                         ? null
                                         : () {
                                             controller.setButtonLoading(
-                                                'reject', true);
-                                            controller
-                                                .addToFinalItems(widget.items!);
-                                            controller
-                                                .saveinviewPageGeneralExpense(
-                                                    context,
-                                                    false,
-                                                    false,
-                                                    widget.items!.recId)
-                                                .whenComplete(() {
-                                              controller.setButtonLoading(
-                                                  'reject', false);
-                                            });
+                                                'reject_approval', true);
+                                            showActionPopup(context, "Reject");
+
+                                            controller.setButtonLoading(
+                                                'reject_approval', false);
                                           },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color.fromARGB(
                                           255, 238, 20, 20),
                                     ),
-                                    child: isRejectLoading
+                                    child: isLoading
                                         ? const SizedBox(
                                             height: 20,
                                             width: 20,

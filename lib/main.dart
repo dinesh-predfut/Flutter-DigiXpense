@@ -1,3 +1,4 @@
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
@@ -25,6 +26,9 @@ void main() {
             create: (_) =>
                 ThemeNotifier(ThemeData(primarySwatch: Colors.blue))),
         ChangeNotifierProvider(create: (_) => LocaleNotifier()),
+            ChangeNotifierProvider(
+          create: (_) => ReportModel(), // Make sure ReportModel is imported
+        ),
       ],
       child: const MyApp(),
     ),

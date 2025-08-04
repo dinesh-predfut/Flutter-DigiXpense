@@ -214,7 +214,8 @@ class _MyDrawerState extends State<MyDrawer>
                   icon: Icons.arrow_right,
                   menuKey: "My Team Expenses",
                   onTap: () {
-                     Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
+                    Navigator.pushNamed(
+                        context, AppRoutes.myTeamExpenseDashboard);
                   },
                 ),
                 _buildDrawerItem(
@@ -230,7 +231,7 @@ class _MyDrawerState extends State<MyDrawer>
                   icon: Icons.arrow_right,
                   menuKey: "Un Processed",
                   onTap: () {
-                     Navigator.pushNamed(context, AppRoutes.unProcessed);
+                    Navigator.pushNamed(context, AppRoutes.unProcessed);
                   },
                 ),
               ],
@@ -254,7 +255,7 @@ class _MyDrawerState extends State<MyDrawer>
                   icon: Icons.arrow_right,
                   menuKey: "My Team Cash Advances",
                   onTap: () {
-                     Navigator.pushNamed(
+                    Navigator.pushNamed(
                         context, AppRoutes.myTeamcashAdvanceDashboard);
                   },
                 ),
@@ -279,8 +280,35 @@ class _MyDrawerState extends State<MyDrawer>
               title: "Approval Hub",
               icon: Icons.calendar_today,
               menuKey: "Approval Hub",
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+              },
             ),
-
+            ExpansionTile(
+              leading: const Icon(Icons.person_outline),
+              title: const Text("Reports"),
+              childrenPadding: const EdgeInsets.only(left: 16),
+              children: [
+                _buildDrawerItem(
+                  title: "Reports",
+                  icon: Icons.arrow_right,
+                  menuKey: "Reports",
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.reportsDashboard);
+                  },
+                ),
+                _buildDrawerItem(
+                  title: "Expenses Reports",
+                  icon: Icons.arrow_right,
+                  menuKey: "Reports",
+                  onTap: () {
+                    // Navigator.pushNamed()
+                        // context, AppRoutes.myTeamExpenseDashboard);
+                  },
+                ),
+               
+              ],
+            ),
             const Divider(),
 
             // ⚙️ Settings Section
