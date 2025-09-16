@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/data/pages/AI%20Analytics/aiAnalytics.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseForm.dart';
@@ -10,8 +11,9 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/viewAn
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalPendingEdit.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/expenseReportPrintPage.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsdashboard.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/UnProcess/unprocessed.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/unProcessed.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
@@ -26,12 +28,16 @@ import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/dashboard_Main.da
 import 'package:digi_xpense/data/pages/screen/Profile/changeLanguage.dart';
 import '../../../ApprovalHub/ApprovalPages/hubMileage/hubMileage_2.dart';
 import '../../../ApprovalHub/approvalHubMain.dart';
+import '../../../EmailHub/emailHubListing.dart';
 import '../../ALl_Expense_Screens/AutoScan/autoScan.dart';
 import '../../ALl_Expense_Screens/GeneralExpense/dashboard.dart';
 import '../../ALl_Expense_Screens/My Team Expense/myTeamExpenseDashboard.dart';
+import '../../ALl_Expense_Screens/Reports/assignUser.dart';
+import '../../ALl_Expense_Screens/Reports/expenseReport.dart';
 import '../../ALl_Expense_Screens/Reports/reportsCreateForm.dart';
 import '../../ALl_Expense_Screens/cashAdvanceReturn/viewCashAdvanceReturn.dart';
 import '../../CashAdvanceRequest/DashBoard/cashAdvanceRequestDashboard.dart';
+import '../../CashAdvanceRequest/MyTeamCashAdvance/myTeamviewCashAdvanse.dart';
 import '../../CashAdvanceRequest/Pending Approval/approvalDashboardCashAdvance.dart';
 import '../../CashAdvanceRequest/cashAdvanceReturnEditForm.dart';
 import '../../Profile/profile.dart';
@@ -64,13 +70,14 @@ class AppRoutes {
       '/expense/formCashAdvanceRequest/formCashAdvanceRequest';
   static const String viewCashAdvanseReturnForms =
       '/expense/viewCashAdvanseReturnForms/viewCashAdvanseReturnForms';
+  static const String aIAnalyticsPage = '/page/aIAnalyticsPage/aIAnalyticsPage';
   static const String notification = '/notification';
   static const String mileageExpensefirst =
       '/expense/mileageExpense/mileageExpensefirst';
   static const String cashAdvanceReturnForms =
       '/expense/cashAdvanceReturnForm/cashAdvanceReturnForm';
   static const String formCashAdvanceRequest =
-      '/expense/cashAdvanceReturnForm/cashAdvanceReturnForm';
+      '/expense/cashAdvanceReturnForms/cashAdvanceReturnForms';
   static const String myTeamcashAdvanceDashboard =
       '/expense/myTeamcashAdvanceDashboards/myTeamcashAdvanceDashboard';
   static const String approvalDashboard =
@@ -82,8 +89,15 @@ class AppRoutes {
       '/expense/approvalHubMain/approvalHubMain';
   static const String reportsDashboard =
       '/expense/reportsDashboard/reportsDashboard';
+  static const String reportsAssignUser =
+      '/expense/reportsAssignUser/reportsAssignUser';
   static const String reportCreateScreen =
       '/expense/reportCreateScreen/reportCreateScreen';
+  static const String emailHubScreen = '/expense/emailHubScreen/emailHubScreen';
+  static const String reportWizardParent =
+      '/expense/reportWizardParent/reportWizardParent';
+  static const String expensePaginationPage =
+      '/expense/expensePaginationPage/expensePaginationPage';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -102,17 +116,23 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const NotificationPage());
       case cashAdvanceReturnForms:
         return MaterialPageRoute(builder: (_) => const CashAdvanceReturnForm());
+      case reportWizardParent:
+        return MaterialPageRoute(builder: (_) => ReportWizardParent());
+      case reportsAssignUser:
+        return MaterialPageRoute(builder: (_) => const UserAssignmentScreen());
+      case aIAnalyticsPage:
+        return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
             builder: (_) => const MyTeamExpenseDashboard());
       case unProcessed:
-        return MaterialPageRoute(builder: (_) => const UnProcessed());
+        return MaterialPageRoute(builder: (_) => const UnProcess());
       case cashAdvanceRequestDashboard:
         return MaterialPageRoute(
             builder: (_) => const CashAdvanceRequestDashboard());
       case reportCreateScreen:
         return MaterialPageRoute(
-            builder: (_) => const ReportCreateScreen());
+            builder: (_) => const ReportCreateScreen(isEdit: false));
       case reportsDashboard:
         return MaterialPageRoute(builder: (_) => const MyReportsDashboard());
       case myTeamcashAdvanceDashboard:
@@ -121,6 +141,10 @@ class AppRoutes {
       case formCashAdvanceRequest:
         return MaterialPageRoute(
             builder: (_) => const FormCashAdvanceRequest());
+      case emailHubScreen:
+        return MaterialPageRoute(builder: (_) => const EmailHubScreen());
+      case expensePaginationPage:
+        return MaterialPageRoute(builder: (_) => const ExpensePaginationPage());
       case approvalHubMain:
         return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
       case AppRoutes.viewCashAdvanseReturnForms:
@@ -199,17 +223,24 @@ class AppRoutes {
             isEditMode: isEditMode,
           ),
         );
-      case mileageExpensefirst:
+      case AppRoutes.mileageExpensefirst:
         final args = settings.arguments as Map<String, dynamic>?;
 
         ExpenseModelMileage? expense;
+        bool isReadOnly = false; 
 
-        if (args != null && args.containsKey('item')) {
-          expense = args['item'] as ExpenseModelMileage;
+        if (args != null) {
+          if (args.containsKey('item')) {
+            expense = args['item'] as ExpenseModelMileage;
+          }
+          
         }
 
         return MaterialPageRoute(
-          builder: (_) => MileageFirstFrom(mileageId: expense),
+          builder: (_) => MileageFirstFrom(
+            mileageId: expense,
+            isReadOnly: args?['isReadOnly'] ?? false,
+          ),
         );
 
       case autoScan:
@@ -241,7 +272,7 @@ class AppRoutes {
             pages: [
               DashboardPage(),
               GeneralExpenseDashboard(),
-              // LoginScreen(),
+              AIAnalyticsPage(),
               PersonalDetailsPage(),
             ],
           ),
@@ -259,9 +290,9 @@ class AppRoutes {
         );
       case AppRoutes.getSpecificCashAdvanseView:
         final args = settings.arguments as Map<String, dynamic>?;
-        print("args$args");
+        print("args1${args?['readOnly']}");
         return MaterialPageRoute(
-          builder: (_) => ViewCashAdvanceExpensePage(
+          builder: (_) => ViewCashAdvanseReturnForms(
             items: args?['item'],
             isReadOnly: args?['readOnly'],
           ),

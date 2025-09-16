@@ -16,6 +16,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 
+import '../../../../../core/comman/widgets/pageLoaders.dart';
+import '../../../../../l10n/app_localizations.dart';
 import '../../../../service.dart';
 
 class HubMileageSecondFrom extends StatefulWidget {
@@ -367,7 +369,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
 
     const double size = 80.0;
     canvas.drawCircle(
-      Offset(size / 2, size / 2),
+      const Offset(size / 2, size / 2),
       size / 2,
       paint,
     );
@@ -450,12 +452,12 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                       itemBuilder: (context, index) {
                         String fieldName;
                         if (index == 0) {
-                          fieldName = "Start Trip";
+                          fieldName = AppLocalizations.of(context)!.startTrip;
                         } else if (index ==
                             controller.tripControllers.length - 1) {
-                          fieldName = "End Trip";
+                          fieldName = AppLocalizations.of(context)!.endTrip;
                         } else {
-                          fieldName = "Add Trip $index";
+                          fieldName = "${AppLocalizations.of(context)!.addTrip} $index";
                         }
 
                         String stopLetter =
@@ -588,7 +590,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                 readOnly: controller.isRoundTrip,
                                 style: const TextStyle(fontSize: 12),
                                 decoration: InputDecoration(
-                                  hintText: "End Trip",
+                                  hintText:AppLocalizations.of(context)!.endTrip,
                                   hintStyle: const TextStyle(fontSize: 13),
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 13,
@@ -607,7 +609,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                           controller.tripControllers.first.text
                                               .trim()
                                               .isEmpty
-                                      ? "This field is required"
+                                      ? AppLocalizations.of(context)!.fieldRequired
                                       : null,
                                 ),
                                 onChanged: (value) {
@@ -639,8 +641,8 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                 },
                                 activeColor: Colors.white,
                               ),
-                              const Text("Round Trip",
-                                  style: TextStyle(color: Colors.white)),
+                               Text(AppLocalizations.of(context)!.roundTrip,
+                                  style: const TextStyle(color: Colors.white)),
                             ],
                           ),
                         IconButton(
@@ -657,11 +659,11 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _infoCard("Total Distance",
+                      _infoCard(AppLocalizations.of(context)!.totalDistance,
                           "${controller.totalDistanceKm.toStringAsFixed(2)} Km"),
-                      _infoCard("Amount (INR)",
+                      _infoCard(AppLocalizations.of(context)!.amountInInr,
                           "₹${controller.calculatedAmountINR.toStringAsFixed(2)}"),
-                      _infoCard("Amount (INR)",
+                      _infoCard(AppLocalizations.of(context)!.amountInInr,
                           "₹${controller.calculatedAmountINR.toStringAsFixed(2)}"),
                     ],
                   ),
@@ -770,9 +772,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Update & Accept",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.updateAndAccept,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -817,9 +819,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Update",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                 AppLocalizations.of(context)!.update,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -867,9 +869,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Reject",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.reject,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -911,9 +913,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.black,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Skip",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.skip,
+                                                  style: const TextStyle(
                                                       color: Colors.black),
                                                 ),
                                         );
@@ -966,9 +968,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Approve",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.approve,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -1006,9 +1008,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Reject",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.reject,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -1047,9 +1049,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.white,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Escalate",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.escalate,
+                                                  style: const TextStyle(
                                                       color: Colors.white),
                                                 ),
                                         );
@@ -1091,9 +1093,9 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                                                   color: Colors.black,
                                                   strokeWidth: 2,
                                                 )
-                                              : const Text(
-                                                  "Skip",
-                                                  style: TextStyle(
+                                              :  Text(
+                                                  AppLocalizations.of(context)!.skip,
+                                                  style: const TextStyle(
                                                       color: Colors.black),
                                                 ),
                                         );
@@ -1115,148 +1117,192 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
       ),
     );
   }
-
-  void showActionPopup(BuildContext context, String status) {
+void showActionPopup(BuildContext context, String status) {
+    final TextEditingController commentController = TextEditingController();
+    bool isCommentError = false;
+  final loc = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Full height if needed
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        final TextEditingController commentController = TextEditingController();
-
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets, // for keyboard
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Action",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (status == "Escalate") ...[
-                  const Text(
-                    'Select User *',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  SearchableMultiColumnDropdownField<User>(
-                    labelText: 'User *',
-
-                    columnHeaders: const [
-                      'User Name',
-                      'User ID',
-                    ],
-                    items: controller.userList, // Assuming you have a user list
-                    selectedValue: controller.selectedUser.value,
-                    searchValue: (user) => '${user.userName} ${user.userId}',
-                    displayText: (user) => user.userName,
-                    onChanged: (user) {
-                      // controller.selectedUser = user;
-                      controller.userIdController.text = user?.userId ?? '';
-                    },
-                    controller: controller.userIdController,
-                    rowBuilder: (user, searchQuery) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(user.userName)),
-                            Expanded(child: Text(user.userId)),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const SizedBox(height: 16),
-                const Text(
-                  'Comment',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your comment here',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: MediaQuery.of(context).viewInsets,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close the popup
-                      },
-                      child: const Text('Close'),
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final comment = commentController.text.trim();
-                        if (comment.isNotEmpty) {
-                          final success =
-                              await controller.approvalHubpostApprovalAction(
+                    const SizedBox(height: 12),
+                     Text(
+                      loc.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (status == "Escalate") ...[
+                       Text(
+                        '${loc.selectUser}*',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${loc.user} *',
+                          columnHeaders:  [
+                            loc.userName,
+                            loc.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(user.userName)),
+                                  Expanded(child: Text(user.userId)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 16),
+                     Text(
+                     loc.comments,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: loc.enterCommentHere,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.teal,
+                            width: 2,
+                          ),
+                        ),
+                        errorText:
+                            isCommentError ? AppLocalizations.of(context)!.commentRequired : null,
+                      ),
+                      onChanged: (value) {
+                        if (isCommentError && value.trim().isNotEmpty) {
+                          setState(() => isCommentError = false);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child:  Text(loc.close),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                        onPressed: () async {
+                          final comment = commentController.text.trim();
+                          if (status != "Approve" && comment.isEmpty) {
+                            setState(() => isCommentError = true);
+                            return;
+                          }
+
+                          // Show full-page loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx) => const Center(
+                              child: SkeletonLoaderPage(),
+                            ),
+                          );
+
+                          final success = await controller.approvalHubpostApprovalAction(
                             context,
-                            workitemrecid: [workitemrecid],
+                            workitemrecid: [workitemrecid!],
                             decision: status,
                             comment: commentController.text,
                           );
+
+                          // Hide the loading indicator
+                          if (Navigator.of(context, rootNavigator: true).canPop()) {
+                            Navigator.of(context, rootNavigator: true).pop();
+                          }
+
                           if (!context.mounted) return;
+
                           if (success) {
-                            Navigator.pushNamed(context,
-                                AppRoutes.approvalDashboard); // Close popup
+                            Navigator.pushNamed(
+                                context, AppRoutes.approvalHubMain);
+                            controller.isApprovalEnable.value = false;
                           } else {
-                            // ignore: use_build_context_synchronously
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text('Failed to submit action')),
                             );
                           }
-
-                          // Navigator.pop(context); // Close after action
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(status),
                       ),
-                      child: Text(status),
+                      ],
                     ),
                   ],
-                )
-              ],
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
+
+
+
 
   Widget _infoCard(String title, String value) {
     return Container(
@@ -1299,8 +1345,8 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
     for (var tripController in controller.tripControllers) {
       if (tripController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please fill all trip locations before submitting."),
+           SnackBar(
+            content: Text(AppLocalizations.of(context)!.fillAllTripLocations),
             backgroundColor: Colors.redAccent,
           ),
         );

@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/data/models.dart';
 import 'package:flutter/material.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constant/Parames/colors.dart';
+import '../../../../core/constant/Parames/params.dart';
 import '../../../service.dart';
 import '../widget/router/router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -22,7 +26,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage>
     with SingleTickerProviderStateMixin {
-  double _dragOffset = 200; // Initial height of the draggable panel
+  double _dragOffset = 100; // Initial height of the draggable panel
   final double _minDragExtent = 100; // Minimum height
   final double _maxDragExtent =
       MediaQueryData.fromView(WidgetsBinding.instance.window).size.height *
@@ -31,17 +35,23 @@ class _DashboardPageState extends State<DashboardPage>
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
-
+  // final loc = AppLocalizations.of(context)!;
   @override
   void initState() {
     super.initState();
 
     _scrollController = ScrollController();
 
-    // Delay heavy calls only on first load
-    if (!controller.isInitialized.value) {
+    // Kick off init flow
+    _initializeAsync();
+  }
+
+  void _initializeAsync() async {
+    controller.getPersonalDetails(context);
+
+  
       controller.digiSessionId = const Uuid().v4();
-      Timer(const Duration(seconds: 2), () {
+      Timer(const Duration(seconds: 4), () {
         controller.getCashAdvanceAPI();
         controller.getExpenseList();
         controller.fetchExpensesByCategory();
@@ -55,15 +65,15 @@ class _DashboardPageState extends State<DashboardPage>
               duration: const Duration(seconds: 10),
             )..repeat(reverse: false);
 
-            _animation = Tween<double>(begin: 0, end: 1)
-                .animate(_animationController)
+        _animation =
+            Tween<double>(begin: 0, end: 1).animate(_animationController)
               ..addListener(() {
                 if (_scrollController.hasClients) {
                   final maxScroll = _scrollController.position.maxScrollExtent;
                   _scrollController.jumpTo(_animation.value * maxScroll);
                 }
               });
-          }
+      }
         });
         controller.fetchChartData();
         controller.fetchExpensesByProjects();
@@ -79,7 +89,7 @@ class _DashboardPageState extends State<DashboardPage>
         controller.isInitialized.value = true;
       });
     }
-  }
+  
 
   @override
   void dispose() {
@@ -116,925 +126,685 @@ class _DashboardPageState extends State<DashboardPage>
     final loc = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
     print("unreadCount${controller.unreadCount.value}");
+    final theme = Theme.of(context);
 
-    return WillPopScope(
-        onWillPop: () async {
-          // controller.isEnable.value = false;
-          // controller.isLoadingGE1.value = false;
-          Navigator.pushNamed(context, AppRoutes.signin);
-          return true;
-        },
-        child: Scaffold(
-          backgroundColor: const Color(0xFFF7F7F7),
-          body: Obx(() {
-            return controller.isUploadingCards.value
-                ? const SkeletonLoaderPage()
-                : Column(
-                    children: [
-                      // Main content that will scroll
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Your existing header and content widgets...
-                              Stack(
+    ;
+    return WillPopScope(onWillPop: () async {
+      // For Android
+      if (Platform.isAndroid) {
+        SystemNavigator.pop(); // closes the app
+      } else if (Platform.isIOS) {
+        exit(0); // iOS will kill the app (not recommended in App Store)
+      }
+      return false; // prevent normal back navigation
+    }, child: Scaffold(
+        // backgroundColor: const Color(0xFFF7F7F7),
+        body: Obx(() {
+      return controller.isUploadingCards.value
+          ? const SkeletonLoaderPage()
+          : LayoutBuilder(builder: (context, constraints) {
+              final isSmallScreen = constraints.maxWidth < 600;
+              final primaryColor = theme.primaryColor;
+              //  Color primaryColors = theme.shade500;
+              print("primaryColor.value${primaryColor.value}");
+              return Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (primaryColor != const Color(0xff1a237e) &&
+                              primaryColor.value != 4282339765)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor,
+                                    primaryColor.withOpacity(
+                                        0.7), // Lighter primary color
+                                  ],
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 130,
-                                    decoration: const BoxDecoration(
-                                      image: DecorationImage(
-                                        image: AssetImage('assets/Vector.png'),
-                                        fit: BoxFit.cover,
-                                      ),
-                                      borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(10),
-                                        bottomRight: Radius.circular(10),
-                                      ),
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
                                     ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                        10, 40, 20, 20),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      // _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (primaryColor == const Color(0xff1a237e) ||
+                              primaryColor.value == 4282339765)
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 40, 20, 20),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Column(
                                       children: [
-                                        Flexible(
-                                          child: Column(
-                                            children: [
-                                              const Text(
-                                                'Welcome to',
-                                                style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 8),
-                                              ),
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                child: Image.asset(
-                                                  'assets/XpenseWhite.png',
-                                                  width: 100,
-                                                  height: 40,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                            ],
+                                        // const Text(
+                                        //   'Welcome to',
+                                        //   style: TextStyle(
+                                        //       color: Colors.white,
+                                        //       fontSize: 8),
+                                        // ),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: 100,
+                                            height: 40,
+                                            fit: BoxFit.cover,
                                           ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const LanguageDropdown(),
-                                            Stack(
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                      Icons.notifications,
-                                                      color: Colors.white),
-                                                  onPressed: () {
-                                                    Navigator.pushNamed(context,
-                                                        AppRoutes.notification);
-                                                  },
-                                                ),
-                                                Obx(() {
-                                                  final unreadCount = controller
-                                                      .unreadNotifications
-                                                      .length;
-                                                  if (unreadCount == 0) {
-                                                    return const SizedBox
-                                                        .shrink();
-                                                  }
-                                                  return Positioned(
-                                                    right: 6,
-                                                    top: 6,
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              4),
-                                                      decoration:
-                                                          const BoxDecoration(
-                                                        color: Colors.red,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                        minWidth: 18,
-                                                        minHeight: 18,
-                                                      ),
-                                                      child: Text(
-                                                        '$unreadCount',
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 10),
-                                            GestureDetector(
-                                              onTap: () {
-                                                Navigator.pushNamed(context,
-                                                    AppRoutes.personalInfo);
-                                              },
-                                              child: Obx(() => Container(
-                                                    padding:
-                                                        const EdgeInsets.all(2),
-                                                    decoration: BoxDecoration(
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(
-                                                          color: Colors.white,
-                                                          width: 2),
-                                                    ),
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                      child: controller
-                                                              .isImageLoading
-                                                              .value
-                                                          ? const SizedBox(
-                                                              width: 40,
-                                                              height: 40,
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                color: Colors
-                                                                    .white,
-                                                                strokeWidth: 2,
-                                                              ),
-                                                            )
-                                                          : controller.profileImage
-                                                                      .value !=
-                                                                  null
-                                                              ? Image.file(
-                                                                  controller
-                                                                      .profileImage
-                                                                      .value!,
-                                                                  width: 40,
-                                                                  height: 40,
-                                                                  fit: BoxFit
-                                                                      .cover,
-                                                                )
-                                                              : const Icon(
-                                                                  Icons.person,
-                                                                  size: 40,
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                    ),
-                                                  )),
-                                            ),
-                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
-                              Obx(() {
-                                return NotificationListener<
-                                    UserScrollNotification>(
-                                  onNotification: (notification) {
-                                    // Stop auto-scroll when user starts interacting
-                                    if (_animationController.isAnimating) {
-                                      _animationController.stop();
-                                      print(
-                                          "Auto-scroll stopped because user started scrolling");
-                                    }
-                                    _restartAnimationAfterDelay(); // ✅ Restart after delay
-                                    return false; // allow the scroll event to continue
-                                  },
-                                  child: SizedBox(
-                                    height: 140,
-                                    child: ListView.builder(
-                                      controller: _scrollController,
-                                      scrollDirection: Axis.horizontal,
-                                      physics:
-                                          const BouncingScrollPhysics(), // ✅ Manual scroll enabled
-                                      itemCount:
-                                          controller.manageExpensesCards.length,
-                                      itemBuilder: (context, index) {
-                                        final card = controller
-                                            .manageExpensesCards[index];
-                                        return GestureDetector(
-                                          onTap: () {
-                                            // Stop animation on card tap
-                                            if (_animationController
-                                                .isAnimating) {
-                                              _animationController.stop();
-                                              print(
-                                                  "Auto-scroll stopped because user tapped a card");
-                                            }
-                                            _restartAnimationAfterDelay(); // ✅ Restart after delay
-                                          },
-                                          child: _buildStyledCard(card),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                );
-                              }),
-                              const SizedBox(height: 30),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20),
-                                  child: Row(
+                                  const SizedBox(height: 20),
+                                  Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      _mostUsedButton(Icons.money, 'Expense',
-                                          () {
-                                        print('Button Pressed');
-                                      }),
-                                      const SizedBox(width: 20),
-                                      _mostUsedButton(
-                                          Icons.verified, 'Approvals', () {
-                                        print('Button Pressed');
-                                      }),
-                                      const SizedBox(width: 20),
-                                      _mostUsedButton(Icons.mail, 'Mail', () {
-                                        print('Button Pressed');
-                                      }),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                child: Container(
-                                  height: 290,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black12,
-                                        blurRadius: 10,
-                                      )
-                                    ],
-                                  ),
-                                  // padding: const EdgeInsets.all(7),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Text(
-                                            'My Dashboard',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18),
+                                      const LanguageDropdown(),
+                                      Stack(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.notifications,
+                                                color: Colors.white),
+                                            onPressed: () {
+                                              Navigator.pushNamed(context,
+                                                  AppRoutes.notification);
+                                            },
                                           ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.8,
-                                                height:
-                                                    220, // 👈 Reduced height
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.4),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 10,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                  color: Colors.green.shade50,
+                                          Obx(() {
+                                            final unreadCount = controller
+                                                .unreadNotifications.length;
+                                            if (unreadCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
                                                 ),
-                                                child: SfCartesianChart(
-                                                  title: const ChartTitle(
-                                                    text: "My Expense Trends",
-                                                    textStyle: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w600),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                  minWidth: 15,
+                                                  minHeight: 15,
+                                                ),
+                                                child: Text(
+                                                  '$unreadCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 6,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
-                                                  primaryXAxis:
-                                                      const CategoryAxis(
-                                                    labelRotation: 25,
-                                                    labelStyle:
-                                                        TextStyle(fontSize: 5),
-                                                    edgeLabelPlacement:
-                                                        EdgeLabelPlacement
-                                                            .shift, // 👈 shift labels to avoid cutoff
-                                                    labelIntersectAction:
-                                                        AxisLabelIntersectAction
-                                                            .hide, // 👈 hide overlapping labels
-                                                  ),
-                                                  primaryYAxis: NumericAxis(
-                                                    numberFormat:
-                                                        NumberFormat.compact(),
-                                                    labelStyle: const TextStyle(
-                                                        fontSize: 8),
-                                                  ),
-                                                  tooltipBehavior:
-                                                      TooltipBehavior(
-                                                          enable: true),
-                                                  series: <CartesianSeries>[
-                                                    LineSeries<ProjectData,
-                                                        String>(
-                                                      dataSource:
-                                                          controller.chartData,
-                                                      xValueMapper:
-                                                          (ProjectData project,
-                                                                  _) =>
-                                                              project.x,
-                                                      yValueMapper:
-                                                          (ProjectData project,
-                                                                  _) =>
-                                                              project.y,
-                                                      markerSettings:
-                                                          const MarkerSettings(
-                                                              isVisible: true),
-                                                      color: Colors.green,
-                                                    ),
-                                                  ],
+                                                  textAlign: TextAlign.center,
                                                 ),
                                               ),
-                                              Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.8,
-                                                height:
-                                                    220, // 🔥 Increased height to avoid overflow
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  color: Colors.amber.shade50,
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.4),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 10,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: SfCircularChart(
-                                                  title: const ChartTitle(
-                                                    text:
-                                                        "My Expense Amount by Approval Status",
-                                                    textStyle: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold),
-                                                  ),
-                                                  legend: const Legend(
-                                                    isVisible: true,
-                                                    overflowMode:
-                                                        LegendItemOverflowMode
-                                                            .wrap, // ✅ Wrap long legends
-                                                    position:
-                                                        LegendPosition.bottom,
-                                                    textStyle:
-                                                        TextStyle(fontSize: 9),
-                                                  ),
-                                                  series: <DoughnutSeries<
-                                                      ManageExpensesSummary,
-                                                      String>>[
-                                                    DoughnutSeries<
-                                                        ManageExpensesSummary,
-                                                        String>(
-                                                      dataSource: controller
-                                                          .manageExpensesSummary,
-                                                      xValueMapper:
-                                                          (ManageExpensesSummary
-                                                                      data,
-                                                                  _) =>
-                                                              data.status,
-                                                      yValueMapper:
-                                                          (ManageExpensesSummary
-                                                                      data,
-                                                                  _) =>
-                                                              data.amount,
-                                                      dataLabelSettings:
-                                                          const DataLabelSettings(
-                                                        isVisible: true,
-                                                        textStyle: TextStyle(
-                                                            fontSize: 8),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.85,
-                                                height: 220,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.3),
-                                                      spreadRadius: 1,
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: SfCartesianChart(
-                                                  title: const ChartTitle(
-                                                    text:
-                                                        "My Settlement Status",
-                                                    textStyle: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold),
-                                                  ),
-                                                  primaryXAxis:
-                                                      const CategoryAxis(
-                                                    labelRotation:
-                                                        35, // rotate for better readability
-                                                    labelStyle:
-                                                        TextStyle(fontSize: 8),
-                                                  ),
-                                                  primaryYAxis: NumericAxis(
-                                                    numberFormat:
-                                                        NumberFormat.compact(),
-                                                    labelStyle: const TextStyle(
-                                                        fontSize: 8),
-                                                  ),
-                                                  series: <ColumnSeries>[
-                                                    ColumnSeries<
-                                                        ExpenseAmountByStatus,
-                                                        String>(
-                                                      dataSource: controller
-                                                          .expensesByStatus,
-                                                      xValueMapper:
-                                                          (ExpenseAmountByStatus
-                                                                      data,
-                                                                  _) =>
-                                                              data.status,
-                                                      yValueMapper:
-                                                          (ExpenseAmountByStatus
-                                                                      data,
-                                                                  _) =>
-                                                              data.amount,
-                                                      pointColorMapper:
-                                                          (_, __) => Colors
-                                                              .primaries[__ %
-                                                                  Colors
-                                                                      .primaries
-                                                                      .length]
-                                                              .shade300,
-                                                      dataLabelSettings:
-                                                          const DataLabelSettings(
-                                                        isVisible: true,
-                                                        textStyle: TextStyle(
-                                                            fontSize: 8),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.8,
-                                                height: 220,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.4),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 10,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                  color: Colors.blue.shade50,
-                                                ),
-                                                child: SfCartesianChart(
-                                                  title: const ChartTitle(
-                                                    text:
-                                                        "My Expenses by Project ",
-                                                    textStyle: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w600),
-                                                  ),
-                                                  primaryXAxis:
-                                                      const CategoryAxis(
-                                                    labelStyle:
-                                                        TextStyle(fontSize: 8),
-                                                  ),
-                                                  primaryYAxis: NumericAxis(
-                                                    numberFormat:
-                                                        NumberFormat.compact(),
-                                                    labelStyle: const TextStyle(
-                                                        fontSize: 8),
-                                                  ),
-                                                  series: <CartesianSeries>[
-                                                    ColumnSeries<ProjectExpense,
-                                                        String>(
-                                                      dataSource: controller
-                                                          .projectExpenses,
-                                                      xValueMapper:
-                                                          (ProjectExpense
-                                                                      project,
-                                                                  _) =>
-                                                              project.x,
-                                                      yValueMapper:
-                                                          (ProjectExpense
-                                                                      project,
-                                                                  _) =>
-                                                              project.y,
-                                                      dataLabelSettings:
-                                                          const DataLabelSettings(
-                                                        isVisible: true,
-                                                        textStyle: TextStyle(
-                                                            fontSize:
-                                                                8), // 👈 Smaller data labels
-                                                      ),
-                                                      color: Colors.blue,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              Container(
-                                                width: MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.8,
-                                                height:
-                                                    220, // Slightly taller for better spacing
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  color: Colors.blue.shade50,
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.4),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 10,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: SfCartesianChart(
-                                                  title: const ChartTitle(
-                                                    text:
-                                                        "Total Expenses by Category",
-                                                    textStyle: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  primaryXAxis:
-                                                      const CategoryAxis(
-                                                    labelRotation: 45,
-                                                    labelStyle: TextStyle(
-                                                      fontSize: 5,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                    labelAlignment:
-                                                        LabelAlignment.start,
-                                                    maximumLabels: 10,
-                                                    isVisible: true,
-                                                  ),
-                                                  primaryYAxis: NumericAxis(
-                                                    numberFormat:
-                                                        NumberFormat.compact(),
-                                                    labelStyle: const TextStyle(
-                                                      fontSize: 9,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  tooltipBehavior:
-                                                      TooltipBehavior(
-                                                          enable: true),
-                                                  series: <CartesianSeries>[
-                                                    ColumnSeries<
-                                                        ProjectExpensebycategory,
-                                                        String>(
-                                                      dataSource: controller
-                                                          .projectExpensesbyCategory,
-                                                      xValueMapper:
-                                                          (ProjectExpensebycategory
-                                                                      project,
-                                                                  _) =>
-                                                              project.x,
-                                                      yValueMapper:
-                                                          (ProjectExpensebycategory
-                                                                      project,
-                                                                  _) =>
-                                                              project.y,
-                                                      pointColorMapper:
-                                                          (ProjectExpensebycategory
-                                                                      project,
-                                                                  _) =>
-                                                              project
-                                                                  .color, // 👈 Dynamic colors
-                                                      dataLabelSettings:
-                                                          const DataLabelSettings(
-                                                        isVisible: true,
-                                                        textStyle: TextStyle(
-                                                          fontSize: 9,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors
-                                                              .black, // Label color
-                                                        ),
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              5), // Rounded bar edges
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              // Obx(() {
-                                              //   if (controller.isUploading.value) {
-                                              //     return Container(
-                                              //       width: MediaQuery.of(context)
-                                              //               .size
-                                              //               .width *
-                                              //           0.7, // 👈 Reduced width
-                                              //       height: 220, // 👈 Reduced height
-                                              //       margin: const EdgeInsets.symmetric(
-                                              //           horizontal: 8),
-                                              //       decoration: BoxDecoration(
-                                              //         borderRadius:
-                                              //             BorderRadius.circular(10),
-                                              //         boxShadow: [
-                                              //           BoxShadow(
-                                              //             color: Colors.grey
-                                              //                 .withOpacity(0.4),
-                                              //             spreadRadius: 2,
-                                              //             blurRadius: 10,
-                                              //             offset: const Offset(0, 3),
-                                              //           ),
-                                              //         ],
-                                              //         color:
-                                              //             Colors.black.withOpacity(0.2),
-                                              //       ),
-                                              //       child: const Center(
-                                              //         child: CircularProgressIndicator(
-                                              //             color: Colors.green),
-                                              //       ),
-                                              //     );
-                                              //   }
-                                              //   return Container(
-                                              //     width: MediaQuery.of(context)
-                                              //             .size
-                                              //             .width *
-                                              //         0.7,
-                                              //     height: 220,
-                                              //     margin: const EdgeInsets.symmetric(
-                                              //         horizontal: 8),
-                                              //     decoration: BoxDecoration(
-                                              //       borderRadius:
-                                              //           BorderRadius.circular(10),
-                                              //       color: Colors.red.shade50,
-                                              //     ),
-                                              //     child: SfRadialGauge(
-                                              //       title: const GaugeTitle(
-                                              //         text: "Total Expense",
-                                              //         textStyle: TextStyle(
-                                              //           fontSize: 14,
-                                              //           fontWeight: FontWeight.bold,
-                                              //         ),
-                                              //       ),
-                                              //       axes: <RadialAxis>[
-                                              //         RadialAxis(
-                                              //           minimum: 0,
-                                              //           maximum: controller
-                                              //                   .expenseChartvalue *
-                                              //               2,
-                                              //           axisLabelStyle:
-                                              //               const GaugeTextStyle(
-                                              //             fontSize:
-                                              //                 8, // 👈 Smaller gauge labels
-                                              //             fontWeight: FontWeight.w600,
-                                              //           ),
-                                              //           pointers: <GaugePointer>[
-                                              //             NeedlePointer(
-                                              //               value: controller
-                                              //                   .expenseChartvalue,
-                                              //               enableAnimation: true,
-                                              //               needleLength: 0.5,
-                                              //               needleStartWidth: 0.5,
-                                              //               needleEndWidth: 1.5,
-                                              //               knobStyle: const KnobStyle(
-                                              //                 knobRadius: 0.05,
-                                              //               ),
-                                              //             ),
-                                              //           ],
-                                              //           ranges: <GaugeRange>[
-                                              //             GaugeRange(
-                                              //               startValue: 0,
-                                              //               endValue: controller
-                                              //                       .expenseChartvalue *
-                                              //                   0.4,
-                                              //               color: Colors.green,
-                                              //             ),
-                                              //             GaugeRange(
-                                              //               startValue: controller
-                                              //                       .expenseChartvalue *
-                                              //                   0.4,
-                                              //               endValue: controller
-                                              //                       .expenseChartvalue *
-                                              //                   0.8,
-                                              //               color: Colors.orange,
-                                              //             ),
-                                              //             GaugeRange(
-                                              //               startValue: controller
-                                              //                       .expenseChartvalue *
-                                              //                   0.8,
-                                              //               endValue: controller
-                                              //                   .expenseChartvalue,
-                                              //               color: Colors.red,
-                                              //             ),
-                                              //           ],
-                                              //           annotations: <GaugeAnnotation>[
-                                              //             GaugeAnnotation(
-                                              //               widget: Text(
-                                              //                 '₹${controller.expenseChartvalue.toStringAsFixed(0)}',
-                                              //                 style: const TextStyle(
-                                              //                   fontSize:
-                                              //                       14, // 👈 Smaller annotation text
-                                              //                   fontWeight:
-                                              //                       FontWeight.bold,
-                                              //                   color: Colors.black,
-                                              //                 ),
-                                              //               ),
-                                              //               angle: 90,
-                                              //               positionFactor: 0.5,
-                                              //             )
-                                              //           ],
-                                              //         )
-                                              //       ],
-                                              //     ),
-                                              //   );
-                                              // }),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 20),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Transaction',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                    Text('Week')
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(
-                                  height:
-                                      20), // Space before the draggable panel
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Draggable panel at the bottom
-                      GestureDetector(
-                        onVerticalDragUpdate: (details) {
-                          setState(() {
-                            _dragOffset = (_dragOffset - details.delta.dy)
-                                .clamp(_minDragExtent, _maxDragExtent);
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          height: _dragOffset,
-                          decoration: BoxDecoration(
-                            // 👇 Gradient glass effect
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.8),
-                                Colors.white.withOpacity(0.4),
-                              ],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(40),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(40)),
-                            child: Column(
-                              children: [
-                                // 🔥 Custom drag handle
-                                Center(
-                                  child: Container(
-                                    margin: const EdgeInsets.only(
-                                        top: 10, bottom: 12),
-                                    width: 60,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Colors.blueAccent,
-                                          Colors.purpleAccent
+                                            );
+                                          }),
                                         ],
                                       ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
+                                      const SizedBox(width: 10),
+                                
+
+GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(context, AppRoutes.personalInfo);
+  },
+  child: Obx(() => AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+         
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: controller.isImageLoading.value ? 1.0 : 1.05,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Placeholder or Image
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[800],
+                  ),
+                  child: controller.isImageLoading.value
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : controller.profileImage.value != null
+                          ? Image.file(
+                              controller.profileImage.value!,
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white70,
+                              ),
+                            ),
+                ),
+                // Overlay shimmer when loading
+                if (controller.isImageLoading.value)
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Colors.transparent, Colors.white10],
+                        stops: [0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                // Edit icon overlay on tap-ready state
+               
+              ],
+            ),
+          ),
+        ),
+      )),
+),
+                                    ],
                                   ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          // Your existing header and content widgets...
+                          // Stack(
+                          //   children: [
+                          //     Container(
+                          //       width: double.infinity,
+                          //       height: 130,
+                          //       decoration: const BoxDecoration(
+                          //         image: DecorationImage(
+                          //           image: AssetImage('assets/Vector.png'),
+                          //           fit: BoxFit.cover,
+                          //         ),
+                          //         borderRadius: BorderRadius.only(
+                          //           bottomLeft: Radius.circular(10),
+                          //           bottomRight: Radius.circular(10),
+                          //         ),
+                          //       ),
+                          //       padding: const EdgeInsets.fromLTRB(
+                          //           10, 40, 20, 20),
+                          //       child: Row(
+                          //         mainAxisAlignment:
+                          //             MainAxisAlignment.spaceBetween,
+                          //         children: [
+                          //           Flexible(
+                          //             child: Column(
+                          //               children: [
+                          //                 const Text(
+                          //                   'Welcome to',
+                          //                   style: TextStyle(
+                          //                       color: Colors.white,
+                          //                       fontSize: 8),
+                          //                 ),
+                          //                 ClipRRect(
+                          //                   borderRadius:
+                          //                       BorderRadius.circular(20),
+                          //                   child: Image.asset(
+                          //                     'assets/XpenseWhite.png',
+                          //                     width: 100,
+                          //                     height: 40,
+                          //                     fit: BoxFit.cover,
+                          //                   ),
+                          //                 ),
+                          //               ],
+                          //             ),
+                          //           ),
+                          //           const SizedBox(height: 20),
+                          //           Row(
+                          //             mainAxisAlignment:
+                          //                 MainAxisAlignment.spaceBetween,
+                          //             children: [
+                          //               const LanguageDropdown(),
+                          //               Stack(
+                          //                 children: [
+                          //                   IconButton(
+                          //                     icon: const Icon(
+                          //                         Icons.notifications,
+                          //                         color: Colors.white),
+                          //                     onPressed: () {
+                          //                       Navigator.pushNamed(context,
+                          //                           AppRoutes.notification);
+                          //                     },
+                          //                   ),
+                          //                   Obx(() {
+                          //                     final unreadCount = controller
+                          //                         .unreadNotifications
+                          //                         .length;
+                          //                     if (unreadCount == 0) {
+                          //                       return const SizedBox
+                          //                           .shrink();
+                          //                     }
+                          //                     return Positioned(
+                          //                       right: 6,
+                          //                       top: 6,
+                          //                       child: Container(
+                          //                         padding:
+                          //                             const EdgeInsets.all(
+                          //                                 4),
+                          //                         decoration:
+                          //                             const BoxDecoration(
+                          //                           color: Colors.red,
+                          //                           shape: BoxShape.circle,
+                          //                         ),
+                          //                         constraints:
+                          //                             const BoxConstraints(
+                          //                           minWidth: 18,
+                          //                           minHeight: 18,
+                          //                         ),
+                          //                         child: Text(
+                          //                           '$unreadCount',
+                          //                           style: const TextStyle(
+                          //                             color: Colors.white,
+                          //                             fontSize: 10,
+                          //                             fontWeight:
+                          //                                 FontWeight.bold,
+                          //                           ),
+                          //                           textAlign:
+                          //                               TextAlign.center,
+                          //                         ),
+                          //                       ),
+                          //                     );
+                          //                   }),
+                          //                 ],
+                          //               ),
+                          //               const SizedBox(width: 10),
+                          //               GestureDetector(
+                          //                 onTap: () {
+                          //                   Navigator.pushNamed(context,
+                          //                       AppRoutes.personalInfo);
+                          //                 },
+                          //                 child: Obx(() => Container(
+                          //                       padding:
+                          //                           const EdgeInsets.all(2),
+                          //                       decoration: BoxDecoration(
+                          //                         shape: BoxShape.circle,
+                          //                         border: Border.all(
+                          //                             color: Colors.white,
+                          //                             width: 2),
+                          //                       ),
+                          //                       child: ClipRRect(
+                          //                         borderRadius:
+                          //                             BorderRadius.circular(
+                          //                                 20),
+                          //                         child: controller
+                          //                                 .isImageLoading
+                          //                                 .value
+                          //                             ? const SizedBox(
+                          //                                 width: 40,
+                          //                                 height: 40,
+                          //                                 child:
+                          //                                     CircularProgressIndicator(
+                          //                                   color: Colors
+                          //                                       .white,
+                          //                                   strokeWidth: 2,
+                          //                                 ),
+                          //                               )
+                          //                             : controller.profileImage
+                          //                                         .value !=
+                          //                                     null
+                          //                                 ? Image.file(
+                          //                                     controller
+                          //                                         .profileImage
+                          //                                         .value!,
+                          //                                     width: 40,
+                          //                                     height: 40,
+                          //                                     fit: BoxFit
+                          //                                         .cover,
+                          //                                   )
+                          //                                 : const Icon(
+                          //                                     Icons.person,
+                          //                                     size: 40,
+                          //                                     color: Colors
+                          //                                         .white,
+                          //                                   ),
+                          //                       ),
+                          //                     )),
+                          //               ),
+                          //             ],
+                          //           ),
+                          //         ],
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
+                          Obx(() {
+                            return NotificationListener<UserScrollNotification>(
+                              onNotification: (notification) {
+                                // Stop auto-scroll when user starts interacting
+                                if (_animationController.isAnimating) {
+                                  _animationController.stop();
+                                  print(
+                                      "Auto-scroll stopped because user started scrolling");
+                                }
+                                _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                return false; // allow the scroll event to continue
+                              },
+                              child: SizedBox(
+                                height: 140,
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  physics:
+                                      const BouncingScrollPhysics(), // ✅ Manual scroll enabled
+                                  itemCount:
+                                      controller.manageExpensesCards.length,
+                                  itemBuilder: (context, index) {
+                                    final card =
+                                        controller.manageExpensesCards[index];
+                                    return GestureDetector(
+                                      onTap: () {
+                                        // Stop animation on card tap
+                                        if (_animationController.isAnimating) {
+                                          _animationController.stop();
+                                          print(
+                                              "Auto-scroll stopped because user tapped a card");
+                                        }
+                                        _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                      },
+                                      child: _buildStyledCard(card),
+                                    );
+                                  },
                                 ),
-
-                                // 🌊 Wavy top curve (Optional for unique feel)
-                                // CustomPaint(
-                                //   size: Size(double.infinity, 30),
-                                //   painter: _TopCurvePainter(),
-                                // ),
-
-                                // 🌟 Transaction list content
-                                Expanded(
-                                  child: _transactionList(),
-                                ),
-                              ],
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 10),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _mostUsedButton(Icons.money, loc.expense, () {
+                                    Navigator.pushNamed(
+                                        context, AppRoutes.generalExpense);
+                                  }),
+                                  const SizedBox(width: 20),
+                                  _mostUsedButton(Icons.verified, loc.approvals,
+                                      () {
+                                    Navigator.pushNamed(
+                                        context, AppRoutes.approvalHubMain);
+                                  }),
+                                  const SizedBox(width: 20),
+                                  _mostUsedButton(Icons.mail, loc.mail, () {
+                                    Navigator.pushNamed(
+                                        context, AppRoutes.emailHubScreen);
+                                  }),
+                                ],
+                              ),
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Container(
+                              height: 290,
+                              decoration: BoxDecoration(
+                                // color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 10,
+                                  )
+                                ],
+                              ),
+                              // padding: const EdgeInsets.all(7),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        loc.myDashboard,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: [
+                                          // 🔹 Expense Trends
+                                          Obx(() {
+                                            if (controller.isLoading.value) {
+                                              return _loaderBox();
+                                            }
+                                            return _expenseTrendChart(context);
+                                          }),
+
+                                          // 🔹 Expense by Approval Status
+                                          Obx(() {
+                                            if (controller.isLoading.value) {
+                                              return _loaderBox();
+                                            } else if (controller
+                                                .manageExpensesSummary
+                                                .isEmpty) {
+                                              return _emptyBox();
+                                            }
+                                            return _approvalStatusChart(
+                                                context);
+                                          }),
+
+                                          // 🔹 Settlement Status
+                                          Obx(() {
+                                            if (controller.isLoading.value) {
+                                              return _loaderBox();
+                                            } else if (controller
+                                                .expensesByStatus.isEmpty) {
+                                              return _emptyBox();
+                                            }
+                                            return _settlementStatusChart(
+                                                context);
+                                          }),
+
+                                          // 🔹 Expenses by Project
+                                          Obx(() {
+                                            if (controller.isLoading.value) {
+                                              return _loaderBox();
+                                            } else if (controller
+                                                .projectExpenses.isEmpty) {
+                                              return _emptyBox();
+                                            }
+                                            return _expensesByProjectChart(
+                                                context);
+                                          }),
+
+                                          // 🔹 Expenses by Category
+                                          Obx(() {
+                                            if (controller.isLoading.value) {
+                                              return _loaderBox();
+                                            } else if (controller
+                                                .projectExpensesbyCategory
+                                                .isEmpty) {
+                                              return _emptyBox();
+                                            }
+                                            return _expensesByCategoryChart(
+                                                context);
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                          // / Space before the draggable panel
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Draggable panel at the bottom
+                  GestureDetector(
+                    onVerticalDragUpdate: (details) {
+                      setState(() {
+                        _dragOffset = (_dragOffset - details.delta.dy)
+                            .clamp(_minDragExtent, _maxDragExtent);
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      height: _dragOffset,
+                      decoration: BoxDecoration(
+                        // 👇 Gradient glass effect
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.8),
+                            Colors.white.withOpacity(0.4),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
-                      )
-                    ],
-                  );
-          }),
-        ));
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(40),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(40)),
+                        child: Column(
+                          children: [
+                            // 🔥 Custom drag handle
+                            Center(
+                              child: Container(
+                                margin:
+                                    const EdgeInsets.only(top: 10, bottom: 12),
+                                width: 60,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Colors.blueAccent,
+                                      Colors.purpleAccent
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+
+                            // 🌊 Wavy top curve (Optional for unique feel)
+                            // CustomPaint(
+                            //   size: Size(double.infinity, 30),
+                            //   painter: _TopCurvePainter(),
+                            // ),
+
+                            // 🌟 Transaction list content
+                            Expanded(
+                              child: _transactionList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                ],
+              );
+            });
+    })));
+  }
+
+  IconData _getIconForStatus(String status) {
+    switch (status) {
+      case 'Approved Expenses (Total)':
+        return Icons.check_circle; // ✅
+      case 'Expenses In Progress (Total)':
+        return Icons.sync; // 🔄
+      case 'Approved Advances (Total)':
+        return Icons.hourglass_bottom; // ⏳
+      case ' Advances In Progress (Total)':
+        return Icons.bar_chart; // 📊
+      default:
+        return Icons.category; // fallback
+    }
   }
 
   void _restartAnimationAfterDelay() {
@@ -1046,42 +816,6 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   // Rest of your helper methods (_balanceCard, _mostUsedButton, _transactionList) remain the same...
-  Widget _balanceCard(String title, String amount) {
-    return Container(
-      width: 230,
-      height: 110,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [
-            Color.fromRGBO(86, 86, 121, 1),
-            Color.fromRGBO(41, 41, 102, 1.0),
-            Color.fromRGBO(41, 41, 102, 0.493)
-          ],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.wallet, color: Colors.white, weight: 70),
-          const SizedBox(height: 10),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-          const SizedBox(height: 5),
-          Text(amount,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-        ],
-      ),
-    );
-  }
 
   Widget _mostUsedButton(IconData icon, String label, VoidCallback onPressed) {
     return GestureDetector(
@@ -1092,7 +826,7 @@ class _DashboardPageState extends State<DashboardPage>
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF93C5FD), Color(0xFF60A5FA)],
+            colors: [Color.fromARGB(255, 1, 20, 43), Color(0xFF60A5FA)],
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1115,25 +849,26 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _transactionList() {
+    final loc = AppLocalizations.of(context)!;
     return Obx(() {
       return ListView(
         children: [
           // 🔹 Section 1: Cash Advance
-          _buildSectionHeader("Cash Advance", controller.cashAdvanceList.length,
-              () {
-            setState(() {
-              controller.showAllCashAdvance = !controller.showAllCashAdvance;
-            });
-          }),
-          _buildCashAdvanceSection(),
 
           // 🔹 Section 2: Expense
-          _buildSectionHeader("Expense", controller.expenseList.length, () {
+          _buildSectionHeader(loc.expense, controller.expenseList.length, () {
             setState(() {
               controller.showAllExpense = !controller.showAllExpense;
             });
           }),
           ..._buildExpenseList(),
+          _buildSectionHeader(
+              loc.cashAdvance, controller.cashAdvanceList.length, () {
+            setState(() {
+              controller.showAllCashAdvance = !controller.showAllCashAdvance;
+            });
+          }),
+          _buildCashAdvanceSection(),
         ],
       );
     });
@@ -1152,10 +887,7 @@ class _DashboardPageState extends State<DashboardPage>
             GestureDetector(
               onTap: onSeeMore,
               child: Text(
-                controller.showAllCashAdvance && title == "Cash Advance" ||
-                        controller.showAllExpense && title == "Expense"
-                    ? "See Less ▲"
-                    : "See More ▼",
+                _getSeeMoreText(title),
                 style: const TextStyle(
                     color: Color.fromARGB(255, 88, 61, 184),
                     fontWeight: FontWeight.w800),
@@ -1164,6 +896,18 @@ class _DashboardPageState extends State<DashboardPage>
         ],
       ),
     );
+  }
+
+  String _getSeeMoreText(String type) {
+    final loc = AppLocalizations.of(context)!;
+    switch (type) {
+      case "Cash Advance":
+        return controller.showAllCashAdvance ? loc.seeLess : loc.seeMore;
+      case "Expense":
+        return controller.showAllExpense ? loc.seeLess : loc.seeMore;
+      default:
+        return loc.seeMore;
+    }
   }
 
   Widget _buildCashAdvanceSection() {
@@ -1254,42 +998,48 @@ class _DashboardPageState extends State<DashboardPage>
             ),
           ],
         ),
-        trailing: Text('₹${tx.totalAmountTrans}'),
+        trailing: Text('₹${tx.totalAmountTrans.toStringAsFixed(2)}'),
       );
     }).toList();
   }
 
-  String _getTitle(String key) {
-    switch (key) {
-      case 'Inprogress':
-        return 'Total Advance In Progress';
-      case 'Pending':
-        return 'Total Amount Pending';
-      case 'TotalAmountReporting':
-        return 'Total Expenses';
-      case 'AmountSettled':
-        return ' Total Amount Settled';
+  String _getTitle(String status) {
+    switch (status) {
+      case 'Approved Expenses (Total)':
+        return AppLocalizations.of(context)!.approvedExpensesTotal;
+      case 'Expenses In Progress (Total)':
+        return AppLocalizations.of(context)!.expensesInProgressTotal;
+      case 'Approved Advances (Total)':
+        return AppLocalizations.of(context)!.approvedAdvancesTotal;
+      case 'Advances In Progress (Total)':
+        return AppLocalizations.of(context)!.advancesInProgressTotal;
       default:
-        return key;
+        return status;
     }
   }
 
   Widget _buildStyledCard(ManageExpensesCard card) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final onPrimaryColor = theme.colorScheme.onPrimary;
+
     return Container(
-      width: 180,
+      width: 220,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
+          colors: [
+            primaryColor.withOpacity(0.8), // Lighter primary color
+            primaryColor,
+          ],
           begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          end: Alignment.topRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
-            spreadRadius: 2,
+            color: primaryColor.withOpacity(0.4),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1299,25 +1049,37 @@ class _DashboardPageState extends State<DashboardPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            _getIconForStatus(card.status),
-            size: 30,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 8),
+          Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
+          const SizedBox(height: 6),
           Text(
             _getTitle(card.status),
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+
+          // ✅ Show count
           Text(
-            '₹${card.amount.toStringAsFixed(2)}',
+            'Count: ${card.count}',
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70, // lighter than amount
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          // ✅ Show amount
+          Text(
+            '₹ ${card.amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -1327,18 +1089,308 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'AmountSettled':
-        return Icons.check_circle; // ✅
-      case 'Inprogress':
-        return Icons.sync; // 🔄
-      case 'Pending':
-        return Icons.hourglass_bottom; // ⏳
-      case 'TotalAmountReporting':
-        return Icons.bar_chart; // 📊
-      default:
-        return Icons.category; // fallback
-    }
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.notification),
+        ),
+        Obx(() {
+          final count = controller.unreadNotifications.length;
+          if (count == 0) return const SizedBox();
+          return Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                    fontSize: 8,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+  return GestureDetector(
+    onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+    child: Obx(() => Container(
+          width: 64, // total container size (including border)
+          height: 64,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32), // match container shape
+            child: controller.isImageLoading.value
+                ? const Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  )
+                : controller.profileImage.value != null
+                    ? Image.file(
+                        controller.profileImage.value!,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                      )
+                    : const Icon(Icons.person, size: 40, color: Colors.white),
+          ),
+        )),
+  );
+}
+
+
+  Widget _loaderBox() {
+    return const SizedBox(
+      width: 250,
+      height: 220,
+      child: Center(
+        child: CircularProgressIndicator(color: Colors.green),
+      ),
+    );
+  }
+
+  /// 🔹 Reusable empty state box
+  Widget _emptyBox() {
+    return const SizedBox(
+      width: 250,
+      height: 220,
+      child: Center(
+        child: Text("No data available",
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
+      ),
+    );
+  }
+
+  /// 🔹 Chart Widgets (split into methods for clarity)
+  Widget _expenseTrendChart(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: _boxDecoration(Colors.green.shade50),
+      child: SfCartesianChart(
+        title: ChartTitle(
+          text: loc.myExpenseTrends,
+          textStyle: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black),
+        ),
+        primaryXAxis: const CategoryAxis(
+          labelRotation: 25,
+          labelStyle: TextStyle(fontSize: 5),
+          edgeLabelPlacement: EdgeLabelPlacement.shift,
+          labelIntersectAction: AxisLabelIntersectAction.hide,
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true),
+        series: <CartesianSeries>[
+          LineSeries<ProjectData, String>(
+            dataSource: controller.chartData,
+            xValueMapper: (ProjectData project, _) => project.x,
+            yValueMapper: (ProjectData project, _) => project.y,
+            markerSettings: const MarkerSettings(isVisible: true),
+            color: Colors.green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _approvalStatusChart(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      height: 220,
+      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: _boxDecoration(Colors.amber.shade50),
+      child: SfCircularChart(
+        title: ChartTitle(
+          text: loc.myExpenseAmountByApprovalStatus,
+          textStyle: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        legend: const Legend(
+          isVisible: true,
+          overflowMode: LegendItemOverflowMode.wrap,
+          position: LegendPosition.bottom,
+          textStyle: TextStyle(fontSize: 9),
+        ),
+        series: <DoughnutSeries<ManageExpensesSummary, String>>[
+          DoughnutSeries<ManageExpensesSummary, String>(
+            dataSource: controller.manageExpensesSummary,
+            xValueMapper: (ManageExpensesSummary data, _) => data.status,
+            yValueMapper: (ManageExpensesSummary data, _) => data.amount,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(fontSize: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _settlementStatusChart(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.85,
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: _boxDecoration(Colors.white),
+      child: SfCartesianChart(
+        title: ChartTitle(
+          text: loc.mySettlementStatus,
+          textStyle: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        primaryXAxis: const CategoryAxis(
+          labelRotation: 35,
+          labelStyle: TextStyle(fontSize: 8),
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        series: <ColumnSeries>[
+          ColumnSeries<ExpenseAmountByStatus, String>(
+            dataSource: controller.expensesByStatus,
+            xValueMapper: (ExpenseAmountByStatus data, _) => data.status,
+            yValueMapper: (ExpenseAmountByStatus data, _) => data.amount,
+            pointColorMapper: (_, __) =>
+                Colors.primaries[__ % Colors.primaries.length].shade300,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(fontSize: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _expensesByProjectChart(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: _boxDecoration(Colors.blue.shade50),
+      child: SfCartesianChart(
+        title: ChartTitle(
+          text: loc.myExpensesByProject,
+          textStyle: const TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black),
+        ),
+        primaryXAxis: const CategoryAxis(
+          labelStyle: TextStyle(fontSize: 8),
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        series: <CartesianSeries>[
+          ColumnSeries<ProjectExpense, String>(
+            dataSource: controller.projectExpenses,
+            xValueMapper: (ProjectExpense project, _) => project.x,
+            yValueMapper: (ProjectExpense project, _) => project.y,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(fontSize: 8),
+            ),
+            color: Colors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _expensesByCategoryChart(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: _boxDecoration(Colors.blue.shade50),
+      child: SfCartesianChart(
+        title: ChartTitle(
+          text: loc.totalExpensesByCategory,
+          textStyle: const TextStyle(
+              fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
+        ),
+        primaryXAxis: const CategoryAxis(
+          labelRotation: 45,
+          labelStyle: TextStyle(fontSize: 5, fontWeight: FontWeight.w500),
+          labelAlignment: LabelAlignment.start,
+          maximumLabels: 10,
+          isVisible: true,
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true),
+        series: <CartesianSeries>[
+          ColumnSeries<ProjectExpensebycategory, String>(
+            dataSource: controller.projectExpensesbyCategory,
+            xValueMapper: (ProjectExpensebycategory project, _) => project.x,
+            yValueMapper: (ProjectExpensebycategory project, _) => project.y,
+            pointColorMapper: (ProjectExpensebycategory project, _) =>
+                project.color,
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            borderRadius: BorderRadius.circular(5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔹 Common box decoration
+  BoxDecoration _boxDecoration(Color color) {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(10),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.4),
+          spreadRadius: 2,
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ],
+      color: color,
+    );
   }
 }

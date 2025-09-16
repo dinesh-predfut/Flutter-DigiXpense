@@ -8,7 +8,10 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsCreateForm.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnEditForm.dart';
+import 'package:digi_xpense/main.dart';
+import 'package:digi_xpense/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -23,8 +26,10 @@ import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 // ignore: duplicate_import
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'pages/EmailHub/emailDetailsPage.dart';
 import 'pages/screen/widget/router/router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:libphonenumber/libphonenumber.dart';
@@ -82,6 +87,7 @@ class Controller extends GetxController {
   final TextEditingController totalRequestedAmount = TextEditingController();
 
   final TextEditingController amountINR = TextEditingController();
+  final TextEditingController approvalamountINR = TextEditingController();
   final TextEditingController estimatedamountINR = TextEditingController();
   final TextEditingController requestamountINR = TextEditingController();
   final TextEditingController amountINRCA1 = TextEditingController();
@@ -139,9 +145,29 @@ class Controller extends GetxController {
   // final TextEditingController locationController = TextEditingController();
   final TextEditingController daysController = TextEditingController();
   final TextEditingController perDiemController = TextEditingController();
+  final TextEditingController exchangeCurrencyCode = TextEditingController();
   final TextEditingController amountInController = TextEditingController();
+  final TextEditingController exchangeamountInController =
+      TextEditingController();
   final TextEditingController purposeController = TextEditingController();
+  final Map<String, Color> themeColorMap = {
+    "RED_THEME": Colors.red,
+    "GREEN_THEME": Colors.green,
+    "BLUE_THEME": Colors.blue,
+    "ORANGE_THEME": Colors.orange,
+    "PURPLE_THEME": Colors.purple,
+    "INDIGO_THEME": Colors.indigo,
+    "DARK_RED_THEME": Color(0xFFB71C1C),
+    "DARK_GREEN_THEME": Color(0xFF1B5E20),
+    "DARK_BLUE_THEME": Color(0xFF0D47A1),
+    "DARK_INDIGO_THEME": Color(0xFF1A237E),
+    "DARK_PURPLE_THEME": Color(0xFF6A1B9A),
+    "DARK_ORANGE_THEME": Color(0xFFE65100),
+  };
+  var currentIndex = 0.obs;
   String? digiSessionId;
+  String? cashAdvReqIds;
+  String? themeColorCode;
   List<VehicleType> vehicleTypes = []; // Dropdown values from API
   VehicleType? selectedVehicleType; // Currently selected type
   MileageRateResponse? mileageRateResponse;
@@ -150,9 +176,11 @@ class Controller extends GetxController {
   var expensesByStatus = <ExpenseAmountByStatus>[].obs;
   var manageExpensesCards = <ManageExpensesCard>[].obs;
   var managecashAdvanceCards = <ManageExpensesCard>[].obs;
+  final List<ExpenseItem> itemizeControllers = <ExpenseItem>[];
+
 // Define this at the class level
   Set<int> skippedWorkItems = {};
-
+  var expenseChartData = <ExpenseAmountByStatus>[].obs;
   final RxBool showSkipButton = true.obs;
   SharedPreferences? _prefs;
   final String skippedItemsKey = 'skippedWorkItems';
@@ -166,6 +194,7 @@ class Controller extends GetxController {
   final RxBool showCancelIcon = true.obs;
   bool showAllCashAdvance = false; // Track see more
   bool showAllExpense = false;
+  bool callProfile = false;
   double calculatedAmountINR = 0;
   double calculatedAmountUSD = 0;
   double totalDistanceKm = 0;
@@ -177,12 +206,16 @@ class Controller extends GetxController {
   var projectExpensesbyCategory = <ProjectExpensebycategory>[].obs;
   var resendCountdown = 0.obs;
   int? recId;
+  int? rate;
+  //
+  //
   // CashAdvanceRequest@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
   final TextEditingController justificationController = TextEditingController();
   final TextEditingController totalunitEstimatedAmount =
       TextEditingController();
 //  final TextEditingController expenseIdController = TextEditingController();
   RxDouble calculatedPercentage = 0.0.obs;
+  String? localFieldValue;
   final TextEditingController requestedPercentage = TextEditingController();
   final TextEditingController requisitionIdController = TextEditingController();
   final TextEditingController requestDateController = TextEditingController();
@@ -202,8 +235,45 @@ class Controller extends GetxController {
   void onInit() {
     super.onInit();
     loadSavedCredentials();
-    fetchNotifications();
+
+    // getInitialRoute();
     // cashAdvanceIds = TextEditingController();
+  }
+
+  Future<String> getInitialRoute() async {
+    print("refreshToken${Params.refreshtoken}");
+    // 1. Check if refresh token is available
+    final refreshToken = Params.refreshtoken;
+    print("refreshToken${Params.refreshtoken}");
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return AppRoutes.entryScreen; // No token at all
+    }
+
+    try {
+      // 2. Call API to validate
+      final response = await http.post(
+        Uri.parse(
+            "https://api.digixpense.com/api/v1/tenant/auth/refresh_token"),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({"refresh_token": refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["access_token"] != null) {
+          // ✅ Token valid → go to Dashboard
+          Params.userToken = data["access_token"];
+          return AppRoutes.dashboard_Main;
+        }
+      }
+      // ❌ Token invalid → signin
+      return AppRoutes.signin;
+    } catch (e) {
+      print("eeee$e");
+      return AppRoutes.signin;
+    }
   }
 
   RxMap<String, bool> buttonLoaders = <String, bool>{}.obs;
@@ -214,6 +284,7 @@ class Controller extends GetxController {
 
   String selectedStatus = "Un Reported";
   final selectedStatusDropDown = "Un Reported".obs;
+  var selectedExpenseType = "All Expenses".obs;
   String selectedStatusmyteam = "In Process";
   final selectedStatusDropDownmyteam = "In Process".obs;
   String selectedStatusmyteamCashAdvance = "In Process";
@@ -229,11 +300,13 @@ class Controller extends GetxController {
   Rx<PerDiemResponseModel?> perdiemResponse = Rx<PerDiemResponseModel?>(null);
   // List<ExpenseItem> expenseItems = [];
   List<ExpenseItem> finalItems = [];
+  List<ExpenseItemUpdate> finalItemsSpecific = [];
   // List<CashAdvanceRequestItemize> finalItemsForCashadvance = [];
   List<CashAdvanceRequestItemize> finalItemsCashAdvance = [];
   List<CashAdvanceRequestItemizeFornew> finalItemsCashAdvanceNew = [];
   List<AccountingDistribution?> accountingDistributions = [];
   RxList<GExpense> getAllListGExpense = <GExpense>[].obs;
+  RxList<ReportModels> getAllListReport = <ReportModels>[].obs;
   RxList<CashAdvanceRequestHeader> getAllListCashAdvanseMyteams =
       <CashAdvanceRequestHeader>[].obs;
   RxList<ExpenseModel> pendingApprovals = <ExpenseModel>[].obs;
@@ -246,10 +319,18 @@ class Controller extends GetxController {
   // In your controller
   var searchQuery = ''.obs;
   final searchController = TextEditingController();
+  final searchControllerApprovalDashBoard = TextEditingController();
+  final searchControllerMyteamsExpense = TextEditingController();
+  final searchControllerReports = TextEditingController();
+  final searchControllerUnProcess = TextEditingController();
+  final searchControllerCashAdvance = TextEditingController();
+  final searchControllerCashAdvanceMyteams = TextEditingController();
+  final searchControllerCashAdvanceApproval = TextEditingController();
   late double expenseChartvalue = 0.0;
   late double exchangeRate;
   bool isManualEntry = false;
   bool isManualEntryMerchant = false;
+  bool isReadOnly = false;
   RxBool isEnable = false.obs;
   RxBool isApprovalEnable = false.obs;
   RxBool isEnablePerDiem = false.obs;
@@ -273,6 +354,8 @@ class Controller extends GetxController {
   String? selectedTimezonevalue;
   String? stringCurrency;
   String? paymentMethodeID;
+  var paidWithCashAdvance = RxnString(); // nullable reactive string
+  var paymentMethodeIDCashAdvance = RxnString();
   String? expenseID;
   int? recID;
   String selectedCurrencyFinal = '';
@@ -285,6 +368,7 @@ class Controller extends GetxController {
   List<Map<String, dynamic>> expenseTrans = [];
   RxList<PaymentMethodModel> paymentMethods = <PaymentMethodModel>[].obs;
   String country = '';
+  String selectedLocationController = '';
   String contactStateController = '';
   String contactCountryController = 'United States';
   String state = '';
@@ -311,6 +395,7 @@ class Controller extends GetxController {
   // List<CashAdvanceDropDownModel> multiSelectedItems = [];
   final RxList<CashAdvanceDropDownModel> multiSelectedItems =
       <CashAdvanceDropDownModel>[].obs;
+  RxList<PaymentMethod> paymentMethodDropDown = <PaymentMethod>[].obs;
 
   var unreadCount = 0.obs;
   late int editTotalAmount;
@@ -355,17 +440,21 @@ class Controller extends GetxController {
   List<Map<String, dynamic>> files = [];
   Rx<Locales> selectedLocale = Locales(code: '', name: '').obs;
   Rx<Payment> selectedPayment = Payment(code: '', name: '').obs;
+  Rx<PaymentMethodModel> selectedPaymentSetting = PaymentMethodModel(
+          paymentMethodName: '', paymentMethodId: '', reimbursible: false)
+      .obs;
   Rx<Timezone> selectedTimezone = Timezone(code: '', name: '', id: '').obs;
   var countries = <Country>[].obs;
   List<Language> language = [];
   List<Timezone> timezone = [];
   List<Locales> localeData = [];
+  List<PaymentMethodModel> selectedPaymentSettinglist = [];
   List<LocationModel> locationDropDown = [];
   List<String> languageList = [];
   List<String> countryNames = [];
   List<String> stateList = [];
   RxList<Currency> currencies = <Currency>[].obs;
-
+  var userName = ''.obs;
   final RxList<ExpenseCategory> expenseCategory = <ExpenseCategory>[].obs;
   List<Payment> payment = [];
   RxList<Map<String, dynamic>> configList = <Map<String, dynamic>>[].obs;
@@ -409,6 +498,9 @@ class Controller extends GetxController {
     'YYYY_MM_DD_dot_alt': 'yyyy.MM.dd',
   };
   Future signIn(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('ThemeColor');
+    profileImage.value = null;
     try {
       isLoadingLogin.value = true;
       // showMsg(false);
@@ -424,36 +516,60 @@ class Controller extends GetxController {
       var decodeData = jsonDecode(await response.stream.bytesToString());
 
       if (response.statusCode == 201) {
+        final prefs = await SharedPreferences.getInstance();
+        signInModel.value = UserProfile.fromJson(decodeData);
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+        // ✅ Save token first
+        await SetSharedPref().setData(
+          token: signInModel.value.accessToken ?? "null",
+          employeeId: signInModel.value.employeeId ?? "null",
+          userId: signInModel.value.userId ?? "null",
+          refreshtoken: signInModel.value.refreshToken ?? "null",
+          userName: signInModel.value.userName ?? "null",
+        );
+
+        // ✅ Wait until Params.userToken is not empty (just to be safe)
+        while (Params.userToken.isEmpty) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+
         isLoadingLogin.value = false;
         await saveCredentials();
-        // ignore: use_build_context_synchronously
-        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
 
-        signInModel.value = UserProfile.fromJson(decodeData);
-
+        // Set controllers
         employeeIdController.text = decodeData['employeeId'] ?? '';
         middleNameController.text = decodeData['UserName'] ?? '';
         firstNameController.text = decodeData['UserName'] ?? '';
         lastNameController.text = decodeData['UserName'] ?? '';
         personalEmailController.text = decodeData['Email'] ?? '';
+        userName.value = decodeData['UserName'] ?? '';
+
+        if (decodeData['UserName'] != null) {
+          await prefs.setString('userName', decodeData['UserName']);
+        }
+
         final settings =
             (decodeData["UserSettings"] as List).first as Map<String, dynamic>;
         selectedTimezonevalue = settings["DefaultTimeZoneValue"] ?? '';
         stringCurrency = settings["DefaultCurrency"] ?? '';
-        // selectedLanguage = settings["DefaultLanguageId"] ?? '';
-        // selectedPayment = settings["DefaultPaymentMethodId"] ?? '';
-        // selectedFormat = settings["DefaultDateFormat"] ?? '';
-        print("setting$selectedCurrency");
-        SetSharedPref().setData(
-            token: signInModel.value.accessToken ?? "null",
-            employeeId: signInModel.value.employeeId ?? "null",
-            userId: signInModel.value.userId ?? "null",
-            refreshtoken: signInModel.value.refreshToken ?? "null",
-            userName: signInModel.value.userName ?? "null");
+        paidWithCashAdvance.value = settings["DefaultPaymentMethodId"] ?? '';
 
-        // showMsg(false);
+        await prefs.setString(
+            "ThemeColor", settings["ThemeColor"] ?? "BLUE_THEME");
 
-        // Show success toast
+        final themeNotifier =
+            Provider.of<ThemeNotifier>(context, listen: false);
+        final color = ThemeNotifier.themeColorMap[settings["ThemeColor"]]!;
+        themeNotifier.setColor(color, themeKey: settings["ThemeColor"]);
+
+        await prefs.setString(
+            "LanguageID", settings["DefaultLanguageId"] ?? "LUG-01");
+        final localeCode = getLocaleCodeFromId(settings["DefaultLanguageId"]);
+        Provider.of<LocaleNotifier>(context, listen: false)
+            .setLocale(Locale(localeCode));
+
+        debugPrint("✅ Token set: ${Params.userToken}");
+
         Fluttertoast.showToast(
           msg: "Login successful!",
           toastLength: Toast.LENGTH_SHORT,
@@ -462,9 +578,8 @@ class Controller extends GetxController {
           textColor: Colors.white,
           fontSize: 16.0,
         );
-        isLoadingLogin.value = false;
-        // Navigate to LandingPage
-        // ignore: use_build_context_synchronously
+
+        // ✅ Navigate only after token is guaranteed to exist
       } else {
         isLoadingLogin.value = false;
         // Navigator.pushNamed(context, AppRoutes.dashboard_Main);
@@ -500,6 +615,9 @@ class Controller extends GetxController {
   void clearFormFields() {
     print("Cleared ALL2");
     multiSelectedItems.value = [];
+    singleSelectedItem = null;
+    cashAdvanceListDropDown.clear();
+    // singleSelectedItem=[] as CashAdvanceDropDownModel?;
     cashAdvanceIds.text = "";
     justificationController.clear();
     amountINRCA1.clear();
@@ -511,6 +629,7 @@ class Controller extends GetxController {
     amountINR.clear();
     unitRate.clear();
     expenseIdController.clear();
+    isLoadingGE1.value = false;
     // paymentMethodID = null;
     descriptionController.clear();
     taxAmount.clear();
@@ -524,6 +643,7 @@ class Controller extends GetxController {
     selectedDate = DateTime.now();
     imageFiles.clear();
     finalItems.clear();
+    finalItemsSpecific.clear();
     files.clear();
     isManualEntryMerchant = false;
     isUploading.value = false;
@@ -547,18 +667,67 @@ class Controller extends GetxController {
   }
 
   ExpenseItemUpdate toExpenseItemUpdateModel() {
+    // print("Mais$unitRates");
     return ExpenseItemUpdate(
-      expenseCategoryId: categoryController.text ?? '',
+        recId: recID,
+        expenseCategoryId: categoryController.text ?? '',
+        quantity: double.tryParse(quantity.text) ?? 1.00,
+        uomId: uomId.text ?? '',
+        unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
+        taxAmount: double.tryParse(taxAmount.text) ?? 0,
+        taxGroup: taxGroupController.text,
+        lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
+        lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
+        projectId: projectDropDowncontroller.text,
+        description: descriptionController.text,
+        isReimbursable: isReimbursable,
+        isBillable: isBillableCreate,
+        //  "Description": descriptionController.text,
+        //       "ExpenseCategoryId": selectedCategoryId,
+        //       "ExpenseId": 2079768,
+        //       "ExpenseTransCustomFieldValues": [],
+        //       "ExpenseTransExpensecategorycustomfieldvalues": [],
+        //       "IsReimbursable": isReimbursite,
+        //       "LineAmountReporting": amountINR.text,
+        //       "LineAmountTrans": quantity.text,
+        //       "ProjectId": selectedProject!.code,
+        //       "Quantity": quantity.text,
+        //       "RecId": 2079785,
+        //       "TaxAmount": taxAmount.text,
+        //       "TaxGroup": selectedTax!.taxGroupId,
+        //       "UnitPriceTrans": 223,
+        //       "UomId": "Uom-001"
+        accountingDistributions: accountingDistributions.map((controller) {
+          final dist = AccountingDistribution(
+            recId: controller?.recId,
+            transAmount:
+                double.tryParse(controller?.transAmount.toString() ?? '') ??
+                    0.0,
+            reportAmount:
+                double.tryParse(controller?.reportAmount.toString() ?? '') ??
+                    0.0,
+            allocationFactor: controller?.allocationFactor ?? 0.0,
+            dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+            // currency: selectedCurrency.value?.code ?? "IND",
+          );
+
+          return dist;
+        }).toList());
+  }
+
+  ExpenseItem toExpenseItemModel() {
+    return ExpenseItem(
+      expenseCategoryId: selectedCategoryId ?? '',
       quantity: double.tryParse(quantity.text) ?? 1.00,
-      uomId: uomId.text ?? '',
-      unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
+      uomId: selectedunit?.code ?? '',
+      unitPriceTrans: double.tryParse(unitAmount.text) ?? 0,
       taxAmount: double.tryParse(taxAmount.text) ?? 0,
-      taxGroup: taxGroupController.text,
+      taxGroup: selectedTax?.taxGroupId,
       lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
       lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
-      projectId: projectDropDowncontroller.text,
+      projectId: selectedProject?.code,
       description: descriptionController.text,
-      isReimbursable: isReimbursable,
+      isReimbursable: isReimbursiteCreate.value,
       isBillable: isBillable.value,
       //  "Description": descriptionController.text,
       //       "ExpenseCategoryId": selectedCategoryId,
@@ -577,74 +746,35 @@ class Controller extends GetxController {
       //       "UomId": "Uom-001"
       accountingDistributions: accountingDistributions.map((controller) {
         return AccountingDistribution(
-            transAmount:
-                double.tryParse(controller?.transAmount.toString() ?? '') ??
-                    0.0,
-            reportAmount:
-                double.tryParse(controller?.reportAmount.toString() ?? '') ??
-                    0.0,
-            allocationFactor: controller?.allocationFactor ?? 0.0,
-            dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-            currency: selectedCurrency.value?.code ?? "IND");
+          transAmount:
+              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
+          reportAmount:
+              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
+          allocationFactor: controller?.allocationFactor ?? 0.0,
+          dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+        );
       }).toList(),
     );
   }
 
-  ExpenseItem toExpenseItemModel() {
-    return ExpenseItem(
-      expenseCategoryId: selectedCategoryId ?? '',
-      quantity: double.tryParse(quantity.text) ?? 1.00,
-      uomId: selectedunit?.code ?? '',
-      unitPriceTrans: double.tryParse(unitAmount.text) ?? 0,
-      taxAmount: double.tryParse(taxAmount.text) ?? 0,
-      taxGroup: selectedTax?.taxGroupId,
-      lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
-      lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
-      projectId: selectedProject?.code,
-      description: descriptionController.text,
-      isReimbursable: isReimbursite,
-      isBillable: isBillableCreate,
-      //  "Description": descriptionController.text,
-      //       "ExpenseCategoryId": selectedCategoryId,
-      //       "ExpenseId": 2079768,
-      //       "ExpenseTransCustomFieldValues": [],
-      //       "ExpenseTransExpensecategorycustomfieldvalues": [],
-      //       "IsReimbursable": isReimbursite,
-      //       "LineAmountReporting": amountINR.text,
-      //       "LineAmountTrans": quantity.text,
-      //       "ProjectId": selectedProject!.code,
-      //       "Quantity": quantity.text,
-      //       "RecId": 2079785,
-      //       "TaxAmount": taxAmount.text,
-      //       "TaxGroup": selectedTax!.taxGroupId,
-      //       "UnitPriceTrans": 223,
-      //       "UomId": "Uom-001"
-      accountingDistributions: accountingDistributions.map((controller) {
-        return AccountingDistribution(
-            transAmount:
-                double.tryParse(controller?.transAmount.toString() ?? '') ??
-                    0.0,
-            reportAmount:
-                double.tryParse(controller?.reportAmount.toString() ?? '') ??
-                    0.0,
-            allocationFactor: controller?.allocationFactor ?? 0.0,
-            dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-            currency: selectedCurrency.value?.code ?? "IND");
-      }).toList(),
-    );
-  }
-
-  void calculateLineAmounts(Controller itemController) {
+  void calculateLineAmounts(Controller itemController,
+      [ExpenseItemUpdate? expenseTran]) {
     double quantity = double.tryParse(itemController.quantity.text) ?? 0.0;
     double unitPrice =
         double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
+    double unitRates = double.tryParse(unitRate.text) ?? 0.0;
 
     double lineAmount = quantity * unitPrice;
+    double lineAmountInINR = lineAmount * unitRates;
 
-    double lineAmountInINR = lineAmount;
-
+    // update both fields directly
     itemController.lineAmount.text = lineAmount.toStringAsFixed(2);
     itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+
+    expenseTran = itemController.toExpenseItemUpdateModel();
+
+    print("Updated Line Amount: ${unitRate.text}");
+    print("Updated Line Amount INR: $lineAmount");
   }
 
   Future<List<PaidForModel>> fetchPaidForList() async {
@@ -703,7 +833,7 @@ class Controller extends GetxController {
         final responseData = jsonDecode(response.body);
 
         print("Success: $responseData");
-
+        imageFiles.add(file);
         // Navigate with image + response data
         // ignore: use_build_context_synchronously
         Navigator.pushNamed(
@@ -715,20 +845,23 @@ class Controller extends GetxController {
           },
         );
       } else {
-        print('Failed: ${response.statusCode} => ${response.body}');
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Upload failed:${response.statusCode} => ${response.body}')),
+        Fluttertoast.showToast(
+          msg: "${response.statusCode} => ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 35, 2, 124),
+          textColor: const Color.fromARGB(255, 253, 252, 253),
+          fontSize: 16.0,
         );
       }
     } catch (e) {
-      // Navigator.of(context).pop(); // Ensure loader closes on error too
-      print("Exception: $e");
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+      Fluttertoast.showToast(
+        msg: "$e",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: const Color.fromARGB(255, 35, 2, 124),
+        textColor: const Color.fromARGB(255, 253, 252, 253),
+        fontSize: 16.0,
       );
     }
   }
@@ -769,11 +902,14 @@ class Controller extends GetxController {
     });
 
     final response = await http.patch(url, headers: headers, body: body);
+    final Map<String, dynamic> responseData = jsonDecode(response.body);
+    final String message =
+        responseData['detail']?['message'] ?? 'No message found';
     if (response.statusCode == 200 || response.statusCode == 280) {
       final responseData = jsonDecode(response.body);
       print('Upload successful: ${responseData['detail']}');
       Fluttertoast.showToast(
-        msg: "${responseData['detail']}",
+        msg: message,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: const Color.fromARGB(255, 35, 2, 124),
@@ -784,7 +920,7 @@ class Controller extends GetxController {
       print('Upload failed [${response.statusCode}]: ${response.body}');
       profileImage.value = null;
       Fluttertoast.showToast(
-        msg: response.body,
+        msg: message,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: const Color.fromARGB(255, 173, 3, 3),
@@ -850,7 +986,7 @@ class Controller extends GetxController {
       profileImage.value = null;
       print('Delete successful: ${responseData['detail']}');
       Fluttertoast.showToast(
-        msg: "${responseData['detail']}",
+        msg: "${responseData['detail']['message']}",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: const Color.fromARGB(255, 35, 2, 124),
@@ -932,6 +1068,7 @@ class Controller extends GetxController {
   }
 
   Future<void> saveCredentials() async {
+    print("rememberMe$rememberMe");
     final prefs = await SharedPreferences.getInstance();
     if (rememberMe) {
       await prefs.setBool('rememberMe', true);
@@ -1025,6 +1162,44 @@ class Controller extends GetxController {
       }
     } catch (e) {
       print('Error fetching language: $e');
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchPaymentMethods() async {
+    print('Fetching payment methods...');
+    isLoading.value = true;
+
+    final url = Uri.parse(
+      Urls.paymentMethodId,
+    );
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        // Map API data to List<PaymentMethod>
+        selectedPaymentSettinglist = List<PaymentMethodModel>.from(
+            data.map((item) => PaymentMethodModel.fromJson(item)));
+        // data.map((item) => PaymentMethod.fromJson(item)).toList();
+
+        print('✅ Payment methods loaded: ${paymentMethods.length}');
+        isLoading.value = false;
+      } else {
+        print('❌ Failed to load payment methods: ${response.body}');
+        isLoading.value = false;
+      }
+    } catch (e) {
+      print('⚠️ Error fetching payment methods: $e');
       isLoading.value = false;
     }
   }
@@ -1146,7 +1321,7 @@ class Controller extends GetxController {
       final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List;
+        final data = json.decode(utf8.decode(response.bodyBytes)) as List;
 
         currencies.value = data.map((e) => Currency.fromJson(e)).toList();
         isLoading.value = false;
@@ -1254,7 +1429,7 @@ class Controller extends GetxController {
   }
 
   Future<void> getUserPref() async {
-    isLoading.value = true;
+    // isLoading.value = true;
     isLoadingGE1.value = true;
 
     final url = Uri.parse(
@@ -1279,7 +1454,7 @@ class Controller extends GetxController {
       if (decoded is! List || decoded.isEmpty) {
         throw Exception('Empty or invalid prefs');
       }
-      isLoading.value = true;
+      // isLoading.value = true;
       final prefs = decoded.first as Map<String, dynamic>;
 
       // collect values first
@@ -1291,6 +1466,18 @@ class Controller extends GetxController {
       final defaultLocale = prefs['DecimalSeperator'] as String?;
       final defaultReceiptEmailRaw =
           prefs['EmailsForRecieptForwarding'] as String?;
+      selectedTimezonevalue = prefs["DefaultTimeZoneValue"] ?? '';
+      stringCurrency = prefs["DefaultCurrency"] ?? '';
+      paidWithCashAdvance.value = prefs["DefaultPaymentMethodId"] ?? '';
+      final themeKey = prefs["ThemeColor"] as String?;
+
+      if (themeKey != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("ThemeColor", themeKey);
+        // If using GetX (ThemeController):
+        // final themeController = Get.find<ThemeController>();
+        // themeController.setTheme(color, themeKey);
+      }
 
       // assign values (defer observable triggers)
       final currency = findOrFallback<Currency>(
@@ -1317,10 +1504,11 @@ class Controller extends GetxController {
         Timezone(code: '', name: '', id: ''),
       );
 
-      final pay = findOrFallback<Payment>(
-        payment,
-        (p) => p.code == defaultPaymentId,
-        Payment(code: '', name: ''),
+      final pay = findOrFallback<PaymentMethodModel>(
+        selectedPaymentSettinglist,
+        (p) => p.paymentMethodId == defaultPaymentId,
+        PaymentMethodModel(
+            paymentMethodId: '', paymentMethodName: '', reimbursible: false),
       );
 
       final format = dateFormatMap.entries.firstWhere(
@@ -1341,7 +1529,7 @@ class Controller extends GetxController {
       selectedLanguage = lang;
       selectedLocale.value = locale;
       selectedTimezone.value = tz;
-      selectedPayment.value = pay;
+      selectedPaymentSetting.value = pay;
       selectedFormat = format;
       emails = emailList;
       fetchExchangeRate();
@@ -1382,7 +1570,8 @@ class Controller extends GetxController {
   }
 
   Future<void> getProfilePicture() async {
-    profileImage.value = null; // Clear old image
+    isImageLoading.value = true;
+    // profileImage.value = null; // Clear old image
     final url = Uri.parse('${Urls.getProfilePicture}${Params.userId}');
     try {
       final request = http.Request('GET', url)
@@ -1405,37 +1594,39 @@ class Controller extends GetxController {
 
         // Save image to temporary directory
         final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/profile_image.png');
+        final file = File('${dir.path}/profile_image_${Params.userId}.png');
         await file.writeAsBytes(bytes);
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('profile_image_path', file.toString());
+        // final prefs = await SharedPreferences.getInstance();
+        // await prefs.setString('profile_image_path', file.toString());
         profileImage.value = file;
-
+        isImageLoading.value = false;
         print(' Profile image stored at: ${file.path}');
       } else {
         print('Failed to fetch profile picture: ${response.statusCode}');
+        isImageLoading.value = false;
       }
     } catch (e) {
       print(' Error fetching profile picture: $e');
+      isImageLoading.value = false;
     }
   }
 
-  Future<void> loadProfilePictureFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final filePath = prefs.getString('profile_image_path');
+  // Future<void> loadProfilePictureFromStorage() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final filePath = prefs.getString('profile_image_path');
 
-    if (filePath != null) {
-      final file = File(filePath);
-      if (await file.exists()) {
-        profileImage.value = file;
-        print('✅ Loaded cached profile image from $filePath');
-      } else {
-        print('⚠️ Cached profile image not found on disk');
-        profileImage.value = null;
-      }
-    }
-  }
+  //   if (filePath != null) {
+  //     final file = File(filePath);
+  //     if (await file.exists()) {
+  //       profileImage.value = file;
+  //       print('✅ Loaded cached profile image from $filePath');
+  //     } else {
+  //       print('⚠️ Cached profile image not found on disk');
+  //       profileImage.value = null;
+  //     }
+  //   }
+  // }
 
   Future<void> updateProfileDetails() async {
     // buttonLoader.value = true;
@@ -1523,8 +1714,9 @@ class Controller extends GetxController {
   }
 
   // UserPref Update APi
-  Future<void> userPreferences() async {
+  Future<void> userPreferences(BuildContext context) async {
     buttonLoader.value = true;
+    print("selectedTimezone.value.id${selectedTimezonevalue}");
     final Map<String, dynamic> requestBody = {
       "UserId": Params.userId,
       "DefaultCurrency": selectedCurrency.value?.code,
@@ -1534,9 +1726,9 @@ class Controller extends GetxController {
       "DefaultDateFormat": selectedFormat?.value,
       "EmailsForRecieptForwarding": emails.join(';'),
       "ShowAnalyticsOnList": true,
-      "DefaultPaymentMethodId": selectedPayment.value.code,
+      "DefaultPaymentMethodId": selectedPaymentSetting.value.paymentMethodId,
       "ThemeDirection": false,
-      "ThemeColor": "GREEN_THEME",
+      "ThemeColor": themeColorCode,
       "DecimalSeperator": selectedLocale.value.code
     };
 
@@ -1553,6 +1745,13 @@ class Controller extends GetxController {
       if (response.statusCode == 280) {
         buttonLoader.value = false;
         final responseData = jsonDecode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("ThemeColor", themeColorCode!);
+        final themeNotifier =
+            // ignore: use_build_context_synchronously
+            Provider.of<ThemeNotifier>(context, listen: false);
+        final color = ThemeNotifier.themeColorMap[themeColorCode!]!;
+        themeNotifier.setColor(color, themeKey: themeColorCode!);
         Fluttertoast.showToast(
           msg: "Success: ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
@@ -1712,12 +1911,14 @@ class Controller extends GetxController {
           orElse: () => Country(code: '', name: ''),
         );
         isLoading.value = true;
-        selectedContCountry.value = countries.firstWhere(
-          (p) => p.code == contactCountryController,
-          orElse: () => Country(code: '', name: ''),
-        );
+        if (isSameAsPermanents) {
+          selectedContCountry.value = countries.firstWhere(
+            (p) => p.code == contactCountryController,
+            orElse: () => Country(code: '', name: ''),
+          );
+          countryConstTextController.text = selectedContCountry.value!.name;
+        }
 
-        countryConstTextController.text = selectedContCountry.value!.name;
         isLoading.value = false;
         selectedState.value = statesres.firstWhere(
           (p) => p.name == state,
@@ -1730,9 +1931,6 @@ class Controller extends GetxController {
         );
         fetchState();
         fetchSecondState();
-        print("Selected State: ${selectedState.value}, "
-            "Contact State: $contactStateController, "
-            "Country Code: ${selectedContCountry.value!.code}");
       });
 
       // Fluttertoast.showToast(
@@ -2048,14 +2246,16 @@ class Controller extends GetxController {
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200) {
         isLoadingGE1.value = false;
         final data = jsonDecode(response.body);
         print("amountINR: ${quantity.text}");
 
         if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
-          unitRate.text = data['ExchangeRate'].toString();
+          // unitRate.text = data['ExchangeRate'].toString();
 
           final double totalAmount = (data['Total_Amount'] is String)
               ? double.tryParse(data['Total_Amount']) ?? 0
@@ -2064,18 +2264,21 @@ class Controller extends GetxController {
           final double rate = data['ExchangeRate']?.toDouble() ?? 1;
           final double totalINR = totalAmount * rate;
 
-          amountINR.text = totalINR.toStringAsFixed(2);
+          amountINR.text = totalAmount.toStringAsFixed(2);
           exchangeRate = rate;
-
+          unitRate.text = rate.toString();
+          amountInController.text = totalAmount.toString();
           lineAmount.text = totalAmount.toString();
           lineAmountINR.text = totalINR.toStringAsFixed(2);
           quantity.text = rate.toString();
         }
-
+        for (var itemController in itemizeControllers) {
+          calculateLineAmounts(itemController as Controller);
+        }
         return ExchangeRateResponse.fromJson(data);
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2132,9 +2335,95 @@ class Controller extends GetxController {
     }
   }
 
+  Future<List<GESpeficExpense>> unprocessSpecificEnter(
+      int workitemrecid) async {
+    isLoadingGE1.value = true;
+    final url = Uri.parse('${Urls.getSpecificUnprocess}RecId=$workitemrecid');
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final expenses = (data as List)
+            .map((item) => GESpeficExpense.fromJson(item))
+            .toList();
+        specificExpenseList.value = expenses;
+        isLoadingGE1.value = false;
+        return expenses;
+      } else {
+        isLoadingGE1.value = false;
+        print(
+            'Failed to load Cash Advance. Status code: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      isLoadingGE1.value = false;
+      print('Error fetching Cash Advance: $e');
+      return [];
+    }
+  }
+
+  // Future<List<GESpeficExpense>> unprocessSpecificEnter(int recId) async {
+  //   isLoadingGE1.value = true;
+
+  //   final url = Uri.parse('${Urls.getSpecificUnprocess}RecId=$recId');
+
+  //   try {
+  //     final request = http.Request('GET', url)
+  //       ..headers.addAll({
+  //         'Content-Type': 'application/json',
+  //         'Authorization': 'Bearer ${Params.userToken ?? ''}',
+  //       });
+
+  //     final streamed = await request.send();
+  //     final response = await http.Response.fromStream(streamed);
+
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+
+  //       specificExpenseList.value = (data as List)
+  //           .map((item) => GESpeficExpense.fromJson(item))
+  //           .toList();
+
+  //       for (var expense in specificExpenseList) {
+  //         expenseIdController.text = expense.expenseId;
+  //         receiptDateController.text =
+  //             DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+  //       }
+
+  //       print("Expense ID: ${expenseIdController.text}");
+  //       isLoadingGE1.value = false;
+  //       Navigator.pushNamed(
+  //         context,
+  //         AppRoutes.viewCashAdvanseReturnForms,
+  //         arguments: {
+  //           'item': specificCashAdvanceList[0],
+  //         },
+  //       );
+  //     } else {
+  //       isLoadingGE1.value = false;
+  //       print(
+  //           'Failed to load specific expense. Status code: ${response.statusCode}');
+  //       return [];
+  //     }
+  //   } catch (e, stack) {
+  //     isLoadingGE1.value = false;
+  //     print('Error fetching specific expense: $e');
+  //     print(stack);
+  //     return [];
+  //   }
+  // }
+
   Future<List<GESpeficExpense>> fetchSecificExpenseItem(context, int recId,
       [bool? bool]) async {
     isLoadingGE1.value = true;
+
     final url = Uri.parse('${Urls.getSpecificGeneralExpense}RecId=$recId');
 
     try {
@@ -2149,6 +2438,7 @@ class Controller extends GetxController {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+
         specificExpenseList.value = (data as List)
             .map((item) => GESpeficExpense.fromJson(item))
             .toList();
@@ -2158,27 +2448,30 @@ class Controller extends GetxController {
           receiptDateController.text =
               DateFormat('dd/MM/yyyy').format(expense.receiptDate);
         }
+
         print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
+
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificExpense,
           arguments: {
             'item': specificExpenseList[0],
-            "readOnly": bool,
+            'readOnly': bool,
           },
         );
-        return getSpecificListGExpense;
+
+        return specificExpenseList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+            'Failed to load specific expense. Status code: ${response.statusCode}');
         return [];
       }
-    } catch (e) {
-      print('Error fetching payment methods: $e');
+    } catch (e, stack) {
       isLoadingGE1.value = false;
-
+      print('Error fetching specific expense: $e');
+      print(stack);
       return [];
     }
   }
@@ -2186,6 +2479,7 @@ class Controller extends GetxController {
   Future<List<GESpeficExpense>> fetchSecificCashAdvanceReturn(
       context, int recId, bool bool) async {
     isLoadingGE1.value = true;
+
     final url = Uri.parse('${Urls.getSpecificGeneralExpense}RecId=$recId');
 
     try {
@@ -2200,6 +2494,7 @@ class Controller extends GetxController {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+
         specificExpenseList.value = (data as List)
             .map((item) => GESpeficExpense.fromJson(item))
             .toList();
@@ -2209,30 +2504,36 @@ class Controller extends GetxController {
           receiptDateController.text =
               DateFormat('dd/MM/yyyy').format(expense.receiptDate);
         }
+
         print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
+
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificCashAdvanseView,
-          arguments: {'item': specificExpenseList[0], "readOnly": bool},
+          arguments: {
+            'item': specificExpenseList[0],
+            'readOnly': bool,
+          },
         );
-        return getSpecificListGExpense;
+
+        return specificExpenseList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+            'Failed to load specific expense. Status code: ${response.statusCode}');
         return [];
       }
-    } catch (e) {
-      print('Error fetching payment methods: $e');
+    } catch (e, stack) {
       isLoadingGE1.value = false;
-
+      print('Error fetching specific expense: $e');
+      print(stack);
       return [];
     }
   }
 
   Future<List<GESpeficExpense>> fetchSecificCashAdvanceReturnApproval(
-      context, int workitemrecid) async {
+      context, int workitemrecid, bool bool) async {
     isLoadingGE1.value = true;
     final url = Uri.parse(
         '${Urls.getSpecificCashAdvanceApproval}workitemrecid=$workitemrecid&lock_id=$workitemrecid&screen_name=MyPendingApproval');
@@ -2265,6 +2566,7 @@ class Controller extends GetxController {
           AppRoutes.getSpecificCashAdvanseView,
           arguments: {
             'item': specificExpenseList[0],
+            'readOnly': bool,
           },
         );
         return getSpecificListGExpense;
@@ -2282,7 +2584,8 @@ class Controller extends GetxController {
     }
   }
 
-  Future<ExpenseModelMileage> fetchMileageDetails(context, expenseId) async {
+  Future<ExpenseModelMileage> fetchMileageDetails(
+      context, expenseId, readOnly) async {
     final response = await http.get(
       Uri.parse(
           "${Urls.mileageregistrationview}milageregistration?RecId=$expenseId&lock_id=$expenseId&screen_name=MileageRegistration"),
@@ -2295,12 +2598,13 @@ class Controller extends GetxController {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final expense = ExpenseModelMileage.fromJson(data[0]); // Assuming array
-
+      print("readOnly$readOnly");
       Navigator.pushNamed(
         context,
-        AppRoutes.mileageDetailsPage,
+        AppRoutes.mileageExpensefirst,
         arguments: {
           'item': expense,
+          'isReadOnly': readOnly,
         },
       );
 
@@ -2311,7 +2615,7 @@ class Controller extends GetxController {
   }
 
   Future<ExpenseModelMileage> fetchMileageDetailsApproval(
-      context, expenseId) async {
+      context, expenseId, readOnly) async {
     final response = await http.get(
       Uri.parse(
           "${Urls.mileageregistrationview}detailedapproval?workitemrecid=$expenseId"),
@@ -2328,9 +2632,7 @@ class Controller extends GetxController {
       Navigator.pushNamed(
         context,
         AppRoutes.mileageExpensefirst,
-        arguments: {
-          'item': expense,
-        },
+        arguments: {'item': expense, 'isReadOnly': readOnly},
       );
 
       return expense;
@@ -2376,10 +2678,13 @@ class Controller extends GetxController {
         },
         body: jsonEncode(payload),
       );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
 
       if (response.statusCode == 202) {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2392,7 +2697,7 @@ class Controller extends GetxController {
         return true;
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2444,10 +2749,12 @@ class Controller extends GetxController {
         },
         body: jsonEncode(payload),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202) {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2462,7 +2769,7 @@ class Controller extends GetxController {
         return true;
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2514,10 +2821,12 @@ class Controller extends GetxController {
         },
         body: jsonEncode(payload),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202) {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2530,7 +2839,7 @@ class Controller extends GetxController {
         return true;
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -2609,7 +2918,7 @@ class Controller extends GetxController {
       "TotalAmountTrans": calculatedAmountINR,
       "TotalAmountReporting": calculatedAmountINR,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": "Dinesh",
+      "EmployeeName": Params.employeeName,
       "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
       "Source": "Web",
       "ExchRate": 1,
@@ -2622,7 +2931,7 @@ class Controller extends GetxController {
       "FromLocation": tripControllers.first.text,
       "ToLocation": tripControllers.last.text,
       // "RecId": null,
-      "CashAdvReqId": "",
+      "CashAdvReqId": cashAdvanceIds.text,
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       "AccountingDistributions": [],
@@ -2644,13 +2953,15 @@ class Controller extends GetxController {
         },
         body: jsonEncode(payload),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         resetFieldsMileage();
         clearFormFieldsPerdiem();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -2658,7 +2969,7 @@ class Controller extends GetxController {
         );
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -2696,9 +3007,9 @@ class Controller extends GetxController {
       "EmployeeName": firstNameController.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
-          : selectedPaidto?.merchantNames ?? '',
+          : paidToController.text ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": '',
+      "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "PaymentMethod": paidWithController.text ?? '',
       "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
@@ -2734,12 +3045,14 @@ class Controller extends GetxController {
         },
         body: jsonEncode(requestBody),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         resetFieldsMileage();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -2747,7 +3060,7 @@ class Controller extends GetxController {
         );
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -2762,7 +3075,8 @@ class Controller extends GetxController {
       );
     }
   }
-Future<void> hubreviewGendralExpense(
+
+  Future<void> hubreviewGendralExpense(
       context, bool action, int workitemrecid) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
@@ -2786,7 +3100,7 @@ Future<void> hubreviewGendralExpense(
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": '',
+      "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "PaymentMethod": paidWithController.text ?? '',
       "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
@@ -2822,12 +3136,14 @@ Future<void> hubreviewGendralExpense(
         },
         body: jsonEncode(requestBody),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         resetFieldsMileage();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -2835,7 +3151,7 @@ Future<void> hubreviewGendralExpense(
         );
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -2888,6 +3204,8 @@ Future<void> hubreviewGendralExpense(
   }
 
   Future<List<File>> fetchExpenseDocImage([int? recId]) async {
+    print("FileChecker");
+    isLoadingviewImage.value = true;
     print("FileChecker:");
     imageFiles.value = [];
     final response = await http.get(
@@ -2900,7 +3218,7 @@ Future<void> hubreviewGendralExpense(
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-
+      print("DDDDDD");
       final List<dynamic> attachments = data['DocumentAttachment'] ?? [];
       isLoadingviewImage.value = false;
       for (var attachment in attachments) {
@@ -2973,6 +3291,7 @@ Future<void> hubreviewGendralExpense(
       print("&&&&&&${trans.description}");
       final newItem = CashAdvanceRequestItemize(
         recId: trans.recId,
+        cashAdvReqHeader: trans.cashAdvReqHeader,
         description: trans.description,
         quantity: trans.quantity,
         uomId: trans.uomId,
@@ -2989,21 +3308,21 @@ Future<void> hubreviewGendralExpense(
         lineRequestedExchangerate: trans.estimatedExchangerate,
         lineEstimatedExchangerate: trans.lineEstimatedAmount,
         maxAllowedPercentage: trans.maxAllowedPercentage,
-        baseUnit: trans.baseUnit,
-        baseUnitRequested: trans.baseUnitRequested,
+        // baseUnit: trans.baseUnit,
+        // baseUnitRequested: trans.baseUnitRequested,
         expenseCategoryId: trans.expenseCategoryId,
 
         accountingDistributions: accountingDistributions.map((controller) {
           return AccountingDistribution(
-              transAmount:
-                  double.tryParse(controller?.transAmount.toString() ?? '') ??
-                      0.0,
-              reportAmount:
-                  double.tryParse(controller?.reportAmount.toString() ?? '') ??
-                      0.0,
-              allocationFactor: controller?.allocationFactor ?? 0.0,
-              dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-              currency: selectedCurrency.value?.code ?? "IND");
+            transAmount:
+                double.tryParse(controller?.transAmount.toString() ?? '') ??
+                    0.0,
+            reportAmount:
+                double.tryParse(controller?.reportAmount.toString() ?? '') ??
+                    0.0,
+            allocationFactor: controller?.allocationFactor ?? 0.0,
+            dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+          );
         }).toList(),
       );
 
@@ -3019,11 +3338,24 @@ Future<void> hubreviewGendralExpense(
           (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
               ? trans.taxGroup
               : null;
-      print("&&&&&&${trans.recId}");
-      return ExpenseItem(
+
+      final mappedDistributions = trans.accountingDistributions?.map((dist) {
+            print(
+                "Mapping AccountingDistribution => RecId: ${dist.recId}, TransAmount: ${dist.transAmount}, ReportAmount: ${dist.reportAmount}, AllocationFactor: ${dist.allocationFactor}, DimensionValueId: ${dist.dimensionValueId}");
+
+            return AccountingDistribution(
+              transAmount: dist.transAmount,
+              reportAmount: dist.reportAmount,
+              dimensionValueId: dist.dimensionValueId,
+              allocationFactor: dist.allocationFactor,
+              recId: dist.recId,
+            );
+          }).toList() ??
+          [];
+      return ExpenseItemUpdate(
         quantity: trans.quantity,
         recId: recID,
-        expenseId: trans.expenseId,
+        expenseId: expenseID,
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
         unitPriceTrans: trans.unitPriceTrans,
@@ -3035,11 +3367,11 @@ Future<void> hubreviewGendralExpense(
         description: trans.description ?? '',
         isReimbursable: trans.isReimbursable,
         isBillable: trans.isBillable,
-        accountingDistributions: trans.accountingDistributions,
+        accountingDistributions: mappedDistributions,
       );
     }).toList();
 
-    finalItems.addAll(items);
+    finalItemsSpecific.addAll(items);
   }
 
   double getTotalLineAmount() {
@@ -3057,28 +3389,28 @@ Future<void> hubreviewGendralExpense(
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
-    print("receiptDate$attachmentPayload");
+    print("receiptDate${unitAmount.text}");
     print("finalItems${finalItems.length}");
     if (!bool) {
       isUploading.value = true;
     } else {
       isGESubmitBTNLoading.value = true;
     }
-    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 0;
+    final hasValidUnit = finalItems.isNotEmpty;
     print("hasValidUnit$hasValidUnit${selectedunit?.code}");
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
-      "ExpenseId": "",
+
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": '',
+      "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWith,
+      "PaymentMethod": paidWith ?? paidWithCashAdvance.value,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -3086,14 +3418,14 @@ Future<void> hubreviewGendralExpense(
           amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "Currency": currencyDropDowncontroller.text,
       "ExchRate":
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
       "UserExchRate":
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
 
       "Source": "Web",
-      if (!hasValidUnit) "IsBillable": isBillable.value,
+      "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
@@ -3177,7 +3509,7 @@ Future<void> hubreviewGendralExpense(
   }
 
   Future<void> createcashAdvanceReturn(
-      context, bool bool, bool? reSubmit) async {
+      context, bool bool, bool? reSubmit, int recId, String? expenseId) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -3190,11 +3522,12 @@ Future<void> hubreviewGendralExpense(
     } else {
       isGESubmitBTNLoading.value = true;
     }
-    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 0;
+    final hasValidUnit = finalItems.isNotEmpty;
     print("hasValidUnit$hasValidUnit${selectedunit?.code}");
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
-      "ExpenseId": "",
+      "ExpenseId": expenseId ?? '',
+      if (recId > 0) "RecId": recId,
       "EmployeeId": Params.employeeId,
       "EmployeeName": firstNameController.text.trim(),
       "MerchantName": isManualEntryMerchant
@@ -3204,7 +3537,7 @@ Future<void> hubreviewGendralExpense(
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWith,
+      "PaymentMethod": paidWithCashAdvance.value,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -3219,7 +3552,7 @@ Future<void> hubreviewGendralExpense(
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
 
       "Source": "Web",
-      if (!hasValidUnit) "IsBillable": isBillable.value,
+      "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
@@ -3243,7 +3576,7 @@ Future<void> hubreviewGendralExpense(
     try {
       final response = await http.post(
         Uri.parse(
-            '${Urls.cashadvancerequisitions}&Submit=$bool&Resubmit=${reSubmit ?? false}&screen_name=MyExpense'),
+            '${Urls.cashadvancerequisitions}&submit=$bool&resubmit=${reSubmit ?? false}&screen_name=MyExpense'),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3251,7 +3584,7 @@ Future<void> hubreviewGendralExpense(
         body: jsonEncode(requestBody),
       );
       print("requestBody$requestBody");
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 280) {
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -3262,6 +3595,7 @@ Future<void> hubreviewGendralExpense(
         final message = data['detail']['message'] ?? 'Expense created';
         final recId = data['detail']['RecId'];
         clearFormFields();
+
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
           msg: "$message (RecId: $recId)",
@@ -3313,9 +3647,9 @@ Future<void> hubreviewGendralExpense(
       description: descriptionController.text,
       isReimbursable: isReimbursite,
       isBillable: isBillableCreate,
-      baseUnit: (double.tryParse(unitRateCA1.text) ?? 1).toInt(),
+      // baseUnit: (double.tryParse(unitRateCA1.text) ?? 1).toInt(),
 
-      baseUnitRequested: (double.tryParse(unitRateCA2.text) ?? 1).toInt(),
+      // baseUnitRequested: (double.tryParse(unitRateCA2.text) ?? 1).toInt(),
 
       createdBy: Params.userId ?? '',
       createdDatetime: DateTime.now().millisecondsSinceEpoch,
@@ -3390,7 +3724,7 @@ Future<void> hubreviewGendralExpense(
               double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
           allocationFactor: controller?.allocationFactor ?? 0.0,
           dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-          currency: selectedCurrency.value?.code ?? "INR",
+          // currency: selectedCurrency.value?.code ?? "INR",
         );
       }).toList(),
 
@@ -3419,6 +3753,7 @@ Future<void> hubreviewGendralExpense(
           DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
       final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
+      final attachmentPayload = await buildDocumentAttachment(imageFiles);
       print("cashAdvTransPayload2");
       // Build attachments
       // final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -3439,13 +3774,15 @@ Future<void> hubreviewGendralExpense(
         "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
             ? double.tryParse(estimatedamountINR.text) ?? 0
             : 0,
-        "PrefferedPaymentMethod": paidWithController.text,
+        "PrefferedPaymentMethod": paidWithCashAdvance.value,
         "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
         "RequisitionId": expenseIdController.text,
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {"File": []},
+        "DocumentAttachment": {
+          "File": attachmentPayload,
+        },
       };
 
       print("🔗 API Request Body: $requestBody");
@@ -3453,7 +3790,7 @@ Future<void> hubreviewGendralExpense(
       // API call
       final response = await http.post(
         Uri.parse(
-            "https://api.digixpense.com/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv"),
+            "${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv"),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3514,7 +3851,7 @@ Future<void> hubreviewGendralExpense(
       final requestDate = parsedDate.millisecondsSinceEpoch;
       print("cashAdvTransPayload2");
       // Build attachments
-      // final attachmentPayload = await buildDocumentAttachment(imageFiles);
+      final attachmentPayload = await buildDocumentAttachment(imageFiles);
 
       // Build CashAdvTrans items
       final cashAdvTransPayload =
@@ -3539,7 +3876,9 @@ Future<void> hubreviewGendralExpense(
         "ReferenceId": referenceID.text.trim(),
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {"File": []},
+        "DocumentAttachment": {
+          "File": attachmentPayload,
+        },
       };
 
       print("🔗 API Request Body: $requestBody");
@@ -3547,7 +3886,7 @@ Future<void> hubreviewGendralExpense(
       // API call
       final response = await http.post(
         Uri.parse(
-            "${Urls.cashadvanceregistration}registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv"),
+            "${Urls.cashadvanceregistration}registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyExpense"),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3599,8 +3938,8 @@ Future<void> hubreviewGendralExpense(
   }
 
   Future<void> reviewandUpdateCashAdvance(
-      BuildContext context, bool submit, int? recId,
-      [String? reqID]) async {
+      BuildContext context, bool submit, int? recId, String? requisitionId,
+      [int? reqID]) async {
     try {
       print("cashAdvTransPayload");
       // Format the request date
@@ -3610,7 +3949,7 @@ Future<void> hubreviewGendralExpense(
       final requestDate = parsedDate.millisecondsSinceEpoch;
       print("cashAdvTransPayload2");
       // Build attachments
-      // final attachmentPayload = await buildDocumentAttachment(imageFiles);
+      final attachmentPayload = await buildDocumentAttachment(imageFiles);
 
       // Build CashAdvTrans items
       final cashAdvTransPayload =
@@ -3619,8 +3958,9 @@ Future<void> hubreviewGendralExpense(
 
       // Construct request body
       final Map<String, dynamic> requestBody = {
-        "RequisitionId": reqID ?? "",
+        "RequisitionId": requisitionId ?? "",
         "RecId": recId ?? "",
+        "workitemrecid": reqID ?? '',
         "RequestDate": requestDate,
         "EmployeeId": Params.employeeId,
         "EmployeeName": Params.userName,
@@ -3635,7 +3975,9 @@ Future<void> hubreviewGendralExpense(
         "ReferenceId": referenceID.text.trim(),
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {"File": []},
+        "DocumentAttachment": {
+          "File": attachmentPayload,
+        },
       };
 
       print("🔗 API Request Body: $requestBody");
@@ -3654,14 +3996,14 @@ Future<void> hubreviewGendralExpense(
       print("📥 API Response: ${response.statusCode} ${response.body}");
 
       // Handle response
-      if (response.statusCode == 201 || response.statusCode == 280) {
+      if (response.statusCode == 202 || response.statusCode == 280) {
         final data = jsonDecode(response.body);
         final message = data['detail']['message'] ?? 'Cash advance created';
         final recId = data['detail']['RecId'];
 
         clearFormFields();
         // ignore: use_build_context_synchronously
-        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+        Navigator.pushNamed(context, AppRoutes.approvalDashboardForDashboard);
 
         Fluttertoast.showToast(
           msg: "$message (RecId: $recId)",
@@ -3696,6 +4038,7 @@ Future<void> hubreviewGendralExpense(
 
   Future<void> saveinviewPageGeneralExpense(
       context, bool bool, bool? reSubmit, int recId) async {
+    isLoadingGE1.value = true;
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -3705,8 +4048,10 @@ Future<void> hubreviewGendralExpense(
     print("finalItems${finalItems.length}");
     if (!bool) {
       isUploading.value = true;
+      isLoadingGE1.value = true;
     } else {
       isGESubmitBTNLoading.value = true;
+      isLoadingGE1.value = true;
     }
     final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
 
@@ -3719,10 +4064,10 @@ Future<void> hubreviewGendralExpense(
       "EmployeeName": firstNameController.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
-          : selectedPaidto?.merchantNames ?? '',
+          : paidToController.text ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
       "ReferenceNumber": referenceID.text,
-      "CashAdvReqId": '',
+      "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "PaymentMethod": paymentMethodID,
       "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
@@ -3749,7 +4094,7 @@ Future<void> hubreviewGendralExpense(
         "File": attachmentPayload,
       },
       // if (hasValidUnit && finalItems.isNotEmpty)
-      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
 
     try {
@@ -3774,6 +4119,7 @@ Future<void> hubreviewGendralExpense(
         final message = data['detail']['message'] ?? 'Expense created';
         final recId = data['detail']['RecId'];
         clearFormFields();
+        isLoadingGE1.value = false;
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
           msg: "$message (RecId: $recId)",
@@ -3784,6 +4130,7 @@ Future<void> hubreviewGendralExpense(
           fontSize: 16.0,
         );
       } else {
+        isLoadingGE1.value = false;
         Fluttertoast.showToast(
           msg: "Error: ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
@@ -3794,7 +4141,7 @@ Future<void> hubreviewGendralExpense(
         );
         print("❌ Error: ${response.body}");
         finalItems.clear();
-
+        finalItemsSpecific.clear();
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -3813,7 +4160,7 @@ Future<void> hubreviewGendralExpense(
   }
 
   Future<void> editAndUpdateCashAdvance(
-      context, bool bool, bool? reSubmit, int recId) async {
+      context, bool bool, bool? reSubmit, int recId, String expenseId) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -3831,23 +4178,33 @@ Future<void> hubreviewGendralExpense(
     print("hasValidUnit$hasValidUnit${unitAmountView.text}");
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
-      "ExpenseId": expenseID,
-      "RecId": recID,
+      "ExpenseId": expenseId ?? '',
+      if (recId > 0) "RecId": recId,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": Params.employeeName,
-      "PaymentMethod": paidWithController.text,
-      "ReferenceNumber": referenceID.text,
+      "EmployeeName": firstNameController.text.trim(),
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : selectedPaidto?.merchantNames ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
+      "ReferenceNumber": referenceID.text,
+      "PaymentMethod": paidWithCashAdvance.value,
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting":
+          amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
 
-      "TotalAmountTrans": double.tryParse(paidAmount.text) ?? 0,
-      "TotalAmountReporting": double.tryParse(amountINR.text) ?? 0,
       // if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
       "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate": double.tryParse(unitRate.text) ?? 0,
-      "UserExchRate": double.tryParse(unitRate.text) ?? 0,
-      "Source": "Web",
+      "ExchRate":
+          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
+      "UserExchRate":
+          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
 
+      "Source": "Web",
+      "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
@@ -3864,7 +4221,7 @@ Future<void> hubreviewGendralExpense(
         "File": attachmentPayload,
       },
       // if (hasValidUnit && finalItems.isNotEmpty)
-      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
     print(jsonEncode(requestBody));
     try {
@@ -3909,7 +4266,7 @@ Future<void> hubreviewGendralExpense(
         );
         print("❌ Error: ${response.body}");
         finalItems.clear();
-
+        finalItemsSpecific.clear();
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -4365,20 +4722,91 @@ Future<void> hubreviewGendralExpense(
     return date.millisecondsSinceEpoch;
   }
 
+  String formattedDate(int millis) {
+    DateTime date = DateTime.fromMillisecondsSinceEpoch(millis);
+    return DateFormat('dd MMM yyyy').format(date);
+  }
+
+  Future<ExchangeRateResponse?> fetchExchangeRatePerdiem() async {
+    // if (selectedCurrency.value == null) {
+    //   print('selectedCurrency is null');
+    //   return null;
+    // }
+
+    final toDate = parseDateToEpoch(toDateController.text);
+    final url = Uri.parse(
+      '${Urls.exchangeRate}/${exchangeamountInController.text}/${exchangeCurrencyCode.text}/$toDate',
+    );
+
+    try {
+      final request = http.Request('GET', url)
+        ..headers.addAll({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        });
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200) {
+        isLoadingGE1.value = false;
+        final data = jsonDecode(response.body);
+        print("amountINR: ${quantity.text}");
+
+        if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
+          unitRate.text = data['ExchangeRate'].toString();
+
+          final double totalAmount = (data['Total_Amount'] is String)
+              ? double.tryParse(data['Total_Amount']) ?? 0
+              : (data['Total_Amount']?.toDouble() ?? 0);
+
+          final double rate = data['ExchangeRate']?.toDouble() ?? 1;
+          final double totalINR = totalAmount * rate;
+
+          amountINR.text = totalINR.toStringAsFixed(2);
+          exchangeRate = rate;
+          unitRate.text = rate.toString();
+          amountInController.text = totalAmount.toString();
+          lineAmount.text = totalAmount.toString();
+          lineAmountINR.text = totalINR.toStringAsFixed(2);
+          quantity.text = rate.toString();
+        }
+
+        return ExchangeRateResponse.fromJson(data);
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+        unitRate.clear();
+      }
+    } catch (e) {
+      print('Error fetching exchange rate: $e');
+      return null;
+    }
+    return null;
+  }
+
   Future<List<AllocationLine>> fetchPerDiemRates() async {
     isLoadingGE1.value = true;
-
     try {
       final fromDate = parseDateToEpoch(fromDateController.text);
       final toDate = parseDateToEpoch(toDateController.text);
-      final location = selectedLocation?.location ?? '';
+      final location = (selectedLocationController ?? '').trim();
       final employeeId = Params.employeeId;
       final token = Params.userToken ?? '';
+
+      // Guard against empty location
 
       final url = Uri.parse(
         '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=$employeeId',
       );
-
       final request = http.Request('GET', url)
         ..headers.addAll({
           'Content-Type': 'application/json',
@@ -4387,46 +4815,35 @@ Future<void> hubreviewGendralExpense(
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
-      final decodeData = jsonDecode(response.body);
-
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final parsedResponse = PerDiemResponseModel.fromJson(body);
-        isLoadingGE1.value = false;
-
+        exchangeCurrencyCode.text = parsedResponse.currencyCode;
         perdiemResponse.value = parsedResponse;
         perDiem.value = true;
         allocationLines = parsedResponse.allocationLines ?? [];
-        print("allocationLinesData$allocationLines");
         daysController.text = parsedResponse.totalDays.toString();
-        amountInController.text =
+        exchangeamountInController.text =
             parsedResponse.totalAmountTrans.toStringAsFixed(2);
         perDiemController.text = parsedResponse.perdiemId.toString();
-
+        fetchExchangeRatePerdiem();
+        isLoadingGE1.value = false;
         return allocationLines;
-      } else if (response.statusCode == 404) {
-        // Fluttertoast.showToast(
-        //   msg: decodeData["detail"]["message"] ?? "Per Diem data not found",
-        //   toastLength: Toast.LENGTH_SHORT,
-        //   gravity: ToastGravity.BOTTOM,
-        //   backgroundColor: Colors.red,
-        //   textColor: Colors.white,
-        //   fontSize: 16.0,
-        // );
-        return [];
       } else {
+        isLoadingGE1.value = false;
         return [];
       }
     } catch (e) {
-      return [];
-    } finally {
       isLoadingGE1.value = false;
+      return [];
     }
   }
 
   void clearFormFieldsPerdiem() {
+    cashAdvanceListDropDown.clear();
     // Clear text controllers
-    multiSelectedItems.value = [];
+    cashAdvanceIds.clear();
+    multiSelectedItems.clear();
     buttonLoaders.clear();
     cashAdvanceIds.text = "";
     isEditModePerdiem = false;
@@ -4441,6 +4858,7 @@ Future<void> hubreviewGendralExpense(
     projectIdController.clear();
     locationController.clear();
     daysController.clear();
+    exchangeamountInController.clear();
     perDiemController.clear();
     locationController.clear();
     mileageVehicleID.clear();
@@ -4497,6 +4915,53 @@ Future<void> hubreviewGendralExpense(
     }
   }
 
+  Future<bool> deleteExpenseUnprocess(int recId) async {
+    final String token = Params.userToken ?? ''; // Safely get your bearer token
+
+    final Uri url = Uri.parse(
+      '${Urls.deleteExpenseUnprocess}$recId&screen_name=MyExpense',
+    );
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        final responseData = jsonDecode(response.body);
+        await fetchUnprocessExpense(); // Be sure to await for UI sync
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 22, 87, 3),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        return true;
+      } else {
+        final responseData = jsonDecode(response.body);
+        Fluttertoast.showToast(
+          msg: "Success: ${responseData['detail']['message']}}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Color.fromARGB(255, 59, 250, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error deleting expense: $e');
+      return false;
+    }
+  }
+
   Future<void> updatePerDiemDetails(
       context, bool bool, bool resubmit, int? recIds,
       [String? expenseID]) async {
@@ -4505,8 +4970,8 @@ Future<void> hubreviewGendralExpense(
         "ExpenseId": expenseID ?? '',
         // ignore: prefer_null_aware_operators
         "ProjectId": selectedProject != null ? selectedProject?.code : null,
-        "TotalAmountTrans": amountInController.text.isNotEmpty
-            ? double.parse(amountInController.text)
+        "TotalAmountTrans": exchangeamountInController.text.isNotEmpty
+            ? double.parse(exchangeamountInController.text)
             : 0.0,
         "TotalAmountReporting": amountInController.text.isNotEmpty
             ? double.parse(amountInController.text)
@@ -4526,7 +4991,7 @@ Future<void> hubreviewGendralExpense(
         "RecId": recIds,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
-        "CashAdvReqId": "",
+        "CashAdvReqId": cashAdvanceIds.text,
         "FromDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
@@ -4617,7 +5082,7 @@ Future<void> hubreviewGendralExpense(
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
-        "CashAdvReqId": "",
+        "CashAdvReqId": cashAdvanceIds.text,
         "workitemrecid": workitemrecid,
         "FromDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
@@ -4709,7 +5174,7 @@ Future<void> hubreviewGendralExpense(
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
-        "CashAdvReqId": "",
+        "CashAdvReqId": cashAdvanceIds.text,
         "workitemrecid": workitemrecid,
         "FromDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
@@ -4776,7 +5241,7 @@ Future<void> hubreviewGendralExpense(
 
   Future<List<PerdiemResponseModel>> fetchSecificPerDiemItem(
       context, int recId, bool readOnly) async {
-    isLoadingGE1.value = true;
+    isLoadingGE2.value = true;
     final url = Uri.parse('${Urls.getSpecificPerdiemExpense}$recId');
 
     try {
@@ -4801,7 +5266,7 @@ Future<void> hubreviewGendralExpense(
         //       DateFormat('dd/MM/yyyy').format(expense.receiptDate);
         // }
         // print("Perdiem ID: ${expenseIdController.text}");
-        isLoadingGE1.value = false;
+        isLoadingGE2.value = false;
         Navigator.pushNamed(
           context,
           AppRoutes.perDiem,
@@ -4809,7 +5274,7 @@ Future<void> hubreviewGendralExpense(
         );
         return specificPerdiemList;
       } else {
-        isLoadingGE1.value = false;
+        isLoadingGE2.value = false;
         print(
             'Failed to load payment methods. Status code: ${response.statusCode}');
         return [];
@@ -4969,12 +5434,14 @@ Future<void> hubreviewGendralExpense(
           'Authorization': 'Bearer ${Params.userToken}', // API Token in header
         },
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200 || response.statusCode == 202) {
         clearFormFieldsPerdiem();
         clearFormFields();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -4984,7 +5451,7 @@ Future<void> hubreviewGendralExpense(
         Navigator.pushNamed(context, AppRoutes.generalExpense);
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -5142,6 +5609,7 @@ Future<void> hubreviewGendralExpense(
   }
 
   void resetFieldsMileage() {
+    cashAdvanceListDropDown.clear();
     expenseIdController.clear();
     employeeIdController.clear();
     mileageVehicleName.clear();
@@ -5184,12 +5652,13 @@ Future<void> hubreviewGendralExpense(
         "FromLocation": tripControllers.first.text,
         "ToLocation": tripControllers.last.text,
         // "RecId": null,
-        "CashAdvReqId": "",
+        "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": [],
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": [],
         "ExpenseTrans": expenseTransMap,
-        "ProjectId": projectIdController.text,
+        "ProjectId":
+            projectIdController.text.isEmpty ? null : projectIdController.text,
       };
 
       // Print payload for debugging
@@ -5205,15 +5674,18 @@ Future<void> hubreviewGendralExpense(
         },
         body: jsonEncode(payload),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200 ||
           response.statusCode == 201 ||
           response.statusCode == 208 ||
           response.statusCode == 280) {
         resetFieldsMileage();
         clearFormFieldsPerdiem();
+
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -5222,7 +5694,7 @@ Future<void> hubreviewGendralExpense(
         Navigator.pushNamed(context, AppRoutes.generalExpense);
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -5265,7 +5737,7 @@ Future<void> hubreviewGendralExpense(
         "FromLocation": tripControllers.first.text,
         "ToLocation": tripControllers.last.text,
         // "RecId": null,
-        "CashAdvReqId": "",
+        "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": [],
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": [],
@@ -5286,7 +5758,9 @@ Future<void> hubreviewGendralExpense(
         },
         body: jsonEncode(payload),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200 ||
           response.statusCode == 201 ||
           response.statusCode == 208 ||
@@ -5294,7 +5768,7 @@ Future<void> hubreviewGendralExpense(
         resetFieldsMileage();
         clearFormFieldsPerdiem();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -5303,7 +5777,7 @@ Future<void> hubreviewGendralExpense(
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -5518,7 +5992,7 @@ Future<void> hubreviewGendralExpense(
 
       final response = await http.get(
         Uri.parse(
-            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
+            '${Urls.baseURL}/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
@@ -5563,7 +6037,7 @@ Future<void> hubreviewGendralExpense(
       isUploadingCards.value = true;
       final response = await http.get(
         Uri.parse(
-          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
         ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -5602,7 +6076,7 @@ Future<void> hubreviewGendralExpense(
 
       final response = await http.get(
         Uri.parse(
-            'https://api.digixpense.com/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}'),
+            '${Urls.baseURL}/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}'),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
@@ -5707,7 +6181,8 @@ Future<void> hubreviewGendralExpense(
 
       final response = await http.get(
         Uri.parse(
-            'https://api.digixpense.com/api/v1/expenseregistration/expenseregistration/analytics'),
+          '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/analytics',
+        ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
@@ -5721,28 +6196,29 @@ Future<void> hubreviewGendralExpense(
         // Clear the existing cards
         manageExpensesCards.clear();
 
-        // Iterate over the response and map data to your model
         for (var item in data) {
           if (item.containsKey('PendingAmount')) {
             manageExpensesCards.add(
               ManageExpensesCard(
-                status: 'Inprogress', // Label as "Expenses In Progress (Total)"
-                amount: item['PendingAmount']?.toDouble() ?? 0.0,
+                status: 'Inprogress', // Expenses In Progress (Total)
+                amount: (item['PendingAmount'] ?? 0).toDouble(),
+                count: (item['PendingCount'] ?? 0).toInt(),
               ),
             );
           } else if (item.containsKey('ApprovedAmount')) {
             manageExpensesCards.add(
               ManageExpensesCard(
-                status:
-                    'TotalAmountReporting', // Label as "Approved Expenses (Total)"
-                amount: item['ApprovedAmount']?.toDouble() ?? 0.0,
+                status: 'TotalAmountReporting', // Approved Expenses (Total)
+                amount: (item['ApprovedAmount'] ?? 0).toDouble(),
+                count: (item['ApprovedCount'] ?? 0).toInt(),
               ),
             );
           } else if (item.containsKey('AllAmount')) {
             manageExpensesCards.add(
               ManageExpensesCard(
-                status: 'AmountSettled', // Label as "All Expenses (Total)"
-                amount: item['AllAmount']?.toDouble() ?? 0.0,
+                status: 'AmountSettled', // All Expenses (Total)
+                amount: (item['AllAmount'] ?? 0).toDouble(),
+                count: (item['AllCount'] ?? 0).toInt(),
               ),
             );
           }
@@ -5772,7 +6248,7 @@ Future<void> hubreviewGendralExpense(
 
       final response = await http.get(
         Uri.parse(
-          'https://api.digixpense.com/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader?filter_query=CSHCashAdvReqHeader.CreatedBy__eq%3D${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
+          '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader?filter_query=CSHCashAdvReqHeader.CreatedBy__eq%3D${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
         ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -5811,7 +6287,7 @@ Future<void> hubreviewGendralExpense(
 
       final response = await http.get(
         Uri.parse(
-          'https://api.digixpense.com/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D${Params.userId}&page=1&limit=5&sort_by=ModifiedDatetime&sort_order=desc',
+          '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
         ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -5935,7 +6411,7 @@ Future<void> hubreviewGendralExpense(
     try {
       // Build URL with query parameters
       final url = Uri.parse(
-        ' https://api.digixpense.com/api/v1/cashadvancerequisition/cashadvanceregistration/deletecashadvance '
+        ' ${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/deletecashadvance '
         '?RecId=$recId&screen_name=MyCashAdvance',
       );
 
@@ -6054,16 +6530,19 @@ Future<void> hubreviewGendralExpense(
   }
 
   Future<ExchangeRateResponse?> fetchExchangeRateCA(
-      String currencyCode, String amount) async {
+      String? currencyCode, String? amount) async {
     final dateToUse = selectedDate ?? DateTime.now();
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
+    String? currencyCodes = currencyCode;
+    final currencyValue = currencyCodes ?? "INR";
 
-    double? parsedAmount = double.tryParse(paidAmount.text);
-    // final String amount = parsedAmount != null ? parsedAmount.toInt().toString() : '0';
+    double? parsedAmount = double.tryParse(amount!);
+    final String amounts =
+        parsedAmount != null ? parsedAmount.toInt().toString() : '0';
 
     final url = Uri.parse(
-      '${Urls.exchangeRate}/${amount ?? 0}/${currencyCode ?? "INR"}/$fromDate',
+      '${Urls.exchangeRate}/$amounts/$currencyValue/$fromDate',
     );
 
     try {
@@ -6075,7 +6554,9 @@ Future<void> hubreviewGendralExpense(
 
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
@@ -6084,7 +6565,7 @@ Future<void> hubreviewGendralExpense(
         }
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -6123,7 +6604,9 @@ Future<void> hubreviewGendralExpense(
           'Authorization': 'Bearer ${Params.userToken ?? ''}',
         },
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['MaxAllowedPercentage'] != null) {
@@ -6136,7 +6619,7 @@ Future<void> hubreviewGendralExpense(
         }
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           backgroundColor: Colors.red[200],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -6435,7 +6918,7 @@ Future<void> hubreviewGendralExpense(
   Future<List<CashAdvanceDropDownModel>> fetchCashAdvanceList() async {
     viewCashAdvanceLoader.value = true;
     final url = Uri.parse(
-        'https://api.digixpense.com/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid?employee_id=${Params.employeeId}&ProjectId=&Location=&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller ?? ''}&ReceiptDate=${selectedDate ?? ''}');
+        '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid?employee_id=${Params.employeeId}&ProjectId=&Location=&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller.text ?? ''}&ReceiptDate=${selectedDate ?? ''}');
 
     final response = await http.get(
       url,
@@ -6462,33 +6945,73 @@ Future<void> hubreviewGendralExpense(
   void preloadCashAdvanceSelections(
       List<CashAdvanceDropDownModel> allItems, String? idsString) {
     if (idsString == null || idsString.isEmpty) return;
+    print('Comma-separated Text: ${allItems}');
     viewCashAdvanceLoader.value = true;
     cashAdvanceIds.text = "";
-    multiSelectedItems.value = [];
-    final ids = idsString.split(';');
+    multiSelectedItems.clear();
 
-    // Filter and assign selected items
-    multiSelectedItems.assignAll(
-      allItems.where((item) => ids.contains(item.cashAdvanceReqId)).toList(),
-    );
+    // ✅ Ensure IDs are unique before filtering
+    final ids = idsString.split(';').toSet().toList();
 
-    // Update the display text
+    // Filter matching items
+    final selectedItems =
+        allItems.where((item) => ids.contains(item.cashAdvanceReqId)).toList();
+
+    // ✅ Remove duplicates based on cashAdvanceReqId
+    final uniqueSelectedItems = <String, CashAdvanceDropDownModel>{};
+    for (var item in selectedItems) {
+      uniqueSelectedItems[item.cashAdvanceReqId] = item;
+    }
+
+    multiSelectedItems.assignAll(uniqueSelectedItems.values.toList());
+
+    // Update display text
     cashAdvanceIds.text =
         multiSelectedItems.map((item) => item.cashAdvanceReqId).join(', ');
 
-    // Maintain the semicolon-separated format for backend
+    // Maintain backend format
     preloadedCashAdvReqIds =
         multiSelectedItems.map((item) => item.cashAdvanceReqId).join(';');
 
-    // 🔍 Print debug values
-    print('Selected Cash Advance Items:$multiSelectedItems.value');
-    for (var item in multiSelectedItems.value) {
+    // Debug
+    print('Selected Cash Advance Items: ${multiSelectedItems.length}');
+    for (var item in multiSelectedItems) {
       print('→ ID: ${item.cashAdvanceReqId}, Date: ${item.requestDate}');
     }
 
     print('Comma-separated Text: ${cashAdvanceIds.text}');
     print('Semicolon-separated for backend: $preloadedCashAdvReqIds');
     viewCashAdvanceLoader.value = false;
+  }
+
+  Future<List<CashAdvanceDropDownModel>> fetchExpenseCashAdvanceList() async {
+    print("currencyDropDowncontroller2${selectedLocation?.city}");
+    viewCashAdvanceLoader.value = true;
+    int receiptDateMillis =
+        (selectedDate ?? DateTime.now()).millisecondsSinceEpoch;
+    final url = Uri.parse(
+        '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${Params.employeeId}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      viewCashAdvanceLoader.value = false;
+
+      final List<dynamic> data = json.decode(response.body);
+      return data
+          .map((item) => CashAdvanceDropDownModel.fromJson(item))
+          .toList();
+    } else {
+      viewCashAdvanceLoader.value = false;
+
+      throw Exception('Failed to fetch cash advance list');
+    }
   }
 
   Future<void> approvalHubreviewGendralExpense(
@@ -6515,7 +7038,7 @@ Future<void> hubreviewGendralExpense(
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": '',
+      "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "PaymentMethod": paidWithController.text ?? '',
       "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
@@ -6551,12 +7074,14 @@ Future<void> hubreviewGendralExpense(
         },
         body: jsonEncode(requestBody),
       );
-
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         resetFieldsMileage();
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
@@ -6564,7 +7089,7 @@ Future<void> hubreviewGendralExpense(
         );
       } else {
         Fluttertoast.showToast(
-          msg: response.body,
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red[200],
@@ -6580,134 +7105,560 @@ Future<void> hubreviewGendralExpense(
     }
   }
 
-
-Future<SharedPreferences> get prefs async {
-  _prefs ??= await SharedPreferences.getInstance();
-  return _prefs!;
-}
+  Future<SharedPreferences> get prefs async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
 
 // Load skipped work items from SharedPreferences
-Future<void> loadSkippedItems() async {
-  final storage = await prefs;
-  final savedList = storage.getStringList('skippedWorkItems');
+  Future<void> loadSkippedItems() async {
+    final storage = await prefs;
+    final savedList = storage.getStringList('skippedWorkItems');
 
-  // ✅ Always assign as Set<int>
-  skippedWorkItems = savedList != null
-      ? savedList.map((e) => int.tryParse(e) ?? 0).where((e) => e != 0).toSet()
-      : <int>{};
+    // ✅ Always assign as Set<int>
+    skippedWorkItems = savedList != null
+        ? savedList
+            .map((e) => int.tryParse(e) ?? 0)
+            .where((e) => e != 0)
+            .toSet()
+        : <int>{};
 
-  showSkipButton.value = skippedWorkItems.isNotEmpty;
-}
+    showSkipButton.value = skippedWorkItems.isNotEmpty;
+  }
 
 // Save skipped work items to SharedPreferences
-Future<void> saveSkippedItems() async {
-  final storage = await prefs;
+  Future<void> saveSkippedItems() async {
+    final storage = await prefs;
 
-  // ✅ Convert Set<int> to List<String> before saving
-  await storage.setStringList(
-    'skippedWorkItems',
-    skippedWorkItems.map((e) => e.toString()).toList(),
-  );
-}
+    // ✅ Convert Set<int> to List<String> before saving
+    await storage.setStringList(
+      'skippedWorkItems',
+      skippedWorkItems.map((e) => e.toString()).toList(),
+    );
+  }
 
 // Skip the current item and update storage + UI
-Future<void> skipCurrentItem(int workitemrecid, BuildContext context) async {
-  try {
-    final wasAdded = skippedWorkItems.add(workitemrecid); // ✅ Set ensures no duplicates
+  Future<void> skipCurrentItem(int workitemrecid, BuildContext context) async {
+    try {
+      final wasAdded =
+          skippedWorkItems.add(workitemrecid); // ✅ Set ensures no duplicates
 
-    if (wasAdded) {
-      await saveSkippedItems();
-      showSkipButton.value = true;
+      if (wasAdded) {
+        await saveSkippedItems();
+        showSkipButton.value = true;
+
+        if (context.mounted) {
+          Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+          Fluttertoast.showToast(
+            msg: "Expense skipped",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.green[100],
+            textColor: Colors.green[800],
+          );
+        }
+      } else {
+        if (context.mounted) {
+          Fluttertoast.showToast(
+            msg: "Already skipped this expense!",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.orange[100],
+            textColor: Colors.orange[800],
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error skipping item: $e')),
+        );
+      }
+    }
+  }
+
+// Clear skipped work items from memory and SharedPreferences
+  Future<void> clearSkippedItems(BuildContext context) async {
+    try {
+      skippedWorkItems.clear(); // ✅ Clears Set<int>
+
+      final storage = await prefs;
+      await storage.remove('skippedWorkItems');
+
+      showSkipButton.value = false;
+      update(); // If using GetX
 
       if (context.mounted) {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         Fluttertoast.showToast(
-          msg: "Expense skipped",
+          msg: "Skipped items cleared",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green[100],
           textColor: Colors.green[800],
         );
       }
-    } else {
-      if (context.mounted) {
-        Fluttertoast.showToast(
-          msg: "Already skipped this expense!",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.orange[100],
-          textColor: Colors.orange[800],
-        );
-      }
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error skipping item: $e')),
-      );
+    } catch (e) {
+      print('Error clearing skipped items: $e');
+      rethrow;
     }
   }
-}
-
-// Clear skipped work items from memory and SharedPreferences
-Future<void> clearSkippedItems(BuildContext context) async {
-  try {
-    skippedWorkItems.clear(); // ✅ Clears Set<int>
-
-    final storage = await prefs;
-    await storage.remove('skippedWorkItems');
-
-    showSkipButton.value = false;
-    update(); // If using GetX
-
-    if (context.mounted) {
-      Navigator.pushNamed(context, AppRoutes.approvalHubMain);
-      Fluttertoast.showToast(
-        msg: "Skipped items cleared",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.green[100],
-        textColor: Colors.green[800],
-      );
-    }
-  } catch (e) {
-    print('Error clearing skipped items: $e');
-    rethrow;
-  }
-}
 
 // Fetch approval data using unique workitemrecids
-Future<Map<String, dynamic>> fetchApprovalData(List<int> workitemrecids) async {
-  print("Items Calling");
+  Future<Map<String, dynamic>> fetchApprovalData(
+    List<int> workitemrecids, {
+    String? field,
+    String? value,
+  }) async {
+    print("=== Starting fetchApprovalData ===");
+    print("Original workitemrecids: $workitemrecids");
+    print("Filter - Field: $field, Value: $value");
 
-  final uniqueIds = workitemrecids.toSet().toList();
-  final idsParam = uniqueIds.isEmpty ? '0' : uniqueIds.join(',');
+    // Normalize workitemrecids
+    final uniqueIds = workitemrecids.toSet().toList();
+    final idsParam = uniqueIds.isEmpty ? '0' : uniqueIds.join(',');
+    print("Final workitemrecid param: $idsParam");
 
-  print("Original IDs: $workitemrecids");
-  print("Unique IDs: $uniqueIds");
-  print("Calling API with: $idsParam");
+    // Build query parameters
+    final Map<String, String> queryParams = {
+      'workitemrecid': idsParam,
+    };
 
-  final url = Uri.parse(
-    'https://api.digixpense.com/api/v1/masters/approvalmanagement/workflowapproval/userapproval?workitemrecid=$idsParam',
-  );
-
-  final response = await http.get(
-    url,
-    headers: {
-      'Authorization': 'Bearer ${Params.userToken}',
-      'Content-Type': 'application/json',
-    },
-  );
-
-  if (response.statusCode == 200) {
-    final List<dynamic> jsonData = jsonDecode(response.body);
-    if (jsonData.isNotEmpty && jsonData[0] is Map<String, dynamic>) {
-      return jsonData[0] as Map<String, dynamic>;
-    } else {
-      throw Exception('Invalid or empty data');
+    // Add filter params if provided
+    if (field != null && field.trim().isNotEmpty) {
+      queryParams['field'] = field.trim();
     }
-  } else {
-    throw Exception('Failed to load approval data');
+    if (value != null && value.trim().isNotEmpty) {
+      queryParams['value'] = value.trim();
+    }
+
+    // Construct URL with proper encoding
+    final uri = Uri.https(
+      Uri.parse(Urls.baseURL).host,
+      '/api/v1/masters/approvalmanagement/workflowapproval/userapproval',
+      queryParams,
+    );
+
+    print("Request URL: $uri");
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print("Response status: ${response.statusCode}");
+      // Uncomment next line in dev to see raw body
+      // print("Response body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = jsonDecode(response.body);
+
+        if (jsonData.isNotEmpty && jsonData[0] is Map<String, dynamic>) {
+          print("Successfully parsed approval data");
+          return jsonData[0] as Map<String, dynamic>;
+        } else {
+          print("No valid data found in response");
+          throw Exception('Invalid or empty data structure returned from API');
+        }
+      } else {
+        print(
+            "API Error - Status: ${response.statusCode}, Body: ${response.body}");
+        throw Exception(
+            'Failed to load approval data: ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      print("Exception during fetchApprovalData: $e");
+      rethrow; // Re-throw after logging
+    }
   }
-}
+
+  Future<Map<String, dynamic>> getEmailHubList({List<String>? statuses}) async {
+    try {
+      final uniqueStatuses = statuses?.toSet().toList() ?? [];
+      final statusParam =
+          uniqueStatuses.isEmpty ? '' : '?status=${uniqueStatuses.join(',')}';
+
+      final url = Uri.parse('${Urls.emailHubList}$statusParam');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> listData = jsonDecode(response.body);
+
+        return {
+          'status': 'success',
+          'emails': listData
+              .map((item) =>
+                  EmailHubModel.fromJson(item as Map<String, dynamic>))
+              .toList(),
+        };
+      } else {
+        throw Exception('Failed to fetch email hub list');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch email hub list: $e');
+    }
+  }
+
+  Future<EmailHubModel> getSpecificEmail(String emailId) async {
+    try {
+      final url = Uri.parse('${Urls.emailHubGetSpecific}?emailId=$emailId');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['data'] != null) {
+          return EmailHubModel.fromJson(data['data']);
+        } else {
+          throw Exception('Email not found');
+        }
+      } else {
+        throw Exception(
+            'Failed to fetch specific email: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch specific email: $e');
+    }
+  }
+
+  Future<void> processEmails(String emailIds) async {
+    try {
+      final payload = jsonEncode({
+        'emailIds': emailIds,
+        'action': 'process',
+      });
+
+      final response = await http.post(
+        Uri.parse(Urls.emailHubProcess),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+        body: payload,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Processing failed');
+      }
+    } catch (e) {
+      throw Exception('Failed to process emails: $e');
+    }
+  }
+
+  Future<void> rejectEmails(String emailIds, String reason) async {
+    try {
+      final payload = jsonEncode({
+        'emailIds': emailIds,
+        'action': 'reject',
+        'reason': reason,
+      });
+
+      final response = await http.post(
+        Uri.parse(Urls.emailHubReject),
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+        },
+        body: payload,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Rejection failed');
+      }
+    } catch (e) {
+      throw Exception('Failed to reject emails: $e');
+    }
+  }
+
+  Future<void> fetchEmailDetails(int recId, BuildContext context) async {
+    isLoadingGE2.value = true;
+    final url = Uri.parse(
+      '${Urls.baseURL}/api/v1/forwardemailmanagement/fetch_specific_emails?RecId=$recId&screen_name=STPEmailHub',
+    );
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer ${Params.userToken}',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(response.body);
+
+      if (jsonList.isNotEmpty) {
+        final email = ForwardedEmail.fromJson(jsonList[0]);
+
+        // ignore: use_build_context_synchronously
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EmailDetailPage(email: email),
+          ),
+        );
+        isLoadingGE2.value = false;
+      } else {
+        isLoadingGE2.value = false;
+
+        throw Exception('No email data found.');
+      }
+    }
+  }
+
+  Future<void> fetchAndAppendReports() async {
+    isLoadingGE1.value = true;
+    final response = await http.get(
+      Uri.parse(Urls.reportsList),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}', // ⬅️ Add the token here
+      },
+    );
+
+    if (response.statusCode == 200) {
+      isLoadingGE1.value = false;
+
+      final List<dynamic> body = json.decode(response.body);
+
+      getAllListReport.addAll(
+        body.map((json) => ReportModels.fromJson(json)).toList(),
+      );
+      isLoadingGE1.value = false;
+    } else {
+      isLoadingGE1.value = false;
+
+      throw Exception('Failed to load reports');
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchReportDetails(int recId) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${Urls.baseURL}/api/v1/reports/reports/reports?'
+          'filter_query=STPReportsTables.RecId__eq=$recId&'
+          'page=1&'
+          'sort_order=asc&'
+          'lock_id=$recId&'
+          'screen_name=STPReportsTables',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List && data.isNotEmpty) {
+          return data.first; // Return the first report if list is not empty
+        }
+        return null;
+      } else {
+        throw Exception('Failed to load report: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching report: $e');
+    }
+  }
+
+  void navigateToEditReportScreen(
+      BuildContext context, int recId, bool bool) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Fetch report data
+      final reportData = await fetchReportDetails(recId);
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      if (reportData != null) {
+        // Navigate to edit screen with the report data
+        // ignore: use_build_context_synchronously
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReportCreateScreen(
+                existingReport: reportData, isEdit: bool, isEditable: false),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report not found')),
+        );
+      }
+    } catch (e) {
+      // Close loading indicator if still showing
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> fetchAndCombineData() async {
+    try {
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}',
+      };
+
+      // API calls in parallel
+      final responses = await Future.wait([
+        http.get(
+          Uri.parse(Urls.expenseregistration),
+          headers: headers,
+        ),
+        http.get(
+          Uri.parse(Urls.cashadvanceanalytics),
+          headers: headers,
+        ),
+      ]);
+
+      final expenseData = json.decode(responses[0].body) as List;
+      final advanceData = json.decode(responses[1].body) as List;
+
+      // Extract values (index based on API order)
+      final approvedExpenses = expenseData[1];
+      final pendingExpenses = expenseData[4];
+      final approvedAdvances = advanceData[1];
+      final pendingAdvances = advanceData[4];
+
+      // Store in ManageExpensesCard list
+      manageExpensesCards.value = [
+        ManageExpensesCard(
+          status: 'Approved Expenses (Total)',
+          amount: (approvedExpenses['ApprovedAmount'] ?? 0).toDouble(),
+          count: (approvedExpenses['ApprovedCount'] ?? 0).toInt(),
+        ),
+        ManageExpensesCard(
+          status: 'Expenses In Progress (Total)',
+          amount: (pendingExpenses['PendingAmount'] ?? 0).toDouble(),
+          count: (pendingExpenses['PendingCount'] ?? 0).toInt(),
+        ),
+        ManageExpensesCard(
+          status: 'Approved Advances (Total)',
+          amount: (approvedAdvances['ApprovedAmount'] ?? 0).toDouble(),
+          count: (approvedAdvances['ApprovedCount'] ?? 0).toInt(),
+        ),
+        ManageExpensesCard(
+          status: 'Advances In Progress (Total)',
+          amount: (pendingAdvances['PendingAmount'] ?? 0).toDouble(),
+          count: (pendingAdvances['PendingCount'] ?? 0).toInt(),
+        ),
+      ];
+
+      // Chart data (with amount + count)
+      expenseChartData.value = manageExpensesCards
+          .map((card) => ExpenseAmountByStatus.fromJson(
+                card.status,
+                card.amount,
+                card.count,
+              ))
+          .toList();
+
+      // Debug print
+      print("=== ManageExpensesCard Data ===");
+      manageExpensesCards.forEach(print);
+
+      print("=== Chart Data ===");
+      expenseChartData.forEach(print);
+    } catch (e) {
+      print('Error fetching analytics data: $e');
+    }
+  }
+
+  List<GExpense> get filteredExpenses {
+    return getAllListGExpense.where((item) {
+      final query = searchQuery.value.toLowerCase();
+      final typeFilter = selectedExpenseType.value;
+
+      // ✅ Step 1: Match search query
+      final matchesQuery = query.isEmpty ||
+          item.expenseType.toLowerCase().contains(query) ||
+          item.expenseId.toLowerCase().contains(query);
+
+      // ✅ Step 2: Match expenseType dropdown
+      final matchesExpenseType =
+          (typeFilter == "All Expenses") || (item.expenseType == typeFilter);
+
+      return matchesQuery && matchesExpenseType;
+    }).toList();
+  }
+
+  List<ExpenseModel> get filteredpendingApprovals {
+    return pendingApprovals.where((item) {
+      final query = searchQuery.value.toLowerCase();
+      final typeFilter = selectedExpenseType.value;
+
+      // ✅ Step 1: Match search query
+      final matchesQuery = query.isEmpty ||
+          item.expenseType.toLowerCase().contains(query) ||
+          item.expenseId.toLowerCase().contains(query);
+
+      // ✅ Step 2: Match expenseType dropdown
+      final matchesExpenseType =
+          (typeFilter == "All Expenses") || (item.expenseType == typeFilter);
+
+      return matchesQuery && matchesExpenseType;
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDataset(
+      List<ReportMetaData> reportMetaData, BuildContext context) async {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${Params.userToken}',
+    };
+
+    final url = Uri.parse(
+        '${Urls.baseURL}/api/v1/masters/reports/conditions/reportsdata?functionalarea=ExpenseRequisition');
+
+    final body = json.encode(reportMetaData.map((e) => e.toJson()).toList());
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: body,
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      // Navigator.push(
+      //     context,
+      //     MaterialPageRoute(
+      //       builder: (context) => const ReportScreen(),
+      //     ));
+      return data.map((item) => item as Map<String, dynamic>).toList();
+    } else {
+      throw Exception(
+          'Failed to load data: ${response.statusCode} - ${response.body}');
+    }
+  }
 }

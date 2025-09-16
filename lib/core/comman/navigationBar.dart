@@ -10,6 +10,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_view/photo_view.dart';
+import '../../l10n/app_localizations.dart';
 import 'Side_Bar/side_bar.dart';
 
 class ScaffoldWithNav extends StatefulWidget {
@@ -114,66 +115,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
     });
   }
 
-  void _showFullImage(File file, int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              PhotoView(
-                imageProvider: FileImage(file),
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 3.0,
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Column(
-                  children: [
-                    FloatingActionButton.small(
-                      heroTag: "zoom_in_$index",
-                      onPressed: _zoomIn,
-                      child: const Icon(Icons.zoom_in),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "zoom_out_$index",
-                      onPressed: _zoomOut,
-                      child: const Icon(Icons.zoom_out),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
-                      child: const Icon(Icons.edit),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          controller.imageFiles.removeAt(index);
-                        });
-                      },
-                      child: const Icon(Icons.delete),
-                      backgroundColor: Colors.red,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  
 
   @override
   void initState() {
@@ -187,10 +129,13 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0.0;
     return Scaffold(
       key: _scaffoldKey,
       resizeToAvoidBottomInset: true,
-      drawer: MyDrawer(),
+      drawer: const MyDrawer(),
       body: Stack(
         children: [
           widget.pages[_currentIndex],
@@ -204,7 +149,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                   FloatingActionButton(
                     heroTag: 'fab1',
                     mini: true,
-                    backgroundColor: AppColors.gradientEnd,
+                    backgroundColor: primaryColor,
                     onPressed: () {
                       _pickImage(ImageSource.camera);
                     },
@@ -215,7 +160,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                   FloatingActionButton(
                     heroTag: 'fab2',
                     mini: true,
-                    backgroundColor: AppColors.gradientEnd,
+                    backgroundColor: primaryColor,
                     onPressed: () {
                       _pickImage(ImageSource.gallery);
                     },
@@ -225,109 +170,105 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                 ],
               ),
             ),
-          if (_isAddFabOpen)
-            Positioned(
-              bottom: 90,
-              right: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FloatingActionButton(
-                    heroTag: 'addFab1',
-                    mini: true,
-                    backgroundColor: AppColors.gradientEnd,
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.expenseForm);
-                    },
-                    child: Image.asset("assets/general.png"),
-                  ),
-                  const SizedBox(height: 10),
-                  FloatingActionButton(
-                    heroTag: 'addFab2',
-                    mini: true,
-                    backgroundColor: AppColors.gradientEnd,
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.perDiem);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                          top: 10.0), // Adjust padding as needed
-                      child: Image.asset("assets/perDiem.png"),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FloatingActionButton(
-                    heroTag: 'addFab3',
-                    mini: true,
-                    backgroundColor: AppColors.gradientEnd,
-                    onPressed: () {
-                      Navigator.pushNamed(
-                          context, AppRoutes.cashAdvanceReturnForms);
-                      // Navigator.pushNamed(
-                      //     context, AppRoutes.formCashAdvanceRequest);
-                    },
-                    child: Image.asset(
-                      "assets/CashReturn.png",
-                      width: 25, // adjust as needed
-                      height: 25
-                      , // adjust as needed
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  FloatingActionButton(
-                    heroTag: 'addFab4',
-                    mini: true,
-                    backgroundColor: AppColors.gradientEnd,
-                    onPressed: () {
-                      Navigator.pushNamed(
-                          context, AppRoutes.mileageExpensefirst);
-                    },
-                    child: Image.asset("assets/vodometer.png"),
-                  ),
-                  const SizedBox(height: 10),
-                  FloatingActionButton(
-                    heroTag: 'addFab3',
-                    mini: true,
-                    backgroundColor: AppColors.gradientEnd,
-                    onPressed: () {
-                      //  Navigator.pushNamed(context, AppRoutes.cashAdvanceReturnForms);
-                      Navigator.pushNamed(
-                          context, AppRoutes.formCashAdvanceRequest);
-                    },
-                    child: Image.asset("assets/cashAdvanse.png"),
-                  ),
-                ],
-              ),
-            ),
+        if (_isAddFabOpen)
+  Positioned(
+    bottom: 90,
+    right: 20,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const SizedBox(height: 10),
+
+        _fabButton(
+          context,
+          AppRoutes.mileageExpensefirst,
+          "assets/vodometer.png",
+          AppLocalizations.of(context)!.mileage,
+          "addFab4",
+        ),
+
+        const SizedBox(height: 10),
+        _fabButton(
+          context,
+          AppRoutes.perDiem,
+          "assets/perDiem.png",
+          AppLocalizations.of(context)!.perDiem,
+          "addFab2",
+        ),
+
+        const SizedBox(height: 10),
+        _fabButton(
+          context,
+          AppRoutes.expenseForm,
+          "assets/general.png",
+          AppLocalizations.of(context)!.generalExpense,
+          "addFab1",
+        ),
+
+        const SizedBox(height: 10),
+        _fabButton(
+          context,
+          AppRoutes.formCashAdvanceRequest,
+          "assets/cashAdvanse.png",
+          AppLocalizations.of(context)!.cashAdvance,
+          "addFab5",
+        ),
+      ],
+    ),
+  ),
+
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.gradientEnd,
-        elevation: 0,
-        onPressed: () {
-          setState(() {
-            _isFabOpen = !_isFabOpen;
-            _isAddFabOpen = false; // Close other FAB group
-          });
-        },
-        child: Icon(
-          _isFabOpen ? Icons.close : Icons.document_scanner,
-          color: Colors.white,
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomAppBar(context),
-    );
+      floatingActionButton: !isKeyboardOpen
+        ? FloatingActionButton(
+            backgroundColor: primaryColor,
+            elevation: 0,
+            onPressed: () {
+              setState(() {
+                _isFabOpen = !_isFabOpen;
+                _isAddFabOpen = false; // Close other FAB group
+              });
+            },
+            child: Icon(
+              _isFabOpen ? Icons.close : Icons.document_scanner,
+              color: Colors.white,
+            ),
+          )
+        : null,
+    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    bottomNavigationBar: _buildBottomAppBar(context),
+  );
   }
+Widget _fabButton(BuildContext context, String route, String asset, String label, String tag) {
+   final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+  return ConstrainedBox(
+    constraints: const BoxConstraints(minWidth: 140), // ✅ equal width
+    child: FloatingActionButton.extended(
+      heroTag: tag,
+      backgroundColor: primaryColor,
+      onPressed: () {
+        Navigator.pushNamed(context, route);
+      },
+      icon: Image.asset(asset, height: 14),
+      label: Text(label, style: const TextStyle(color: Colors.white,fontSize: 10)),
+    ),
+  );
+}
 
   Widget _buildBottomAppBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final onPrimaryColor = theme.colorScheme.onPrimary;
     return BottomAppBar(
+     
       shape: const CircularNotchedRectangle(),
       notchMargin: 10,
       elevation: 20,
       height: 60,
-      color: AppColors.gradientEnd,
+      color: primaryColor,
       child: Container(
+        
         height: 30,
         decoration: const BoxDecoration(
           borderRadius: BorderRadius.only(

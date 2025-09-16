@@ -2,13 +2,43 @@ import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:shimmer/shimmer.dart';
 
-class SkeletonLoaderPage extends StatelessWidget {
+class SkeletonLoaderPage extends StatefulWidget {
   const SkeletonLoaderPage({super.key});
 
   @override
+  State<SkeletonLoaderPage> createState() => _SkeletonLoaderPageState();
+}
+
+class _SkeletonLoaderPageState extends State<SkeletonLoaderPage> {
+  bool _isActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Auto stop the shimmer after 10 seconds
+    // Future.delayed(const Duration(seconds: 40), () {
+    //   if (mounted) {
+    //     setState(() {
+    //       _isActive = false;
+    //     });
+    //   }
+    // });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_isActive) {
+      return const Center(
+        child: Text(
+          "Loading took too long...",
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.white, // Clean background
+      backgroundColor: Colors.grey.shade200, // 👈 background color here
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Shimmer.fromColors(
@@ -17,7 +47,7 @@ class SkeletonLoaderPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top header block (e.g., image or title)
+              // Top header block
               Container(
                 height: 180,
                 width: double.infinity,
@@ -39,7 +69,7 @@ class SkeletonLoaderPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Paragraph lines
+              // Paragraph placeholder lines
               ...List.generate(6, (index) {
                 double lineWidth = index.isEven
                     ? MediaQuery.of(context).size.width * 0.9
@@ -60,7 +90,7 @@ class SkeletonLoaderPage extends StatelessWidget {
 
               const Spacer(),
 
-              // Bottom button placeholders
+              // Bottom buttons placeholder
               Row(
                 children: [
                   Expanded(

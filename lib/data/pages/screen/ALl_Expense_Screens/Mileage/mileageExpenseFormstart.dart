@@ -4,14 +4,18 @@ import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/comman/widgets/multiselectDropdown.dart';
+
 class MileageFirstFrom extends StatefulWidget {
+  final bool isReadOnly;
   final ExpenseModelMileage? mileageId;
-  const MileageFirstFrom({super.key, this.mileageId});
+  const MileageFirstFrom({super.key, this.mileageId, required this.isReadOnly});
 
   @override
   State<MileageFirstFrom> createState() => _MileageFirstFromState();
@@ -22,7 +26,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   final controller = Get.put(Controller());
   late Future<List<ExpenseHistory>> historyFuture;
   bool _showProjectError = false;
-
+  bool allowMultSelect = false;
   String selectedProject = '';
   String? projectError;
   String? vehicleError;
@@ -41,7 +45,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       await controller.fetchProjectName();
       await controller.fetchMileageRates();
       await controller.configuration();
-
+      _loadSettings();
+      loadAndAppendCashAdvanceList();
+      initializeCashAdvanceSelection();
       if (widget.mileageId != null) {
         controller.isEnable.value = false;
         historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);
@@ -68,6 +74,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
       controller.expenseID = expense.expenseId;
+      controller.cashAdvReqIds = expense.cashAdvReqId;
       controller.recID = expense.recId ?? 0; // Use 0 as fallback if null
       // controller.workitemrecid = expense.workitemRecId!;
       // controller.mileageVehicleName.text = expense.vehicalType ?? '';
@@ -90,9 +97,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           expense.travelPoints.first.fromLocation ==
               expense.travelPoints.last.toLocation) {
         controller.isRoundTrip = true;
-      }
-      else{
-         controller.isRoundTrip = false;
+      } else {
+        controller.isRoundTrip = false;
       }
       if (expense.travelPoints.isNotEmpty) {
         // Check for round trip
@@ -151,6 +157,37 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     }
   }
 
+  void initializeCashAdvanceSelection() {
+    String? backendSelectedIds =
+        controller.cashAdvReqIds; // Replace with actual backend response
+    print("preloadCashAdvanceSelections$backendSelectedIds");
+    controller.preloadCashAdvanceSelections(
+        controller.cashAdvanceListDropDown, backendSelectedIds);
+  }
+
+  Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+      controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
+      print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    }
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        print("allowDocAttachments$allowMultSelect");
+      });
+    } else {
+      // setState(() => isLoading = false);
+    }
+  }
+
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
       (f) =>
@@ -169,12 +206,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
     bool isValid = true;
 
-    if (controller.projectIdController.text.isEmpty) {
-      setState(() {
-        projectError = 'Please select a Project';
-      });
-      isValid = false;
-    }
+    // if (controller.projectIdController.text.isEmpty) {
+    //   setState(() {
+    //     projectError = 'Please select a Project';
+    //   });
+    //   isValid = false;
+    // }
     final projectMandatory = isFieldMandatory('Project Id');
     if (controller.projectIdController.text.isEmpty && projectMandatory) {
       _showProjectError = true;
@@ -195,16 +232,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       // debugPrint("✅ mileageId received: ${widget.mileageId.toString()}");
 
       Navigator.pushNamed(context, AppRoutes.mileageExpense, arguments: {
-        'isEditMode': true,
+        'isEditMode': widget.isReadOnly,
         'mileageId': widget.mileageId,
       });
       // Navigator.pushNamed(context, AppRoutes.mileageExpense);
-    } else {
-      // Optionally show a snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fix the errors above')),
-      );
-    }
+    } 
   }
   // @override
   // void dispose() {
@@ -226,50 +258,74 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   @override
   Widget build(BuildContext context) {
     print("controller.calculatedAmountINR1");
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    print("themeCOlor$primaryColor");
+ return WillPopScope(
+  onWillPop: () async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Form'),
+        content: const Text(
+          'You will lose any unsaved data. Do you want to exit?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // Stay on page
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true), // Confirm exit
+            child: const Text(
+              'Yes',
+              style: TextStyle(color: Colors.red), // Make it look like a warning
+            ),
+          ),
+        ],
+      ),
+    );
 
-    return WillPopScope(
-        onWillPop: () async {
-          controller.resetFieldsMileage();
-          controller.clearFormFieldsPerdiem();
-          if (widget.mileageId != null && widget.mileageId!.stepType!.isEmpty) {
-            Navigator.pushNamed(context, AppRoutes.generalExpense);
-          } else if (widget.mileageId != null &&
-              widget.mileageId!.stepType!.isNotEmpty) {
-            Navigator.pushNamed(context, AppRoutes.approvalDashboard);
-          } else {
-            Navigator.pop(context);
-          }
-          return true; // allow back navigation
-        },
+    if (shouldExit ?? false) {
+      controller.resetFieldsMileage();
+      controller.clearFormFieldsPerdiem();
+      // ignore: use_build_context_synchronously
+      Navigator.pop(context); // ✅ Pop only if user confirmed
+      return true;
+    }
+
+    return false; // stay on page
+  },
         child: Scaffold(
-            backgroundColor: const Color.fromARGB(255, 11, 1, 61), // Deep blue
             appBar: AppBar(
-              backgroundColor: const Color.fromARGB(255, 11, 1, 61),
+              backgroundColor: primaryColor, // Deep blue
+
               elevation: 0,
               leading: const BackButton(color: Colors.white),
               centerTitle: true,
-              title: const Text(
-                "Mileage Registration ",
+              title:  Text(
+                AppLocalizations.of(context)!.mileageRegistration,
                 style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
-              actions: [
-                if (!controller.isEnable.value &&
-                    widget.mileageId != null &&
-                    widget.mileageId!.approvalStatus != "Cancelled" &&
-                    widget.mileageId!.approvalStatus != "Approved")
-                  IconButton(
-                    icon: const Icon(
-                      Icons.edit_document,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        controller.isEnable.value = true;
-                      });
-                    },
-                  ),
-              ],
+              // actions: [
+              //   if (widget.mileageId != null &&
+              //       widget.mileageId!.approvalStatus != "Cancelled" &&
+              //       widget.mileageId!.approvalStatus != "Approved")
+              //     IconButton(
+              //       icon: Icon(
+              //         controller.isEnable.value
+              //             ? Icons.remove_red_eye
+              //             : Icons.edit_document,
+              //         color: Colors.white,
+              //       ),
+              //       onPressed: () {
+              //         setState(() {
+              //           controller.isEnable.value = !controller.isEnable.value;
+              //         });
+              //       },
+              //     ),
+              // ],
             ),
             body: Obx(() {
               return controller.isLoadingGE2.value
@@ -282,7 +338,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                             height: 300,
                             width: double.infinity,
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              // color: Colors.white,
                               borderRadius: BorderRadius.only(
                                 topLeft: Radius.circular(30),
                                 topRight: Radius.circular(30),
@@ -293,20 +349,24 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    "Mileage Details",
-                                    style: TextStyle(
+                                   Text(
+                                    AppLocalizations.of(context)!.mileageDetails,
+                                    style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16),
                                   ),
                                   const SizedBox(height: 16),
                                   if (widget.mileageId != null)
-                                    buildTextField("Expense ID *",
-                                        controller.expenseIdController, false),
+                                    buildTextField(
+                                        "${AppLocalizations.of(context)!.expenseId}*",
+                                        controller.expenseIdController,
+                                        false),
                                   if (widget.mileageId != null)
-                                    buildTextField("Employe ID  *",
-                                        controller.employeeIdController, false),
-                                  buildDateField("Mileage Date *",
+                                    buildTextField(
+                                        "${AppLocalizations.of(context)!.employeeId} *",
+                                        controller.employeeIdController,
+                                        false),
+                                  buildDateField("${AppLocalizations.of(context)!.mileageDate} *",
                                       controller.mileagDateController),
                                   // Project Dropdown
 
@@ -376,10 +436,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                         SearchableMultiColumnDropdownField<
                                             Project>(
                                           labelText:
-                                              'Project Id ${isMandatory ? "*" : ""}',
-                                          columnHeaders: const [
-                                            'Project Name',
-                                            'Project Id'
+                                              '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                                          columnHeaders: [
+                                            AppLocalizations.of(context)!
+                                                .projectName,
+                                            AppLocalizations.of(context)!
+                                                .projectId
                                           ],
                                           enabled: controller.isEnable.value,
                                           controller:
@@ -421,8 +483,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                                     TextSpan(
                                                       text: text.substring(
                                                           0, start),
-                                                      style: const TextStyle(
-                                                          color: Colors.black),
+                                                     
                                                     ),
                                                     TextSpan(
                                                       text: text.substring(
@@ -435,8 +496,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                                     ),
                                                     TextSpan(
                                                       text: text.substring(end),
-                                                      style: const TextStyle(
-                                                          color: Colors.black),
+                                                     
                                                     ),
                                                   ],
                                                 ),
@@ -462,11 +522,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                           },
                                         ),
                                         if (_showProjectError)
-                                          const Padding(
-                                            padding: EdgeInsets.only(top: 4),
+                                           Padding(
+                                            padding: const EdgeInsets.only(top: 4),
                                             child: Text(
-                                              'Please select a Project',
-                                              style: TextStyle(
+                                              AppLocalizations.of(context)!.pleaseSelectProject,
+                                              style: const TextStyle(
                                                   color: Colors.red,
                                                   fontSize: 12),
                                             ),
@@ -485,79 +545,68 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                     );
                                   }).toList(),
                                   // const SizedBox(height: 10),
-                                  SearchableMultiColumnDropdownField<
-                                      LocationModel>(
-                                    labelText: 'Cash Advance Request',
-                                    items: controller.location,
-                                    selectedValue: controller.selectedLocation,
-                                    enabled: controller.isEnable.value,
-                                    controller: controller.locationController,
-                                    searchValue: (proj) => '${proj.location}',
-                                    displayText: (proj) => proj.location,
-                                    validator: (proj) => proj == null
-                                        ? 'Please select a Location'
-                                        : null,
-                                    onChanged: (proj) {
-                                      controller.selectedLocation = proj;
-                                      controller.fetchPerDiemRates();
-                                    },
-                                    columnHeaders: const [
-                                      'Request ID',
-                                      'Request Date'
-                                    ],
-                                    rowBuilder: (proj, searchQuery) {
-                                      Widget highlight(String text) {
-                                        final lowerQuery =
-                                            searchQuery.toLowerCase();
-                                        final lowerText = text.toLowerCase();
-                                        final start =
-                                            lowerText.indexOf(lowerQuery);
-                                        if (start == -1 || searchQuery.isEmpty)
-                                          return Text(text);
-
-                                        final end = start + searchQuery.length;
-                                        return RichText(
-                                          text: TextSpan(
-                                            children: [
-                                              TextSpan(
-                                                text: text.substring(0, start),
-                                                style: const TextStyle(
-                                                    color: Colors.black),
-                                              ),
-                                              TextSpan(
-                                                text:
-                                                    text.substring(start, end),
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                              TextSpan(
-                                                text: text.substring(end),
-                                                style: const TextStyle(
-                                                    color: Colors.black),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            vertical: 12, horizontal: 16),
-                                        child: Row(
-                                          children: [
-                                            // Expanded(child: Text(proj.location)),
-                                            // Expanded(child: Text(proj.country)),
+                                  Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        MultiSelectMultiColumnDropdownField<
+                                            CashAdvanceDropDownModel>(
+                                          labelText: AppLocalizations.of(context)!.cashAdvanceRequest,
+                                          items: controller
+                                              .cashAdvanceListDropDown,
+                                          isMultiSelect:
+                                              allowMultSelect ?? false,
+                                          selectedValue:
+                                              controller.singleSelectedItem,
+                                          selectedValues:
+                                              controller.multiSelectedItems,
+                                          enabled: controller.isEnable.value,
+                                          searchValue: (proj) =>
+                                              proj.cashAdvanceReqId,
+                                          displayText: (proj) =>
+                                              proj.cashAdvanceReqId,
+                                          validator: (proj) => proj == null
+                                              ? AppLocalizations.of(context)!.pleaseSelectCashAdvanceField
+                                              : null,
+                                          onChanged: (item) {
+                                            controller.singleSelectedItem =
+                                                item; // ✅ update selected item
+                                          },
+                                          onMultiChanged: (items) {
+                                            controller.multiSelectedItems
+                                                .assignAll(
+                                                    items); // ✅ update list
+                                          },
+                                          columnHeaders:  [
+                                            AppLocalizations.of(context)!.requestId,
+                                            AppLocalizations.of(context)!.requestDate
                                           ],
+                                          rowBuilder: (proj, searchQuery) {
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12,
+                                                      horizontal: 16),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                      child: Text(proj
+                                                          .cashAdvanceReqId)),
+                                                  Expanded(
+                                                      child: Text(proj
+                                                          .requestDate
+                                                          .toString())),
+                                                ],
+                                              ),
+                                            );
+                                          },
                                         ),
-                                      );
-                                    },
-                                  ),
+                                      ]),
                                   const SizedBox(height: 14),
                                   // Vehicle Type Dropdown
                                   SearchableMultiColumnDropdownField<
                                       VehicleType>(
-                                    labelText: 'Mileage Type *',
+                                    labelText: '${AppLocalizations.of(context)!.mileageType} *',
                                     enabled: controller.isEnable.value,
                                     columnHeaders: const [
                                       'ID',
@@ -610,7 +659,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                   const SizedBox(height: 24),
                                   if (widget.mileageId != null)
                                     _buildSection(
-                                      title: "Tracking History",
+                                      title: AppLocalizations.of(context)!.trackingHistory,
                                       children: [
                                         const SizedBox(height: 12),
                                         FutureBuilder<List<ExpenseHistory>>(
@@ -631,13 +680,13 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
                                             final historyList = snapshot.data!;
                                             if (historyList.isEmpty) {
-                                              return const Center(
+                                              return  Center(
                                                 child: Padding(
-                                                  padding: EdgeInsets.all(16),
+                                                  padding: const EdgeInsets.all(16),
                                                   child: Text(
-                                                    'The expense does not have a history. Please consider submitting it for approval.',
+                                                  AppLocalizations.of(context)!.noHistoryMessage,
                                                     textAlign: TextAlign.center,
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                         color: Colors.grey),
                                                   ),
                                                 ),
@@ -674,9 +723,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                       minimumSize:
                                           const Size(double.infinity, 50),
                                     ),
-                                    child: const Text(
-                                      "Next",
-                                      style: TextStyle(
+                                    child:  Text(
+                                     AppLocalizations.of(context)!.next,
+                                      style: const TextStyle(
                                           fontSize: 16, color: Colors.white),
                                     ),
                                   ),
@@ -695,11 +744,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
+        const Column(
           children: [
-            const Icon(Icons.check_circle, color: Colors.blue),
-            if (!isLast)
-              Container(width: 2, height: 40, color: Colors.grey.shade300),
+            Icon(Icons.check_circle, color: Colors.blue),
+            // if (!isLast)
+            //   Container(width: 2, height: 40, color: Colors.grey.shade300),
           ],
         ),
         const SizedBox(width: 10),
@@ -717,7 +766,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -750,8 +799,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                 color: Colors.deepPurple,
               ),
             ),
-            backgroundColor: Colors.white,
-            collapsedBackgroundColor: Colors.white,
+            // backgroundColor: Colors.white,
+            // collapsedBackgroundColor: Colors.white,
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
@@ -780,7 +829,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           labelStyle: const TextStyle(color: Colors.black87),
           suffixIcon: suffix,
           filled: true,
-          fillColor: Colors.white,
+          // fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           // contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
@@ -818,7 +867,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+            controllers.text = DateFormat('dd-MMM-yyyy').format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();

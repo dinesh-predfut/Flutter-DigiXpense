@@ -9,6 +9,9 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/comman/widgets/multiselectDropdown.dart';
+import '../../../../../l10n/app_localizations.dart';
+
 class HubMileageFirstFrom extends StatefulWidget {
   final ExpenseModelMileage? mileageId;
   const HubMileageFirstFrom({super.key, this.mileageId});
@@ -20,9 +23,9 @@ class HubMileageFirstFrom extends StatefulWidget {
 class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     with SingleTickerProviderStateMixin {
   final controller = Get.put(Controller());
-  late Future<List<ExpenseHistory>> historyFuture;
+  Future<List<ExpenseHistory>>? historyFuture;
   bool _showProjectError = false;
-
+  bool allowMultSelect = false;
   String selectedProject = '';
   String? projectError;
   String? vehicleError;
@@ -35,7 +38,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
     final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
-
+    _loadSettings();  
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.fetchProjectName();
@@ -154,6 +157,8 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     }
   }
 
+
+
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
       (f) =>
@@ -220,7 +225,18 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
   //   controller.purposeController.dispose();
   //   super.dispose();
   // }
-
+  Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        print("allowDocAttachments$allowMultSelect");
+        // isLoading = false;
+      });
+    } else {
+      // setState(() => isLoading = false);
+    }
+  }
   void handleSave() {
     // Save logic here
     print("Save clicked");
@@ -255,19 +271,24 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Mileage Details",
-                            style: TextStyle(
+                          Text(
+                            AppLocalizations.of(context)!.mileageDetails,
+                            style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           const SizedBox(height: 16),
                           if (widget.mileageId != null)
-                            buildTextField("Expense ID *",
-                                controller.expenseIdController, false),
+                            buildTextField(
+                                "${AppLocalizations.of(context)!.expenseId}*",
+                                controller.expenseIdController,
+                                false),
                           if (widget.mileageId != null)
-                            buildTextField("Employe ID  *",
-                                controller.employeeIdController, false),
-                          buildDateField("Mileage Date *",
+                            buildTextField(
+                                "${AppLocalizations.of(context)!.employeeId} *",
+                                controller.employeeIdController,
+                                false),
+                          buildDateField(
+                              "${AppLocalizations.of(context)!.mileageDate} *",
                               controller.mileagDateController),
                           // Project Dropdown
 
@@ -335,10 +356,10 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                               children: [
                                 SearchableMultiColumnDropdownField<Project>(
                                   labelText:
-                                      'Project Id ${isMandatory ? "*" : ""}',
-                                  columnHeaders: const [
-                                    'Project Name',
-                                    'Project Id'
+                                      '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                                  columnHeaders: [
+                                    AppLocalizations.of(context)!.projectName,
+                                    AppLocalizations.of(context)!.projectId
                                   ],
                                   enabled: controller.isEnable.value,
                                   controller: controller.projectIdController,
@@ -374,8 +395,6 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                           children: [
                                             TextSpan(
                                               text: text.substring(0, start),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
                                             ),
                                             TextSpan(
                                               text: text.substring(start, end),
@@ -386,8 +405,6 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                             ),
                                             TextSpan(
                                               text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
                                             ),
                                           ],
                                         ),
@@ -407,11 +424,12 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                   },
                                 ),
                                 if (_showProjectError)
-                                  const Padding(
-                                    padding: EdgeInsets.only(top: 4),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      'Please select a Project',
-                                      style: TextStyle(
+                                      AppLocalizations.of(context)!
+                                          .pleaseSelectProject,
+                                      style: const TextStyle(
                                           color: Colors.red, fontSize: 12),
                                     ),
                                   ),
@@ -428,71 +446,61 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                             );
                           }).toList(),
                           // const SizedBox(height: 10),
-                          SearchableMultiColumnDropdownField<LocationModel>(
-                            labelText: 'Cash Advance Request',
-                            items: controller.location,
-                            selectedValue: controller.selectedLocation,
-                            enabled: controller.isEnable.value,
-                            controller: controller.locationController,
-                            searchValue: (proj) => '${proj.location}',
-                            displayText: (proj) => proj.location,
-                            validator: (proj) => proj == null
-                                ? 'Please select a Location'
-                                : null,
-                            onChanged: (proj) {
-                              controller.selectedLocation = proj;
-                              controller.fetchPerDiemRates();
-                            },
-                            columnHeaders: const ['Request ID', 'Request Date'],
-                            rowBuilder: (proj, searchQuery) {
-                              Widget highlight(String text) {
-                                final lowerQuery = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(lowerQuery);
-                                if (start == -1 || searchQuery.isEmpty)
-                                  return Text(text);
-
-                                final end = start + searchQuery.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    // Expanded(child: Text(proj.location)),
-                                    // Expanded(child: Text(proj.country)),
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MultiSelectMultiColumnDropdownField<
+                                    CashAdvanceDropDownModel>(
+                                  labelText: AppLocalizations.of(context)!
+                                      .cashAdvanceRequest,
+                                  items: controller.cashAdvanceListDropDown,
+                                  isMultiSelect: allowMultSelect ?? false,
+                                  selectedValue: controller.singleSelectedItem,
+                                  selectedValues: controller.multiSelectedItems,
+                                   controller: controller
+                                              .cashAdvanceIds,
+                                  enabled: controller.isEnable.value,
+                                  searchValue: (proj) => proj.cashAdvanceReqId,
+                                  displayText: (proj) => proj.cashAdvanceReqId,
+                                  validator: (proj) => proj == null
+                                      ? AppLocalizations.of(context)!
+                                          .pleaseSelectCashAdvanceField
+                                      : null,
+                                  onChanged: (item) {
+                                    controller.singleSelectedItem =
+                                        item; // ✅ update selected item
+                                  },
+                                  onMultiChanged: (items) {
+                                    controller.multiSelectedItems
+                                        .assignAll(items); // ✅ update list
+                                  },
+                                  columnHeaders: [
+                                    AppLocalizations.of(context)!.requestId,
+                                    AppLocalizations.of(context)!.requestDate
                                   ],
+                                  rowBuilder: (proj, searchQuery) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                              child:
+                                                  Text(proj.cashAdvanceReqId)),
+                                          Expanded(
+                                              child: Text(
+                                                  proj.requestDate.toString())),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
+                              ]),
                           const SizedBox(height: 14),
                           // Vehicle Type Dropdown
                           SearchableMultiColumnDropdownField<VehicleType>(
-                            labelText: 'Mileage Type *',
+                            labelText:
+                                '${AppLocalizations.of(context)!.mileageType} *',
                             enabled: controller.isEnable.value,
                             columnHeaders: const [
                               'ID',
@@ -541,7 +549,8 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                           const SizedBox(height: 24),
                           if (widget.mileageId != null)
                             _buildSection(
-                              title: "Tracking History",
+                              title:
+                                  AppLocalizations.of(context)!.trackingHistory,
                               children: [
                                 const SizedBox(height: 12),
                                 FutureBuilder<List<ExpenseHistory>>(
@@ -561,14 +570,15 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
 
                                     final historyList = snapshot.data!;
                                     if (historyList.isEmpty) {
-                                      return const Center(
+                                      return Center(
                                         child: Padding(
-                                          padding: EdgeInsets.all(16),
+                                          padding: const EdgeInsets.all(16),
                                           child: Text(
-                                            'The expense does not have a history. Please consider submitting it for approval.',
+                                            AppLocalizations.of(context)!
+                                                .noHistoryMessage,
                                             textAlign: TextAlign.center,
-                                            style:
-                                                TextStyle(color: Colors.grey),
+                                            style: const TextStyle(
+                                                color: Colors.grey),
                                           ),
                                         ),
                                       );
@@ -591,21 +601,21 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                 ),
                               ],
                             ),
-                          // ElevatedButton(
-                          //   onPressed: handleSubmit,
-                          //   style: ElevatedButton.styleFrom(
-                          //     backgroundColor: AppColors.gradientEnd,
-                          //     padding: const EdgeInsets.symmetric(vertical: 14),
-                          //     shape: RoundedRectangleBorder(
-                          //         borderRadius: BorderRadius.circular(30)),
-                          //     minimumSize: const Size(double.infinity, 50),
-                          //   ),
-                          //   child: const Text(
-                          //     "Next",
-                          //     style:
-                          //         TextStyle(fontSize: 16, color: Colors.white),
-                          //   ),
-                          // ),
+                          ElevatedButton(
+                            onPressed: handleSubmit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.gradientEnd,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            child: Text(
+                              AppLocalizations.of(context)!.next,
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.white),
+                            ),
+                          ),
                           const SizedBox(height: 12),
                         ],
                       ),
@@ -643,7 +653,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

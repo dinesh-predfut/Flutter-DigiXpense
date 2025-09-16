@@ -7,6 +7,7 @@ import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:digi_xpense/main.dart';
+import 'package:digi_xpense/theme/settheme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
@@ -15,6 +16,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/comman/widgets/button.dart';
 import '../../../../core/comman/widgets/dateSelector.dart';
+import '../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../models.dart';
 import 'package:flutter/services.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart'; // import 'package:flutter_chips_input/flutter_chips_input.dart';
@@ -115,6 +117,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   @override
   void initState() {
     super.initState();
+   
     if (controller.isSameAsPermanent) {
       toggleSameAddress(true);
     }
@@ -146,47 +149,34 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
     // if (controller.contactStreetController.text.isEmpty &&
     //     controller.selectedContCountry.value == null &&
     //     controller.selectedContCountry.value == null) {
-    controller.fetchCountries();
-    controller.fetchTimeZoneList();
-    controller.localeDropdown();
-    controller.getPersonalDetails(context);
-
-    controller.fetchLanguageList();
-    controller.currencyDropDown();
-    // }
-    Timer(const Duration(seconds: 3), () {
-      controller.getUserPref();
-      if (controller.isSameAsPermanent) {
-        setState(() {
-          _disableField = false;
-        });
-      }
-    });
-    // controller.fetchState();
-    controller.paymentMethode();
-
-    // if (controller.selectedContCountry != null) {
-    //   statesFuture = controller.fetchState();
-    // }
-
-    print("controller.country${controller.language}");
+    fetchAllData();
   }
-String _safeSymbol(String? symbol) {
-  if (symbol == null || symbol.isEmpty) return '';
 
-  // Optional: Replace known broken encodings
-  final Map<String, String> symbolFixes = {
-    'â‚¹': '₹',
-    'â¬': '€',
-    'â£': '£',
-    'â': '\$', // Handle corrupted $
-  };
+  Future<void> fetchAllData() async {
+    // Run all API calls in parallel
+    await Future.wait([
+      controller.fetchCountries(),
+      controller.fetchTimeZoneList(),
+      controller.localeDropdown(),
+      controller.getPersonalDetails(context),
+      
+      controller.fetchPaymentMethods(),
+      controller.fetchLanguageList(),
+      controller.currencyDropDown(),
+      controller.paymentMethode(),
+    ]);
 
-  final fixed = symbolFixes[symbol.trim()] ?? symbol;
+    // Call getUserPref() after all above complete
+     controller.getUserPref();
 
-  // Normalize whitespace and ensure clean output
-  return fixed.trim().isNotEmpty ? fixed : '?';
-}
+    // Then update UI state based on isSameAsPermanent
+    if (controller.isSameAsPermanent) {
+      setState(() {
+        _disableField = false;
+      });
+    }
+  }
+
   Future<void> fetchCountries() async {
     final response = await controller.fetchCountries();
     controller.countries.assignAll(response);
@@ -262,57 +252,60 @@ String _safeSymbol(String? symbol) {
     return Scaffold(
       appBar:
           AppBar(title: Text(AppLocalizations.of(context)!.personalDetails)),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Obx(() => CircleAvatar(
-                      radius: 60,
-                      backgroundImage: controller.isImageLoading.value
-                          ? null
-                          : controller.profileImage.value != null
-                              ? FileImage(controller.profileImage.value!)
-                              : null,
-                      child: controller.isImageLoading.value
-                          ? const CircularProgressIndicator()
-                          : controller.profileImage.value == null
-                              ? const Icon(Icons.person, size: 60)
-                              : null,
-                    )),
-                Positioned(
-                  bottom: 0,
-                  right: MediaQuery.of(context).size.width / 2 - 177,
-                  child: GestureDetector(
-                    onTap: () => showEditPopup(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Color.fromARGB(255, 168, 176, 248),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.edit,
-                          color: Color.fromARGB(255, 1, 63, 114)),
+      body: Obx(() {
+        return controller.isLoading.value
+            ? const SkeletonLoaderPage()
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Obx(() => CircleAvatar(
+                              radius: 60,
+                              backgroundImage: controller.isImageLoading.value
+                                  ? null
+                                  : controller.profileImage.value != null
+                                      ? FileImage(
+                                          controller.profileImage.value!)
+                                      : null,
+                              child: controller.isImageLoading.value
+                                  ? const CircularProgressIndicator()
+                                  : controller.profileImage.value == null
+                                      ? const Icon(Icons.person, size: 60)
+                                      : null,
+                            )),
+                        Positioned(
+                          bottom: 0,
+                          right: MediaQuery.of(context).size.width / 2 - 177,
+                          child: GestureDetector(
+                            onTap: () => showEditPopup(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Color.fromARGB(255, 168, 176, 248),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.edit,
+                                  color: Color.fromARGB(255, 1, 63, 114)),
+                            ),
+                          ),
+                        )
+                      ],
                     ),
-                  ),
-                )
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              controller.firstNameController.text.trim(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Center(
-              child: Text(controller.personalEmailController.text,
-                  style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            ),
-            const SizedBox(height: 20),
-            Obx(() {
-              return controller.isLoading.value
-                  ? const CircularProgressIndicator()
-                  : Column(
+                    const SizedBox(height: 8),
+                    Text(
+                      controller.firstNameController.text.trim(),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Center(
+                      child: Text(controller.personalEmailController.text,
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 14)),
+                    ),
+                    const SizedBox(height: 20),
+                    Column(
                       children: [
                         _buildSection(
                           title: loc.personalInformation,
@@ -366,7 +359,7 @@ String _safeSymbol(String? symbol) {
 
                                 isButtonDisabled.value = true;
 
-                                                                // Phone number validation - simplified for now
+                                // Phone number validation - simplified for now
                                 if (phone.completeNumber.length < 10) {
                                   isButtonDisabled.value = false;
                                   return 'Invalid phone number for ${phone.countryCode}';
@@ -935,9 +928,9 @@ String _safeSymbol(String? symbol) {
                                             borderRadius:
                                                 BorderRadius.circular(10),
                                           ),
-                                          fillColor: _disableField
-                                              ? null
-                                              : Colors.grey.shade200,
+                                          // fillColor: _disableField
+                                          //     ? null
+                                          //     : Colors.grey.shade200,
                                           filled: !_disableField,
                                           suffixIcon: IconButton(
                                             icon: Icon(
@@ -1132,9 +1125,9 @@ String _safeSymbol(String? symbol) {
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
-                                            fillColor: _disableField
-                                                ? null
-                                                : Colors.grey.shade200,
+                                            // fillColor: _disableField
+                                            //     ? null
+                                            //     : Colors.grey.shade200,
                                             filled: !_disableField,
                                             suffixIcon: IconButton(
                                               icon: Icon(
@@ -1427,7 +1420,77 @@ String _safeSymbol(String? symbol) {
                                 },
                               );
                             }),
+                            const SizedBox(height: 20),
+                            Obx(() {
+                              return SearchableMultiColumnDropdownField<
+                                  PaymentMethodModel>(
+                                labelText: loc.defaultPayment,
+                                columnHeaders: const [
+                                  'Payment Method Id',
+                                  'Payment Method Name',
+                                ],
+                                items: controller.selectedPaymentSettinglist,
+                                selectedValue:
+                                    controller.selectedPaymentSetting.value,
+                                searchValue: (t) =>
+                                    '${t.paymentMethodName} ${t.paymentMethodId}',
+                                displayText: (t) => t.paymentMethodName,
+                                validator: (t) =>
+                                    t == null ? 'Please pick a timezone' : null,
+                                onChanged: (t) {
+                                  controller.selectedPaymentSetting.value = t!;
+                                },
+                                rowBuilder: (t, searchQuery) {
+                                  Widget highlight(String text) {
+                                    final query = searchQuery.toLowerCase();
+                                    final lowerText = text.toLowerCase();
+                                    final startIndex = lowerText.indexOf(query);
 
+                                    if (startIndex == -1 || query.isEmpty) {
+                                      return Text(text,
+                                          style: const TextStyle(fontSize: 10));
+                                    }
+
+                                    final endIndex = startIndex + query.length;
+                                    return RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(
+                                            fontSize: 10, color: Colors.black),
+                                        children: [
+                                          TextSpan(
+                                              text: text.substring(
+                                                  0, startIndex)),
+                                          TextSpan(
+                                            text: text.substring(
+                                                startIndex, endIndex),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                              text: text.substring(endIndex)),
+                                        ],
+                                      ),
+                                    );
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                            child:
+                                                highlight(t.paymentMethodId)),
+                                        Expanded(
+                                            child: highlight(t.paymentMethodName
+                                                .toString())),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            }),
                             const SizedBox(height: 20),
                             // Padding(
                             //   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1443,7 +1506,7 @@ String _safeSymbol(String? symbol) {
                                 searchValue: (c) =>
                                     '${c.code} ${c.name} ${c?.symbol ?? ''}',
                                 displayText: (c) =>
-                                    '${c.code} ${c.name} ${_safeSymbol(c.symbol)}',
+                                    '${c.code} ${c.name} ${c.symbol}',
                                 validator: (c) =>
                                     c == null ? 'Please pick a currency' : null,
                                 onChanged: (c) {
@@ -1460,7 +1523,8 @@ String _safeSymbol(String? symbol) {
                                         text,
                                         style: const TextStyle(
                                           fontSize: 11,
-                                          fontFamily: 'NotoSans',
+                                          fontFamily:
+                                              'NotoSans, Roboto, Arial, sans-serif',
                                           color: Colors.black,
                                         ),
                                       );
@@ -1512,8 +1576,8 @@ String _safeSymbol(String? symbol) {
                                             flex: 3, child: highlight(c.name)),
                                         Expanded(
                                           flex: 2,
-                                          child: highlight(_safeSymbol(c
-                                              .symbol)), // Safe symbol handling
+                                          child: highlight(
+                                              c.symbol), // Safe symbol handling
                                         ),
                                       ],
                                     ),
@@ -1522,7 +1586,7 @@ String _safeSymbol(String? symbol) {
                               ),
                             ),
                             const SizedBox(height: 20),
-                           
+
                             // Obx(
                             //   () =>
                             //       SearchableMultiColumnDropdownField<Currency>(
@@ -1789,7 +1853,7 @@ String _safeSymbol(String? symbol) {
                                       ],
                                     ),
                                   ),
-                                  selectedDisplay: (entry) => '${entry.value}',
+                                  selectedDisplay: (entry) => entry.value,
                                 );
                               },
                               initialValue: controller.selectedFormat,
@@ -1853,6 +1917,7 @@ String _safeSymbol(String? symbol) {
                                             ),
                                           ],
                                         ),
+                                         ColorPickerGrid(),
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceEvenly,
@@ -1885,8 +1950,10 @@ String _safeSymbol(String? symbol) {
                                                 controller.buttonLoader.value
                                                     ? null
                                                     : () {
+                                                      
                                                         controller
-                                                            .userPreferences();
+                                                            .userPreferences(context);
+                                                            
                                                       },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor:
@@ -1927,13 +1994,13 @@ String _safeSymbol(String? symbol) {
                           ],
                         ),
                       ],
-                    );
-            }),
-            const SizedBox(height: 20),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              );
+      }),
     );
   }
 
@@ -1953,8 +2020,8 @@ String _safeSymbol(String? symbol) {
               color: Colors.deepPurple,
             ),
           ),
-          backgroundColor: Colors.white,
-          collapsedBackgroundColor: Colors.white,
+          // backgroundColor: Colors.white,
+          // collapsedBackgroundColor: Colors.white,
           textColor: Colors.deepPurple,
           iconColor: Colors.deepPurple,
           collapsedIconColor: Colors.grey,
@@ -1985,7 +2052,7 @@ String _safeSymbol(String? symbol) {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          fillColor: isEnabled ? null : Colors.grey.shade200,
+          // fillColor: isEnabled ? null : Colors.grey.shade200,
           filled: !isEnabled,
         ),
       ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportMIS.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
@@ -30,41 +31,49 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     "In Process",
     "All",
   ];
-
+  // late Future<List<ReportModel>> futureReports;
   @override
   void initState() {
     super.initState();
-    controller = Get.find(); // Use existing controller
+    controller = Get.find();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
+      controller.searchControllerReports.clear();
+ if (controller.profileImage.value == null) {
+        controller.getProfilePicture();
+      }    });
+    // / Use existing controller
     controller.selectedStatusmyteam = "In Process";
     _scrollController = ScrollController();
-
+    controller.fetchAndAppendReports();
     // Load data
-    controller.loadProfilePictureFromStorage();
+    // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
+  
     // controller.fetchMileageRates();
-    controller.fetchManageExpensesCards().then((_) {
-      if (controller.manageExpensesCards.isNotEmpty && mounted) {
-        _animationController = AnimationController(
-          vsync: this,
-          duration: const Duration(seconds: 10),
-        );
-        _animation =
-            Tween<double>(begin: 0, end: 1).animate(_animationController)
-              ..addListener(() {
-                if (_scrollController.hasClients &&
-                    _animationController.isAnimating) {
-                  final max = _scrollController.position.maxScrollExtent;
-                  _scrollController.jumpTo(_animation.value * max);
-                }
-              });
-        _animationController.repeat();
-      }
-    });
-
-    // controller.fetchAllmyTeamsExpens().then((_) {
-    //   controller.isLoadingGE1.value = false;
+    // controller.fetchManageExpensesCards().then((_) {
+    //   if (controller.manageExpensesCards.isNotEmpty && mounted) {
+    //     _animationController = AnimationController(
+    //       vsync: this,
+    //       duration: const Duration(seconds: 10),
+    //     );
+    //     _animation =
+    //         Tween<double>(begin: 0, end: 1).animate(_animationController)
+    //           ..addListener(() {
+    //             if (_scrollController.hasClients &&
+    //                 _animationController.isAnimating) {
+    //               final max = _scrollController.position.maxScrollExtent;
+    //               _scrollController.jumpTo(_animation.value * max);
+    //             }
+    //           });
+    //     _animationController.repeat();
+    //   }
     // });
+
+    controller.fetchAndAppendReports().then((_) {
+      controller.isLoadingGE1.value = false;
+    });
   }
 
   @override
@@ -75,17 +84,17 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
   }
 
   // Restart animation after user scrolls
-  void _onUserScroll() {
-    if (_animationController.isAnimating) {
-      _animationController.stop();
-    }
-    Future.delayed(const Duration(seconds: 8), () {
-      if (!mounted) return;
-      if (!_animationController.isAnimating) {
-        _animationController.repeat();
-      }
-    });
-  }
+  // void _onUserScroll() {
+  //   if (_animationController.isAnimating) {
+  //     _animationController.stop();
+  //   }
+  //   Future.delayed(const Duration(seconds: 8), () {
+  //     if (!mounted) return;
+  //     if (!_animationController.isAnimating) {
+  //       _animationController.repeat();
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -97,61 +106,68 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
         return true;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
+        // backgroundColor: const Color(0xFFF7F7F7),
         body: LayoutBuilder(
           builder: (context, constraints) {
-            final isSmallScreen = constraints.maxWidth < 600;
-
+        
+ final isSmallScreen = constraints.maxWidth < 600;
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
             return Column(
               children: [
                 // 🔹 Responsive Header
                 Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('assets/Vector.png'),
-                      fit: BoxFit.cover,
-                    ),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(10),
-                      bottomRight: Radius.circular(10),
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Logo
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.asset(
-                          'assets/XpenseWhite.png',
-                          width: isSmallScreen ? 80 : 100,
-                          height: isSmallScreen ? 30 : 40,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          primaryColor,
+                                          primaryColor.withOpacity(
+                                              0.7), // Lighter primary color
+                                        ],
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.fromLTRB(
+                                        16, 40, 16, 16),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Logo
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: isSmallScreen ? 80 : 100,
+                                            height: isSmallScreen ? 30 : 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
 
-                      // Actions
-                      Row(
-                        children: [
-                          const LanguageDropdown(),
-                          _buildNotificationBadge(),
-                          _buildProfileAvatar(),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                                        // Actions
+                                        Row(
+                                          children: [
+                                            const LanguageDropdown(),
+                                            _buildNotificationBadge(),
+                                            _buildProfileAvatar(),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                 const SizedBox(height: 12),
-                const Align(
+                 Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
-                    padding: EdgeInsets.only(left: 16.0), // Like margin-left
+                    padding: const EdgeInsets.only(left: 16.0), // Like margin-left
                     child: Text(
-                      "My Team Expense Dashboard",
-                      style: TextStyle(
-                        color: AppColors.gradientEnd, // Text color
+                       AppLocalizations.of(context)!.reports,
+                      style: const TextStyle(
+                        // color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
                         fontWeight: FontWeight.bold, // font-weight: bold
                         fontFamily: 'Roboto', // font-family (if used)
@@ -164,35 +180,6 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                 const SizedBox(height: 12),
 
                 // 🔹 Auto-Scrolling Cards
-                SizedBox(
-                  height: 140,
-                  child: Obx(() {
-                    if (controller.manageExpensesCards.isEmpty) {
-                      return const Center(child: Text("No data"));
-                    }
-                    return NotificationListener<UserScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification.direction == ScrollDirection.idle) {
-                          _onUserScroll();
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: controller.manageExpensesCards.length,
-                        itemBuilder: (context, index) {
-                          final card = controller.manageExpensesCards[index];
-                          return GestureDetector(
-                            onTap: _onUserScroll,
-                            child: _buildCard(card, isSmallScreen),
-                          );
-                        },
-                      ),
-                    );
-                  }),
-                ),
 
                 const SizedBox(height: 16),
 
@@ -202,12 +189,12 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                   child: SizedBox(
                     width: double.infinity,
                     child: TextField(
-                      controller: controller.searchController,
+                      controller: controller.searchControllerReports,
                       onChanged: (value) {
                         controller.searchQuery.value = value.toLowerCase();
                       },
                       decoration: InputDecoration(
-                        hintText: 'Search expenses...',
+                        hintText:  AppLocalizations.of(context)!.search,
                         prefixIcon:
                             const Icon(Icons.search, color: Colors.grey),
                         border: OutlineInputBorder(
@@ -234,9 +221,10 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                     children: [
                       // 🔹 Responsive Dropdown Filter
                       const Expanded(
-                        flex: 3, // Takes 3 parts of available space
-                        child: SizedBox(width: 1,)
-                      ),
+                          flex: 3, // Takes 3 parts of available space
+                          child: SizedBox(
+                            width: 1,
+                          )),
 
                       const SizedBox(
                           width: 12), // Spacing between dropdown and button
@@ -252,9 +240,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                           },
                           icon: const Icon(Icons.add_circle,
                               size: 18, color: Colors.white),
-                          label: const Text(
-                            "Add Reports",
-                            style: TextStyle(
+                          label:  Text(
+                            AppLocalizations.of(context)!.addReport,
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -285,16 +273,17 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                       return const SkeletonLoaderPage();
                     }
 
-                    final expenses = controller.getAllListGExpense;
+                    final expenses = controller.getAllListReport;
                     final filteredExpenses = expenses.where((item) {
                       final query = controller.searchQuery.value;
                       if (query.isEmpty) return true;
-                      return item.expenseType.toLowerCase().contains(query) ||
-                          item.expenseType.toLowerCase().contains(query) ||
-                          item.expenseId.toLowerCase().contains(query);
+                      return (item.availableFor?.toLowerCase() ?? '')
+                              .contains(query) ||
+                          item.name.toLowerCase().contains(query) ||
+                          item.functionalArea.toLowerCase().contains(query);
                     }).toList();
                     if (expenses.isEmpty) {
-                      return const Center(child: Text("No expenses found"));
+                      return  Center(child: Text( AppLocalizations.of(context)!.noReportFound));
                     }
 
                     return ListView.builder(
@@ -304,26 +293,26 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                         final item = filteredExpenses[idx];
 
                         return Dismissible(
-                          key: ValueKey(item.expenseId),
+                          key: ValueKey(item.recId),
                           background: _buildSwipeActionLeft(isLoading),
                           secondaryBackground: _buildSwipeActionRight(),
                           confirmDismiss: (direction) async {
                             if (direction == DismissDirection.startToEnd) {
                               setState(() => isLoading = true);
 
-                              if (item.expenseType == "PerDiem") {
-                                await controller.fetchSecificPerDiemItem(
-                                    context, item.recId, true);
-                              } else if (item.expenseType ==
-                                  "General Expenses") {
-                                await controller.fetchSecificExpenseItem(
-                                    context, item.recId);
-                                controller.fetchExpenseHistory(item.recId);
-                              } else if (item.expenseType == "Mileage") {
-                                print("Its Call");
-                                Navigator.pushNamed(
-                                    context, AppRoutes.mileageDetailsPage);
-                              }
+                              // if (item.expenseType == "PerDiem") {
+                              //   await controller.fetchSecificPerDiemItem(
+                              //       context, item.recId, true);
+                              // } else if (item.expenseType ==
+                              //     "General Expenses") {
+                              //   await controller.fetchSecificExpenseItem(
+                              //       context, item.recId);
+                              //   controller.fetchExpenseHistory(item.recId);
+                              // } else if (item.expenseType == "Mileage") {
+                              //   print("Its Call");
+                              //   Navigator.pushNamed(
+                              //       context, AppRoutes.mileageDetailsPage);
+                              // }
 
                               setState(() => isLoading = false);
                               return false;
@@ -331,13 +320,13 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                               final shouldDelete = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                  title: const Text('Delete?'),
-                                  content: Text('Delete "${item.expenseId}"?'),
+                                  title:  Text('${ AppLocalizations.of(context)!.delete}?'),
+                                  content: Text('${ AppLocalizations.of(context)!.delete} "${item.recId}"?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.of(ctx).pop(false),
-                                      child: const Text('Cancel'),
+                                      child:  Text(AppLocalizations.of(context)!.cancel),
                                     ),
                                     ElevatedButton(
                                       onPressed: () =>
@@ -345,7 +334,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                       ),
-                                      child: const Text('Delete'),
+                                      child:  Text(AppLocalizations.of(context)!.delete),
                                     ),
                                   ],
                                 ),
@@ -442,75 +431,6 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     );
   }
 
-  Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
-    return Container(
-      width: isSmallScreen ? 150 : 180,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
-          const SizedBox(height: 6),
-          Text(
-            _getTitle(card.status),
-            style: const TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '₹${card.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'AmountSettled':
-        return Icons.check_circle;
-      case 'Inprogress':
-        return Icons.sync;
-      case 'Pending':
-        return Icons.hourglass_bottom;
-      case 'TotalAmountReporting':
-        return Icons.bar_chart;
-      default:
-        return Icons.category;
-    }
-  }
-
-  String _getTitle(String key) {
-    return {
-          'AmountSettled': 'Total Amount Settled',
-          'Inprogress': 'Total Advance In Progress',
-          'Pending': 'Total Amount Pending',
-          'TotalAmountReporting': 'Total Expenses',
-        }[key] ??
-        key;
-  }
-
   Widget _buildSwipeActionLeft(bool isLoading) {
     return Container(
       alignment: Alignment.centerLeft,
@@ -531,7 +451,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
             const Icon(Icons.remove_red_eye, color: Colors.blue),
           const SizedBox(width: 8),
           Text(
-            isLoading ? 'Loading...' : 'View',
+            isLoading ? AppLocalizations.of(context)!.loading :AppLocalizations.of(context)!.view,
             style: const TextStyle(
               color: Colors.blue,
               fontWeight: FontWeight.bold,
@@ -547,106 +467,160 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
       alignment: Alignment.centerRight,
       color: const Color.fromARGB(255, 115, 142, 229),
       padding: const EdgeInsets.only(right: 20),
-      child: const Row(
+      child:  Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Delete',
+          Text(AppLocalizations.of(context)!.delete,
               style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(width: 8),
-          Icon(Icons.delete, color: Colors.white),
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          const Icon(Icons.delete, color: Colors.white),
         ],
       ),
     );
   }
 
-  Widget _buildStyledCard(GExpense item, BuildContext context) {
-    print("itemxxx ${item.expenseType}");
+  Widget _buildStyledCard(ReportModels item, BuildContext context) {
+    // print("itemxxx ${item.expenseType}");
     final controller = Get.put(Controller());
     return GestureDetector(
-      onTap: () {
-        if (item.expenseType == "PerDiem") {
-          controller.fetchSecificPerDiemItem(context, item.recId, true);
-          controller.isEditModePerdiem = false;
-        } else if (item.expenseType == "General Expenses") {
-          print("Expenses${item.recId}");
-          controller.fetchSecificExpenseItem(context, item.recId, false);
-          controller.fetchExpenseHistory(item.recId);
-        } else if (item.expenseType == "Mileage") {
-          controller.fetchMileageDetails(context, item.recId);
-        } else if (item.expenseType == "CashAdvanceReturn") {
-          controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text("Unknown expense type: ${item.expenseType}")),
-          );
-        }
-      },
-      child: Card(
-        color: const Color.fromARGB(218, 245, 244, 244),
-        shadowColor: const Color.fromARGB(255, 82, 78, 78),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: ID + Date
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(item.expenseId,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
-                        : 'No date',
+        onTap: () {
+          // if (item.expenseType == "PerDiem") {
+          controller.navigateToEditReportScreen(context, item.recId, true);
+          //   controller.isEditModePerdiem = false;
+          // } else if (item.expenseType == "General Expenses") {
+          //   print("Expenses${item.recId}");
+          //   controller.fetchSecificExpenseItem(context, item.recId, false);
+          //   controller.fetchExpenseHistory(item.recId);
+          // } else if (item.expenseType == "Mileage") {
+          //   controller.fetchMileageDetails(context, item.recId);
+          // } else if (item.expenseType == "CashAdvanceReturn") {
+          //   controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
+          // } else {
+          //   ScaffoldMessenger.of(context).showSnackBar(
+          //     SnackBar(
+          //         content: Text("Unknown expense type: ${item.expenseType}")),
+          //   );
+          // }
+        },
+        child: Card(
+          // color: const Color.fromARGB(218, 245, 244, 244),
+          shadowColor: const Color.fromARGB(255, 82, 78, 78),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // HEADER: Name (Bold Label + Value) + Report Icon
+                Row(
+                  children: [
+                    // Name: John Doe (Bold Label)
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                           
+                            fontSize: 16,
+                            height: 1.4,
+                          ),
+                          children: [
+                             TextSpan(
+                              text: "${AppLocalizations.of(context)!.name}: ",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextSpan(
+                              text: item.name ?? 'N/A',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Report Icon (Clickable)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.receipt_outlined,
+                        color: Color.fromARGB(255, 0, 110, 255),
+                        size: 24,
+                      ),
+                      onPressed: () async {
+                        final data = await controller.fetchDataset(
+                            item.reportMetaData, context);
+
+                        if (data != null) {
+                          // ignore: use_build_context_synchronously
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReportScreen(
+                                  data: data,
+                                  logicalOperator: '',
+                                  rules: item.reportMetaData.isNotEmpty
+                                      ? item.reportMetaData[0].rules
+                                      : <Rule>[]),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Failed to load report data')),
+                          );
+                        }
+                      },
+                      splashRadius: 20,
+                      padding: const EdgeInsets.all(6),
+                    ),
+                  ],
+                ),
+
+                // CATEGORY: Finance / HR (Bold Label)
+                RichText(
+                  text: TextSpan(
                     style: const TextStyle(
-                        fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 4),
-
-              // Category
-              Text(item.expenseCategoryId,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-
-              const SizedBox(height: 6),
-
-              // Status and Amount
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 0, 110, 255),
-                      borderRadius: BorderRadius.circular(12),
+                     
+                      fontSize: 14,
                     ),
-                    child: Text(
-                      item.approvalStatus,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
+                    children: [
+                       TextSpan(
+                        text: AppLocalizations.of(context)!.functionalArea,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: item.functionalArea ?? 'N/A',
+                      ),
+                    ],
                   ),
-                  Text(
-                    item.totalAmountReporting.toStringAsFixed(2),
+                ),
+
+                const SizedBox(height: 10),
+                RichText(
+                  text: TextSpan(
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                     
+                      fontSize: 14,
                     ),
+                    children: [
+                       TextSpan(
+                        text:AppLocalizations.of(context)!.reportAvailability,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: item.reportAvailability ?? 'N/A',
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }

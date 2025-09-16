@@ -2,6 +2,7 @@ import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({Key? key}) : super(key: key);
@@ -123,11 +124,12 @@ class _NotificationPageState extends State<NotificationPage>
         return GestureDetector(
           onTap: () {
             if (!item.read) {
-              // If unread, mark as read
+              _showMessageDialog(
+                  item.notificationName, item.notificationMessage);
               controller.markAsRead(item);
             } else {
-              // If already read, show popup
-              _showMessageDialog(item.notificationName, item.notificationMessage);
+              _showMessageDialog(
+                  item.notificationName, item.notificationMessage);
             }
           },
           child: Container(
@@ -136,7 +138,7 @@ class _NotificationPageState extends State<NotificationPage>
             decoration: BoxDecoration(
               color: item.read
                   ? Colors.white
-                  : Color.fromARGB(185, 195, 224, 238), // ✅ Light blue for unread
+                  : const Color.fromARGB(185, 195, 224, 238),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -154,11 +156,12 @@ class _NotificationPageState extends State<NotificationPage>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  formatDateTime(item.createdDatetime),
+                  DateFormat('dd/MMM/yyyy, HH:mm:ss')
+                      .format(item.createdDatetime),
                   style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontStyle: FontStyle.italic),
+                    fontSize: 12,
+                    // fontStyle: FontStyle.italic,
+                  ),
                 ),
               ],
             ),
@@ -166,6 +169,39 @@ class _NotificationPageState extends State<NotificationPage>
         );
       },
     );
+  }
+
+  String formattedDate(int millis) {
+    final date = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
+    return DateFormat('dd/MMM/yyyy, HH:mm:ss').format(date);
+  }
+
+  /// Format timestamp or ISO date string from response
+  String formatDateTime(dynamic timestamp) {
+    try {
+      if (timestamp == null) return '';
+
+      // Debug: see what type/value backend gives
+      debugPrint("📥 Raw timestamp: $timestamp (${timestamp.runtimeType})");
+
+      DateTime date;
+
+      if (timestamp is int) {
+        date = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
+      } else if (timestamp is String) {
+        date =
+            DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp)).toLocal();
+      } else if (timestamp is double) {
+        date = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt()).toLocal();
+      } else {
+        return '';
+      }
+
+      return DateFormat("dd/MMM/yyyy, HH:mm:ss").format(date);
+    } catch (e) {
+      debugPrint("❌ Error parsing date: $e");
+      return '';
+    }
   }
 
   /// Show popup dialog for notification message
@@ -183,14 +219,5 @@ class _NotificationPageState extends State<NotificationPage>
         ],
       ),
     );
-  }
-
-  /// Format timestamp to readable date
-  String formatDateTime(dynamic timestamp) {
-    if (timestamp is int) {
-      final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-      return '${date.day}-${date.month}-${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-    }
-    return '';
   }
 }

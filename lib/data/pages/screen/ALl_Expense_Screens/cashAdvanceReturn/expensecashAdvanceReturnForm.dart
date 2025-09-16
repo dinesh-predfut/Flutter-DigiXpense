@@ -7,8 +7,10 @@ import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -23,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+import '../../../../../l10n/app_localizations.dart';
 import '../../../../service.dart';
 
 class CashAdvanceReturnForm extends StatefulWidget {
@@ -66,7 +69,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   String? selectReferenceIDError;
   final PageController _pageController = PageController();
 
-  final List<String> _titles = ["Payment Info", "Itemize", "Expense Details"];
   @override
   void initState() {
     super.initState();
@@ -91,14 +93,15 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       controller.getUserPref();
       controller.fetchExpenseCategory();
       _loadSettings();
-      loadAndAppendCashAdvanceList();
+
       // controller.fetchExchangeRate();
     });
   }
 
   Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
     try {
-      final newItems = await controller.fetchCashAdvanceList();
+      final newItems = await controller.fetchExpenseCashAdvanceList();
       controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
       print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
     } catch (e) {
@@ -133,22 +136,30 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     bool isValid = true;
 
     if (allowMultSelect) {
-       print("allowMultSelect$allowMultSelect");
-      if (controller.cashAdvanceIds.text.isEmpty) {
-        cashAdvanceField.value = 'Please select a Cash Advance';
+      print("allowMultSelect$allowMultSelect");
+      if (controller.multiSelectedItems == null) {
+        cashAdvanceField.value =
+            AppLocalizations.of(context)!.pleaseSelectCashAdvanceField;
+        isValid = false;
+      } else {
+        setState(() {
+          // selectReferenceIDError = null;
+          cashAdvanceField.value = null;
+        });
+      }
+    } else {
+      if (controller.singleSelectedItem == null) {
+        cashAdvanceField.value =
+            AppLocalizations.of(context)!.pleaseSelectCashAdvanceField;
+        ;
         isValid = false;
       }
-      else {
       setState(() {
         // selectReferenceIDError = null;
-        cashAdvanceField.value= null;
+        cashAdvanceField.value = null;
       });
     }
-    } else {
-      cashAdvanceField.value = 'Please select a Cash Advance';
-      // isValid = false;
-    }
-    if (controller.paidWith == null) {
+    if (controller.paidWithCashAdvance == null) {
       print("PaidWithError");
       setState(() {
         paidwithError.value = 'Please select a Payment Method';
@@ -287,7 +298,11 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   Widget _buildStep(int index) {
     final isActive = index == _currentStep;
     final isCompleted = index < _currentStep;
-
+    final List<String> _titles = [
+      AppLocalizations.of(context)!.paymentInfo,
+      AppLocalizations.of(context)!.itemize,
+      AppLocalizations.of(context)!.expenseDetails
+    ];
     return Column(
       children: [
         CircleAvatar(
@@ -341,47 +356,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     );
   }
 
-  Widget _buildItemizeCircles() {
-    return SizedBox(
-      height: 60,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _itemizeCount,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        itemBuilder: (context, index) {
-          final isSelected = _selectedItemizeIndex == index;
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedItemizeIndex = index;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: isSelected ? Colors.orange : Colors.grey,
-                    child: Text(
-                      '${index + 1}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Itemize',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   bool validateExpenseForm() {
     bool isValid = true;
 
@@ -431,6 +405,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   }
 
   Widget _buildItemizePage() {
+    final loc = AppLocalizations.of(context)!;
     return DefaultTabController(
       length: _itemizeCount,
       initialIndex: _selectedItemizeIndex,
@@ -445,7 +420,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
             },
             tabs: List.generate(
               _itemizeCount,
-              (index) => Tab(text: "Itemize ${index + 1}"),
+              (index) => Tab(text: "${loc.itemize} ${index + 1}"),
             ),
           ),
           const SizedBox(height: 10),
@@ -464,89 +439,103 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     );
   }
 
-  Widget _buildFormPage(String title) {
-    return Center(
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return
-        // ignore: deprecated_member_use
-        WillPopScope(
-            onWillPop: () async {
-              controller.clearFormFields();
+    final loc = AppLocalizations.of(context)!;
+    return WillPopScope(
+  onWillPop: () async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Form'),
+        content: const Text(
+            'You will lose any unsaved data. Do you want to exit?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false), // Stay
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true), // Exit
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
 
-              return true; // allow back navigation
-            },
-            child: Scaffold(
-              appBar: AppBar(
-                  title: const Text(
-                "Cash Advance Return Form ",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              )),
-              body: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildProgressBar(),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        expenseCreationFormStep1(context),
-                        _buildItemizePage(),
-                        const CreateExpensePage(),
-                      ],
-                    ),
-                  ),
-                ],
+    if (shouldExit ?? false) {
+      // ✅ Only navigate & clear fields if user confirms
+      Navigator.pushNamed(context, AppRoutes.generalExpense);
+      controller.clearFormFields();
+      return true; // allow navigation
+    }
+
+    return false; // cancel back navigation
+  },
+        child: Scaffold(
+          appBar: AppBar(
+              title: Text(
+            AppLocalizations.of(context)!.cashAdvanceReturnForm,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          )),
+          body: Column(
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildProgressBar(),
               ),
-              bottomNavigationBar: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
+              const SizedBox(height: 20),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    if (_currentStep == 2)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _currentStep--;
-                            _pageController.animateToPage(
-                              _currentStep,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.grey),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        label: const Text(
-                          'Back',
-                          style: TextStyle(color: Colors.black),
-                        ),
-                      )
-                    else
-                      const SizedBox(), // Empty space if back is not shown
+                    expenseCreationFormStep1(context),
+                    _buildItemizePage(),
+                    const CreateExpensePage(),
                   ],
                 ),
               ),
-            ));
+            ],
+          ),
+          bottomNavigationBar: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                if (_currentStep == 2)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _currentStep--;
+                        _pageController.animateToPage(
+                          _currentStep,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    label: Text(
+                      loc.back,
+                    ),
+                  )
+                else
+                  const SizedBox(), // Empty space if back is not shown
+              ],
+            ),
+          ),
+        ));
   }
 
   Widget expenseCreateForm2(BuildContext context, Controller controller) {
+    final loc = AppLocalizations.of(context)!;
     // Use the provided controller parameter consistently
     controller.selectedunit ??= controllerItems.selectedunit;
     controller.selectedDate = controllerItems.selectedDate;
@@ -592,7 +581,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SearchableMultiColumnDropdownField<Project>(
-                  labelText: 'Project Id ${isMandatory ? "*" : ""}',
+                  labelText: '${loc.projectId} ${isMandatory ? "*" : ""}',
                   columnHeaders: const ['Project Name', 'Project Id'],
                   items: controllerItems.project,
                   selectedValue: controller.selectedProject,
@@ -622,7 +611,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           children: [
                             TextSpan(
                               text: text.substring(0, start),
-                              style: const TextStyle(color: Colors.black),
                             ),
                             TextSpan(
                               text: text.substring(start, end),
@@ -633,7 +621,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                             ),
                             TextSpan(
                               text: text.substring(end),
-                              style: const TextStyle(color: Colors.black),
                             ),
                           ],
                         ),
@@ -653,25 +640,25 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                   },
                 ),
                 if (_showProjectError) // 👈 Show error below dropdown
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4, left: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
                     child: Text(
-                      'Please select a Project',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      loc.pleaseSelectProject,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
                     ),
                   ),
               ],
             );
           } else if (label == 'Tax Group') {
             inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
-              labelText: 'Tax Group ${isMandatory ? "*" : ""}',
+              labelText: '${loc.taxGroup} ${isMandatory ? "*" : ""}',
               columnHeaders: const ['Tax Group', 'Tax ID'],
               items: controllerItems.taxGroup,
               selectedValue: controller.selectedTax,
               searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
               displayText: (tax) => tax.taxGroupId,
               validator: (tax) => isMandatory && tax == null
-                  ? 'Please select a Tax Group'
+                  ? '${loc.pleaseSelectTaxGroup} '
                   : null,
               onChanged: (tax) {
                 setState(() {
@@ -692,7 +679,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       children: [
                         TextSpan(
                           text: text.substring(0, start),
-                          style: const TextStyle(color: Colors.black),
                         ),
                         TextSpan(
                           text: text.substring(start, end),
@@ -702,7 +688,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ),
                         TextSpan(
                           text: text.substring(end),
-                          style: const TextStyle(color: Colors.black),
                         ),
                       ],
                     ),
@@ -728,7 +713,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 TextField(
                   keyboardType: TextInputType.number,
                   controller: controller.taxAmount,
-                  style: const TextStyle(color: Colors.black),
                   onChanged: (tax) {
                     setState(() {
                       controller.taxAmount.text = tax;
@@ -739,18 +723,18 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                     });
                   },
                   decoration: InputDecoration(
-                    labelText: '$label${isMandatory ? " *" : ""}',
+                    labelText: '${loc.taxAmount}${isMandatory ? " *" : ""}',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
                 if (_showTaxAmountError) // 👈 Show error only when flag is true
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4, left: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
                     child: Text(
-                      'Tax Amount is required',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      '${loc.taxAmountRequired} ',
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
                     ),
                   ),
               ],
@@ -775,14 +759,14 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
           );
         }).toList(),
         const SizedBox(height: 16),
-        const Text("Paid For *"),
+        Text("${loc.paidFor} *"),
         const SizedBox(height: 20),
         if (_showPaidForError)
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Please select a category',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              '${loc.pleaseSelectCategory} ',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
         const SizedBox(height: 20),
@@ -821,8 +805,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
             const SizedBox(height: 10),
             if (showItemizeDetails)
               SearchableMultiColumnDropdownField<Unit>(
-                labelText: 'Unit *',
-                columnHeaders: const ['Uom Id', 'Uom Name'],
+                labelText: '${loc.unit}  *',
+                columnHeaders: ['${loc.uomId} ', loc.uomName],
                 items: controllerItems.unit,
                 selectedValue: controller.selectedunit,
                 searchValue: (tax) => '${tax.code} ${tax.name}',
@@ -846,7 +830,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         children: [
                           TextSpan(
                             text: text.substring(0, start),
-                            style: const TextStyle(color: Colors.black),
                           ),
                           TextSpan(
                             text: text.substring(start, end),
@@ -856,7 +839,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           ),
                           TextSpan(
                             text: text.substring(end),
-                            style: const TextStyle(color: Colors.black),
                           ),
                         ],
                       ),
@@ -883,7 +865,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       child: TextField(
                     keyboardType: TextInputType.number,
                     controller: controller.unitAmount,
-                    style: const TextStyle(color: Colors.black),
                     onChanged: (value) {
                       controllerItems.fetchExchangeRate();
                       controllerItems.unitAmount.text = value;
@@ -915,10 +896,9 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: "Unit Amount *",
-                      errorText: _showUnitAmountError
-                          ? 'Unit Amount is required'
-                          : null,
+                      labelText: "${loc.unitAmount}  *",
+                      errorText:
+                          _showUnitAmountError ? loc.unitAmountRequired : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -939,7 +919,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       controller: controller.quantity,
-                      style: const TextStyle(color: Colors.black),
                       onChanged: (value) {
                         setState(() {
                           controller.quantity.text = value;
@@ -963,9 +942,10 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                             calculatedLineAmount.toStringAsFixed(2);
                       },
                       decoration: InputDecoration(
-                        labelText: "Quantity*",
-                        errorText:
-                            _showQuantityError ? 'Quantity is required' : null,
+                        labelText: "${loc.quantity} *",
+                        errorText: _showQuantityError
+                            ? '${loc.quantityRequired} '
+                            : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -987,12 +967,12 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 children: [
                   Expanded(
                       child: _buildTextInput(
-                          "Line Amount *", controller.lineAmount,
+                          "${loc.lineAmount}  *", controller.lineAmount,
                           enabled: false)),
                   const SizedBox(width: 12),
                   Expanded(
                       child: _buildTextInput(
-                          "Line Amount in INR *", controller.lineAmountINR,
+                          "${loc.lineAmountInInr}  *", controller.lineAmountINR,
                           enabled: false)),
                 ],
               ),
@@ -1055,7 +1035,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ),
                       );
                     },
-                    child: const Text('Account Distribution'),
+                    child: Text(loc.accountDistribution),
                   ),
                 ],
               ),
@@ -1070,8 +1050,9 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Total Amount:',
+                    Text(
+                      loc.totalAmount,
+                      // ignore: prefer_const_constructors
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -1091,9 +1072,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
             const SizedBox(height: 16),
             TextField(
               controller: controller.descriptionController,
-              style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
-                labelText: "Comments",
+                labelText: loc.comments,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1121,9 +1101,9 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                     ),
                     icon: const Icon(Icons.delete,
                         color: Color.fromARGB(255, 233, 8, 8)),
-                    label: const Text(
-                      "Remove",
-                      style: TextStyle(color: AppColors.gradientEnd),
+                    label: Text(
+                      loc.remove,
+                      style: const TextStyle(color: AppColors.gradientEnd),
                     ),
                   ),
                 const SizedBox(width: 12),
@@ -1136,9 +1116,9 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                     ),
                   ),
                   icon: const Icon(Icons.add, color: AppColors.gradientEnd),
-                  label: const Text(
-                    'Itemize',
-                    style: TextStyle(color: AppColors.gradientEnd),
+                  label: Text(
+                    loc.itemize,
+                    style: const TextStyle(color: AppColors.gradientEnd),
                   ),
                 ),
               ],
@@ -1166,9 +1146,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ),
                       ),
                       icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      label: const Text(
-                        'Back',
-                        style: TextStyle(color: Colors.black),
+                      label: Text(
+                        loc.back,
                       ),
                     )
                   else
@@ -1230,10 +1209,14 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       print('isValid$isValid');
                       print('isValid${itemizeControllers.length}');
                       if (isValid) {
-                        controllerItems.finalItems = itemizeControllers
-                            .map((c) => c.toExpenseItemModel())
-                            .toList();
-                        _nextStep();
+                        if (showItemizeDetails) {
+                          controllerItems.finalItems = itemizeControllers
+                              .map((c) => c.toExpenseItemModel())
+                              .toList();
+                          _nextStep();
+                        } else {
+                          _nextStep();
+                        }
                       }
                     },
                     style: OutlinedButton.styleFrom(
@@ -1244,7 +1227,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       ),
                     ),
                     child: Text(
-                      _currentStep == 2 ? 'Finish' : 'Next',
+                      _currentStep == 2 ? '${loc.finish} ' : '${loc.next} ',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -1357,7 +1340,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(18),
-          border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
+          border: isSelected ? Border.all(color: Color.fromARGB(255, 163, 11, 11), width: 3) : null,
         ),
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -1409,6 +1392,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   }
 
   Widget expenseCreationFormStep1(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Obx(() {
         return controller.isLoadingGE2.value
@@ -1424,7 +1409,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       FormField<DateTime>(
                         validator: (value) {
                           if (controller.selectedDate == null) {
-                            return 'Please select a request date';
+                            return '${loc.selectDateFormat} ';
                           }
                           return null;
                         },
@@ -1439,7 +1424,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Request Date *',
+                                    labelText: '${loc.requestDate} *',
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -1451,7 +1436,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                     children: [
                                       Text(
                                         controller.selectedDate == null
-                                            ? 'Select date'
+                                            ? '${loc.selectDate} '
                                             : DateFormat('dd/MM/yyyy').format(
                                                 controller.selectedDate!),
                                         style: TextStyle(
@@ -1542,65 +1527,31 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                       Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Obx(
+                            //   () =>
                             MultiSelectMultiColumnDropdownField<
                                 CashAdvanceDropDownModel>(
-                              labelText: 'Cash Advance Request',
+                              labelText: loc.cashAdvanceRequest,
+                              controller: controller.cashAdvanceIds,
                               items: controller.cashAdvanceListDropDown,
                               isMultiSelect: allowMultSelect ?? false,
                               selectedValue: controller.singleSelectedItem,
                               selectedValues: controller.multiSelectedItems,
-                              // selectedValue: controller.selectedLocation,
-                              // enabled: controller.isEditModePerdiem,
-                              // controller: controller.locationController,
-                              // ignore: unnecessary_string_interpolations
-                              searchValue: (proj) => '${proj.cashAdvanceReqId}',
+
+                              // enabled: controller.isEnable.value,
+                              searchValue: (proj) => proj.cashAdvanceReqId,
                               displayText: (proj) => proj.cashAdvanceReqId,
                               validator: (proj) => proj == null
-                                  ? 'Please select a CashAdvance Field'
+                                  ? '${loc.cashAdvanceRequest} '
                                   : null,
                               onChanged: (item) {
-                              cashAdvanceField.value = null;
+                                controller.singleSelectedItem = item;
                               },
                               onMultiChanged: (items) {
-                              
+                                controller.multiSelectedItems.assignAll(items);
                               },
-                              columnHeaders: const [
-                                'Request ID',
-                                'Request Date'
-                              ],
+                              columnHeaders: [loc.requestId, loc.requestDate],
                               rowBuilder: (proj, searchQuery) {
-                                Widget highlight(String text) {
-                                  final lowerQuery = searchQuery.toLowerCase();
-                                  final lowerText = text.toLowerCase();
-                                  final start = lowerText.indexOf(lowerQuery);
-                                  if (start == -1 || searchQuery.isEmpty)
-                                    return Text(text);
-
-                                  final end = start + searchQuery.length;
-                                  return RichText(
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: text.substring(0, start),
-                                          style: const TextStyle(
-                                              color: Colors.black),
-                                        ),
-                                        TextSpan(
-                                          text: text.substring(start, end),
-                                          style: const TextStyle(
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: text.substring(end),
-                                          style: const TextStyle(
-                                              color: Colors.black),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 12, horizontal: 16),
@@ -1609,13 +1560,15 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                       Expanded(
                                           child: Text(proj.cashAdvanceReqId)),
                                       Expanded(
-                                          child: Text(
-                                              proj.requestDate.toString())),
+                                        child: Text(controller
+                                            .formattedDate(proj.requestDate)),
+                                      ),
                                     ],
                                   ),
                                 );
                               },
                             ),
+                            // ),
                             if (selectReferenceIDError != null)
                               Padding(
                                 padding:
@@ -1636,21 +1589,21 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                               ),
                           ]),
                       const SizedBox(height: 14),
-                      const Text(
-                        'Paid With',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      Text(
+                        '${loc.paidWith}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
 
                       // Paid With Radio Buttons
                       Obx(() {
-                        if (controller.paidWith == null &&
-                            controller.paymentMethods.isNotEmpty) {
-                          controller.paidWith =
-                              controller.paymentMethods.first.paymentMethodId;
-                          controller.paymentMethodeID =
-                              controller.paymentMethods.first.paymentMethodId;
-                        }
+                        // if (controller.paidWith == null &&
+                        //     controller.paymentMethods.isNotEmpty) {
+                        //   controller.paidWith =
+                        //       controller.paymentMethods.first.paymentMethodId;
+                        //   controller.paymentMethodeID =
+                        //       controller.paymentMethods.first.paymentMethodId;
+                        // }
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1674,53 +1627,93 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                               ];
 
                               return Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: colors[index % colors.length],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 1,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  decoration: BoxDecoration(
+                                    color: colors[index % colors.length],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                      width: 1,
+                                    ),
                                   ),
-                                ),
-                                child: RadioListTile<String>(
-                                  title: Row(
-                                    children: [
-                                      Icon(icons[index % icons.length],
-                                          color: Colors.black),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          method.paymentMethodName,
-                                          style: const TextStyle(
-                                              color: Colors.black),
+                                  child: RadioListTile<String>(
+                                    title: Row(
+                                      children: [
+                                        Icon(icons[index % icons.length],
+                                            color: Colors.black),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            method.paymentMethodName,
+                                            style: const TextStyle(
+                                                color: Colors.black),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  value: method.paymentMethodId,
-                                  groupValue: controller.paidWith,  
-                                  onChanged: (String? value) {
-                                    controller.paymentMethodeID = value;
-                                    setState(() {
-                                      controller.paidWith = value;
-                                    });
-                                    // paidwithError.value =
-                                    //     null; // Clear error on selection
-                                  },
-                                  contentPadding: EdgeInsets.zero,
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  tileColor: Colors.transparent,
-                                ),
-                              );
+                                      ],
+                                    ),
+                                    value: method.paymentMethodId,
+                                    groupValue:
+                                        controller.paidWithCashAdvance.value,
+                                    onChanged: (String? value) {
+                                      // print(value);
+                                      loadAndAppendCashAdvanceList();
+                                      setState(() {
+                                        if (controller
+                                                .paidWithCashAdvance.value ==
+                                            value) {
+                                          // Unselect if same item clicked
+                                          controller.paidWithCashAdvance.value =
+                                              null;
+                                          controller.paymentMethodeIDCashAdvance
+                                              .value = null;
+                                        } else {
+                                          controller.paidWithCashAdvance.value =
+                                              value;
+                                          controller.paymentMethodeIDCashAdvance
+                                              .value = value;
+                                        }
+                                      });
+                                    },
+                                    contentPadding: EdgeInsets.zero,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                    tileColor: Colors.transparent,
+                                  ));
                             }),
 
                             // Error message below the list
                             const SizedBox(height: 8),
-
+                            // Small red button to clear selection
+                            if (controller.paidWithCashAdvance.value != null &&
+                                controller
+                                    .paidWithCashAdvance.value!.isNotEmpty)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    controller.paidWithCashAdvance.value = "";
+                                    controller
+                                        .paymentMethodeIDCashAdvance.value = "";
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    minimumSize:
+                                        const Size(60, 30), // Small size
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    loc.clear,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 12),
+                                  ),
+                                ),
+                              ),
                             // if (paidwithError.value != null)
                             //   Padding(
                             //     padding:
@@ -1785,9 +1778,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                 ),
                                 icon: const Icon(Icons.arrow_back,
                                     color: Colors.black),
-                                label: const Text(
-                                  'Back',
-                                  style: TextStyle(color: Colors.black),
+                                label: Text(
+                                  loc.back,
                                 ),
                               )
                             else
@@ -1824,7 +1816,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                 ),
                               ),
                               child: Text(
-                                _currentStep == 2 ? 'Finish' : 'Next',
+                                _currentStep == 2 ? loc.finish : loc.next,
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -1940,19 +1932,19 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 right: 10,
                 child: Column(
                   children: [
-                    FloatingActionButton.small(
-                      heroTag: "zoom_in_$index",
-                      onPressed: _zoomIn,
-                      child: const Icon(Icons.zoom_in),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "zoom_out_$index",
-                      onPressed: _zoomOut,
-                      child: const Icon(Icons.zoom_out),
-                      backgroundColor: Colors.deepPurple,
-                    ),
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_in_$index",
+                    //   onPressed: _zoomIn,
+                    //   child: const Icon(Icons.zoom_in),
+                    //   backgroundColor: Colors.deepPurple,
+                    // ),
+                    // const SizedBox(height: 8),
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_out_$index",
+                    //   onPressed: _zoomOut,
+                    //   child: const Icon(Icons.zoom_out),
+                    //   backgroundColor: Colors.deepPurple,
+                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
@@ -1983,6 +1975,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   Widget _buildImageArea() {
+    final loc = AppLocalizations.of(context)!;
+
+    final PageController _pageController =
+        PageController(initialPage: controller.currentIndex.value);
     @override
     void initState() {
       super.initState();
@@ -2000,45 +1996,110 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: () => _pickImage(ImageSource.gallery),
+          onTap: () => {
+            if (controller.imageFiles.isEmpty) {_pickImage(ImageSource.gallery)}
+          },
           child: Container(
-            height: 200,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Obx(() {
-              // if (controller.isLoading.value) {
-              //   return const Center(child: CircularProgressIndicator());
-              // } else
-              if (controller.imageFiles.isEmpty) {
-                return const Center(child: Text('Tap to Upload Document(s)'));
-              } else {
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: controller.imageFiles.length,
-                  itemBuilder: (context, index) {
-                    final file = controller.imageFiles[index];
-                    return GestureDetector(
-                      onTap: () => _showFullImage(file, index),
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        width: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.deepPurple),
-                          borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: FileImage(file),
-                            fit: BoxFit.cover,
-                          ),
+              width: MediaQuery.of(context).size.width *
+                  0.9, // 90% of screen width
+              height: MediaQuery.of(context).size.height *
+                  0.3, // 30% of screen height
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.grey, // border color
+                  width: 2, // border thickness
+                ),
+                borderRadius:
+                    BorderRadius.circular(12), // optional rounded corners
+              ),
+              child: Obx(() {
+                if (controller.imageFiles.isEmpty) {
+                  return Center(
+                    child: Text(loc.tapToUploadDocs),
+                  );
+                } else {
+                  return Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: controller.imageFiles.length,
+                        onPageChanged: (index) {
+                          controller.currentIndex.value = index;
+                        },
+                        itemBuilder: (_, index) {
+                          final file = controller.imageFiles[index];
+                          return GestureDetector(
+                            onTap: () => _showFullImage(file, index),
+                            child: Container(
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.all(8),
+                              width: 100,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.deepPurple),
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: FileImage(file),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Positioned(
+                        bottom: 40,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Obx(() => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 18),
+                                ),
+                              )),
                         ),
                       ),
-                    );
-                  },
-                );
-              }
-            }),
-          ),
+                      // Positioned(
+                      //   top: 40,
+                      //   right: 20,
+                      //   child: IconButton(
+                      //     icon: const Icon(Icons.close,
+                      //         color: Colors.white),
+                      //     onPressed: () =>
+                      //         Navigator.pop(context),
+                      //   ),
+                      // ),
+                      // Positioned(
+                      //   bottom: 16,
+                      //   right: 16,
+                      //   child: GestureDetector(
+                      //     onTap: () => _pickImage(ImageSource.gallery),
+                      //     child: Container(
+                      //       decoration: BoxDecoration(
+                      //         color: Colors.deepPurple,
+                      //         shape: BoxShape.circle,
+                      //         border: Border.all(color: Colors.white, width: 2),
+                      //       ),
+                      //       padding: const EdgeInsets.all(8),
+                      //       child: const Icon(
+                      //         Icons.add,
+                      //         color: Colors.white,
+                      //         size: 28,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
+                  );
+                }
+              })),
         ),
       ],
     );
@@ -2070,6 +2131,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   @override
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -2088,13 +2151,13 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                   children: [
                     ElevatedButton.icon(
                       icon: const Icon(Icons.upload_file),
-                      label: const Text("Upload"),
+                      label: Text(loc.upload),
                       onPressed: () => _pickImage(ImageSource.gallery),
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.camera_alt),
-                      label: const Text("Capture"),
+                      label: Text(loc.capture),
                       onPressed: () => _pickImage(ImageSource.camera),
                     ),
                   ],
@@ -2113,9 +2176,13 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             enabled: controller.paidAmontIsEditable.value,
                             focusNode: _focusNode,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Paid Amount *',
-                              border: OutlineInputBorder(
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(
+                                  r'^\d*\.?\d*')), // Only digits and dots allowed
+                            ],
+                            decoration: InputDecoration(
+                              labelText: '${loc.paidAmount}  *',
+                              border: const OutlineInputBorder(
                                 borderRadius: BorderRadius.only(
                                   topRight: Radius.circular(0),
                                   bottomRight: Radius.circular(0),
@@ -2126,11 +2193,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Paid amount is required';
+                                return '${loc.paidAmountRequired} ';
                               }
                               final parsed = double.tryParse(value);
                               if (parsed == null || parsed <= 0) {
-                                return 'Enter a valid amount';
+                                return '${loc.enterValidAmount} ';
                               }
                               return null;
                             },
@@ -2155,8 +2222,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             return SearchableMultiColumnDropdownField<Currency>(
                               alignLeft: -90,
                               dropdownWidth: 280,
-                              labelText: "Currency *",
-                              columnHeaders: const ['Code', 'Name', 'Symbol'],
+                              labelText: "${loc.currency} *",
+                              columnHeaders: [loc.code, loc.name, loc.symbol],
                               items: controller.currencies,
                               selectedValue: controller.selectedCurrency.value,
                               backgroundColor:
@@ -2179,7 +2246,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                 ),
                               ),
                               validator: (c) =>
-                                  c == null ? 'Please select a currency' : null,
+                                  c == null ? loc.pleaseSelectCurrency : null,
                               onChanged: (c) {
                                 controller.selectedCurrency.value = c;
                                 controller.currencyDropDowncontroller.text =
@@ -2207,15 +2274,15 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         Expanded(
                           child: TextFormField(
                             controller: controller.unitRate,
-                            keyboardType:
-                                TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Rate *',
-                              border: OutlineInputBorder(),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration: InputDecoration(
+                              labelText: '${loc.rate}  *',
+                              border: const OutlineInputBorder(),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Rate is required';
+                                return '${loc.rateRequired} ';
                               }
                               final parsed = double.tryParse(value);
                               if (parsed == null || parsed <= 0) {
@@ -2321,7 +2388,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                       ),
                                     );
                                   },
-                                  child: const Text('Account Distribution'),
+                                  child: Text(loc.accountDistribution),
                                 ),
                               ],
                             ),
@@ -2334,26 +2401,26 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     TextFormField(
                       controller: controller.amountINR,
                       enabled: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Amount in INR *',
+                      decoration: InputDecoration(
+                        labelText: '${loc.amountInInr}  *',
                         filled: true,
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 30),
 
                     // Policy Violations
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Policy Violations',
-                          style: TextStyle(
+                          loc.policyViolations,
+                          style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         Text(
-                          'Check Policies',
-                          style: TextStyle(color: Colors.blue),
+                          loc.checkPolicies,
+                          style: const TextStyle(color: Colors.blue),
                         ),
                       ],
                     ),
@@ -2394,7 +2461,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           try {
                                             await controller
                                                 .createcashAdvanceReturn(
-                                                    context, true, false);
+                                                    context,
+                                                    true,
+                                                    false,
+                                                    0,
+                                                    null);
                                           } finally {
                                             controller.setButtonLoading(
                                                 'submit', false);
@@ -2402,9 +2473,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         } else {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                  'Please fill all required fields.'),
+                                            SnackBar(
+                                              content:
+                                                  Text('${loc.fieldRequired} '),
                                               backgroundColor: Colors.redAccent,
                                             ),
                                           );
@@ -2427,9 +2498,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        'Submit',
-                                        style: TextStyle(
+                                    : Text(
+                                        loc.submit,
+                                        style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -2474,7 +2545,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                               try {
                                                 await controller
                                                     .createcashAdvanceReturn(
-                                                        context, false, false);
+                                                        context,
+                                                        false,
+                                                        false,
+                                                        0,
+                                                        null);
                                               } finally {
                                                 controller.setButtonLoading(
                                                     'save', false);
@@ -2508,7 +2583,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        : const Text("Save"),
+                                        : Text(
+                                            AppLocalizations.of(context)!.save),
                                   );
                                 }),
                               ),
@@ -2556,9 +2632,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        : const Text(
-                                            "Cancel",
-                                            style: TextStyle(
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .cancel,
+                                            style: const TextStyle(
                                               color: Colors.white,
                                             ),
                                           ),
@@ -2581,59 +2658,60 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   Widget _buildPolicyCard() {
+    final loc = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        // color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Policy 1001', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
+          Text(loc.policy1001,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
           Row(
             children: [
-              Icon(Icons.check, color: Colors.green),
-              SizedBox(width: 8),
-              Expanded(child: Text("Expense Amount Under Limit")),
+              const Icon(Icons.check, color: Colors.green),
+              const SizedBox(width: 8),
+              Expanded(child: Text(loc.expenseAmountUnderLimit)),
             ],
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.check, color: Colors.green),
-              SizedBox(width: 8),
+              const Icon(Icons.check, color: Colors.green),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Receipt Required Amount: Any expense recorded should have a receipt",
+                  loc.receiptRequiredAmount,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.close, color: Colors.red),
-              SizedBox(width: 8),
+              const Icon(Icons.close, color: Colors.red),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "If description has been made mandatory by the Admin for all expense",
-                  style: TextStyle(color: Colors.red),
+                  loc.descriptionMandatory,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Row(
             children: [
-              Icon(Icons.error_outline, color: Colors.orange),
-              SizedBox(width: 8),
+              const Icon(Icons.error_outline, color: Colors.orange),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "An expense that has expired is considered a Policy",
-                  style: TextStyle(color: Colors.black87),
+                  loc.expiredPolicy,
                 ),
               ),
             ],

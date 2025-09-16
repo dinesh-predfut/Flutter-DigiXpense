@@ -133,7 +133,11 @@ class _PendingApprovalDashboardforPendingState
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    controller.fetchManageExpensesCards().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
+      controller.searchControllerCashAdvanceApproval.clear();
+    });
+    controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
         _animationController = AnimationController(
@@ -157,6 +161,7 @@ class _PendingApprovalDashboardforPendingState
     print("${controller.isEnable.value}isEnable");
     _loadDataOnce();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+       controller.getProfilePicture();
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
@@ -175,8 +180,17 @@ class _PendingApprovalDashboardforPendingState
               return true; // allow back navigation
             },
             child: Scaffold(
-              backgroundColor: const Color(0xFFF7F7F7),
-              body: Column(
+              // backgroundColor: const Color(0xFFF7F7F7),
+              body:
+               Obx(() {
+          return controller.isLoadingGE1.value
+              ? const SkeletonLoaderPage()
+              :  LayoutBuilder(
+          builder: (context, constraints) {
+             final isSmallScreen = constraints.maxWidth < 600;
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+            return Column(
                 children: [
                   // Top Content in scroll view
                   Expanded(
@@ -188,488 +202,659 @@ class _PendingApprovalDashboardforPendingState
                           children: [
                             Stack(
                               children: [
-                                Container(
-                                  width: double.infinity,
-                                  height: 130,
-                                  decoration: const BoxDecoration(
-                                    image: DecorationImage(
-                                      image: AssetImage('assets/Vector.png'),
+                                 if (primaryColor != const Color(0xff1a237e) &&
+                              primaryColor.value != 4282339765 )
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor,
+                                    primaryColor.withOpacity(
+                                        0.7), // Lighter primary color
+                                  ],
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
                                       fit: BoxFit.cover,
                                     ),
-                                    borderRadius: BorderRadius.only(
-                                      bottomLeft: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (primaryColor == const Color(0xff1a237e) ||  primaryColor.value == 4282339765)
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 40, 20, 20),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Column(
+                                      children: [
+                                        // const Text(
+                                        //   'Welcome to',
+                                        //   style: TextStyle(
+                                        //       color: Colors.white,
+                                        //       fontSize: 8),
+                                        // ),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: 100,
+                                            height: 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(10, 40, 20, 20),
-                                  child: Row(
+                                  const SizedBox(height: 20),
+                                  Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      // Left side (Welcome text + logo)
-                                      Flexible(
-                                        child: Column(
-                                          children: [
-                                            const Text(
-                                              'Welcome to',
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 8),
-                                            ),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              child: Image.asset(
-                                                'assets/XpenseWhite.png',
-                                                width: 100,
-                                                height: 40,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-
-                                      // Right side (Language Dropdown + Bell + Profile)
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                      const LanguageDropdown(),
+                                      Stack(
                                         children: [
-                                          const LanguageDropdown(),
-
-                                          // ✅ Notification Bell with Badge
-                                          Stack(
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(
-                                                    Icons.notifications,
-                                                    color: Colors.white),
-                                                onPressed: () {
-                                                  Navigator.pushNamed(context,
-                                                      AppRoutes.notification);
-                                                },
-                                              ),
-                                              // Badge
-                                              Obx(() {
-                                                final unreadCount = controller
-                                                    .unreadNotifications.length;
-                                                if (unreadCount == 0)
-                                                  return const SizedBox
-                                                      .shrink();
-                                                return Positioned(
-                                                  right: 6,
-                                                  top: 6,
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color: Colors.red,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                      minWidth: 18,
-                                                      minHeight: 18,
-                                                    ),
-                                                    child: Text(
-                                                      '$unreadCount',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                    ),
-                                                  ),
-                                                );
-                                              }),
-                                            ],
-                                          ),
-
-                                          const SizedBox(width: 10),
-
-                                          // ✅ Profile Picture (Reactive)
-                                          GestureDetector(
-                                            onTap: () {
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.notifications,
+                                                color: Colors.white),
+                                            onPressed: () {
                                               Navigator.pushNamed(context,
-                                                  AppRoutes.personalInfo);
+                                                  AppRoutes.notification);
                                             },
-                                            child: Obx(() => Container(
-                                                  padding:
-                                                      const EdgeInsets.all(2),
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                        color: Colors.white,
-                                                        width: 2),
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                    child: controller
-                                                            .isImageLoading
-                                                            .value
-                                                        ? const SizedBox(
-                                                            width: 40,
-                                                            height: 40,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              color:
-                                                                  Colors.white,
-                                                              strokeWidth: 2,
-                                                            ),
-                                                          )
-                                                        : controller.profileImage
-                                                                    .value !=
-                                                                null
-                                                            ? Image.file(
-                                                                controller
-                                                                    .profileImage
-                                                                    .value!,
-                                                                width: 40,
-                                                                height: 40,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              )
-                                                            : const Icon(
-                                                                Icons.person,
-                                                                size: 40,
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                  ),
-                                                )),
                                           ),
+                                          Obx(() {
+                                            final unreadCount = controller
+                                                .unreadNotifications.length;
+                                            if (unreadCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                  minWidth: 15,
+                                                  minHeight: 15,
+                                                ),
+                                                child: Text(
+                                                  '$unreadCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 6,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            );
+                                          }),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            Obx(() {
-                              return SizedBox(
-                                height: 140,
-                                child: ListView.builder(
-                                  controller: _scrollController,
-                                  scrollDirection: Axis.horizontal,
-                                  physics:
-                                      const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
-                                  itemCount:
-                                      controller.manageExpensesCards.length,
-                                  itemBuilder: (context, index) {
-                                    final card =
-                                        controller.manageExpensesCards[index];
-                                    return _buildStyledCard(card);
-                                  },
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 15),
-                            Center(
-                              child: SizedBox(
-                                width: 300,
-                                height: 48,
-                                child: TextField(
-                                  controller: controller.searchController,
-                                  onChanged: (value) {
-                                    controller.searchQuery.value =
-                                        value.toLowerCase();
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Search...',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 12),
-                                    prefixIcon: const Icon(Icons.search,
-                                        color: Colors.grey),
-                                  ),
-                                ),
-                              ),
+                                      const SizedBox(width: 10),
+                                  GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(context, AppRoutes.personalInfo);
+  },
+  child: Obx(() => AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+         
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: controller.isImageLoading.value ? 1.0 : 1.05,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Placeholder or Image
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[800],
+                  ),
+                  child: controller.isImageLoading.value
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : controller.profileImage.value != null
+                          ? Image.file(
+                              controller.profileImage.value!,
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
                             )
-                          ],
-                        ),
+                          : const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white70,
+                              ),
+                            ),
+                ),
+                // Overlay shimmer when loading
+                if (controller.isImageLoading.value)
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.white10],
+                        stops: [0.7, 1.0],
                       ),
                     ),
                   ),
-
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.50,
-                    child: Obx(() {
-                      if (controller.isLoadingGE1.value) {
-                        return const SkeletonLoaderPage();
-                      }
-
-                      final expenses = controller.pendingApprovalcashAdvanse;
-                      print("expenses$expenses");
-                      final filteredExpenses = expenses.where((item) {
-                        final query = controller.searchQuery.value;
-                        if (query.isEmpty) return true;
-                        return item.approvalStatus.toLowerCase().contains(query) ||
-                            item.referenceId.toLowerCase().contains(query); 
-                      }).toList();
-                      if (expenses.isEmpty) {
-                        return const Center(child: Text("No expenses found"));
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: filteredExpenses.length,
-                        itemBuilder: (ctx, idx) {
-                          final item = filteredExpenses[idx];
-
-                          return Dismissible(
-                            key: ValueKey(item.referenceId),
-                            background: _buildSwipeActionLeft(isLoading),
-                            secondaryBackground: _buildSwipeActionRight(),
-                            confirmDismiss: (direction) async {
-                              if (direction == DismissDirection.startToEnd) {
-                                setState(() => isLoading = true);
-
-                                // if (item.expenseType == "PerDiem") {
-                                //   controller.fetchSecificPerDiemItemApproval(
-                                //       context, item.workitemrecid);
-                                // } else if (item.expenseType ==
-                                //     "General Expenses") {
-                                //   print("Expenses${item.recId}");
-                                //   controller.fetchSecificApprovalExpenseItem(
-                                //       context, item.workitemrecid);
-                                //   controller.fetchExpenseHistory(item.recId);
-                                // } else if (item.expenseType == "Mileage") {
-                                //   print("Expenses${item.recId}");
-                                //   controller.fetchMileageDetailsApproval(
-                                //       context, item.workitemrecid);
-                                //   // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-                                //   // controller.fetchExpenseHistory(item.recId);
-                                // }
-
-                                setState(() => isLoading = false);
-                                return false;
-                              } else {
-                                final shouldDelete = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Delete?'),
-                                    content:
-                                        Text('Delete "${item.requisitionId}"?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.red,
-                                        ),
-                                        child: const Text('Delete'),
-                                      ),
+                // Edit icon overlay on tap-ready state
+               
+              ],
+            ),
+          ),
+        ),
+      )),
+),
                                     ],
                                   ),
+                                ],
+                              ),
+                            ),
+                                ],
+                              ),
+                              const SizedBox(height: 15),
+                              Obx(() {
+                                return SizedBox(
+                                  height: 140,
+                                  child: ListView.builder(
+                                    controller: _scrollController,
+                                    scrollDirection: Axis.horizontal,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
+                                    itemCount:
+                                        controller.manageExpensesCards.length,
+                                    itemBuilder: (context, index) {
+                                      final card =
+                                          controller.manageExpensesCards[index];
+                                      return _buildStyledCard(card);
+                                    },
+                                  ),
                                 );
+                              }),
+                              const SizedBox(height: 15),
+                              Center(
+                                child: SizedBox(
+                                  width: 300,
+                                  height: 48,
+                                  child: TextField(
+                                    controller: controller.searchControllerCashAdvanceApproval,
+                                    onChanged: (value) {
+                                      controller.searchQuery.value =
+                                          value.toLowerCase();
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText:  AppLocalizations.of(context)!.search,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      isDense: true,
+                                      contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 12),
+                                      prefixIcon: const Icon(Icons.search,
+                                          color: Colors.grey),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 
-                                if (shouldDelete == true) {
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.50,
+                      child: Obx(() {
+                        if (controller.isLoadingGE1.value) {
+                          return const SkeletonLoaderPage();
+                        }
+
+                        final expenses = controller.pendingApprovalcashAdvanse;
+                        print("expenses$expenses");
+                        final filteredExpenses = expenses.where((item) {
+                          final query = controller.searchQuery.value;
+                          if (query.isEmpty) return true;
+                          return item.approvalStatus.toLowerCase().contains(query) ||
+                              item.referenceId.toLowerCase().contains(query); 
+                        }).toList();
+                        if (expenses.isEmpty) {
+                          return const Center(child: Text("No expenses found"));
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: filteredExpenses.length,
+                          itemBuilder: (ctx, idx) {
+                            final item = filteredExpenses[idx];
+
+                            return Dismissible(
+                              key: ValueKey(item.referenceId),
+                              background: _buildSwipeActionLeft(isLoading),
+                              secondaryBackground: _buildSwipeActionRight(),
+                              confirmDismiss: (direction) async {
+                                if (item.approvalStatus == "Created" && direction == DismissDirection.startToEnd) {
                                   setState(() => isLoading = true);
-                                  await controller.deleteExpense(item.recId);
+
+                                  // if (item.expenseType == "PerDiem") {
+                                  //   controller.fetchSecificPerDiemItemApproval(
+                                  //       context, item.workitemrecid);
+                                  // } else if (item.expenseType ==
+                                  //     "General Expenses") {
+                                  //   print("Expenses${item.recId}");
+                                  //   controller.fetchSecificApprovalExpenseItem(
+                                  //       context, item.workitemrecid);
+                                  //   controller.fetchExpenseHistory(item.recId);
+                                  // } else if (item.expenseType == "Mileage") {
+                                  //   print("Expenses${item.recId}");
+                                  //   controller.fetchMileageDetailsApproval(
+                                  //       context, item.workitemrecid);
+                                  //   // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+                                  //   // controller.fetchExpenseHistory(item.recId);
+                                  // }
+
                                   setState(() => isLoading = false);
-                                  return true; // This will remove the item from UI
+                                  return false;
+                                } else {
+                                  final shouldDelete = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Delete?'),
+                                      content:
+                                          Text('Delete "${item.requisitionId}"?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              Navigator.of(ctx).pop(true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (shouldDelete == true) {
+                                    setState(() => isLoading = true);
+                                    await controller.deleteExpense(item.recId);
+                                    setState(() => isLoading = false);
+                                    return true; // This will remove the item from UI
+                                  }
+
+                                  return false;
                                 }
-
-                                return false;
-                              }
-                            },
-                            child: _buildCard(item, context),
-                          );
-                        },
-                      );
-                    }),
-                  )
-                ],
-              ),
-            ));
-  }
-
-  Widget _buildStyledCard(ManageExpensesCard card) {
-    return Container(
-      width: 180,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+                              },
+                              child: _buildCard(item, context),
+                            );
+                          },
+                        );
+                      }),
+                    )
+                  ],
+                );
+            });
+            }),
+              ));
+    }
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.notification),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            _getIconForStatus(card.status),
-            size: 30,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getTitle(card.status),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+        Obx(() {
+          final count = controller.unreadNotifications.length;
+          if (count == 0) return const SizedBox();
+          return Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                    fontSize: 8,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '₹${card.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
+          );
+        }),
+      ],
     );
   }
 
-  String _getTitle(String key) {
-    switch (key) {
-      case 'AmountSettled':
-        return ' Total Amount Settled';
-      case 'Inprogress':
-        return 'Total Advance In Progress';
-      case 'Pending':
-        return 'Total Amount Pending';
-      case 'TotalAmountReporting':
-        return 'Total Expenses';
+  Widget _buildProfileAvatar() {
+    return GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(context, AppRoutes.personalInfo);
+  },
+  child: Obx(() => AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+         
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: controller.isImageLoading.value ? 1.0 : 1.05,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Placeholder or Image
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[800],
+                  ),
+                  child: controller.isImageLoading.value
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : controller.profileImage.value != null
+                          ? Image.file(
+                              controller.profileImage.value!,
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white70,
+                              ),
+                            ),
+                ),
+                // Overlay shimmer when loading
+                if (controller.isImageLoading.value)
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.white10],
+                        stops: [0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                // Edit icon overlay on tap-ready state
+               
+              ],
+            ),
+          ),
+        ),
+      )),
+);
+  }
+    Widget _buildStyledCard(ManageExpensesCard card) {
+      final theme = Theme.of(context);
+      final primaryColor = theme.primaryColor;
+      final onPrimaryColor = theme.colorScheme.onPrimary;
+      return Container(
+        width: 200,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [
+              primaryColor.withOpacity(0.8), // Lighter primary color
+              primaryColor,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.topRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.4),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getIconForStatus(card.status),
+              size: 30,
+              color: Colors.white,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getTitle(card.status),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '₹${card.amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    String _getTitle(String status) {
+    switch (status) {
+      case 'Approved Expenses (Total)':
+        return AppLocalizations.of(context)!.approvedExpensesTotal;
+      case 'Expenses In Progress (Total)':
+        return AppLocalizations.of(context)!.expensesInProgressTotal;
+      case 'Approved Advances (Total)':
+        return AppLocalizations.of(context)!.approvedAdvancesTotal;
+      case 'Advances In Progress (Total)':
+        return AppLocalizations.of(context)!.advancesInProgressTotal;
       default:
-        return key;
+        return status;
     }
   }
 
   IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'AmountSettled':
-        return Icons.check_circle; // ✅
-      case 'Inprogress':
-        return Icons.sync; // 🔄
-      case 'Pending':
-        return Icons.hourglass_bottom; // ⏳
-      case 'TotalAmountReporting':
-        return Icons.bar_chart; // 📊
-      default:
-        return Icons.category; // fallback
+      switch (status) {
+        case 'Approved Expenses (Total)':
+          return Icons.check_circle; // ✅
+        case 'Expenses In Progress (Total)':
+          return Icons.sync; // 🔄
+        case 'Approved Advances (Total)':
+          return Icons.hourglass_bottom; // ⏳
+        case ' Advances In Progress (Total)':
+          return Icons.bar_chart; // 📊
+        default:
+          return Icons.category; // fallback
+      }
+    }
+    Widget circula() {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    // General TextField-like display
+
+    // Example itemized detail block
+
+    Widget _balanceCard(String title, String amount) {
+      return Container(
+        width: 230,
+        height: 110,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            colors: [
+              Color.fromRGBO(86, 86, 121, 1),
+              Color.fromRGBO(41, 41, 102, 1.0),
+              Color.fromRGBO(41, 41, 102, 0.493)
+            ],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.wallet, color: Colors.white, weight: 70),
+            const SizedBox(height: 10),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+            const SizedBox(height: 5),
+            Text(amount,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
+      );
     }
   }
 
-  Widget circula() {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
-  }
-
-  // General TextField-like display
-
-  // Example itemized detail block
-
-  Widget _balanceCard(String title, String amount) {
+  Widget _buildSwipeActionLeft(bool isLoading) {
     return Container(
-      width: 230,
-      height: 110,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [
-            Color.fromRGBO(86, 86, 121, 1),
-            Color.fromRGBO(41, 41, 102, 1.0),
-            Color.fromRGBO(41, 41, 102, 0.493)
-          ],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      alignment: Alignment.centerLeft,
+      color: Colors.blue.shade100,
+      padding: const EdgeInsets.only(left: 20),
+      child: Row(
         children: [
-          const Icon(Icons.wallet, color: Colors.white, weight: 70),
-          const SizedBox(height: 10),
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-          const SizedBox(height: 5),
-          Text(amount,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
+          if (isLoading)
+            const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            )
+          else
+            const Icon(Icons.remove_red_eye, color: Colors.blue),
+          const SizedBox(width: 8),
+          Text(
+            isLoading ? 'Loading...' : 'View',
+            style: const TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
   }
-}
 
-Widget _buildSwipeActionLeft(bool isLoading) {
-  return Container(
-    alignment: Alignment.centerLeft,
-    color: Colors.blue.shade100,
-    padding: const EdgeInsets.only(left: 20),
-    child: Row(
-      children: [
-        if (isLoading)
-          const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-            ),
-          )
-        else
-          const Icon(Icons.remove_red_eye, color: Colors.blue),
-        const SizedBox(width: 8),
-        Text(
-          isLoading ? 'Loading...' : 'View',
-          style: const TextStyle(
-            color: Colors.blue,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildSwipeActionRight() {
-  return Container(
-    alignment: Alignment.centerRight,
-    color: const Color.fromARGB(255, 115, 142, 229),
-    padding: const EdgeInsets.only(right: 20),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildSwipeActionRight() {
+    return Container(
+      alignment: Alignment.centerRight,
+      color: const Color.fromARGB(255, 115, 142, 229),
+      padding: const EdgeInsets.only(right: 20),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
       children: [
         Text('Delete',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -704,8 +889,8 @@ Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
       // }
     },
     child: Card(
-      color: const Color.fromARGB(218, 245, 244, 244),
-      shadowColor: const Color.fromARGB(255, 82, 78, 78),
+      // color: const Color.fromARGB(218, 245, 244, 244),
+      // shadowColor: const Color.fromARGB(255, 82, 78, 78),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -725,7 +910,7 @@ Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
                   ),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color.fromARGB(255, 41, 41, 41),
+                    // color: Color.fromARGB(255, 41, 41, 41),
                   ),
                 ),
               ],
@@ -751,7 +936,7 @@ Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.green[200],
+                    // color: Colors.green[200],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

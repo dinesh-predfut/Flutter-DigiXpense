@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "681028483669",
+    "project_id": "test-4aca4",
+    "storage_bucket": "test-4aca4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:681028483669:android:4b309f01631a716dee32dc",
+        "android_client_info": {
+          "package_name": "com.example.digi_xpense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdKmgqfV9dqNj84VAL6GqhXfMpqLneCt0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

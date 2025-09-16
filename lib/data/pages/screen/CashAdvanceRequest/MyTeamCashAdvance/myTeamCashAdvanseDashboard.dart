@@ -36,15 +36,20 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
   void initState() {
     super.initState();
     controller = Get.find(); // Use existing controller
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
+      controller.searchControllerCashAdvanceMyteams.clear();
+          controller.getProfilePicture();
 
+    });
     _scrollController = ScrollController();
 
     // Load data
-    controller.loadProfilePictureFromStorage();
+   
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
     // controller.fetchMileageRates();
-    controller.fetchManageExpensesCards().then((_) {
+    controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
           vsync: this,
@@ -92,58 +97,231 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F7F7),
+        // backgroundColor: const Color(0xFFF7F7F7),
         body: LayoutBuilder(
           builder: (context, constraints) {
             final isSmallScreen = constraints.maxWidth < 600;
-
+            final primaryColor = theme.primaryColor;
             return Column(
               children: [
                 // 🔹 Responsive Header
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('assets/Vector.png'),
-                      fit: BoxFit.cover,
-                    ),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(10),
-                      bottomRight: Radius.circular(10),
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Logo
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.asset(
-                          'assets/XpenseWhite.png',
-                          width: isSmallScreen ? 80 : 100,
-                          height: isSmallScreen ? 30 : 40,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-
-                      // Actions
-                      Row(
-                        children: [
-                          const LanguageDropdown(),
-                          _buildNotificationBadge(),
-                          _buildProfileAvatar(),
+                if (primaryColor != const Color(0xff1a237e) &&
+                    primaryColor.value != 4282339765)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor,
+                          primaryColor
+                              .withOpacity(0.7), // Lighter primary color
                         ],
                       ),
-                    ],
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Logo
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.asset(
+                            'assets/XpenseWhite.png',
+                            width: isSmallScreen ? 80 : 100,
+                            height: isSmallScreen ? 30 : 40,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                        // Actions
+                        Row(
+                          children: [
+                            const LanguageDropdown(),
+                            _buildNotificationBadge(),
+                            _buildProfileAvatar(),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                if (primaryColor == const Color(0xff1a237e) ||
+                    primaryColor.value == 4282339765)
+                  Container(
+                    width: double.infinity,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/Vector.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(10, 40, 20, 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Column(
+                            children: [
+                              // const Text(
+                              //   'Welcome to',
+                              //   style: TextStyle(
+                              //       color: Colors.white,
+                              //       fontSize: 8),
+                              // ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: 100,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const LanguageDropdown(),
+                            Stack(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.notifications,
+                                      color: Colors.white),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                        context, AppRoutes.notification);
+                                  },
+                                ),
+                                Obx(() {
+                                  final unreadCount =
+                                      controller.unreadNotifications.length;
+                                  if (unreadCount == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Positioned(
+                                    right: 6,
+                                    top: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 15,
+                                        minHeight: 15,
+                                      ),
+                                      child: Text(
+                                        '$unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 6,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                            const SizedBox(width: 10),
+                           GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(context, AppRoutes.personalInfo);
+  },
+  child: Obx(() => AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+         
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: controller.isImageLoading.value ? 1.0 : 1.05,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Placeholder or Image
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[800],
+                  ),
+                  child: controller.isImageLoading.value
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : controller.profileImage.value != null
+                          ? Image.file(
+                              controller.profileImage.value!,
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white70,
+                              ),
+                            ),
                 ),
+                // Overlay shimmer when loading
+                if (controller.isImageLoading.value)
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.white10],
+                        stops: [0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                // Edit icon overlay on tap-ready state
+               
+              ],
+            ),
+          ),
+        ),
+      )),
+),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -152,7 +330,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                     child: Text(
                       "My Team Cash Advances",
                       style: TextStyle(
-                        color: AppColors.gradientEnd, // Text color
+                        // color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
                         fontWeight: FontWeight.bold, // font-weight: bold
                         fontFamily: 'Roboto', // font-family (if used)
@@ -203,12 +381,12 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                   child: SizedBox(
                     width: double.infinity,
                     child: TextField(
-                      controller: controller.searchController,
+                      controller: controller.searchControllerCashAdvanceMyteams,
                       onChanged: (value) {
                         controller.searchQuery.value = value.toLowerCase();
                       },
                       decoration: InputDecoration(
-                        hintText: 'Search expenses...',
+                        hintText: AppLocalizations.of(context)!.search,
                         prefixIcon:
                             const Icon(Icons.search, color: Colors.grey),
                         border: OutlineInputBorder(
@@ -232,17 +410,16 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.1),
+                      color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Obx(() => DropdownButton<String>(
                           value: controller
-                              .selectedStatusDropDownmyteamCashAdvance
-                              .value, // ← Make sure it's .value for RxString
+                              .selectedStatusDropDownmyteamCashAdvance.value,
                           isExpanded: true,
-                          underline: Container(), // Removes default underline
+                          underline: Container(),
+                          dropdownColor: theme.colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(10),
-                          style: const TextStyle(color: Colors.deepPurple),
                           icon: const Icon(Icons.arrow_drop_down,
                               color: Colors.deepPurple),
                           onChanged: (String? newValue) {
@@ -265,7 +442,11 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                               enabled: true,
                               child: Text(
                                 value,
-                                style: const TextStyle(color: Colors.black),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme
+                                      .onBackground, // popup text color
+                                ),
                               ),
                             );
                           }).toList(),
@@ -315,8 +496,6 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                             if (direction == DismissDirection.startToEnd) {
                               setState(() => isLoading = true);
 
-                             
-
                               setState(() => isLoading = false);
                               return false;
                             } else {
@@ -324,7 +503,8 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('Delete?'),
-                                  content: Text('Delete "${item.referenceId}"?'),
+                                  content:
+                                      Text('Delete "${item.referenceId}"?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
@@ -434,73 +614,105 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     );
   }
 
-  Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
-    return Container(
-      width: isSmallScreen ? 150 : 180,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
+  final theme = Theme.of(context);
+  final primaryColor = theme.primaryColor;
+  final onPrimaryColor = theme.colorScheme.onPrimary;
+
+  return Container(
+    width: 220,
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: LinearGradient(
+        colors: [
+          primaryColor.withOpacity(0.8), // Lighter primary color
+          primaryColor,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.topRight,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: primaryColor.withOpacity(0.4),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
+        const SizedBox(height: 6),
+        Text(
+          _getTitle(card.status),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
-          const SizedBox(height: 6),
-          Text(
-            _getTitle(card.status),
-            style: const TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+
+        // ✅ Show count
+        Text(
+          'Count: ${card.count}',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.white70, // lighter than amount
           ),
-          const SizedBox(height: 4),
-          Text(
-            '₹${card.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+
+        const SizedBox(height: 4),
+
+        // ✅ Show amount
+        Text(
+          '₹ ${card.amount.toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   IconData _getIconForStatus(String status) {
     switch (status) {
-      case 'AmountSettled':
-        return Icons.check_circle;
-      case 'Inprogress':
-        return Icons.sync;
-      case 'Pending':
-        return Icons.hourglass_bottom;
-      case 'TotalAmountReporting':
-        return Icons.bar_chart;
+      case 'Approved Expenses (Total)':
+        return Icons.check_circle; // ✅
+      case 'Expenses In Progress (Total)':
+        return Icons.sync; // 🔄
+      case 'Approved Advances (Total)':
+        return Icons.hourglass_bottom; // ⏳
+      case ' Advances In Progress (Total)':
+        return Icons.bar_chart; // 📊
       default:
-        return Icons.category;
+        return Icons.category; // fallback
     }
   }
 
-  String _getTitle(String key) {
-    return {
-          'AmountSettled': 'Total Amount Settled',
-          'Inprogress': 'Total Advance In Progress',
-          'Pending': 'Total Amount Pending',
-          'TotalAmountReporting': 'Total Expenses',
-        }[key] ??
-        key;
+  String _getTitle(String status) {
+    switch (status) {
+      case 'Approved Expenses (Total)':
+        return AppLocalizations.of(context)!.approvedExpensesTotal;
+      case 'Expenses In Progress (Total)':
+        return AppLocalizations.of(context)!.expensesInProgressTotal;
+      case 'Approved Advances (Total)':
+        return AppLocalizations.of(context)!.approvedAdvancesTotal;
+      case 'Advances In Progress (Total)':
+        return AppLocalizations.of(context)!.advancesInProgressTotal;
+      default:
+        return status;
+    }
   }
 
   Widget _buildSwipeActionLeft(bool isLoading) {
@@ -553,7 +765,9 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
   }
 
   Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
-    // print("itemxxx ${item.expenseType}");
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final onPrimaryColor = theme.colorScheme.onPrimary;
     final controller = Get.put(Controller());
     return GestureDetector(
       onTap: () {
@@ -566,7 +780,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
         // } else if (item.expenseType == "Mileage") {
         //   controller.fetchMileageDetails(context, item.recId);
         // } else if (item.expenseType == "CashAdvanceReturn") {
-          controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
+        controller.fetchSpecificCashAdvanceItem(context, item.recId);
         // } else {
         //   ScaffoldMessenger.of(context).showSnackBar(
         //     SnackBar(
@@ -575,7 +789,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
         // }
       },
       child: Card(
-        color: const Color.fromARGB(218, 245, 244, 244),
+        // color: const Color.fromARGB(218, 245, 244, 244),
         shadowColor: const Color.fromARGB(255, 82, 78, 78),
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -590,13 +804,13 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                 children: [
                   Text(item.requisitionId,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    item.requestDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.requestDate as DateTime)
-                        : 'No date',
-                    style: const TextStyle(
-                        fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
-                  ),
+                  // Text(
+                  //   item.requestDate != null
+                  //       ? DateFormat('dd-MM-yyyy').format(item.requestDate as DateTime)
+                  //       : 'No date',
+                  //   style: const TextStyle(
+                  //       fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
+                  // ),
                 ],
               ),
 

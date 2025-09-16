@@ -16,14 +16,17 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
 
+import '../../../../../core/comman/widgets/pageLoaders.dart';
+import '../../../../../l10n/app_localizations.dart';
 import '../../../../service.dart';
 
 class MileageRegistrationPage extends StatefulWidget {
-  final bool isEditMode;
+  final bool? isEditMode;
   final ExpenseModelMileage? mileageId;
+
   const MileageRegistrationPage({
     Key? key,
-    this.isEditMode = false,
+    this.isEditMode,
     this.mileageId,
   }) : super(key: key);
 
@@ -43,7 +46,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   Set<Marker> _markers = {};
   GoogleMapController? _mapController;
   bool isEditMode = true;
-  // bool shouldShow = false;
+  bool isCalculatingDistance = false;
   RxBool shouldShow = false.obs;
   late final int workitemrecid;
   // double controller.totalDistanceKm = 0;
@@ -80,10 +83,110 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   //   super.dispose();
   // }
 
+  int _calculationToken = 0;
+
+  // Future<void> _calculateAllDistances() async {
+  //   print("_calculateAllDistances is Calling");
+
+  //   if (!mounted) return;
+
+  //   // increase token every new call
+  //   final int currentToken = ++_calculationToken;
+
+  //   _polylines.clear();
+  //   _markers.clear();
+  //   controller.calculatedAmountINR = 0;
+  //   controller.totalDistanceKm = 0;
+
+  //   if (controller.tripControllers.length < 2) {
+  //     if (mounted) setState(() {});
+  //     return;
+  //   }
+
+  //   for (int i = 0; i < controller.tripControllers.length - 1; i++) {
+  //     // if another call started, stop this one
+  //     if (currentToken != _calculationToken) return;
+
+  //     String startCity = controller.tripControllers[i].text.trim();
+  //     String endCity = controller.tripControllers[i + 1].text.trim();
+
+  //     if (startCity.isEmpty || endCity.isEmpty) continue;
+
+  //     try {
+  //       List<Location> startLoc = await locationFromAddress(startCity);
+  //       if (!mounted || currentToken != _calculationToken) return;
+
+  //       List<Location> endLoc = await locationFromAddress(endCity);
+  //       if (!mounted || currentToken != _calculationToken) return;
+
+  //       if (startLoc.isNotEmpty && endLoc.isNotEmpty) {
+  //         LatLng startLatLng =
+  //             LatLng(startLoc.first.latitude, startLoc.first.longitude);
+  //         LatLng endLatLng =
+  //             LatLng(endLoc.first.latitude, endLoc.first.longitude);
+
+  //         String startMarkerLabel = getMarkerLabel(i);
+  //         String endMarkerLabel = getMarkerLabel(i + 1);
+
+  //         BitmapDescriptor startMarkerIcon =
+  //             await createMarkerWithLabel(startMarkerLabel);
+  //         if (!mounted || currentToken != _calculationToken) return;
+
+  //         BitmapDescriptor endMarkerIcon =
+  //             await createMarkerWithLabel(endMarkerLabel);
+  //         if (!mounted || currentToken != _calculationToken) return;
+
+  //         _markers.add(Marker(
+  //           markerId: MarkerId('start_$i'),
+  //           position: startLatLng,
+  //           infoWindow: InfoWindow(
+  //               title: "Point $startMarkerLabel", snippet: startCity),
+  //           icon: startMarkerIcon,
+  //         ));
+
+  //         _markers.add(Marker(
+  //           markerId: MarkerId('end_${i + 1}'),
+  //           position: endLatLng,
+  //           infoWindow:
+  //               InfoWindow(title: "Point $endMarkerLabel", snippet: endCity),
+  //           icon: endMarkerIcon,
+  //         ));
+
+  //         double routeDistance =
+  //             await _fetchRoutePolyline(startLatLng, endLatLng, i);
+  //         if (!mounted || currentToken != _calculationToken) return;
+
+  //         controller.totalDistanceKm += routeDistance;
+  //         controller.calculateAmount();
+
+  //         if (controller.isRoundTrip &&
+  //             i == controller.tripControllers.length - 2) {
+  //           double returnDistance =
+  //               await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
+  //           if (!mounted || currentToken != _calculationToken) return;
+
+  //           controller.totalDistanceKm += returnDistance;
+  //           controller.calculateAmount();
+  //         }
+  //       }
+  //     } catch (e) {
+  //       print("Error: $e");
+  //     }
+  //   }
+
+  //   if (mounted && currentToken == _calculationToken) {
+  //     setState(() {});
+  //     _adjustCameraBounds();
+  //   }
+  // }
   Future<void> _calculateAllDistances() async {
     print("_calculateAllDistances is Calling");
 
-    if (!mounted) return; // Check before doing anything
+    if (!mounted) return;
+
+    setState(() => isCalculatingDistance = true); // ✅ Show loader
+
+    final int currentToken = ++_calculationToken;
 
     _polylines.clear();
     _markers.clear();
@@ -91,11 +194,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     controller.totalDistanceKm = 0;
 
     if (controller.tripControllers.length < 2) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() => isCalculatingDistance = false); // ✅ Hide loader
+      }
       return;
     }
 
     for (int i = 0; i < controller.tripControllers.length - 1; i++) {
+      if (currentToken != _calculationToken) {
+        setState(() => isCalculatingDistance = false);
+        return;
+      }
+
       String startCity = controller.tripControllers[i].text.trim();
       String endCity = controller.tripControllers[i + 1].text.trim();
 
@@ -103,10 +213,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
 
       try {
         List<Location> startLoc = await locationFromAddress(startCity);
-        if (!mounted) return;
+        if (!mounted || currentToken != _calculationToken) return;
 
         List<Location> endLoc = await locationFromAddress(endCity);
-        if (!mounted) return;
+        if (!mounted || currentToken != _calculationToken) return;
 
         if (startLoc.isNotEmpty && endLoc.isNotEmpty) {
           LatLng startLatLng =
@@ -114,19 +224,17 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
           LatLng endLatLng =
               LatLng(endLoc.first.latitude, endLoc.first.longitude);
 
-          // Create labeled markers
           String startMarkerLabel = getMarkerLabel(i);
           String endMarkerLabel = getMarkerLabel(i + 1);
 
           BitmapDescriptor startMarkerIcon =
               await createMarkerWithLabel(startMarkerLabel);
-          if (!mounted) return;
+          if (!mounted || currentToken != _calculationToken) return;
 
           BitmapDescriptor endMarkerIcon =
               await createMarkerWithLabel(endMarkerLabel);
-          if (!mounted) return;
+          if (!mounted || currentToken != _calculationToken) return;
 
-          // Add start and end markers
           _markers.add(Marker(
             markerId: MarkerId('start_$i'),
             position: startLatLng,
@@ -143,22 +251,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
             icon: endMarkerIcon,
           ));
 
-          // Fetch polyline for this route
           double routeDistance =
               await _fetchRoutePolyline(startLatLng, endLatLng, i);
-          if (!mounted) return;
+          if (!mounted || currentToken != _calculationToken) return;
 
           controller.totalDistanceKm += routeDistance;
           controller.calculateAmount();
 
           if (controller.isRoundTrip &&
               i == controller.tripControllers.length - 2) {
-            double returnDistance = await _fetchRoutePolyline(
-              endLatLng,
-              startLatLng,
-              i + 100,
-            );
-            if (!mounted) return;
+            double returnDistance =
+                await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
+            if (!mounted || currentToken != _calculationToken) return;
 
             controller.totalDistanceKm += returnDistance;
             controller.calculateAmount();
@@ -169,8 +273,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
       }
     }
 
-    if (mounted) {
-      setState(() {});
+    if (mounted && currentToken == _calculationToken) {
+      setState(() {
+        isCalculatingDistance = false; // ✅ Hide loader when done
+      });
       _adjustCameraBounds();
     }
   }
@@ -301,7 +407,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   void _addStopField() {
     if (controller.isRoundTrip) {
       Fluttertoast.showToast(
-        msg: "Turn off the Round Trip",
+        msg: AppLocalizations.of(context)!.turnOffRoundTrip,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: const Color.fromARGB(255, 35, 2, 124),
@@ -361,7 +467,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
 
     const double size = 80.0;
     canvas.drawCircle(
-      Offset(size / 2, size / 2),
+      const Offset(size / 2, size / 2),
       size / 2,
       paint,
     );
@@ -394,6 +500,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
     final screenHeight = MediaQuery.of(context).size.height;
     print("controller.calculatedAmountINR${shouldShow.value}");
     // shouldShow.value = widget.mileageId?.stepType != null;
@@ -410,29 +518,47 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
         resizeToAvoidBottomInset: true,
         backgroundColor: const Color(0xFFF2F2F2),
         appBar: AppBar(
-          backgroundColor: const Color.fromARGB(255, 11, 1, 61),
+          // backgroundColor: const Color.fromARGB(255, 11, 1, 61),
           elevation: 0,
           leading: const BackButton(color: Colors.white),
           centerTitle: true,
-          title: const Text(
-            "Mileage Registration ",
+          title: Text(
+            AppLocalizations.of(context)!.mileageRegistration,
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           actions: [
-            if (!controller.isEnable.value &&
-                widget.mileageId!.approvalStatus != "Cancelled" &&
-                widget.mileageId!.approvalStatus != "Approved")
-              IconButton(
-                icon: const Icon(
-                  Icons.edit_document,
-                  color: Colors.white,
+            if (widget.isEditMode!)
+              if (widget.mileageId != null &&
+                  widget.mileageId!.approvalStatus != "Cancelled" &&
+                  widget.mileageId!.approvalStatus != "Approved" && widget.mileageId!.approvalStatus != "Pending")
+                IconButton(
+                  icon: Icon(
+                    controller.isEnable.value
+                        ? Icons.remove_red_eye
+                        : Icons.edit_document,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      controller.isEnable.value = !controller.isEnable.value;
+                    });
+                  },
                 ),
-                onPressed: () {
-                  setState(() {
-                    controller.isEnable.value = true;
-                  });
-                },
-              ),
+
+            // if (!controller.isEnable.value &&
+            //     widget.mileageId!.approvalStatus != "Cancelled" &&
+            //     widget.mileageId!.approvalStatus != "Approved")
+            //   IconButton(
+            //     icon: const Icon(
+            //       Icons.edit_document,
+            //       color: Colors.white,
+            //     ),
+            //     onPressed: () {
+            //       setState(() {
+            //         controller.isEnable.value = true;
+            //       });
+            //     },
+            //   ),
           ],
         ),
         body: Column(
@@ -443,14 +569,14 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                 maxHeight: screenHeight * 0.40,
                 // minHeight: screenHeight * 0.45, // Set maximum height
               ),
-              decoration: const BoxDecoration(
-                color: const Color.fromARGB(255, 11, 1, 61),
+              decoration: BoxDecoration(
+                color: primaryColor,
                 // gradient: LinearGradient(
                 //   colors: [Color(0xFF3B3BD6), Color(0xFF7E1EFF)],
                 //   begin: Alignment.topLeft,
                 //   end: Alignment.bottomRight,
                 // ),
-                borderRadius: BorderRadius.only(
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
                 ),
@@ -471,12 +597,13 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                       itemBuilder: (context, index) {
                         String fieldName;
                         if (index == 0) {
-                          fieldName = "Start Trip";
+                          fieldName = AppLocalizations.of(context)!.startTrip;
                         } else if (index ==
                             controller.tripControllers.length - 1) {
-                          fieldName = "End Trip";
+                          fieldName = AppLocalizations.of(context)!.endTrip;
                         } else {
-                          fieldName = "Add Trip $index";
+                          fieldName =
+                              "${AppLocalizations.of(context)!.addTrip} $index";
                         }
 
                         String stopLetter =
@@ -545,7 +672,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                         contentPadding:
                                             const EdgeInsets.symmetric(
                                                 vertical: 8, horizontal: 12),
-                                        fillColor: Colors.white,
+
                                         filled: true,
                                         border: OutlineInputBorder(
                                           borderRadius:
@@ -558,7 +685,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                                     .tripControllers[index].text
                                                     .trim()
                                                     .isEmpty
-                                            ? "This field is required"
+                                            ? AppLocalizations.of(context)!
+                                                .fieldRequired
                                             : null,
                                       ),
                                       onChanged: (value) {
@@ -609,7 +737,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 readOnly: controller.isRoundTrip,
                                 style: const TextStyle(fontSize: 12),
                                 decoration: InputDecoration(
-                                  hintText: "End Trip",
+                                  hintText:
+                                      AppLocalizations.of(context)!.endTrip,
                                   hintStyle: const TextStyle(fontSize: 13),
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 13,
@@ -628,7 +757,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                           controller.tripControllers.first.text
                                               .trim()
                                               .isEmpty
-                                      ? "This field is required"
+                                      ? AppLocalizations.of(context)!
+                                          .fieldRequired
                                       : null,
                                 ),
                                 onChanged: (value) {
@@ -643,7 +773,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                         ],
                       ),
                     // Add Stoqp + Round Trip Switch
-                    // if (controller.isEnable.value)
+                    if (controller.isEnable.value)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -660,32 +790,62 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   },
                                   activeColor: Colors.white,
                                 ),
-                                const Text("Round Trip",
+                                Text(AppLocalizations.of(context)!.roundTrip,
                                     style: TextStyle(color: Colors.white)),
                               ],
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle,
-                                color: Colors.white, size: 28),
-                            onPressed: _addStopField,
-                          ),
+                          if (!controller.isRoundTrip)
+                            IconButton(
+                              icon: const Icon(Icons.add_circle,
+                                  color: Colors.white, size: 28),
+                              onPressed: _addStopField,
+                            ),
                         ],
                       ),
                   ]))),
 
                   // Info Cards pinned at bottom of header
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _infoCard("Total Distance",
-                          "${controller.totalDistanceKm.toStringAsFixed(2)} Km"),
-                      _infoCard("Amount (INR)",
-                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}"),
-                      _infoCard("Amount (INR)",
-                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}"),
-                    ],
-                  ),
+                  isCalculatingDistance
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(strokeWidth: 3,color: Colors.white10,),
+                            ),
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _infoCardButton(
+                              title:
+                                  AppLocalizations.of(context)!.totalDistance,
+                              value:
+                                  "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
+                              onTap: () => print("Total Distance tapped"),
+                            ),
+                            const SizedBox(width: 5),
+                            _infoCardButton(
+                              title: AppLocalizations.of(context)!
+                                  .totalAmountInInr,
+                              value:
+                                  "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                              onTap: () => print("Total Amount tapped"),
+                            ),
+                            const SizedBox(width: 5),
+                            _infoCardButton(
+                              title: AppLocalizations.of(context)!
+                                  .totalAmountInInr,
+                              value:
+                                  "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                              onTap: () => print("Third card tapped"),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                        ),
                 ],
               ),
             ),
@@ -780,9 +940,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       color: Colors.white,
                                       strokeWidth: 2,
                                     )
-                                  : const Text(
-                                      "Submit",
-                                      style: TextStyle(
+                                  : Text(
+                                      AppLocalizations.of(context)!.submit,
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
@@ -830,9 +990,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                       color: Colors.white,
                                       strokeWidth: 2,
                                     )
-                                  : const Text(
-                                      "Resubmit",
-                                      style: TextStyle(
+                                  : Text(
+                                      AppLocalizations.of(context)!.resubmit,
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
@@ -897,10 +1057,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.green,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Save",
-                                            style:
-                                                TextStyle(color: Colors.green),
+                                        : Text(
+                                            AppLocalizations.of(context)!.save,
+                                            style: const TextStyle(
+                                                color: Colors.green),
                                           ),
                                   );
                                 }),
@@ -948,15 +1108,16 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.green,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Updated",
-                                            style:
-                                                TextStyle(color: Colors.green),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .update,
+                                            style: const TextStyle(
+                                                color: Colors.green),
                                           ),
                                   );
                                 }),
                               ),
-                            if (controller.isEnable.value &&
+                            if (!controller.isEnable.value &&
                                 widget.mileageId!.approvalStatus == "Pending")
                               Expanded(
                                 child: Obx(() {
@@ -992,9 +1153,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.red,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Cancel",
-                                            style: TextStyle(color: Colors.red),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .cancel,
+                                            style: const TextStyle(
+                                                color: Colors.red),
                                           ),
                                   );
                                 }),
@@ -1030,7 +1193,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                           color: Colors.black,
                                           strokeWidth: 2,
                                         )
-                                      : const Text("Cancel"),
+                                      : Text(
+                                          AppLocalizations.of(context)!.close),
                                 );
                               }),
                             ),
@@ -1088,10 +1252,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Update & Accept",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .updateAndAccept,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1132,10 +1297,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Update",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .update,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1179,10 +1345,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Reject",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .reject,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1218,10 +1385,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.black,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Close",
-                                            style:
-                                                TextStyle(color: Colors.black),
+                                        : Text(
+                                            AppLocalizations.of(context)!.close,
+                                            style: const TextStyle(
+                                                color: Colors.black),
                                           ),
                                   );
                                 }),
@@ -1272,10 +1439,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Approve",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .approvals,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1309,10 +1477,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Reject",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .reject,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1349,10 +1518,11 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.white,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Escalate",
-                                            style:
-                                                TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .escalate,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   );
                                 }),
@@ -1384,10 +1554,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                             color: Colors.black,
                                             strokeWidth: 2,
                                           )
-                                        : const Text(
-                                            "Close",
-                                            style:
-                                                TextStyle(color: Colors.black),
+                                        : Text(
+                                            AppLocalizations.of(context)!.close,
+                                            style: const TextStyle(
+                                                color: Colors.black),
                                           ),
                                   );
                                 }),
@@ -1440,9 +1610,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             child: isSubmitLoading
                                 ? const CircularProgressIndicator(
                                     color: Colors.white, strokeWidth: 2)
-                                : const Text(
-                                    "Submit",
-                                    style: TextStyle(
+                                : Text(
+                                    AppLocalizations.of(context)!.submit,
+                                    style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
@@ -1490,9 +1660,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   child: isSaveLoading
                                       ? const CircularProgressIndicator(
                                           color: Colors.green, strokeWidth: 2)
-                                      : const Text(
-                                          "Save",
-                                          style: TextStyle(color: Colors.green),
+                                      : Text(
+                                          AppLocalizations.of(context)!.save,
+                                          style: const TextStyle(
+                                              color: Colors.green),
                                         ),
                                 );
                               }),
@@ -1517,7 +1688,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                         context, AppRoutes.generalExpense);
                                   }
                                 },
-                                child: const Text("Cancel"),
+                                child:
+                                    Text(AppLocalizations.of(context)!.cancel),
                               ),
                             ),
                           ],
@@ -1535,179 +1707,243 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   }
 
   void showActionPopup(BuildContext context, String status) {
+    final TextEditingController commentController = TextEditingController();
+    bool isCommentError = false;
+
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Full height if needed
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        final TextEditingController commentController = TextEditingController();
-
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets, // for keyboard
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Action",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (status == "Escalate") ...[
-                  const Text(
-                    'Select User *',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  SearchableMultiColumnDropdownField<User>(
-                    labelText: 'User *',
-
-                    columnHeaders: const [
-                      'User Name',
-                      'User ID',
-                    ],
-                    items: controller.userList, // Assuming you have a user list
-                    selectedValue: controller.selectedUser.value,
-                    searchValue: (user) => '${user.userName} ${user.userId}',
-                    displayText: (user) => user.userName,
-                    onChanged: (user) {
-                      // controller.selectedUser = user;
-                      controller.userIdController.text = user?.userId ?? '';
-                    },
-                    controller: controller.userIdController,
-                    rowBuilder: (user, searchQuery) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(user.userName)),
-                            Expanded(child: Text(user.userId)),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const SizedBox(height: 16),
-                const Text(
-                  'Comment',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your comment here',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: MediaQuery.of(context).viewInsets,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close the popup
-                      },
-                      child: const Text('Close'),
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final comment = commentController.text.trim();
-                        if (comment.isNotEmpty) {
-                          final success = await controller.postApprovalAction(
-                            context,
-                            workitemrecid: [workitemrecid],
-                            decision: status,
-                            comment: commentController.text,
-                          );
-                          if (!context.mounted) return;
-                          if (success) {
-                            Navigator.pushNamed(context,
-                                AppRoutes.approvalDashboard); // Close popup
-                          } else {
-                            // ignore: use_build_context_synchronously
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Failed to submit action')),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppLocalizations.of(context)!.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (status == "Escalate") ...[
+                      Text(
+                        '${AppLocalizations.of(context)!.selectUser} *',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${AppLocalizations.of(context)!.user} *',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.userName,
+                            AppLocalizations.of(context)!.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(user.userName)),
+                                  Expanded(child: Text(user.userId)),
+                                ],
+                              ),
                             );
-                          }
-
-                          // Navigator.pop(context); // Close after action
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      AppLocalizations.of(context)!.comments,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText:
+                            AppLocalizations.of(context)!.enterCommentHere,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.teal,
+                            width: 2,
+                          ),
+                        ),
+                        errorText: isCommentError
+                            ? AppLocalizations.of(context)!.commentRequired
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        if (isCommentError && value.trim().isNotEmpty) {
+                          setState(() => isCommentError = false);
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(status),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: Text(AppLocalizations.of(context)!.close),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final comment = commentController.text.trim();
+                            if (status != "Approve" && comment.isEmpty) {
+                              setState(() => isCommentError = true);
+                              return;
+                            }
+
+                            // Show full-page loading indicator
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (ctx) => const Center(
+                                child: SkeletonLoaderPage(),
+                              ),
+                            );
+
+                            final success = await controller.postApprovalAction(
+                              context,
+                              workitemrecid: [workitemrecid!],
+                              decision: status,
+                              comment: commentController.text,
+                            );
+
+                            // Hide the loading indicator
+                            if (Navigator.of(context, rootNavigator: true)
+                                .canPop()) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+
+                            if (!context.mounted) return;
+
+                            if (success) {
+                              Navigator.pushNamed(
+                                  context, AppRoutes.approvalDashboard);
+                              controller.isApprovalEnable.value = false;
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Failed to submit action')),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(status),
+                        ),
+                      ],
                     ),
                   ],
-                )
-              ],
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _infoCard(String title, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white, // Background color
-        borderRadius: BorderRadius.circular(12), // Rounded corners
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.black,
+  Widget _infoCardButton({
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      // Ensures card shares available space
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.black,
+                  ),
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    color: Colors.grey,
+                  ),
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1716,8 +1952,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     for (var tripController in controller.tripControllers) {
       if (tripController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please fill all trip locations before submitting."),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.fillAllTripLocations),
             backgroundColor: Colors.redAccent,
           ),
         );

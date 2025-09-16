@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LanguageDropdown extends StatefulWidget {
   const LanguageDropdown({Key? key}) : super(key: key);
@@ -44,21 +45,48 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
   @override
   void initState() {
     super.initState();
-    selectedLanguage = languages[0];
+    // selectedLanguage = languages[0];
+    _loadSelectedLanguage();
   }
+ Future<void> _loadSelectedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final langId = prefs.getString("LanguageID") ?? "LUG-01";
+  final code = getLocaleCodeFromId(langId);
 
+    if (code != null) {
+      final lang = languages.firstWhere(
+        (lang) => lang['locale'].languageCode == code,
+        orElse: () => languages[0],
+      );
+      setState(() {
+        selectedLanguage = lang;
+      });
+
+      // Apply locale immediately
+      Provider.of<LocaleNotifier>(context, listen: false)
+          .setLocale(lang['locale']);
+    } else {
+      setState(() {
+        selectedLanguage = languages[0];
+      });
+    }
+  }
+    Future<void> _saveSelectedLanguage(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedLanguageCode', code);
+  }
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        // color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<Map<String, dynamic>>(
-          dropdownColor: Colors.white,
+          // dropdownColor: Colors.white,
           icon: ClipRRect(
             borderRadius: BorderRadius.circular(100), // Make it circular
             child: SizedBox(
@@ -92,6 +120,7 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
               setState(() {
                 selectedLanguage = value;
               });
+               _saveSelectedLanguage(value['locale'].languageCode);
               // Get.updateLocale(value['locale']);
               Provider.of<LocaleNotifier>(context, listen: false)
                   .setLocale(value['locale']);

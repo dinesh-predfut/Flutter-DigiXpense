@@ -1,7 +1,7 @@
-import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+import 'package:digi_xpense/data/service.dart';
+import '../../../l10n/app_localizations.dart';
 
 class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
   final String? labelText;
@@ -9,14 +9,13 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
   final List<T> items;
   final String Function(T) searchValue;
   final void Function(T?) onChanged;
-  final void Function(List<T>)? onMultiChanged; // New callback for multi-select
+  final void Function(List<T>)? onMultiChanged;
   final Widget Function(T, String searchQuery) rowBuilder;
   final String? Function(T?)? validator;
-  final String? Function(List<T>)?
-      multiValidator; // New validator for multi-select
+  final String? Function(List<T>)? multiValidator;
   final String Function(T) displayText;
   final T? selectedValue;
-  final List<T>? selectedValues; // New property for multi-select
+  final List<T>? selectedValues;
   final Color? backgroundColor;
   final InputDecoration? inputDecoration;
   final double dropdownMaxHeight;
@@ -24,7 +23,7 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
   final double? alignLeft;
   final bool? enabled;
   final TextEditingController? controller;
-  final bool isMultiSelect; // Flag to determine if multi-select is enabled
+  final bool isMultiSelect;
 
   const MultiSelectMultiColumnDropdownField({
     Key? key,
@@ -47,7 +46,7 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
     this.alignLeft,
     this.enabled,
     this.controller,
-    required this.isMultiSelect, // Make this required
+    required this.isMultiSelect,
   }) : super(key: key);
 
   @override
@@ -65,16 +64,16 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
   OverlayEntry? _overlayEntry;
   String _searchQuery = '';
   T? _selectedItem;
-  List<T> _selectedItems = []; // For multi-select
+  List<T> _selectedItems = [];
   bool _isOverlayOpen = false;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
- print("allowMultSelects${widget.selectedValues}");
+
     if (widget.isMultiSelect) {
-      _selectedItems = widget.selectedValues ?? [];
+      _selectedItems = List<T>.from(widget.selectedValues ?? []);
       _updateMultiSelectControllerText();
     } else {
       if (widget.selectedValue != null) {
@@ -89,6 +88,21 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
         _hideOverlay();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(
+      covariant MultiSelectMultiColumnDropdownField<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isMultiSelect) {
+      _selectedItems = List<T>.from(widget.selectedValues ?? []);
+      _updateMultiSelectControllerText();
+    } else if (widget.selectedValue != _selectedItem) {
+      _selectedItem = widget.selectedValue;
+      if (_selectedItem != null) {
+        _controller.text = widget.displayText(_selectedItem as T);
+      }
+    }
   }
 
   void _handleSearch() {
@@ -109,7 +123,6 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
     final dropdownHeight = widget.dropdownMaxHeight;
     final spaceBelow = screenHeight - offset.dy - size.height;
     final spaceAbove = offset.dy;
-
     final showAbove =
         spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
@@ -135,9 +148,6 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
     Overlay.of(context, rootOverlay: true)!.insert(_overlayEntry!);
     _currentOpenOverlay = this;
     setState(() => _isOverlayOpen = true);
-
-    ScrollableState? scrollableState = Scrollable.of(context);
-    scrollableState?.position.addListener(_hideOverlay);
   }
 
   void _hideOverlay() {
@@ -145,9 +155,6 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
       _overlayEntry?.remove();
       _overlayEntry = null;
       setState(() => _isOverlayOpen = false);
-
-      ScrollableState? scrollableState = Scrollable.of(context);
-      scrollableState?.position.removeListener(_hideOverlay);
 
       if (_currentOpenOverlay == this) {
         _currentOpenOverlay = null;
@@ -157,7 +164,6 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
 
   Widget _buildDropdownContent() {
     final List<T> sortedItems = List.from(widget.items);
-
     sortedItems.sort((a, b) {
       final aMatch = widget
           .searchValue(a)
@@ -176,17 +182,16 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(4),
-        color: Colors.white,
       ),
       child: Column(
         children: [
+          // 🔧 Reduced space in header row
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 19),
-            color: Colors.grey.shade200,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
             child: Row(
               children: [
                 if (widget.isMultiSelect)
-                  const SizedBox(width: 40), // Space for checkbox
+                  const SizedBox(width: 40), // space for checkbox
                 ...widget.columnHeaders
                     .map(
                       (header) => Expanded(
@@ -206,6 +211,7 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
           const Divider(height: 1),
           Expanded(
             child: ListView.builder(
+              padding: EdgeInsets.zero, // 🔧 Removes default ListView padding
               itemCount: sortedItems.length,
               itemBuilder: (context, index) {
                 final item = sortedItems[index];
@@ -223,13 +229,14 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
           if (widget.isMultiSelect) ...[
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.symmetric(
+                  vertical: 6, horizontal: 8), // 🔧 Reduced confirm row padding
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: _confirmMultiSelection,
-                    child: const Text('Confirm'),
+                    child: Text(AppLocalizations.of(context)!.confirm),
                   ),
                 ],
               ),
@@ -242,6 +249,7 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
 
   Widget _buildMultiSelectRow(T item) {
     final isSelected = _selectedItems.contains(item);
+
     return Container(
       color: isSelected ? Colors.blue.withOpacity(0.1) : null,
       child: Row(
@@ -271,33 +279,24 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
 
   void _confirmMultiSelection() {
     _updateMultiSelectControllerText();
-    if (widget.onMultiChanged != null) {
-      widget.onMultiChanged!(_selectedItems);
-    }
+    widget.onMultiChanged?.call(_selectedItems);
     _hideOverlay();
     _focusNode.unfocus();
   }
 
- void _updateMultiSelectControllerText() {
-  if (_selectedItems.isEmpty) {
-    _controller.text = '';
-    controller.cashAdvanceIds.text = '';
-  } else {
-    // Update display text
-    _controller.text = _selectedItems
-        .map((item) => widget.displayText(item))
-        .join(', ');
-        
-    // Update semicolon-separated IDs for backend
-    final ids = _selectedItems
-        .map((item) => widget.displayText(item))
-        .join(';');
-    controller.cashAdvanceIds.text = ids;
-    // controller.preloadedCashAdvReqIds = ids;
-    
-    print("Selected IDs: ${controller.cashAdvanceIds.text}");
+  void _updateMultiSelectControllerText() {
+    if (_selectedItems.isEmpty) {
+      _controller.text = '';
+      controller.cashAdvanceIds.text = '';
+    } else {
+      _controller.text =
+          _selectedItems.map((item) => widget.displayText(item)).join(', ');
+      final ids =
+          _selectedItems.map((item) => widget.displayText(item)).join(';');
+      controller.cashAdvanceIds.text = ids;
+    }
   }
-}
+
   void _selectItem(T item) {
     _controller.text = widget.displayText(item);
     _searchQuery = '';

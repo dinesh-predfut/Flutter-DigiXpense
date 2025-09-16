@@ -11,6 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/comman/widgets/multiselectDropdown.dart';
+import '../../../../l10n/app_localizations.dart';
+
 class HubCreatePerDiemPage extends StatefulWidget {
   final bool isReadOnly;
   final PerdiemResponseModel? item;
@@ -26,12 +29,14 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
   bool _showProjectError = false;
   bool _showLocationError = false;
   late final int workitemrecid;
+  bool allowMultSelect = false;
   late Future<List<ExpenseHistory>> historyFuture;
   @override
   void initState() {
     super.initState();
     controller.fetchCustomFields();
     controller.configuration();
+    _loadSettings();
     print("isReadOnly${widget.isReadOnly}");
     if (widget.item == null) {
       setState(() {
@@ -63,6 +68,19 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
         );
       }).toList();
     }
+
+  }
+        Future<void> _loadSettings() async {
+    final settings = await controller.fetchGeneralSettings();
+    if (settings != null) {
+      setState(() {
+        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        print("allowDocAttachments$allowMultSelect");
+        // isLoading = false;
+      });
+    } else {
+      // setState(() => isLoading = false);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.fetchLocation();
       if (widget.item != null) {
@@ -71,7 +89,17 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
       await _initializeData();
     });
   }
-
+ Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+      controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
+      print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    }
+  }
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
       (f) =>
@@ -187,6 +215,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
 
   @override
   Widget build(BuildContext context) {
+     final loc = AppLocalizations.of(context)!;
     // ignore: deprecated_member_use
     return WillPopScope(onWillPop: () async {
       controller.clearFormFieldsPerdiem();
@@ -209,494 +238,573 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    const SizedBox(
-                      height: 10,
-                    ),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Per Diem Details",
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 20,
-                    ),
-                    if (widget.item != null)
-                      buildTextField(
-                          "Expense ID *", controller.expenseIdController,
-                          readOnly: true),
-                    if (widget.item != null)
-                      buildTextField(
-                          "Employee ID *", controller.employeeIdController,
-                          readOnly: true),
-                    ...controller.configList
-                        .where((field) =>
-                            field['FieldName'] == 'Project Id' &&
-                            field['FieldName'] !=
-                                'Location') // 👈 filter only Project Id
-                        .map((field) {
-                      final String label = field['FieldName'];
-                      final bool isMandatory = field['IsMandatory'] ?? false;
-
-                      Widget inputField;
-
-                      // Project dropdown logic
-                      inputField = Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SearchableMultiColumnDropdownField<Project>(
-                            labelText: 'Project Id ${isMandatory ? "*" : ""}',
-                            columnHeaders: const ['Project Name', 'Project Id'],
-                            enabled: controller.isEditModePerdiem,
-                            controller: controller.projectIdController,
-                            items: controller.project,
-                            selectedValue: controller.selectedProject,
-                            searchValue: (proj) => '${proj.name} ${proj.code}',
-                            displayText: (proj) => proj.code,
-                            onChanged: (proj) {
-                              setState(() {
-                                controller.selectedProject = proj;
-                                controller.selectedProject = proj;
-                                if (proj != null) {
-                                  _showProjectError = false;
-                                }
-                              });
-                              // controller.fetchExpenseCategory();
-                            },
-                            rowBuilder: (proj, searchQuery) {
-                              Widget highlight(String text) {
-                                final lowerQuery = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(lowerQuery);
-                                if (start == -1 || searchQuery.isEmpty)
-                                  return Text(text);
-
-                                final end = start + searchQuery.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.blue,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: highlight(proj.name)),
-                                    Expanded(child: highlight(proj.code)),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          if (_showProjectError)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
+             const SizedBox(
+                              height: 10,
+                            ),
+                             Align(
+                              alignment: Alignment.centerLeft,
                               child: Text(
-                                'Please select a Project',
-                                style:
-                                    TextStyle(color: Colors.red, fontSize: 12),
+                              loc.perDiemDetails,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                             ),
-                        ],
-                      );
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 8),
-                          inputField,
-                          const SizedBox(height: 16),
-                        ],
-                      );
-                    }).toList(),
-                    ...controller.configList
-                        .where((field) =>
-                            field['FieldName'] == 'Location' &&
-                            field['IsEnabled'] ==
-                                true) // 👈 Only show if enabled
-                        .map((field) {
-                      final bool isMandatory = field['IsMandatory'] ?? false;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SearchableMultiColumnDropdownField<LocationModel>(
-                            labelText: 'Location ${isMandatory ? "*" : ""}',
-                            items: controller.location,
-                            selectedValue: controller.selectedLocation,
-                            enabled: controller.isEditModePerdiem,
-                            controller: controller.locationController,
-                            searchValue: (proj) => proj.location,
-                            displayText: (proj) => proj.location,
-                            validator: (proj) => isMandatory && proj == null
-                                ? 'Please select a Location'
-                                : null,
-                            onChanged: (proj) {
-                              controller.selectedLocation = proj;
-                              controller.fetchPerDiemRates();
-                              field['Error'] =
-                                  null; // Clear error when value selected
-                            },
-                            columnHeaders: const ['Location', 'Country'],
-                            rowBuilder: (proj, searchQuery) {
-                              Widget highlight(String text) {
-                                final lowerQuery = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(lowerQuery);
-                                if (start == -1 || searchQuery.isEmpty) {
-                                  return Text(text);
-                                }
-
-                                final end = start + searchQuery.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.blue,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(proj.location)),
-                                    Expanded(child: Text(proj.country)),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          if (_showLocationError)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Please select a Location',
-                                style:
-                                    TextStyle(color: Colors.red, fontSize: 12),
-                              ),
+                            const SizedBox(
+                              height: 20,
                             ),
-                        ],
-                      );
-                    }).toList(),
+                            if (widget.item != null)
+                              buildTextField("${loc.expenseId}*",
+                                  controller.expenseIdController,
+                                  readOnly: true),
+                            if (widget.item != null)
+                              buildTextField("${loc.employeeId} *",
+                                  controller.employeeIdController,
+                                  readOnly: true),
+                            ...controller.configList
+                                .where((field) =>
+                                    field['FieldName'] == 'Project Id' &&
+                                    field['FieldName'] !=
+                                        'Location') // 👈 filter only Project Id
+                                .map((field) {
+                              final String label = field['FieldName'];
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
 
-                    const SizedBox(height: 14),
-                    SearchableMultiColumnDropdownField<LocationModel>(
-                      labelText: 'Cash Advance Request',
-                      items: controller.location,
-                      // selectedValue: controller.selectedLocation,
-                      enabled: controller.isEditModePerdiem,
-                      // controller: controller.locationController,
-                      searchValue: (proj) => '${proj.location}',
-                      displayText: (proj) => proj.location,
-                      validator: (proj) =>
-                          proj == null ? 'Please select a Location' : null,
-                      onChanged: (proj) {
-                        controller.selectedLocation = proj;
-                        controller.fetchPerDiemRates();
-                      },
-                      columnHeaders: const ['Request ID', 'Request Date'],
-                      rowBuilder: (proj, searchQuery) {
-                        Widget highlight(String text) {
-                          final lowerQuery = searchQuery.toLowerCase();
-                          final lowerText = text.toLowerCase();
-                          final start = lowerText.indexOf(lowerQuery);
-                          if (start == -1 || searchQuery.isEmpty)
-                            return Text(text);
+                              Widget inputField;
 
-                          final end = start + searchQuery.length;
-                          return RichText(
-                            text: TextSpan(
+                              // Project dropdown logic
+                              inputField = Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SearchableMultiColumnDropdownField<Project>(
+                                    labelText:
+                                        '${loc.projectId} ${isMandatory ? "*" : ""}',
+                                    columnHeaders:  [
+                                      loc.projectName,
+                                      loc.projectId
+                                    ],
+                                    enabled: controller.isEditModePerdiem,
+                                    controller: controller.projectIdController,
+                                    items: controller.project,
+                                    selectedValue: controller.selectedProject,
+                                    searchValue: (proj) =>
+                                        '${proj.name} ${proj.code}',
+                                    displayText: (proj) => proj.code,
+                                    onChanged: (proj) {
+                                      // loadAndAppendCashAdvanceList();
+                                      setState(() {
+                                        controller.selectedProject = proj;
+                                        controller.selectedProject = proj;
+
+                                        if (proj != null) {
+                                          _showProjectError = false;
+                                        }
+                                      });
+                                    },
+                                    rowBuilder: (proj, searchQuery) {
+                                      Widget highlight(String text) {
+                                        final lowerQuery =
+                                            searchQuery.toLowerCase();
+                                        final lowerText = text.toLowerCase();
+                                        final start =
+                                            lowerText.indexOf(lowerQuery);
+                                        if (start == -1 || searchQuery.isEmpty)
+                                          return Text(text);
+
+                                        final end = start + searchQuery.length;
+                                        return RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: text.substring(0, start),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                              TextSpan(
+                                                text:
+                                                    text.substring(start, end),
+                                                style: const TextStyle(
+                                                  color: Colors.blue,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: text.substring(end),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12, horizontal: 16),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                                child: highlight(proj.name)),
+                                            Expanded(
+                                                child: highlight(proj.code)),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  if (_showProjectError)
+                                     Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        loc.pleaseSelectProject,
+                                        style: const TextStyle(
+                                            color: Colors.red, fontSize: 12),
+                                      ),
+                                    ),
+                                ],
+                              );
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  inputField,
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            }).toList(),
+                            ...controller.configList
+                                .where((field) =>
+                                    field['FieldName'] == 'Location' &&
+                                    field['IsEnabled'] ==
+                                        true) // 👈 Only show if enabled
+                                .map((field) {
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SearchableMultiColumnDropdownField<
+                                      LocationModel>(
+                                    labelText:
+                                        '${loc.location} ${isMandatory ? "*" : ""}',
+                                    items: controller.location,
+                                    selectedValue: controller.selectedLocation,
+                                    enabled: controller.isEditModePerdiem,
+                                    controller: controller.locationController,
+                                    searchValue: (proj) => proj.location,
+                                    displayText: (proj) => proj.location,
+                                    validator: (proj) =>
+                                        isMandatory && proj == null
+                                            ? loc.selectLocale
+                                            : null,
+                                    onChanged: (proj) {
+                                      controller.selectedLocation = proj;
+                                      controller.fetchPerDiemRates();
+                                      loadAndAppendCashAdvanceList();
+                                      field['Error'] =
+                                          null; // Clear error when value selected
+                                    },
+                                    columnHeaders:  [
+                                      loc.location,
+                                      loc.country
+                                    ],
+                                    rowBuilder: (proj, searchQuery) {
+                                      Widget highlight(String text) {
+                                        final lowerQuery =
+                                            searchQuery.toLowerCase();
+                                        final lowerText = text.toLowerCase();
+                                        final start =
+                                            lowerText.indexOf(lowerQuery);
+                                        if (start == -1 ||
+                                            searchQuery.isEmpty) {
+                                          return Text(text);
+                                        }
+
+                                        final end = start + searchQuery.length;
+                                        return RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: text.substring(0, start),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                              TextSpan(
+                                                text:
+                                                    text.substring(start, end),
+                                                style: const TextStyle(
+                                                  color: Colors.blue,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: text.substring(end),
+                                                style: const TextStyle(
+                                                    color: Colors.black),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 12, horizontal: 16),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                                child: Text(proj.location)),
+                                            Expanded(child: Text(proj.country)),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  if (_showLocationError)
+                                     Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        loc.pleaseSelectLocation,
+                                        style: const TextStyle(
+                                            color: Colors.red, fontSize: 12),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }).toList(),
+                            const SizedBox(height: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                TextSpan(
-                                  text: text.substring(0, start),
-                                  style: const TextStyle(color: Colors.black),
-                                ),
-                                TextSpan(
-                                  text: text.substring(start, end),
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: text.substring(end),
-                                  style: const TextStyle(color: Colors.black),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
+                                MultiSelectMultiColumnDropdownField<
+                                    CashAdvanceDropDownModel>(
+                                  labelText: loc.cashAdvanceRequest,
+                                   controller: controller
+                                              .cashAdvanceIds,
+                                  items: controller.cashAdvanceListDropDown,
+                                  isMultiSelect: allowMultSelect ?? false,
+                                  selectedValue: controller.singleSelectedItem,
+                                  selectedValues: controller.multiSelectedItems,
+                                  
+                                  enabled: controller.isEditModePerdiem,
+                                  // selectedValue: controller.selectedLocation,
+                                  // enabled: controller.isEditModePerdiem,
+                                  // controller: controller.locationController,
+                                  // ignore: unnecessary_string_interpolations
+                                  searchValue: (proj) =>
+                                      '${proj.cashAdvanceReqId}',
+                                  displayText: (proj) => proj.cashAdvanceReqId,
+                                  validator: (proj) => proj == null
+                                      ? loc.pleaseSelectCashAdvanceField
+                                      : null,
+                                  onChanged: (item) {
+                                    // cashAdvanceField.value = null;
+                                  },
+                                  onMultiChanged: (items) {},
+                                  columnHeaders:  [
+                                   loc.requestId,
+                                    loc.requestDate
+                                  ],
+                                  rowBuilder: (proj, searchQuery) {
+                                    Widget highlight(String text) {
+                                      final lowerQuery =
+                                          searchQuery.toLowerCase();
+                                      final lowerText = text.toLowerCase();
+                                      final start =
+                                          lowerText.indexOf(lowerQuery);
+                                      if (start == -1 || searchQuery.isEmpty)
+                                        return Text(text);
 
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(
-                              vertical: 12, horizontal: 16),
-                          child: Row(
-                            children: [
-                              // Expanded(child: Text(proj.location)),
-                              // Expanded(child: Text(proj.country)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    buildDateField(
-                        "From Date *", controller.fromDateController, true,
-                        enabled: controller.isEditModePerdiem),
-                    buildDateField(
-                        "To Date *", controller.toDateController, false,
-                        enabled: controller.isEditModePerdiem),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: buildTextField(
-                            "No of Days *",
-                            controller.daysController,
-                            readOnly: true,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (widget.item == null || controller.isEditModePerdiem)
-                          SizedBox(
-                            width: 50,
-                            child: stylishSettingsButton(
-                              onPressed: () {
-                                _showSettingsPopup();
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                    buildTextField("Per Diem *", controller.perDiemController,
-                        readOnly: true),
-                    buildTextField(
-                        "Total Amount INR*", controller.amountInController,
-                        readOnly: true),
-                    buildTextField(
-                        "Total Amount", controller.amountInController,
-                        readOnly: true),
-                    buildTextField("Purpose", controller.purposeController,
-                        readOnly: !controller.isEditModePerdiem),
-                    Obx(() {
-                      return Column(
-                        children: controller.customFields.map((field) {
-                          final String label =
-                              field['FieldLabel'] ?? field['FieldName'];
-                          final bool isMandatory =
-                              field['IsMandatory'] ?? false;
+                                      final end = start + searchQuery.length;
+                                      return RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: text.substring(0, start),
+                                              style: const TextStyle(
+                                                  color: Colors.black),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(start, end),
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: text.substring(end),
+                                              style: const TextStyle(
+                                                  color: Colors.black),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
 
-                          Widget inputField;
-
-                          if (field['FieldType'] == 'List') {
-                            inputField = DropdownButtonFormField<String>(
-                              decoration: InputDecoration(
-                                labelText: '$label${isMandatory ? " *" : ""}',
-                                border: const OutlineInputBorder(),
-                              ),
-                              value: field[
-                                  'SelectedValue'], // 👈 pre-fill selected value if any
-                              items: (field['Options'] as List<dynamic>?)
-                                      ?.map((option) {
-                                    return DropdownMenuItem<String>(
-                                      value: option.toString(),
-                                      child: Text(option.toString()),
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                              child:
+                                                  Text(proj.cashAdvanceReqId)),
+                                          Expanded(
+                                            child: Text(
+                                                controller.formattedDate(
+                                                    proj.requestDate)),
+                                          ),
+                                        ],
+                                      ),
                                     );
-                                  }).toList() ??
-                                  [],
-                              onChanged: (value) {
-                                // Save selected value in the field
-                                field['SelectedValue'] = value;
-                                controller.customFields
-                                    .refresh(); // 👈 notify observers
-                              },
-                            );
-                          } else {
-                            inputField = TextField(
-                              decoration: InputDecoration(
-                                labelText: '$label${isMandatory ? " *" : ""}',
-                                border: const OutlineInputBorder(),
-                              ),
-                              onChanged: (value) {
-                                // Save entered value in the field
-                                field['EnteredValue'] = value;
-                                controller.customFields
-                                    .refresh(); // 👈 notify observers
-                              },
-                            );
-                          }
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: inputField,
-                          );
-                        }).toList(),
-                      );
-                    }),
-
-                    if (controller.isEditModePerdiem)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              final double lineAmount = double.tryParse(
-                                      controller.amountInController.text) ??
-                                  0.0;
-
-                              if (controller.split.isEmpty &&
-                                  controller
-                                      .accountingDistributions.isNotEmpty) {
-                                controller.split.assignAll(
-                                  controller.accountingDistributions.map((e) {
-                                    return AccountingSplit(
-                                      paidFor: e!.dimensionValueId,
-                                      percentage: e.allocationFactor,
-                                      amount: e.transAmount,
-                                    );
-                                  }).toList(),
-                                );
-                              } else if (controller.split.isEmpty) {
-                                controller.split
-                                    .add(AccountingSplit(percentage: 100.0));
-                              }
-
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(16)),
+                                  },
                                 ),
-                                builder: (context) => Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: MediaQuery.of(context)
-                                        .viewInsets
-                                        .bottom,
-                                    left: 16,
-                                    right: 16,
-                                    top: 24,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    child: AccountingDistributionWidget(
-                                      splits: controller.split,
-                                      lineAmount: lineAmount,
-                                      onChanged: (i, updatedSplit) {
-                                        if (!mounted) return;
-                                        controller.split[i] = updatedSplit;
-                                      },
-                                      onDistributionChanged: (newList) {
-                                        if (!mounted) return;
-                                        controller.accountingDistributions
-                                            .clear();
-                                        controller.accountingDistributions
-                                            .addAll(newList);
-                                      },
+                                const SizedBox(height: 14),
+                                buildDateField("${loc.fromDate} *",
+                                    controller.fromDateController, true,
+                                    enabled: controller.isEditModePerdiem),
+                                buildDateField("${loc.toDate} *",
+                                    controller.toDateController, false,
+                                    enabled: controller.isEditModePerdiem),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: buildTextField(
+                                        "${loc.noOfDays}*",
+                                        controller.daysController,
+                                        readOnly: true,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    if (widget.item == null ||
+                                        controller.isEditModePerdiem)
+                                      SizedBox(
+                                        width: 50,
+                                        child: stylishSettingsButton(
+                                          onPressed: () {
+                                            _showSettingsPopup();
+                                          },
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              );
-                            },
-                            child: const Text('Account Distribution'),
-                          ),
-                        ],
-                      ),
-                    if (widget.item != null) const SizedBox(height: 10),
-                    if (widget.item != null)
-                      _buildSection(
-                        title: "Tracking History",
-                        children: [
-                          const SizedBox(height: 12),
-                          FutureBuilder<List<ExpenseHistory>>(
-                            future: historyFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
+                                buildTextField(
+                                    "${loc.perDiem}*", controller.perDiemController,
+                                    readOnly: true),
+                                buildTextField(
+                                    "${loc.totalAmount} ${controller.exchangeCurrencyCode.text}*",
+                                    controller.exchangeamountInController,
+                                    readOnly: true),
+                                buildTextField(loc.totalAmountInInr,
+                                    controller.amountInController,
+                                    readOnly: true),
+                                buildTextField(
+                                    loc.purpose, controller.purposeController,
+                                    readOnly: !controller.isEditModePerdiem),
+                                Obx(() {
+                                  return Column(
+                                    children:
+                                        controller.customFields.map((field) {
+                                      final String label =
+                                          field['FieldLabel'] ??
+                                              field['FieldName'];
+                                      final bool isMandatory =
+                                          field['IsMandatory'] ?? false;
 
-                              if (snapshot.hasError) {
-                                return Center(
-                                    child: Text('Error: ${snapshot.error}'));
-                              }
+                                      Widget inputField;
 
-                              final historyList = snapshot.data!;
-                              if (historyList.isEmpty) {
-                                return const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'The expense does not have a history. Please consider submitting it for approval.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  ),
-                                );
-                              }
-                              print("historyList: $historyList");
-                              return ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: historyList.length,
-                                itemBuilder: (context, index) {
-                                  final item = historyList[index];
-                                  print("Trackingitem: $item");
-                                  return _buildTimelineItem(
-                                    item,
-                                    index == historyList.length - 1,
+                                      if (field['FieldType'] == 'List') {
+                                        inputField =
+                                            DropdownButtonFormField<String>(
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                          ),
+                                          value: field[
+                                              'SelectedValue'], // 👈 pre-fill selected value if any
+                                          items: (field['Options']
+                                                      as List<dynamic>?)
+                                                  ?.map((option) {
+                                                return DropdownMenuItem<String>(
+                                                  value: option.toString(),
+                                                  child:
+                                                      Text(option.toString()),
+                                                );
+                                              }).toList() ??
+                                              [],
+                                          onChanged: (value) {
+                                            // Save selected value in the field
+                                            field['SelectedValue'] = value;
+                                            controller.customFields
+                                                .refresh(); // 👈 notify observers
+                                          },
+                                        );
+                                      } else {
+                                        inputField = TextField(
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '$label${isMandatory ? " *" : ""}',
+                                            border: const OutlineInputBorder(),
+                                          ),
+                                          onChanged: (value) {
+                                            // Save entered value in the field
+                                            field['EnteredValue'] = value;
+                                            controller.customFields
+                                                .refresh(); // 👈 notify observers
+                                          },
+                                        );
+                                      }
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 8),
+                                        child: inputField,
+                                      );
+                                    }).toList(),
                                   );
-                                },
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    // const SizedBox(height: 20),
-                    const SizedBox(height: 20),
+                                }),
 
+                                if (controller.isEditModePerdiem)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                          final double lineAmount =
+                                              double.tryParse(controller
+                                                      .amountInController
+                                                      .text) ??
+                                                  0.0;
+
+                                          if (controller.split.isEmpty &&
+                                              controller.accountingDistributions
+                                                  .isNotEmpty) {
+                                            controller.split.assignAll(
+                                              controller.accountingDistributions
+                                                  .map((e) {
+                                                return AccountingSplit(
+                                                  paidFor: e!.dimensionValueId,
+                                                  percentage:
+                                                      e.allocationFactor,
+                                                  amount: e.transAmount,
+                                                );
+                                              }).toList(),
+                                            );
+                                          } else if (controller.split.isEmpty) {
+                                            controller.split.add(
+                                                AccountingSplit(
+                                                    percentage: 100.0));
+                                          }
+
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.vertical(
+                                                      top: Radius.circular(16)),
+                                            ),
+                                            builder: (context) => Padding(
+                                              padding: EdgeInsets.only(
+                                                bottom: MediaQuery.of(context)
+                                                    .viewInsets
+                                                    .bottom,
+                                                left: 16,
+                                                right: 16,
+                                                top: 24,
+                                              ),
+                                              child: SingleChildScrollView(
+                                                child:
+                                                    AccountingDistributionWidget(
+                                                  splits: controller.split,
+                                                  lineAmount: lineAmount,
+                                                  onChanged: (i, updatedSplit) {
+                                                    if (!mounted) return;
+                                                    controller.split[i] =
+                                                        updatedSplit;
+                                                  },
+                                                  onDistributionChanged:
+                                                      (newList) {
+                                                    if (!mounted) return;
+                                                    controller
+                                                        .accountingDistributions
+                                                        .clear();
+                                                    controller
+                                                        .accountingDistributions
+                                                        .addAll(newList);
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child:
+                                             Text(loc.accountDistribution),
+                                      ),
+                                    ],
+                                  ),
+                                if (widget.item != null)
+                                  const SizedBox(height: 10),
+                                if (widget.item != null)
+                                  _buildSection(
+                                    title: loc.trackingHistory,
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      FutureBuilder<List<ExpenseHistory>>(
+                                        future: historyFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState ==
+                                              ConnectionState.waiting) {
+                                            return const Center(
+                                                child:
+                                                    CircularProgressIndicator());
+                                          }
+
+                                          if (snapshot.hasError) {
+                                            return Center(
+                                                child: Text(
+                                                    'Error: ${snapshot.error}'));
+                                          }
+
+                                          final historyList = snapshot.data!;
+                                          if (historyList.isEmpty) {
+                                            return  Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(16),
+                                                child: Text(
+                                                  loc.noHistoryMessage,
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(
+                                                      color: Colors.grey),
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          print("historyList: $historyList");
+                                          return ListView.builder(
+                                            shrinkWrap: true,
+                                            physics:
+                                                const NeverScrollableScrollPhysics(),
+                                            itemCount: historyList.length,
+                                            itemBuilder: (context, index) {
+                                              final item = historyList[index];
+                                              print("Trackingitem: $item");
+                                              return _buildTimelineItem(
+                                                item,
+                                                index == historyList.length - 1,
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                // const SizedBox(height: 20),
+                                const SizedBox(height: 20),
 // Submit Button
 
                     // ✅ Submit Button (Created)
@@ -754,9 +862,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        "Update",
-                                        style: TextStyle(color: Colors.white),
+                                    :  Text(
+                                        AppLocalizations.of(context)!.update,
+                                        style: const TextStyle(color: Colors.white),
                                       ),
                               );
                             }),
@@ -806,9 +914,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        "Update & Accept",
-                                        style: TextStyle(color: Colors.white),
+                                    :  Text(
+                                        AppLocalizations.of(context)!.updateAndAccept,
+                                        style: const TextStyle(color: Colors.white),
                                       ),
                               );
                             }),
@@ -851,8 +959,8 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text("Reject",
-                                        style: TextStyle(color: Colors.white)),
+                                    :  Text(AppLocalizations.of(context)!.reject,
+                                        style: const TextStyle(color: Colors.white)),
                               );
                             }),
                           ),
@@ -865,9 +973,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                               },
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey),
-                              child: const Text(
-                                "Skip",
-                                style: TextStyle(color: Colors.black),
+                              child:  Text(
+                                AppLocalizations.of(context)!.skip,
+                             
                               ),
                             ),
                           ),
@@ -911,9 +1019,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        "Approve",
-                                        style: TextStyle(color: Colors.white),
+                                    :  Text(
+                                        AppLocalizations.of(context)!.approve,
+                                        style: const TextStyle(color: Colors.white),
                                       ),
                               );
                             }),
@@ -951,9 +1059,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        "Reject",
-                                        style: TextStyle(color: Colors.white),
+                                    :  Text(
+                                      AppLocalizations.of(context)!.reject,
+                                        style: const TextStyle(color: Colors.white),
                                       ),
                               );
                             }),
@@ -997,9 +1105,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text(
-                                        "Escalate",
-                                        style: TextStyle(color: Colors.white),
+                                    :  Text(
+                                        AppLocalizations.of(context)!.escalate,
+                                        style: const TextStyle(color: Colors.white),
                                       ),
                               );
                             }),
@@ -1039,9 +1147,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                         color: Colors.black,
                                         strokeWidth: 2,
                                       )
-                                    : const Text(
-                                        "Skip",
-                                        style: TextStyle(color: Colors.black),
+                                    :  Text(
+                                        AppLocalizations.of(context)!.skip,
+                                     
                                       ),
                               );
                             }),
@@ -1061,8 +1169,8 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                       )
                   ],
                 ),
-              ),
-            );
+              ])
+            ));
     })));
   }
 
@@ -1175,138 +1283,191 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
     );
   }
 
-  void showActionPopup(BuildContext context, String status) {
+
+
+void showActionPopup(BuildContext context, String status) {
+    final TextEditingController commentController = TextEditingController();
+    bool isCommentError = false;
+  final loc = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Full height if needed
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        final TextEditingController commentController = TextEditingController();
-
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets, // for keyboard
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Action",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (status == "Escalate") ...[
-                  const Text(
-                    'Select User *',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  SearchableMultiColumnDropdownField<User>(
-                    labelText: 'User *',
-
-                    columnHeaders: const [
-                      'User Name',
-                      'User ID',
-                    ],
-                    items: controller.userList, // Assuming you have a user list
-                    selectedValue: controller.selectedUser.value,
-                    searchValue: (user) => '${user.userName} ${user.userId}',
-                    displayText: (user) => user.userName,
-                    onChanged: (user) {
-                      // controller.selectedUser = user;
-                      controller.userIdController.text = user?.userId ?? '';
-                    },
-                    controller: controller.userIdController,
-                    rowBuilder: (user, searchQuery) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(user.userName)),
-                            Expanded(child: Text(user.userId)),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const SizedBox(height: 16),
-                const Text(
-                  'Comment',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your comment here',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: MediaQuery.of(context).viewInsets,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context); // Close the popup
-                      },
-                      child: const Text('Close'),
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final comment = commentController.text.trim();
-                        if (comment.isNotEmpty) {
-                          final success =
-                              await controller.approvalHubpostApprovalAction(
+                    const SizedBox(height: 12),
+                     Text(
+                      loc.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (status == "Escalate") ...[
+                       Text(
+                        '${loc.selectUser}*',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${loc.user} *',
+                          columnHeaders:  [
+                            loc.userName,
+                            loc.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(user.userName)),
+                                  Expanded(child: Text(user.userId)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 16),
+                     Text(
+                     loc.comments,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: loc.enterCommentHere,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.teal,
+                            width: 2,
+                          ),
+                        ),
+                        errorText:
+                            isCommentError ? 'Comment is required.' : null,
+                      ),
+                      onChanged: (value) {
+                        if (isCommentError && value.trim().isNotEmpty) {
+                          setState(() => isCommentError = false);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child:  Text(loc.close),
+                        ),
+                        const SizedBox(width: 8),
+                         ElevatedButton(
+                        onPressed: () async {
+                          final comment = commentController.text.trim();
+                          if (status != "Approve" && comment.isEmpty) {
+                            setState(() => isCommentError = true);
+                            return;
+                          }
+
+                          // Show full-page loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx) => const Center(
+                              child: SkeletonLoaderPage(),
+                            ),
+                          );
+
+                          final success = await controller.approvalHubpostApprovalAction(
                             context,
-                            workitemrecid: [workitemrecid],
+                            workitemrecid: [workitemrecid!],
                             decision: status,
                             comment: commentController.text,
                           );
+
+                          // Hide the loading indicator
+                          if (Navigator.of(context, rootNavigator: true).canPop()) {
+                            Navigator.of(context, rootNavigator: true).pop();
+                          }
+
                           if (!context.mounted) return;
 
-                          // Navigator.pop(context); // Close after action
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
+                          if (success) {
+                            Navigator.pushNamed(
+                                context, AppRoutes.approvalHubMain);
+                            controller.isApprovalEnable.value = false;
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Failed to submit action')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(status),
                       ),
-                      child: Text(status),
+                      ],
                     ),
                   ],
-                )
-              ],
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
-
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

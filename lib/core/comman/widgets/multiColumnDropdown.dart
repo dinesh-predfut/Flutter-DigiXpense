@@ -92,12 +92,12 @@ class MultiColumnDropdownFieldState<T>
                 elevation: 4,
                 child: Container(
                   constraints: BoxConstraints(maxHeight: widget.dropdownHeight,maxWidth: widget.dropdownWidth),
-                  color: Colors.white,
+                  // color: Colors.white,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        color: Colors.grey[200],
+                        // color: Colors.grey[200],
                         padding: const EdgeInsets.symmetric(
                             vertical: 8, horizontal: 16),
                         child: Row(

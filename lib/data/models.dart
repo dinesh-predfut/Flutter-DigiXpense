@@ -222,7 +222,7 @@ class ExpenseListModel {
   final String expenseStatus;
   final double totalAmountTrans;
   final String employeeId;
-  final int receiptDate;
+  final DateTime? receiptDate;
   final String approvalStatus;
   final String currency;
   final String source;
@@ -233,8 +233,9 @@ class ExpenseListModel {
   final int recId;
   final double totalAmountReporting;
   final String? projectId;
-  final String? fromDate;
-  final String? toDate;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  // final String? toDate;
   final String? paymentMethod;
   final String expenseCategoryId;
   final String? merchantName;
@@ -270,7 +271,7 @@ class ExpenseListModel {
     required this.expenseStatus,
     required this.totalAmountTrans,
     required this.employeeId,
-    required this.receiptDate,
+    this.receiptDate,
     required this.approvalStatus,
     required this.currency,
     required this.source,
@@ -320,7 +321,7 @@ class ExpenseListModel {
       expenseStatus: json['ExpenseStatus'] ?? '',
       totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
       employeeId: json['EmployeeId'] ?? '',
-      receiptDate: json['ReceiptDate'] ?? 0,
+      receiptDate: _parseTimestamp(json['ReceiptDate']),
       approvalStatus: json['ApprovalStatus'] ?? '',
       currency: json['Currency'] ?? '',
       source: json['Source'] ?? '',
@@ -331,8 +332,8 @@ class ExpenseListModel {
       recId: json['RecId'] ?? 0,
       totalAmountReporting: (json['TotalAmountReporting'] ?? 0).toDouble(),
       projectId: json['ProjectId'],
-      fromDate: json['FromDate'],
-      toDate: json['ToDate'],
+      fromDate: _parseTimestamp(json['FromDate']),
+      toDate: _parseTimestamp(json['ToDate']),
       paymentMethod: json['PaymentMethod'],
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       merchantName: json['MerchantName'],
@@ -364,6 +365,18 @@ class ExpenseListModel {
       location: json['Location'],
     );
   }
+}
+
+DateTime? _parseTimestamp(dynamic value) {
+  if (value == null) return null;
+  if (value is int) {
+    // If it's a timestamp in milliseconds:
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  } else if (value is String) {
+    // If string, try parsing
+    return DateTime.tryParse(value);
+  }
+  return null;
 }
 
 class StateModels {
@@ -591,6 +604,34 @@ class Locales {
       name: json['Name'],
     );
   }
+}
+
+class PaymentMethod {
+  final String paymentMethodName;
+  final String paymentMethodId;
+
+  PaymentMethod({
+    required this.paymentMethodName,
+    required this.paymentMethodId,
+  });
+
+  factory PaymentMethod.fromJson(Map<String, dynamic> json) {
+    return PaymentMethod(
+      paymentMethodName: json['PaymentMethodName'] ?? '',
+      paymentMethodId: json['PaymentMethodId'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "PaymentMethodName": paymentMethodName,
+      "PaymentMethodId": paymentMethodId,
+    };
+  }
+
+  @override
+  String toString() =>
+      'PaymentMethod(name: $paymentMethodName, id: $paymentMethodId)';
 }
 
 class Timezone {
@@ -1078,29 +1119,33 @@ class MileageRateLine {
 class AccountingDistribution {
   double transAmount;
   double reportAmount;
-  String? dimensionValueId;
+  String dimensionValueId;
   double allocationFactor;
-  String? currency;
+  // String? currency;
+  int? recId; // 👈 optional field
 
   AccountingDistribution({
     required this.transAmount,
     required this.reportAmount,
-    this.dimensionValueId,
+    required this.dimensionValueId,
     required this.allocationFactor,
-    this.currency,
+    // this.currency,
+    this.recId,
   });
 
   factory AccountingDistribution.fromJson(Map<String, dynamic> json) {
     return AccountingDistribution(
       transAmount: (json['TransAmount'] ?? 0).toDouble(),
       reportAmount: (json['ReportAmount'] ?? 0).toDouble(),
-      dimensionValueId: json['DimensionValueId'],
+      dimensionValueId: json['DimensionValueId'] ?? "",
       allocationFactor: (json['AllocationFactor'] ?? 0).toDouble(),
-      currency: json['Currency'],
+      // currency: json['Currency'],
+      recId: json['RecId'], // 👈 safe optional mapping
     );
   }
 
-  get percentage => null;
+  /// Example: percentage based on allocation factor (0–1 → 0–100)
+  double get percentage => allocationFactor * 100;
 
   Map<String, dynamic> toJson() {
     return {
@@ -1108,7 +1153,8 @@ class AccountingDistribution {
       'ReportAmount': reportAmount,
       'DimensionValueId': dimensionValueId,
       'AllocationFactor': allocationFactor,
-      'Currency': currency,
+      // 'Currency': currency,
+      if (recId != null) 'RecId': recId, // only include if not null
     };
   }
 
@@ -1118,7 +1164,8 @@ class AccountingDistribution {
       reportAmount: reportAmount,
       dimensionValueId: dimensionValueId,
       allocationFactor: allocationFactor,
-      currency: currency,
+      // currency: currency,
+      recId: recId,
     );
   }
 }
@@ -1423,6 +1470,189 @@ class LocationModel {
     };
   }
 }
+class ExpenseHeaderModel {
+  final int receiptDate;
+  final String expenseId;
+  final String employeeId;
+  final String employeeName;
+  final String? merchantName;
+  final String? merchantId;
+  final String paymentMethod;
+  final String cashAdvReqId;
+  final String? location;
+  final double totalAmountTrans;
+  final double totalAmountReporting;
+  final String currency;
+  final double exchRate;
+  final double userExchRate;
+  final String source;
+  final bool isBillable;
+  final String expenseType;
+  final List<dynamic> expenseHeaderCustomFieldValues;
+  final DocumentAttachmentModel documentAttachment;
+  final List<ExpenseTransModel> expenseTrans;
+
+  ExpenseHeaderModel({
+    required this.receiptDate,
+    required this.expenseId,
+    required this.employeeId,
+    required this.employeeName,
+    this.merchantName,
+    this.merchantId,
+    required this.paymentMethod,
+    required this.cashAdvReqId,
+    this.location,
+    required this.totalAmountTrans,
+    required this.totalAmountReporting,
+    required this.currency,
+    required this.exchRate,
+    required this.userExchRate,
+    required this.source,
+    required this.isBillable,
+    required this.expenseType,
+    required this.expenseHeaderCustomFieldValues,
+    required this.documentAttachment,
+    required this.expenseTrans,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseId,
+      "EmployeeId": employeeId,
+      "EmployeeName": employeeName,
+      "MerchantName": merchantName,
+      "MerchantId": merchantId,
+      "PaymentMethod": paymentMethod,
+      "CashAdvReqId": cashAdvReqId,
+      "Location": location,
+      "TotalAmountTrans": totalAmountTrans,
+      "TotalAmountReporting": totalAmountReporting,
+      "Currency": currency,
+      "ExchRate": exchRate,
+      "UserExchRate": userExchRate,
+      "Source": source,
+      "IsBillable": isBillable,
+      "ExpenseType": expenseType,
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFieldValues,
+      "DocumentAttachment": documentAttachment.toJson(),
+      "ExpenseTrans": expenseTrans.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  
+}
+
+class DocumentAttachmentModel {
+  final List<dynamic> file;
+  DocumentAttachmentModel({required this.file});
+
+  Map<String, dynamic> toJson() => {"File": file};
+}
+
+class ExpenseTransModel {
+  final int receiptDate;
+  final String expenseId;
+  final String employeeId;
+  final String? merchantName;
+  final String? merchantId;
+  final String cashAdvReqId;
+  final String expenseCategoryId;
+  final String paymentMethod;
+  final double totalAmountTrans;
+  final double totalAmountReporting;
+  final bool isReimbursable;
+  final String currency;
+  final double exchRate;
+  final double userExchRate;
+  final String description;
+  final String source;
+  final bool isBillable;
+  final String expenseType;
+  final List<dynamic> expenseHeaderCustomFieldValues;
+  final List<dynamic> expenseHeaderExpensecategorycustomfieldvalues;
+  final List<dynamic> documentAttachment;
+  final List<dynamic> expenseTrans;
+  final List<dynamic> accountingDistributions;
+  final String projectId;
+  final String taxGroup;
+  final double taxAmount;
+  final String uomId;
+  final double quantity;
+  final double unitPriceTrans;
+  final double lineAmountTrans;
+  final double lineAmountReporting;
+
+  ExpenseTransModel({
+    required this.receiptDate,
+    required this.expenseId,
+    required this.employeeId,
+    this.merchantName,
+    this.merchantId,
+    required this.cashAdvReqId,
+    required this.expenseCategoryId,
+    required this.paymentMethod,
+    required this.totalAmountTrans,
+    required this.totalAmountReporting,
+    required this.isReimbursable,
+    required this.currency,
+    required this.exchRate,
+    required this.userExchRate,
+    required this.description,
+    required this.source,
+    required this.isBillable,
+    required this.expenseType,
+    required this.expenseHeaderCustomFieldValues,
+    required this.expenseHeaderExpensecategorycustomfieldvalues,
+    required this.documentAttachment,
+    required this.expenseTrans,
+    required this.accountingDistributions,
+    required this.projectId,
+    required this.taxGroup,
+    required this.taxAmount,
+    required this.uomId,
+    required this.quantity,
+    required this.unitPriceTrans,
+    required this.lineAmountTrans,
+    required this.lineAmountReporting,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseId,
+      "EmployeeId": employeeId,
+      "MerchantName": merchantName,
+      "MerchantId": merchantId,
+      "CashAdvReqId": cashAdvReqId,
+      "ExpenseCategoryId": expenseCategoryId,
+      "PaymentMethod": paymentMethod,
+      "TotalAmountTrans": totalAmountTrans,
+      "TotalAmountReporting": totalAmountReporting,
+      "IsReimbursable": isReimbursable,
+      "Currency": currency,
+      "ExchRate": exchRate,
+      "UserExchRate": userExchRate,
+      "Description": description,
+      "Source": source,
+      "IsBillable": isBillable,
+      "ExpenseType": expenseType,
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFieldValues,
+      "ExpenseHeaderExpensecategorycustomfieldvalues": expenseHeaderExpensecategorycustomfieldvalues,
+      "DocumentAttachment": documentAttachment,
+      "ExpenseTrans": expenseTrans,
+      "AccountingDistributions": accountingDistributions,
+      "ProjectId": projectId,
+      "TaxGroup": taxGroup,
+      "TaxAmount": taxAmount,
+      "UomId": uomId,
+      "Quantity": quantity,
+      "UnitPriceTrans": unitPriceTrans,
+      "LineAmountTrans": lineAmountTrans,
+      "LineAmountReporting": lineAmountReporting,
+    };
+  }
+}
 
 class ExpenseItem {
   final int? recId; // ✅ Optional field added
@@ -1433,7 +1663,7 @@ class ExpenseItem {
   final double unitPriceTrans;
   final double taxAmount;
   final String? taxGroup;
-  final double lineAmountTrans;
+  late final double lineAmountTrans;
   final double lineAmountReporting;
   final String? projectId;
   final String description;
@@ -1483,26 +1713,32 @@ class ExpenseItem {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'RecId': recId, // ✅ Only include if non-null
-        'ExpenseId': expenseId,
-        'ExpenseCategoryId': expenseCategoryId,
-        'Quantity': quantity,
-        'UomId': uomId,
-        'UnitPriceTrans': unitPriceTrans,
-        'TaxAmount': taxAmount,
-        'TaxGroup': taxGroup,
-        'LineAmountTrans': lineAmountTrans,
-        'LineAmountReporting': lineAmountReporting,
-        'ProjectId': projectId,
-        'Description': description,
-        'IsReimbursable': isReimbursable,
-        'IsBillable': isBillable,
-        'ExpenseTransCustomFieldValues': [],
-        'ExpenseTransExpensecategorycustomfieldvalues': [],
-        'AccountingDistributions':
-            accountingDistributions.map((e) => e.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = {
+      'ExpenseCategoryId': expenseCategoryId,
+      'Quantity': quantity,
+      'UomId': uomId,
+      'UnitPriceTrans': unitPriceTrans,
+      'TaxAmount': taxAmount,
+      'TaxGroup': taxGroup,
+      'LineAmountTrans': lineAmountTrans,
+      'LineAmountReporting': lineAmountReporting,
+      'ProjectId': projectId,
+      'Description': description,
+      'IsReimbursable': isReimbursable,
+      'IsBillable': isBillable,
+      'ExpenseTransCustomFieldValues': [],
+      'ExpenseTransExpensecategorycustomfieldvalues': [],
+      'AccountingDistributions':
+          accountingDistributions.map((e) => e.toJson()).toList(),
+    };
+
+    // 🔑 Only add if not null
+    if (recId != null) data['RecId'] = recId;
+    if (expenseId != null) data['ExpenseId'] = expenseId;
+
+    return data;
+  }
 }
 
 class CashAdvanceReqModel {
@@ -1541,7 +1777,7 @@ class ExpenseItemUpdate {
   final double lineAmountReporting;
   final String? projectId;
   final String? description;
-  final String? expenseId; // Added ExpenseId field
+  final String? expenseId; // Modified to parse safely
   bool isReimbursable;
   bool isBillable;
   late final List<AccountingDistribution> accountingDistributions;
@@ -1558,7 +1794,7 @@ class ExpenseItemUpdate {
     required this.lineAmountReporting,
     this.projectId,
     this.description,
-    this.expenseId, // Added to constructor
+    this.expenseId,
     required this.isReimbursable,
     required this.isBillable,
     required this.accountingDistributions,
@@ -1567,17 +1803,17 @@ class ExpenseItemUpdate {
   factory ExpenseItemUpdate.fromJson(Map<String, dynamic> json) {
     return ExpenseItemUpdate(
       recId: json['RecId'],
-      expenseCategoryId: json['ExpenseCategoryId'] ?? '',
+      expenseCategoryId: json['ExpenseCategoryId']?.toString() ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
-      uomId: json['UomId'] ?? '',
+      uomId: json['UomId']?.toString() ?? '',
       unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
-      taxGroup: json['TaxGroup'],
+      taxGroup: json['TaxGroup']?.toString(),
       lineAmountTrans: (json['LineAmountTrans'] ?? 0).toDouble(),
       lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
-      projectId: json['ProjectId'],
-      description: json['Description'],
-      expenseId: json['ExpenseId'], // Added JSON parsing
+      projectId: json['ProjectId']?.toString(),
+      description: json['Description']?.toString(),
+      expenseId: json['ExpenseId']?.toString(), // ✅ Fix applied
       isReimbursable: json['IsReimbursable'] ?? false,
       isBillable: json['IsBillable'] ?? false,
       accountingDistributions:
@@ -1599,7 +1835,7 @@ class ExpenseItemUpdate {
         'LineAmountReporting': lineAmountReporting,
         'ProjectId': projectId,
         'Description': description,
-        'ExpenseId': expenseId, // Added to JSON output
+        'ExpenseId': expenseId,
         'IsReimbursable': isReimbursable,
         'IsBillable': isBillable,
         'ExpenseTransCustomFieldValues': [],
@@ -1608,6 +1844,7 @@ class ExpenseItemUpdate {
             accountingDistributions.map((e) => e.toJson()).toList(),
       };
 }
+
 class FilterItem {
   final String id;
   final String label;
@@ -1688,13 +1925,13 @@ class GESpeficExpense {
   final double taxAmount;
   final bool isReimbursable;
   final String? country;
-  final int recId;
+  final int? recId;
   final String? expenseStatus;
   final String cashAdvReqId;
   final String? location;
-  final int workitemrecid;
+  final int? workitemrecid;
   final String? stepType;
-  late final List<ExpenseItemUpdate> expenseTrans;
+  final List<ExpenseItemUpdate> expenseTrans;
 
   GESpeficExpense({
     required this.expenseId,
@@ -1710,7 +1947,6 @@ class GESpeficExpense {
     required this.receiptDate,
     this.approvalStatus,
     this.currency,
-    required this.cashAdvReqId,
     this.referenceNumber,
     this.description,
     this.source,
@@ -1727,8 +1963,9 @@ class GESpeficExpense {
     this.expenseStatus,
     this.location,
     required this.expenseTrans,
-    required this.workitemrecid,
+    this.workitemrecid,
     this.stepType,
+    required this.cashAdvReqId,
   });
 
   factory GESpeficExpense.fromJson(Map<String, dynamic> json) {
@@ -1753,23 +1990,30 @@ class GESpeficExpense {
       source: json['Source']?.toString(),
       exchRate: (json['ExchRate'] ?? 0).toDouble(),
       userExchRate: (json['UserExchRate'] ?? 0).toDouble(),
-      isBillable: json['IsBillable'] ?? false,
-      isPreauthorised: json['IsPreauthorised'] ?? false,
+      isBillable: _parseBool(json['IsBillable']),
+      isPreauthorised: _parseBool(json['IsPreauthorised']),
       expenseType: json['ExpenseType']?.toString(),
       taxGroup: json['TaxGroup']?.toString(),
-      cashAdvReqId: json['CashAdvReqId'] ?? '',
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
-      isReimbursable: json['IsReimbursable'] ?? false,
+      isReimbursable: _parseBool(json['IsReimbursable']),
       country: json['Country']?.toString(),
-      recId: json['RecId'] ?? 0,
+      recId: json['RecId'] as int?,
       expenseStatus: json['ExpenseStatus']?.toString(),
       location: json['Location']?.toString(),
-      workitemrecid: json['workitemrecid'] ?? 0,
+      cashAdvReqId: json['CashAdvReqId']?.toString() ?? '',
+      workitemrecid: int.tryParse(json['workitemrecid']?.toString() ?? ''),
       stepType: json['StepType']?.toString(),
       expenseTrans: (json['ExpenseTrans'] as List<dynamic>? ?? [])
           .map((e) => ExpenseItemUpdate.fromJson(e))
           .toList(),
     );
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    if (value is num) return value != 0;
+    return false;
   }
 }
 
@@ -2024,14 +2268,19 @@ class ExpenseHistory {
   });
 
   factory ExpenseHistory.fromJson(Map<String, dynamic> json) {
-    final createdDateMillis = json['CreatedDatetime'];
+    // final createdDateMillis = json['CreatedDatetime'];
     return ExpenseHistory(
       eventType: json['EventType'] ?? '',
       notes: json['Notes'] ?? '',
       userName: json['UserName'] ?? '',
-      createdDate: createdDateMillis != null
-          ? DateTime.fromMillisecondsSinceEpoch(createdDateMillis)
-          : DateTime.now(), // fallback if missing
+      createdDate: () {
+        final raw = json['CreatedDatetime'];
+        if (raw == null) return DateTime.now();
+        if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+        if (raw is String) return DateTime.parse(raw);
+        return DateTime.now();
+      }(),
+// / fallback if missing
     );
   }
 }
@@ -2416,26 +2665,40 @@ class ManageExpensesSummary {
 class ManageExpensesCard {
   final String status;
   final double amount;
+  final int count;
 
-  ManageExpensesCard({required this.status, required this.amount});
+  ManageExpensesCard({
+    required this.status,
+    required this.amount,
+    required this.count,
+  });
+
+  @override
+  String toString() {
+    return '$status → Count: $count, Amount: $amount';
+  }
 }
 
 class ExpenseAmountByStatus {
-  final String status; // XAxis label
-  final double amount; // YAxis value
+  final String status;
+  final double amount;
+  final int count;
 
   ExpenseAmountByStatus({
     required this.status,
     required this.amount,
+    this.count = 0, // 👈 default
   });
 
-  factory ExpenseAmountByStatus.fromJson(String status, double amount) {
+  factory ExpenseAmountByStatus.fromJson(String status, double amount, [int count = 0]) {
     return ExpenseAmountByStatus(
       status: status,
       amount: amount,
+      count: count,
     );
   }
 }
+
 
 class PendingCashAdvanceApproval {
   final double amountPaid;
@@ -2891,6 +3154,10 @@ class CashAdvanceRequestItemize {
   int? quantity;
   int? requestDate;
   int? recId;
+
+  /// 🔹 Newly added
+  int? cashAdvReqHeader;
+
   double? totalEstimatedAmount;
   double? totalEstimatedAmountInReporting;
   double? totalRequestedAmount;
@@ -2905,6 +3172,7 @@ class CashAdvanceRequestItemize {
 
   CashAdvanceRequestItemize({
     this.recId,
+    this.cashAdvReqHeader, // 🔹 Added in constructor
     this.accountingDistributions,
     this.baseUnit,
     this.baseUnitRequested,
@@ -2957,7 +3225,8 @@ class CashAdvanceRequestItemize {
                   ?.map((e) => AccountingDistribution.fromJson(e))
                   .toList() ??
               [],
-      recId: _toIntOrNull(json['RecId'] ?? ''),
+      recId: _toIntOrNull(json['RecId']),
+      cashAdvReqHeader: _toIntOrNull(json['CashAdvReqHeader']), // 🔹 Added
       baseUnit: _toIntOrNull(json['BaseUnit']),
       baseUnitRequested: _toIntOrNull(json['BaseunitRequested']),
       businessJustification: json['BusinessJustification'] != null
@@ -3026,7 +3295,7 @@ class CashAdvanceRequestItemize {
   Map<String, dynamic> toJson() {
     return {
       "RecId": recId,
-      "CashAdvReqHeader": 220,
+      "CashAdvReqHeader": cashAdvReqHeader, // 🔹 Added
       "ExpenseCategoryId": expenseCategoryId ?? '',
       "Quantity": quantity ?? 1,
       "UOMId": uomId ?? '',
@@ -3220,7 +3489,7 @@ class CashAdvanceRequestHeader {
   final int recId;
   final String requisitionId;
   final String? projectId;
-  final String prefferedPaymentMethod;
+  final String? prefferedPaymentMethod; // nullable now
   final double totalApprovedAmount;
   final double totalRejectedAmount;
   final String? expenseCategoryId;
@@ -3252,7 +3521,7 @@ class CashAdvanceRequestHeader {
     required this.recId,
     required this.requisitionId,
     this.projectId,
-    required this.prefferedPaymentMethod,
+    this.prefferedPaymentMethod,
     required this.totalApprovedAmount,
     required this.totalRejectedAmount,
     this.expenseCategoryId,
@@ -3283,8 +3552,8 @@ class CashAdvanceRequestHeader {
 
   factory CashAdvanceRequestHeader.fromJson(Map<String, dynamic> json) {
     return CashAdvanceRequestHeader(
-      recId: json['RecId'],
-      requisitionId: json['RequisitionId'],
+      recId: json['RecId'] ?? 0,
+      requisitionId: json['RequisitionId'] ?? '',
       projectId: json['ProjectId'],
       prefferedPaymentMethod: json['PrefferedPaymentMethod'],
       totalApprovedAmount: (json['TotalApprovedAmount'] ?? 0).toDouble(),
@@ -3297,16 +3566,16 @@ class CashAdvanceRequestHeader {
       totalEstimatedAmountInReporting:
           (json['TotalEstimatedAmountInReporting'] ?? 0).toDouble(),
       amountSettled: (json['AmountSettled'] ?? 0).toDouble(),
-      employeeId: json['EmployeeId'],
-      employeeName: json['EmployeeName'],
-      requestDate: json['RequestDate'],
-      approvalStatus: json['ApprovalStatus'],
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      requestDate: json['RequestDate'] ?? 0,
+      approvalStatus: json['ApprovalStatus'] ?? '',
       estimatedCurrency: json['EstimatedCurrency'],
       requestedCurrency: json['RequestedCurrency'],
       requestedExchangerate: _toDoubleOrNull(json['RequestedExchangerate']),
       estimatedExchangerate: _toDoubleOrNull(json['EstimatedExchangerate']),
       percentage: _toDoubleOrNull(json['Percentage']),
-      businessJustification: json['BusinessJustification'],
+      businessJustification: json['BusinessJustification'] ?? '',
       referenceId: json['ReferenceId'],
       description: json['Description'],
       location: json['Location'],
@@ -3322,6 +3591,8 @@ class CashAdvanceRequestHeader {
           [],
     );
   }
+
+  get expenseTrans => null;
 
   Map<String, dynamic> toJson() {
     return {
@@ -3355,6 +3626,263 @@ class CashAdvanceRequestHeader {
       'CSHHeaderCustomFieldValues': cshHeaderCustomFieldValues,
       'CSHHeaderCategoryCustomFieldValues': cshHeaderCategoryCustomFieldValues,
       'CSHCashAdvReqTrans': cshCashAdvReqTrans.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class ExpenseRequestHeader {
+  final String expenseId;
+  final bool isDuplicated;
+  final bool isAlcohol;
+  final bool isForged;
+  final bool isTobacco;
+  final String cashAdvReqId;
+  final String? projectId;
+  final String paymentMethod;
+  final double totalAmountTrans;
+  final double totalAmountReporting;
+  final String expenseCategoryId;
+  final String merchantName;
+  final String? merchantId;
+  final String employeeId;
+  final String employeeName;
+  final int receiptDate;
+  final String approvalStatus;
+  final String currency;
+  final String referenceNumber;
+  final String description;
+  final String source;
+  final double exchRate;
+  final double userExchRate;
+  final bool isBillable;
+  final bool isPreauthorised;
+  final String expenseType;
+  final String? taxGroup;
+  final double taxAmount;
+  final bool isReimbursable;
+  final String? country;
+  final int recId;
+  final String expenseStatus;
+  final String location;
+  final String? fromDate;
+  final String? toDate;
+  final List<dynamic> expenseHeaderCustomFieldValues;
+  final List<dynamic> expenseHeaderExpenseCategoryCustomFieldValues;
+  final List<ExpenseTransaction> expenseTrans;
+
+  ExpenseRequestHeader({
+    required this.expenseId,
+    required this.isDuplicated,
+    required this.isAlcohol,
+    required this.isForged,
+    required this.isTobacco,
+    required this.cashAdvReqId,
+    this.projectId,
+    required this.paymentMethod,
+    required this.totalAmountTrans,
+    required this.totalAmountReporting,
+    required this.expenseCategoryId,
+    required this.merchantName,
+    this.merchantId,
+    required this.employeeId,
+    required this.employeeName,
+    required this.receiptDate,
+    required this.approvalStatus,
+    required this.currency,
+    required this.referenceNumber,
+    required this.description,
+    required this.source,
+    required this.exchRate,
+    required this.userExchRate,
+    required this.isBillable,
+    required this.isPreauthorised,
+    required this.expenseType,
+    this.taxGroup,
+    required this.taxAmount,
+    required this.isReimbursable,
+    this.country,
+    required this.recId,
+    required this.expenseStatus,
+    required this.location,
+    this.fromDate,
+    this.toDate,
+    required this.expenseHeaderCustomFieldValues,
+    required this.expenseHeaderExpenseCategoryCustomFieldValues,
+    required this.expenseTrans,
+  });
+
+  factory ExpenseRequestHeader.fromJson(Map<String, dynamic> json) {
+    return ExpenseRequestHeader(
+      expenseId: json['ExpenseId'] ?? '',
+      isDuplicated: json['IsDuplicated'] ?? false,
+      isAlcohol: json['IsAlcohol'] ?? false,
+      isForged: json['IsForged'] ?? false,
+      isTobacco: json['IsTobacco'] ?? false,
+      cashAdvReqId: json['CashAdvReqId'] ?? '',
+      projectId: json['ProjectId'],
+      paymentMethod: json['PaymentMethod'] ?? '',
+      totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
+      totalAmountReporting: (json['TotalAmountReporting'] ?? 0).toDouble(),
+      expenseCategoryId: json['ExpenseCategoryId'] ?? '',
+      merchantName: json['MerchantName'] ?? '',
+      merchantId: json['MerchantId'],
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      receiptDate: json['ReceiptDate'] ?? 0,
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      currency: json['Currency'] ?? '',
+      referenceNumber: json['ReferenceNumber'] ?? '',
+      description: json['Description'] ?? '',
+      source: json['Source'] ?? '',
+      exchRate: (json['ExchRate'] ?? 0).toDouble(),
+      userExchRate: (json['UserExchRate'] ?? 0).toDouble(),
+      isBillable: json['IsBillable'] ?? false,
+      isPreauthorised: json['IsPreauthorised'] ?? false,
+      expenseType: json['ExpenseType'] ?? '',
+      taxGroup: json['TaxGroup'],
+      taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
+      isReimbursable: json['IsReimbursable'] ?? false,
+      country: json['Country'],
+      recId: json['RecId'] ?? 0,
+      expenseStatus: json['ExpenseStatus'] ?? '',
+      location: json['Location'] ?? '',
+      fromDate: json['FromDate'],
+      toDate: json['ToDate'],
+      expenseHeaderCustomFieldValues:
+          List<dynamic>.from(json['ExpenseHeaderCustomFieldValues'] ?? []),
+      expenseHeaderExpenseCategoryCustomFieldValues: List<dynamic>.from(
+          json['ExpenseHeaderExpensecategorycustomfieldvalues'] ?? []),
+      expenseTrans: (json['ExpenseTrans'] as List<dynamic>? ?? [])
+          .map((e) => ExpenseTransaction.fromJson(e))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ExpenseId': expenseId,
+      'IsDuplicated': isDuplicated,
+      'IsAlcohol': isAlcohol,
+      'IsForged': isForged,
+      'IsTobacco': isTobacco,
+      'CashAdvReqId': cashAdvReqId,
+      'ProjectId': projectId,
+      'PaymentMethod': paymentMethod,
+      'TotalAmountTrans': totalAmountTrans,
+      'TotalAmountReporting': totalAmountReporting,
+      'ExpenseCategoryId': expenseCategoryId,
+      'MerchantName': merchantName,
+      'MerchantId': merchantId,
+      'EmployeeId': employeeId,
+      'EmployeeName': employeeName,
+      'ReceiptDate': receiptDate,
+      'ApprovalStatus': approvalStatus,
+      'Currency': currency,
+      'ReferenceNumber': referenceNumber,
+      'Description': description,
+      'Source': source,
+      'ExchRate': exchRate,
+      'UserExchRate': userExchRate,
+      'IsBillable': isBillable,
+      'IsPreauthorised': isPreauthorised,
+      'ExpenseType': expenseType,
+      'TaxGroup': taxGroup,
+      'TaxAmount': taxAmount,
+      'IsReimbursable': isReimbursable,
+      'Country': country,
+      'RecId': recId,
+      'ExpenseStatus': expenseStatus,
+      'Location': location,
+      'FromDate': fromDate,
+      'ToDate': toDate,
+      'ExpenseHeaderCustomFieldValues': expenseHeaderCustomFieldValues,
+      'ExpenseHeaderExpensecategorycustomfieldvalues':
+          expenseHeaderExpenseCategoryCustomFieldValues,
+      'ExpenseTrans': expenseTrans.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+class ExpenseTransaction {
+  final int recId;
+  final int expenseId;
+  final String expenseCategoryId;
+  final double quantity;
+  final String uomId;
+  final double unitPriceTrans;
+  final double taxAmount;
+  final String? taxGroup;
+  final double lineAmountTrans;
+  final double lineAmountReporting;
+  final String? projectId;
+  final String description;
+  final bool isReimbursable;
+  final List<dynamic> expenseTransCustomFieldValues;
+  final List<dynamic> expenseTransExpenseCategoryCustomFieldValues;
+  final List<dynamic> accountingDistributions;
+
+  ExpenseTransaction({
+    required this.recId,
+    required this.expenseId,
+    required this.expenseCategoryId,
+    required this.quantity,
+    required this.uomId,
+    required this.unitPriceTrans,
+    required this.taxAmount,
+    this.taxGroup,
+    required this.lineAmountTrans,
+    required this.lineAmountReporting,
+    this.projectId,
+    required this.description,
+    required this.isReimbursable,
+    required this.expenseTransCustomFieldValues,
+    required this.expenseTransExpenseCategoryCustomFieldValues,
+    required this.accountingDistributions,
+  });
+
+  factory ExpenseTransaction.fromJson(Map<String, dynamic> json) {
+    return ExpenseTransaction(
+      recId: json['RecId'] ?? 0,
+      expenseId: json['ExpenseId'] ?? 0,
+      expenseCategoryId: json['ExpenseCategoryId'] ?? '',
+      quantity: (json['Quantity'] ?? 0).toDouble(),
+      uomId: json['UomId'] ?? '',
+      unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
+      taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
+      taxGroup: json['TaxGroup'],
+      lineAmountTrans: (json['LineAmountTrans'] ?? 0).toDouble(),
+      lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
+      projectId: json['ProjectId'],
+      description: json['Description'] ?? '',
+      isReimbursable: json['IsReimbursable'] ?? false,
+      expenseTransCustomFieldValues:
+          List<dynamic>.from(json['ExpenseTransCustomFieldValues'] ?? []),
+      expenseTransExpenseCategoryCustomFieldValues: List<dynamic>.from(
+          json['ExpenseTransExpensecategorycustomfieldvalues'] ?? []),
+      accountingDistributions:
+          List<dynamic>.from(json['AccountingDistributions'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'RecId': recId,
+      'ExpenseId': expenseId,
+      'ExpenseCategoryId': expenseCategoryId,
+      'Quantity': quantity,
+      'UomId': uomId,
+      'UnitPriceTrans': unitPriceTrans,
+      'TaxAmount': taxAmount,
+      'TaxGroup': taxGroup,
+      'LineAmountTrans': lineAmountTrans,
+      'LineAmountReporting': lineAmountReporting,
+      'ProjectId': projectId,
+      'Description': description,
+      'IsReimbursable': isReimbursable,
+      'ExpenseTransCustomFieldValues': expenseTransCustomFieldValues,
+      'ExpenseTransExpensecategorycustomfieldvalues':
+          expenseTransExpenseCategoryCustomFieldValues,
+      'AccountingDistributions': accountingDistributions,
     };
   }
 }
@@ -3433,6 +3961,7 @@ class CashAdvanceDropDownModel {
         'RequestDate': requestDate,
       };
 }
+
 class Report {
   String reportName;
   String functionalArea;
@@ -3457,12 +3986,505 @@ class FilterRule {
   String table;
   String column;
   String condition;
-  String value;
+  dynamic value;
+
+  List<String> inBetweenValues;
+  List<String> availableColumns;
+  List<String> conditionItems;
 
   FilterRule({
     required this.table,
     required this.column,
     required this.condition,
-    required this.value,
+    this.value,
+    this.inBetweenValues = const [],
+    this.availableColumns = const [],
+    this.conditionItems = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+        'table': table,
+        'column': column,
+        'condition': condition,
+        'value': value,
+        'inBetweenValues': inBetweenValues,
+        'availableColumns': availableColumns,
+        'conditionItems': conditionItems,
+      };
+}
+
+class Users {
+  final String userId;
+  final String userName;
+  bool selected = false;
+
+  Users({required this.userId, required this.userName});
+
+  factory Users.fromJson(Map<String, dynamic> json) {
+    return Users(
+      userId: json['UserId'],
+      userName: json['UserName'],
+    );
+  }
+}
+
+class EmailHubModel {
+  final int recId;
+  final int refRecId;
+  final String name;
+  final String forwardedEmail;
+  final String emailBody;
+  final String subject;
+  final String emailStatus;
+  final DateTime forwardedDate;
+  final bool isActive;
+  final String createdBy;
+  final DateTime createdDatetime;
+  final String modifiedBy;
+  final DateTime modifiedDatetime;
+  final int organizationId;
+  final int subOrganizationId;
+
+  EmailHubModel({
+    required this.recId,
+    required this.refRecId,
+    required this.name,
+    required this.forwardedEmail,
+    required this.emailBody,
+    required this.subject,
+    required this.emailStatus,
+    required this.forwardedDate,
+    required this.isActive,
+    required this.createdBy,
+    required this.createdDatetime,
+    required this.modifiedBy,
+    required this.modifiedDatetime,
+    required this.organizationId,
+    required this.subOrganizationId,
+  });
+
+  factory EmailHubModel.fromJson(Map<String, dynamic> json) {
+    return EmailHubModel(
+      recId: json['RecId'] ?? 0,
+      refRecId: json['RefRecId'] ?? 0,
+      name: json['Name'] ?? '',
+      forwardedEmail: json['ForwardedEmail'] ?? '',
+      emailBody: json['EmailBody'] ?? '',
+      subject: json['Subject'] ?? '',
+      emailStatus: json['EmailStatus'] ?? '',
+      forwardedDate: _fromEpoch(json['ForwardedDate']),
+      isActive: json['IsActive'] ?? false,
+      createdBy: json['CreatedBy'] ?? '',
+      createdDatetime: _fromEpoch(json['CreatedDatetime']),
+      modifiedBy: json['ModifiedBy'] ?? '',
+      modifiedDatetime: _fromEpoch(json['ModifiedDatetime']),
+      organizationId: json['OrganizationId'] ?? 0,
+      subOrganizationId: json['SubOrganizationId'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'RecId': recId,
+      'RefRecId': refRecId,
+      'Name': name,
+      'ForwardedEmail': forwardedEmail,
+      'EmailBody': emailBody,
+      'Subject': subject,
+      'EmailStatus': emailStatus,
+      'ForwardedDate': forwardedDate.millisecondsSinceEpoch,
+      'IsActive': isActive,
+      'CreatedBy': createdBy,
+      'CreatedDatetime': createdDatetime.millisecondsSinceEpoch,
+      'ModifiedBy': modifiedBy,
+      'ModifiedDatetime': modifiedDatetime.millisecondsSinceEpoch,
+      'OrganizationId': organizationId,
+      'SubOrganizationId': subOrganizationId,
+    };
+  }
+
+  static DateTime _fromEpoch(dynamic value) {
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    } else if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime(1970);
+    }
+    return DateTime(1970);
+  }
+}
+
+class ForwardedEmail {
+  final int recId;
+  final String name;
+  final int forwardedDate;
+  final String forwardedEmail;
+  final String subject;
+  final String emailStatus;
+  final int refRecId;
+  final String emailBody;
+  final bool isActive;
+  final List<MailAttachment> documentAttachments;
+
+  ForwardedEmail({
+    required this.recId,
+    required this.name,
+    required this.forwardedDate,
+    required this.forwardedEmail,
+    required this.subject,
+    required this.emailStatus,
+    required this.refRecId,
+    required this.emailBody,
+    required this.isActive,
+    required this.documentAttachments,
+  });
+
+  factory ForwardedEmail.fromJson(Map<String, dynamic> json) {
+    return ForwardedEmail(
+      recId: json['RecId'],
+      name: json['Name'],
+      forwardedDate: json['ForwardedDate'],
+      forwardedEmail: json['ForwardedEmail'],
+      subject: json['Subject'],
+      emailStatus: json['EmailStatus'],
+      refRecId: json['RefRecId'],
+      emailBody: json['EmailBody'],
+      isActive: json['IsActive'],
+      documentAttachments: (json['DocumentAttachment'] as List)
+          .map((e) => MailAttachment.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class MailAttachment {
+  final String name;
+  final String type;
+  final String fileExtension;
+  final String base64Data;
+
+  MailAttachment({
+    required this.name,
+    required this.type,
+    required this.fileExtension,
+    required this.base64Data,
+  });
+
+  factory MailAttachment.fromJson(Map<String, dynamic> json) {
+    return MailAttachment(
+      name: json['name'] ?? '',
+      type: json['type'] ?? '',
+      fileExtension: json['FileExtension'] ?? '',
+      base64Data: json['base64Data'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "name": name,
+      "type": type,
+      "FileExtension": fileExtension,
+      "base64Data": base64Data,
+    };
+  }
+}
+
+class ReportModels {
+  final String name;
+  final String reportAvailability;
+  final String functionalArea;
+  final int recId;
+  final String? description;
+  final int dataSet;
+  final String? availableFor;
+  final List<ReportMetaData> reportMetaData;
+  final List<ColumnChooser> columnChooser;
+  final List<Mapping> mappings;
+
+  ReportModels({
+    required this.name,
+    required this.reportAvailability,
+    required this.functionalArea,
+    required this.recId,
+    this.description,
+    required this.dataSet,
+    this.availableFor,
+    required this.reportMetaData,
+    required this.columnChooser,
+    required this.mappings,
+  });
+
+  factory ReportModels.fromJson(Map<String, dynamic> json) {
+    return ReportModels(
+      name: json['Name'],
+      reportAvailability: json['ReportAvailability'],
+      functionalArea: json['FunctionalArea'],
+      recId: json['RecId'],
+      description: json['Description'],
+      dataSet: json['DataSet'],
+      availableFor: json['AvailableFor'],
+      reportMetaData: (json['ReportMetaData'] as List)
+          .map((e) => ReportMetaData.fromJson(e))
+          .toList(),
+      columnChooser: (json['ColumnChooser'] as List)
+          .map((e) => ColumnChooser.fromJson(e))
+          .toList(),
+      mappings:
+          (json['Mappings'] as List).map((e) => Mapping.fromJson(e)).toList(),
+    );
+  }
+}
+
+class ReportMetaData {
+  final String matchType; // 'AND' or 'OR'
+  final List<Rule> rules;
+
+  ReportMetaData({
+    required this.matchType,
+    required this.rules,
+  });
+
+  // Factory to create from JSON (for response parsing)
+  factory ReportMetaData.fromJson(Map<String, dynamic> json) {
+    return ReportMetaData(
+      matchType: json['matchType'] as String,
+      rules: (json['rules'] as List<dynamic>)
+          .map((e) => Rule.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  // Method to convert to JSON (for sending in POST body)
+  Map<String, dynamic> toJson() {
+    return {
+      'matchType': matchType,
+      'rules': rules.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  // Optional: Copy with for updates
+  ReportMetaData copyWith({
+    String? matchType,
+    List<Rule>? rules,
+  }) {
+    return ReportMetaData(
+      matchType: matchType ?? this.matchType,
+      rules: rules ?? this.rules,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ReportMetaData(matchType: $matchType, rules: $rules)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ReportMetaData &&
+        matchType == other.matchType &&
+        rules.length == other.rules.length &&
+        rules.every((r) => other.rules.contains(r));
+  }
+
+  @override
+  int get hashCode => Object.hash(matchType, rules);
+}
+
+class Rule {
+  /// Table name (e.g., "Employees", "Expenses")
+  final String selectedTable;
+
+  /// Field in the table (e.g., "EmployeeId", "Amount")
+  final String selectedField;
+
+  /// Condition operator (e.g., "eq", "neq", "between", "contains")
+  final String selectedCondition;
+
+  /// Single value input (used for conditions like 'equals', 'greater than')
+  final String singleValue;
+
+  /// Range/in-between values (e.g., [from, to]) — used for 'between' condition
+  final List<String> inBetweenValues;
+
+  Rule({
+    required this.selectedTable,
+    required this.selectedField,
+    required this.selectedCondition,
+    required this.singleValue,
+    required this.inBetweenValues,
+  });
+
+  // ✅ Factory to create from JSON (API response parsing)
+  factory Rule.fromJson(Map<String, dynamic> json) {
+    return Rule(
+      selectedTable: json['selectedTable'] as String,
+      selectedField: json['selectedField'] as String,
+      selectedCondition: json['selectedCondition'] as String,
+      singleValue: json['singleValue'] as String,
+      inBetweenValues:
+          (json['inBetweenValues'] as List).map((e) => e as String).toList(),
+    );
+  }
+
+  // ✅ Convert to JSON (for sending in POST request)
+  Map<String, dynamic> toJson() {
+    return {
+      'selectedTable': selectedTable,
+      'selectedField': selectedField,
+      'selectedCondition': selectedCondition,
+      'singleValue': singleValue,
+      'inBetweenValues': inBetweenValues,
+    };
+  }
+
+  // ✅ Copy with (useful for updating one field immutably)
+  Rule copyWith({
+    String? selectedTable,
+    String? selectedField,
+    String? selectedCondition,
+    String? singleValue,
+    List<String>? inBetweenValues,
+  }) {
+    return Rule(
+      selectedTable: selectedTable ?? this.selectedTable,
+      selectedField: selectedField ?? this.selectedField,
+      selectedCondition: selectedCondition ?? this.selectedCondition,
+      singleValue: singleValue ?? this.singleValue,
+      inBetweenValues: inBetweenValues ?? this.inBetweenValues,
+    );
+  }
+
+  // ✅ Debugging-friendly string
+  @override
+  String toString() {
+    return 'Rule(selectedTable: $selectedTable, selectedField: $selectedField, selectedCondition: $selectedCondition, singleValue: $singleValue, inBetweenValues: $inBetweenValues)';
+  }
+
+  // ✅ Equality check
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Rule &&
+        selectedTable == other.selectedTable &&
+        selectedField == other.selectedField &&
+        selectedCondition == other.selectedCondition &&
+        singleValue == other.singleValue &&
+        inBetweenValues.length == other.inBetweenValues.length &&
+        inBetweenValues.every((v) => other.inBetweenValues.contains(v));
+  }
+
+  // ✅ Hash code
+  @override
+  int get hashCode {
+    return Object.hash(
+      selectedTable,
+      selectedField,
+      selectedCondition,
+      singleValue,
+      Object.hashAll(inBetweenValues),
+    );
+  }
+}
+
+class ColumnChooser {
+  final Map<String, dynamic>? header;
+  final Map<String, dynamic>? lines;
+
+  ColumnChooser({this.header, this.lines});
+
+  factory ColumnChooser.fromJson(Map<String, dynamic> json) {
+    return ColumnChooser(
+      header: json['header'],
+      lines: json['lines'],
+    );
+  }
+}
+
+class ColumnChooserCheckbox {
+  final String columnName;
+  final String label;
+  bool isSelected;
+
+  ColumnChooserCheckbox({
+    required this.columnName,
+    required this.label,
+    this.isSelected = false,
+  });
+}
+
+class Mapping {
+  final String userId;
+  final int refRecId;
+  final String createdBy;
+  final String modifiedBy;
+  final int organizationId;
+  final int recId;
+  final String createdDatetime;
+  final String modifiedDatetime;
+  final int subOrganizationId;
+
+  Mapping({
+    required this.userId,
+    required this.refRecId,
+    required this.createdBy,
+    required this.modifiedBy,
+    required this.organizationId,
+    required this.recId,
+    required this.createdDatetime,
+    required this.modifiedDatetime,
+    required this.subOrganizationId,
+  });
+
+  factory Mapping.fromJson(Map<String, dynamic> json) {
+    return Mapping(
+      userId: json['UserId'],
+      refRecId: json['RefRecId'],
+      createdBy: json['CreatedBy'],
+      modifiedBy: json['ModifiedBy'],
+      organizationId: json['OrganizationId'],
+      recId: json['RecId'],
+      createdDatetime: json['CreatedDatetime'],
+      modifiedDatetime: json['ModifiedDatetime'],
+      subOrganizationId: json['SubOrganizationId'],
+    );
+  }
+}
+
+// Model classes
+class ExpenseCategoryAI {
+  final String category;
+  final double totalExpenses;
+
+  ExpenseCategoryAI({required this.category, required this.totalExpenses});
+
+  factory ExpenseCategoryAI.fromJson(Map<String, dynamic> json) {
+    return ExpenseCategoryAI(
+      category: json['Category'] as String,
+      totalExpenses: json['TotalExpenses'] as double,
+    );
+  }
+}
+
+class ApiResponse {
+  final List<ExpenseCategoryAI> data;
+  final String plotData;
+  final String answer;
+
+  ApiResponse(
+      {required this.data, required this.plotData, required this.answer});
+
+  factory ApiResponse.fromJson(Map<String, dynamic> json) {
+    List<ExpenseCategoryAI> categories = [];
+    if (json['data'] != null && json['data']['Category'] != null) {
+      for (var item in json['data']['Category']) {
+        categories.add(ExpenseCategoryAI.fromJson(item));
+      }
+    }
+
+    return ApiResponse(
+      data: categories,
+      plotData: json['plot'] ?? '',
+      answer: json['answer'] ?? '',
+    );
+  }
 }

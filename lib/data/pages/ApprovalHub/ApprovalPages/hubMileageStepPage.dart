@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:digi_xpense/data/models.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../screen/widget/router/router.dart';
 import 'hubMileage/hubMileage_1.dart';
 import 'hubMileage/hubMileage_2.dart';
@@ -77,13 +78,13 @@ class _HubMileageStepFormState extends State<HubMileageStepForm> {
                 if (currentStep > 0)
                   ElevatedButton(
                     onPressed: _goToPreviousStep,
-                    child: const Text("Back"),
+                    child:  Text(AppLocalizations.of(context)!.back),
                   ),
                   if(currentStep == 0 )
                   
                 ElevatedButton(
                   onPressed: _goToNextStep,
-                  child: Text( "Next"),
+                  child: Text(AppLocalizations.of(context)!.next),
                 ),
               ],
             ),

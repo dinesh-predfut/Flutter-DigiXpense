@@ -24,6 +24,8 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+
+import '../../../../l10n/app_localizations.dart';
 // import '../../../../service.dart';
 
 class FormCashAdvanceRequest extends StatefulWidget {
@@ -65,7 +67,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   String? selectReferenceIDError;
   final PageController _pageController = PageController();
   Timer? _debounce;
-  final List<String> _titles = ["Payment Info", "Itemize", "Expense Details"];
+  // final List<String> _titles = ["Payment Info", "Itemize", "Expense Details"];
   @override
   void initState() {
     super.initState();
@@ -93,7 +95,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       controller.currencyDropDown();
       controller.getUserPref();
       controller.fetchExpenseCategory();
-      controller.fetchExchangeRate();
+
       controller.fetchBusinessjustification();
       controller.fetchLocation();
     });
@@ -143,14 +145,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         paidToError = 'Please select a Business Justification';
         isValid = false;
       });
-      
-    } else 
-    if(showField.value){
+    } else if (showField.value) {
       if (controller.expenseIdController.text.trim().isEmpty) {
-      setState(() {
-        _showExpenseIdError = true;
-        
-      });
+        setState(() {
+          _showExpenseIdError = true;
+        });
       }
     } else {
       // Clear error if valid
@@ -296,7 +295,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   Widget _buildStep(int index) {
     final isActive = index == _currentStep;
     final isCompleted = index < _currentStep;
-
+    final List<String> _titles = [
+      AppLocalizations.of(context)!.paymentInfo,
+      AppLocalizations.of(context)!.itemize,
+      AppLocalizations.of(context)!.expenseDetails
+    ];
     return Column(
       children: [
         CircleAvatar(
@@ -378,9 +381,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Itemize',
-                    style: TextStyle(fontSize: 12),
+                  Text(
+                    AppLocalizations.of(context)!.itemize,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),
@@ -454,7 +457,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             },
             tabs: List.generate(
               _itemizeCount,
-              (index) => Tab(text: "Itemize ${index + 1}"),
+              (index) => Tab(
+                  text:
+                      "${AppLocalizations.of(context)!.itemize} ${index + 1}"),
             ),
           ),
           const SizedBox(height: 10),
@@ -484,80 +489,107 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
   @override
   Widget build(BuildContext context) {
-    return
-        // ignore: deprecated_member_use
-        WillPopScope(
-            onWillPop: () async {
-              controller.clearFormFields();
-
-              return true; // allow back navigation
-            },
-            child: Scaffold(
-              appBar: AppBar(
-                  title: const Text(
-                "Cash Advance Request Form",
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                textAlign: TextAlign.center,
-              )),
-              body: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildProgressBar(),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        expenseCreationFormStep1(context),
-                        _buildItemizePage(),
-                        CreateExpensePage(
-                            allowDocAttachments: allowDocAttachments)
-                      ],
-                    ),
-                  ),
-                ],
+    return WillPopScope(
+        onWillPop: () async {
+          final shouldExit = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Exit Form'),
+              content: const Text(
+                'You will lose any unsaved data. Do you want to exit?',
               ),
-              bottomNavigationBar: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(false), // Stay here
+                  child: const Text('No'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(true), // Confirm exit
+                  child: const Text(
+                    'Yes',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldExit ?? false) {
+            controller.clearFormFields();
+            // ignore: use_build_context_synchronously
+            Navigator.of(context).pop();
+            return true; // allow back navigation
+          }
+
+          return false; // cancel back navigation
+        },
+        child: Scaffold(
+          appBar: AppBar(
+              title: Text(
+            AppLocalizations.of(context)!.cashAdvanceRequestForm,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            textAlign: TextAlign.center,
+          )),
+          body: Column(
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildProgressBar(),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    if (_currentStep == 2)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _currentStep--;
-                            _pageController.animateToPage(
-                              _currentStep,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.grey),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        label: const Text(
-                          'Back',
-                          style: TextStyle(color: Colors.black),
-                        ),
-                      )
-                    else
-                      const SizedBox(), // Empty space if back is not shown
+                    expenseCreationFormStep1(context),
+                    _buildItemizePage(),
+                    CreateExpensePage(allowDocAttachments: allowDocAttachments)
                   ],
                 ),
               ),
-            ));
+            ],
+          ),
+          bottomNavigationBar: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                if (_currentStep == 2)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _currentStep--;
+                        _pageController.animateToPage(
+                          _currentStep,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.grey),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    label: Text(
+                      AppLocalizations.of(context)!.back,
+                    ),
+                  )
+                else
+                  const SizedBox(), // Empty space if back is not shown
+              ],
+            ),
+          ),
+        ));
   }
 
   Widget expenseCreateForm2(BuildContext context, Controller controller) {
+    final theme = Theme.of(context);
     // Use the provided controller parameter consistently
     controller.selectedunit = controllerItems.selectedunit;
     controller.selectedDate = controllerItems.selectedDate;
@@ -616,8 +648,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SearchableMultiColumnDropdownField<Project>(
-                    labelText: '$label ${isMandatory ? "*" : ""}',
-                    columnHeaders: const ['Project Name', 'Project Id'],
+                    labelText:
+                        '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.projectName,
+                      AppLocalizations.of(context)!.projectId
+                    ],
                     // enabled: controller.isEditModePerdiem,
                     controller: controller.projectIdController,
                     items: controllerItems.project,
@@ -648,7 +684,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             children: [
                               TextSpan(
                                 text: text.substring(0, start),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(start, end),
@@ -659,7 +694,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -709,8 +743,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SearchableMultiColumnDropdownField<LocationModel>(
-                    labelText: '$label ${isMandatory ? "*" : ""}',
-                    columnHeaders: const ['Location', 'Country'],
+                    labelText:
+                        '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.location,
+                      AppLocalizations.of(context)!.country
+                    ],
                     // enabled: controller.isEditModePerdiem,
                     controller: controller.locationController,
                     items: controllerItems.location,
@@ -718,7 +756,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     searchValue: (loc) => loc.location,
                     displayText: (loc) => loc.location,
                     validator: (loc) => isMandatory && loc == null
-                        ? 'Please select a Location'
+                        ? AppLocalizations.of(context)!.pleaseSelectLocation
                         : null,
                     onChanged: (loc) {
                       controller.selectedLocation = loc;
@@ -813,7 +851,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             children: [
                               TextSpan(
                                 text: text.substring(0, start),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(start, end),
@@ -824,7 +861,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -844,11 +880,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     },
                   ),
                   if (_showLocationError)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Please select a Location',
-                        style: TextStyle(color: Colors.red, fontSize: 12),
+                        AppLocalizations.of(context)!.pleaseSelectLocation,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -858,15 +894,15 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
           );
         }),
 
-        const SizedBox(height: 16),
-        const Text("Paid For *"),
-        const SizedBox(height: 20),
+        const SizedBox(height: 6),
+        Text("${AppLocalizations.of(context)!.paidFor} *"),
+        const SizedBox(height: 1),
         if (_showPaidForError)
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Please select a category',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              AppLocalizations.of(context)!.pleaseSelectCategory,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
         const SizedBox(height: 20),
@@ -902,18 +938,17 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         const SizedBox(height: 16),
         TextField(
           controller: controller.requestedPercentage,
-          style: const TextStyle(color: Colors.black),
           decoration: InputDecoration(
-            labelText: "Requested Percentage %",
+            labelText: "${AppLocalizations.of(context)!.requestedPercentage} %",
             enabled: false,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            // enabledBorder: OutlineInputBorder(
+            //   borderRadius: BorderRadius.circular(10),
+            // ),
             focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: Colors.black, width: 2),
+              borderSide: const BorderSide(width: 2),
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -950,17 +985,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         children: [
                           TextSpan(
                             text: text.substring(0, start),
-                            style: const TextStyle(color: Colors.black),
                           ),
                           TextSpan(
                             text: text.substring(start, end),
-                            style: const TextStyle(
-                              color: Colors.black,
-                            ),
+                            style: const TextStyle(),
                           ),
                           TextSpan(
                             text: text.substring(end),
-                            style: const TextStyle(color: Colors.black),
                           ),
                         ],
                       ),
@@ -987,9 +1018,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       child: TextField(
                     keyboardType: TextInputType.number,
                     controller: controller.unitAmount,
-                    style: const TextStyle(color: Colors.black),
                     onChanged: (value) {
-                      controllerItems.fetchExchangeRate();
+                      // controllerItems.fetchExchangeRateCA();
                       controllerItems.unitAmount.text = value;
                       setState(() {
                         controller.unitAmount.text = value;
@@ -1087,19 +1117,19 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: "Unit Estimated Amount *",
+                      labelText:
+                          "${AppLocalizations.of(context)!.unitEstimatedAmount}*",
                       errorText: _showUnitAmountError
-                          ? 'Unit Amount is required'
+                          ? AppLocalizations.of(context)!.unitAmountIsRequired
                           : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      // enabledBorder: OutlineInputBorder(
+                      //   borderRadius: BorderRadius.circular(10),
+                      // ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: Colors.black, width: 2),
+                        borderSide: const BorderSide(width: 2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -1111,7 +1141,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       controller: controller.quantity,
-                      style: const TextStyle(color: Colors.black),
                       onChanged: (value) {
                         setState(() {
                           controller.quantity.text = value;
@@ -1203,18 +1232,18 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         });
                       },
                       decoration: InputDecoration(
-                        labelText: "Quantity*",
-                        errorText:
-                            _showQuantityError ? 'Quantity is required' : null,
+                        labelText: "${AppLocalizations.of(context)!.quantity}*",
+                        errorText: _showQuantityError
+                            ? AppLocalizations.of(context)!.quantityRequired
+                            : null,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        // enabledBorder: OutlineInputBorder(
+                        //   borderRadius: BorderRadius.circular(10),
+                        // ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              const BorderSide(color: Colors.black, width: 2),
+                          borderSide: const BorderSide(width: 2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -1423,10 +1452,14 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             width: 90,
                             child: SearchableMultiColumnDropdownField<Currency>(
                               enabled: !showItemizeDetails,
-                              labelText: "",
+                              labelText: AppLocalizations.of(context)!.currency,
                               alignLeft: -90,
                               dropdownWidth: 280,
-                              columnHeaders: const ['Code', 'Name', 'Symbol'],
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.code,
+                                AppLocalizations.of(context)!.name,
+                                AppLocalizations.of(context)!.symbol
+                              ],
                               controller:
                                   controller.currencyDropDowncontrollerCA3,
                               items: controllerItems.currencies,
@@ -1440,7 +1473,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 suffixIcon:
                                     Icon(Icons.arrow_drop_down_outlined),
                                 filled: true,
-                                fillColor: Color(0xFFF7F7F7),
+
                                 isDense: true,
                                 // contentPadding: EdgeInsets.symmetric(
                                 //     horizontal: 8, vertical: 8),
@@ -1630,10 +1663,14 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           () => SizedBox(
                             width: 90,
                             child: SearchableMultiColumnDropdownField<Currency>(
-                              labelText: "",
+                              labelText: AppLocalizations.of(context)!.currency,
                               alignLeft: -90,
                               dropdownWidth: 280,
-                              columnHeaders: const ['Code', 'Name', 'Symbol'],
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.code,
+                                AppLocalizations.of(context)!.name,
+                                AppLocalizations.of(context)!.symbol
+                              ],
                               controller:
                                   controller.currencyDropDowncontrollerCA2,
                               items: controllerItems.currencies,
@@ -1648,7 +1685,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 suffixIcon:
                                     Icon(Icons.arrow_drop_down_outlined),
                                 filled: true,
-                                fillColor: Color(0xFFF7F7F7),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.only(
                                     topRight: Radius.circular(10),
@@ -1737,17 +1773,16 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             const SizedBox(height: 16),
             TextField(
               controller: controller.descriptionController,
-              style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
-                labelText: "Comments",
+                labelText: AppLocalizations.of(context)!.comments,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                // enabledBorder: OutlineInputBorder(
+                //   borderRadius: BorderRadius.circular(10),
+                // ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.black, width: 2),
+                  borderSide: const BorderSide(width: 2),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -1767,24 +1802,24 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     ),
                     icon: const Icon(Icons.delete,
                         color: Color.fromARGB(255, 233, 8, 8)),
-                    label: const Text(
-                      "Remove",
-                      style: TextStyle(color: AppColors.gradientEnd),
+                    label: Text(
+                      AppLocalizations.of(context)!.remove,
+                      style: const TextStyle(color: AppColors.gradientEnd),
                     ),
                   ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: _addItemize,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.gradientEnd),
+                    backgroundColor: theme.colorScheme.onPrimary,
+                    side: BorderSide(color: theme.colorScheme.onPrimary),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.add, color: AppColors.gradientEnd),
-                  label: const Text(
-                    'Itemize',
-                    style: TextStyle(color: AppColors.gradientEnd),
+                  icon: const Icon(Icons.add),
+                  label: Text(
+                    AppLocalizations.of(context)!.itemize,
                   ),
                 ),
               ],
@@ -1811,10 +1846,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      label: const Text(
-                        'Back',
-                        style: TextStyle(color: Colors.black),
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(
+                        AppLocalizations.of(context)!.back,
                       ),
                     )
                   else
@@ -1891,7 +1925,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       ),
                     ),
                     child: Text(
-                      _currentStep == 2 ? 'Finish' : 'Next',
+                      _currentStep == 2
+                          ? AppLocalizations.of(context)!.finish
+                          : AppLocalizations.of(context)!.next,
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -2078,7 +2114,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(18),
-          border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
+          border: isSelected ? Border.all(width: 3) : null,
         ),
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -2088,10 +2124,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             const SizedBox(height: 8),
             Text(
               item.categoryId,
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             )
           ],
@@ -2116,11 +2149,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            // enabledBorder: OutlineInputBorder(
+            //   borderRadius: BorderRadius.circular(10),
+            // ),
             focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: Colors.black, width: 2),
+              borderSide: const BorderSide(width: 2),
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -2133,7 +2166,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     return Scaffold(
       body: Obx(() {
         return controller.isLoadingGE2.value
-            ? SkeletonLoaderPage()
+            ? const SkeletonLoaderPage()
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
@@ -2156,7 +2189,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               Obx(() {
                                 return showField.value
                                     ? _buildTextField(
-                                        label: "Cash Advance Requisition ID *",
+                                        label:
+                                            "${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *",
                                         controller:
                                             controller.expenseIdController,
                                         isReadOnly: true,
@@ -2194,11 +2228,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                             ? 'Select date'
                                             : DateFormat('dd/MM/yyyy').format(
                                                 controller.selectedDate!),
-                                        style: TextStyle(
-                                          color: controller.selectedDate == null
-                                              ? Colors.grey
-                                              : Colors.black,
-                                        ),
                                       ),
                                       const Icon(Icons.calendar_today,
                                           size: 20),
@@ -2248,7 +2277,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                           },
                                           decoration: InputDecoration(
                                               labelText:
-                                                  '$label${isMandatory ? " *" : ""}',
+                                                  '${AppLocalizations.of(context)!.referenceId}${isMandatory ? " *" : ""}',
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(10),
@@ -2313,19 +2342,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                     children: [
                                       TextSpan(
                                         text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                       TextSpan(
                                         text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                        ),
+                                        style: const TextStyle(),
                                       ),
                                       TextSpan(
                                         text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                     ],
                                   ),
@@ -2357,7 +2380,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         ],
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       const Text(
                         'Paid With',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -2366,13 +2389,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
                       // Paid With Radio Buttons
                       Obx(() {
-                        if (controller.paidWith == null &&
-                            controller.paymentMethods.isNotEmpty) {
-                          controller.paidWith =
-                              controller.paymentMethods.first.paymentMethodId;
-                          controller.paymentMethodeID =
-                              controller.paymentMethods.first.paymentMethodId;
-                        }
+                        // if (controller.paidWith == null &&
+                        //     controller.paymentMethods.isNotEmpty) {
+                        //   controller.paidWith =
+                        //       controller.paymentMethods.first.paymentMethodId;
+                        //   controller.paymentMethodeID =
+                        //       controller.paymentMethods.first.paymentMethodId;
+                        // }
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2396,54 +2419,93 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               ];
 
                               return Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: colors[index % colors.length],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                    width: 1,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  decoration: BoxDecoration(
+                                    color: colors[index % colors.length],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                      width: 1,
+                                    ),
                                   ),
-                                ),
-                                child: RadioListTile<String>(
-                                  title: Row(
-                                    children: [
-                                      Icon(icons[index % icons.length],
-                                          color: Colors.black),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          method.paymentMethodName,
-                                          style: const TextStyle(
-                                              color: Colors.black),
+                                  child: RadioListTile<String>(
+                                    title: Row(
+                                      children: [
+                                        Icon(icons[index % icons.length],
+                                            color: Colors.black),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            method.paymentMethodName,
+                                            style: const TextStyle(
+                                                color: Colors.black),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  value: method.paymentMethodId,
-                                  groupValue: controller.paidWith,
-                                  onChanged: (String? value) {
-                                    controller.paymentMethodeID = value;
-                                    controller.paidWithController.text = value!;
-                                    setState(() {
-                                      controller.paidWith = value;
-                                    });
-                                    // paidwithError.value =
-                                    //     null; // Clear error on selection
-                                  },
-                                  contentPadding: EdgeInsets.zero,
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  tileColor: Colors.transparent,
-                                ),
-                              );
+                                      ],
+                                    ),
+                                    value: method.paymentMethodId,
+                                    groupValue:
+                                        controller.paidWithCashAdvance.value,
+                                    onChanged: (String? value) {
+                                      // print(value);
+                                      // loadAndAppendCashAdvanceList();
+                                      setState(() {
+                                        if (controller
+                                                .paidWithCashAdvance.value ==
+                                            value) {
+                                          // Unselect if same item clicked
+                                          controller.paidWithCashAdvance.value =
+                                              null;
+                                          controller.paymentMethodeIDCashAdvance
+                                              .value = null;
+                                        } else {
+                                          controller.paidWithCashAdvance.value =
+                                              value;
+                                          controller.paymentMethodeIDCashAdvance
+                                              .value = value;
+                                        }
+                                      });
+                                    },
+                                    contentPadding: EdgeInsets.zero,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                    tileColor: Colors.transparent,
+                                  ));
                             }),
 
                             // Error message below the list
                             const SizedBox(height: 8),
-
+                            // Small red button to clear selection
+                            if (controller.paidWithCashAdvance.value != null &&
+                                controller
+                                    .paidWithCashAdvance.value!.isNotEmpty)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    controller.paidWithCashAdvance.value = "";
+                                    controller
+                                        .paymentMethodeIDCashAdvance.value = "";
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    minimumSize:
+                                        const Size(60, 30), // Small size
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.clear,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 12),
+                                  ),
+                                ),
+                              ),
                             // if (paidwithError.value != null)
                             //   Padding(
                             //     padding:
@@ -2508,9 +2570,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 ),
                                 icon: const Icon(Icons.arrow_back,
                                     color: Colors.black),
-                                label: const Text(
-                                  'Back',
-                                  style: TextStyle(color: Colors.black),
+                                label: Text(
+                                  AppLocalizations.of(context)!.back,
                                 ),
                               )
                             else
@@ -2547,7 +2608,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 ),
                               ),
                               child: Text(
-                                _currentStep == 2 ? 'Finish' : 'Next',
+                                _currentStep == 2
+                                    ? AppLocalizations.of(context)!.finish
+                                    : AppLocalizations.of(context)!.next,
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -2701,19 +2764,19 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 right: 10,
                 child: Column(
                   children: [
-                    FloatingActionButton.small(
-                      heroTag: "zoom_in_$index",
-                      onPressed: _zoomIn,
-                      child: const Icon(Icons.zoom_in),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "zoom_out_$index",
-                      onPressed: _zoomOut,
-                      child: const Icon(Icons.zoom_out),
-                      backgroundColor: Colors.deepPurple,
-                    ),
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_in_$index",
+                    //   onPressed: _zoomIn,
+                    //   child: const Icon(Icons.zoom_in),
+                    //   backgroundColor: Colors.deepPurple,
+                    // ),
+                    // const SizedBox(height: 8),
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_out_$index",
+                    //   onPressed: _zoomOut,
+                    //   child: const Icon(Icons.zoom_out),
+                    //   backgroundColor: Colors.deepPurple,
+                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
@@ -2744,10 +2807,14 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   Widget _buildImageArea() {
+    final loc = AppLocalizations.of(context)!;
+
+    final PageController _pageController =
+        PageController(initialPage: controller.currentIndex.value);
     @override
     void initState() {
       super.initState();
-      controller.isLoading.value = false;
+
       if (controller.paidAmount.text.isNotEmpty) {
         // final amount = double.tryParse(controller.paidAmount.text) ?? 0.0;
         // final unit = double.tryParse(controller.unitRate.text) ?? 0.0;
@@ -2761,42 +2828,110 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: () => _pickImage(ImageSource.gallery),
+          onTap: () => {
+            if (controller.imageFiles.isEmpty) {_pickImage(ImageSource.gallery)}
+          },
           child: Container(
-            height: 200,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Obx(() {
-              if (controller.imageFiles.isEmpty) {
-                return const Center(child: Text('Tap to Upload Document(s)'));
-              } else {
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: controller.imageFiles.length,
-                  itemBuilder: (context, index) {
-                    final file = controller.imageFiles[index];
-                    return GestureDetector(
-                      onTap: () => _showFullImage(file, index),
-                      child: Container(
-                        margin: const EdgeInsets.all(8),
-                        width: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.deepPurple),
-                          borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: FileImage(file),
-                            fit: BoxFit.cover,
-                          ),
+              width: MediaQuery.of(context).size.width *
+                  0.9, // 90% of screen width
+              height: MediaQuery.of(context).size.height *
+                  0.3, // 30% of screen height
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.grey, // border color
+                  width: 2, // border thickness
+                ),
+                borderRadius:
+                    BorderRadius.circular(12), // optional rounded corners
+              ),
+              child: Obx(() {
+                if (controller.imageFiles.isEmpty) {
+                  return Center(
+                    child: Text(loc.tapToUploadDocs),
+                  );
+                } else {
+                  return Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: controller.imageFiles.length,
+                        onPageChanged: (index) {
+                          controller.currentIndex.value = index;
+                        },
+                        itemBuilder: (_, index) {
+                          final file = controller.imageFiles[index];
+                          return GestureDetector(
+                            onTap: () => _showFullImage(file, index),
+                            child: Container(
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.all(8),
+                              width: 100,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.deepPurple),
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: FileImage(file),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Positioned(
+                        bottom: 40,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Obx(() => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 18),
+                                ),
+                              )),
                         ),
                       ),
-                    );
-                  },
-                );
-              }
-            }),
-          ),
+                      // Positioned(
+                      //   top: 40,
+                      //   right: 20,
+                      //   child: IconButton(
+                      //     icon: const Icon(Icons.close,
+                      //         color: Colors.white),
+                      //     onPressed: () =>
+                      //         Navigator.pop(context),
+                      //   ),
+                      // ),
+                      // Positioned(
+                      //   bottom: 16,
+                      //   right: 16,
+                      //   child: GestureDetector(
+                      //     onTap: () => _pickImage(ImageSource.gallery),
+                      //     child: Container(
+                      //       decoration: BoxDecoration(
+                      //         color: Colors.deepPurple,
+                      //         shape: BoxShape.circle,
+                      //         border: Border.all(color: Colors.white, width: 2),
+                      //       ),
+                      //       padding: const EdgeInsets.all(8),
+                      //       child: const Icon(
+                      //         Icons.add,
+                      //         color: Colors.white,
+                      //         size: 28,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
+                  );
+                }
+              })),
         ),
       ],
     );
@@ -2849,13 +2984,13 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 children: [
                   ElevatedButton.icon(
                     icon: const Icon(Icons.upload_file),
-                    label: const Text("Upload"),
+                    label: Text(AppLocalizations.of(context)!.upload),
                     onPressed: () => _pickImage(ImageSource.gallery),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.camera_alt),
-                    label: const Text("Capture"),
+                    label: Text(AppLocalizations.of(context)!.capture),
                     onPressed: () => _pickImage(ImageSource.camera),
                   ),
                 ],
@@ -2888,17 +3023,17 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     ),
                   ),
                 ),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Policy Violations',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      AppLocalizations.of(context)!.policyViolations,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     Text(
-                      'Check Policies',
-                      style: TextStyle(color: Colors.blue),
+                      AppLocalizations.of(context)!.checkPolicies,
+                      style: const TextStyle(color: Colors.blue),
                     ),
                   ],
                 ),
@@ -2909,58 +3044,60 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Policy 1001',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        AppLocalizations.of(context)!.policy1001,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
-                          Icon(Icons.check, color: Colors.green),
-                          SizedBox(width: 8),
-                          Expanded(child: Text("Expense Amount Under Limit")),
+                          const Icon(Icons.check, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: Text(AppLocalizations.of(context)!
+                                  .expenseAmountUnderLimit)),
                         ],
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.check, color: Colors.green),
-                          SizedBox(width: 8),
+                          const Icon(Icons.check, color: Colors.green),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "Receipt Required Amount :Amount  in any expense\nRecorded Should have a receipt",
+                              AppLocalizations.of(context)!
+                                  .receiptRequiredAmount,
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.close, color: Colors.red),
-                          SizedBox(width: 8),
+                          const Icon(Icons.close, color: Colors.red),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "if description has been made mandatory by the Admin for all expense",
-                              style: TextStyle(color: Colors.red),
+                              AppLocalizations.of(context)!
+                                  .descriptionMandatory,
+                              style: const TextStyle(color: Colors.red),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.orange),
-                          SizedBox(width: 8),
+                          const Icon(Icons.error_outline, color: Colors.orange),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "An expense that has expired is Considered a Policy",
-                              style: TextStyle(color: Colors.black87),
+                              AppLocalizations.of(context)!.expiredPolicy,
                             ),
                           ),
                         ],
@@ -2976,7 +3113,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     children: [
                       Obx(() {
                         return GradientButton(
-                          text: "Submit",
+                          text: AppLocalizations.of(context)!.submit,
                           isLoading: controller.isGESubmitBTNLoading.value,
                           onPressed: () {
                             controller.saveCashAdvance(
@@ -3033,7 +3170,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                     },
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(130, 50),
-                                backgroundColor: Color.fromARGB(241, 20, 94, 2),
+                                backgroundColor:
+                                    const Color.fromARGB(241, 20, 94, 2),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 24, vertical: 12),
@@ -3054,7 +3192,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text("Save"),
+                                  : Text(AppLocalizations.of(context)!.save),
                             );
                           }),
                           const SizedBox(width: 10),
@@ -3069,11 +3207,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             onPressed: () {
                               controller.chancelButton(context);
                             },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
                                   horizontal: 24, vertical: 12),
-                              child: Text("Cancel",
-                                  style: TextStyle(
+                              child: Text(AppLocalizations.of(context)!.cancel,
+                                  style: const TextStyle(
                                       letterSpacing: 1.5, color: Colors.white)),
                             ),
                           ),

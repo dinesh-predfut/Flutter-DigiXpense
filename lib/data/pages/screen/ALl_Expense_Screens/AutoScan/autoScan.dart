@@ -1,13 +1,21 @@
 import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
 import 'package:digi_xpense/core/comman/widgets/button.dart';
 import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
+import 'package:digi_xpense/core/constant/Parames/colors.dart';
 import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:photo_view/photo_view.dart';
+
+import '../../../../../l10n/app_localizations.dart';
 
 class AutoScanExpensePage extends StatefulWidget {
   final File imageFile;
@@ -29,9 +37,12 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   final controller = Get.put(Controller());
   final controllerItems = Get.put(Controller());
   bool _isItemized = false;
+  bool _isSubmitAttempted = false;
   bool _isReimbursable = true;
   bool _isBillable = false;
 
+  late PageController _pageController;
+  bool allowMultSelect = false;
   final TextEditingController receiptDateController = TextEditingController();
   final TextEditingController merchantController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
@@ -44,7 +55,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   final TextEditingController totalInINRController = TextEditingController();
 
   final List<ItemizeSection> itemizeSections = [];
-
+  final PhotoViewController _photoViewController = PhotoViewController();
   @override
   void initState() {
     super.initState();
@@ -55,7 +66,8 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     controller.fetchProjectName();
     controller.fetchTaxGroup();
     controller.fetchUnit();
-
+    _pageController =
+        PageController(initialPage: controller.currentIndex.value);
     controller.getUserPref();
     controller.fetchExpenseCategory();
     controller.configuration();
@@ -88,10 +100,11 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   void _initializeFormFromApiResponse() {
     final date = DateTime.fromMillisecondsSinceEpoch(
         widget.apiResponse['ReceiptDate'] ?? 0);
-    receiptDateController.text = DateFormat('yyyy-MM-dd').format(date);
+    receiptDateController.text = DateFormat('dd-MMM-yyyy').format(date);
     controller.selectedDate = date;
-
-    merchantController.text = widget.apiResponse['Merchant'] ?? '';
+    controller.isManualEntryMerchant = true;
+    controller.manualPaidToController.text =
+        widget.apiResponse['Merchant'] ?? '';
     referenceController.text = widget.apiResponse['ReferenceNumber'] ?? '';
     controller.paidAmount.text =
         (widget.apiResponse['TotalAmount'] ?? 0).toString();
@@ -167,19 +180,20 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       print("Form is valid");
     } else {
       print("Form is invalid");
+      return;
     }
 
     controller.taxAmount.text = taxAmountController.text;
     controller.descriptionController.text = descriptionController.text;
     controller.rememberMe = _isReimbursable;
     controller.isBillable.value = _isBillable;
-    controller.referenceController.text = referenceController.text;
+    controller.referenceID.text = referenceController.text;
     controller.receiptDateController.text = receiptDateController.text;
-
-    if (widget.imageFile.existsSync()) {
-      controller.imageFiles.add(widget.imageFile);
-    }
-
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   if (widget.imageFile.existsSync()) {
+    //     controller.imageFiles.add(widget.imageFile);
+    //   }
+    // });
     List<AccountingDistribution> distributions = [];
     controller.finalItems.clear();
 
@@ -195,6 +209,11 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
           ),
         );
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (widget.imageFile.existsSync()) {
+          controller.imageFiles.add(widget.imageFile);
+        }
+      });
       controller.finalItems.add(
         ExpenseItem(
           expenseCategoryId: item.categoryController.text.trim(),
@@ -220,28 +239,191 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     controller.saveGeneralExpense(context, bool, false);
   }
 
-  @override
-  void dispose() {
-    receiptDateController.dispose();
-    merchantController.dispose();
-    referenceController.dispose();
-    controller.paidAmount.dispose();
-    taxAmountController.dispose();
-    descriptionController.dispose();
-    paymentMethodController.dispose();
-    currencyController.dispose();
-    cashAdvanceController.dispose();
-    commentsController.dispose();
-    totalInINRController.dispose();
-    super.dispose();
+  // @override
+  // void dispose() {
+  //   receiptDateController.dispose();
+  //   merchantController.dispose();
+  //   referenceController.dispose();
+  //   controller.paidAmount.dispose();
+  //   taxAmountController.dispose();
+  //   descriptionController.dispose();
+  //   paymentMethodController.dispose();
+  //   currencyController.dispose();
+  //   cashAdvanceController.dispose();
+  //   commentsController.dispose();
+  //   totalInINRController.dispose();
+  //   super.dispose();
+  // }
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+
+    try {
+      controller.isImageLoading.value = true;
+
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        final croppedFile = await _cropImage(File(pickedFile.path));
+        if (croppedFile != null) {
+          setState(() {
+            controller.imageFiles.add(File(croppedFile.path));
+          });
+        }
+      }
+    } catch (e) {
+      print("Error picking or cropping image: $e");
+      Fluttertoast.showToast(
+        msg: "Failed to upload image",
+        backgroundColor: Colors.red,
+      );
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<File?> _cropImage(File file) async {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      aspectRatioPresets: [
+        CropAspectRatioPreset.original,
+        CropAspectRatioPreset.square,
+      ],
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Colors.deepPurple,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: false,
+        ),
+        IOSUiSettings(
+          title: 'Crop Image',
+        )
+      ],
+    );
+
+    if (croppedFile != null) {
+      final croppedImage = File(croppedFile.path);
+      // ignore: use_build_context_synchronously
+      await controller.sendUploadedFileToServer(context, croppedImage);
+
+      // Navigator.pushNamed(
+      //   context,
+      //   AppRoutes.autoScan,
+      //   arguments: croppedImage,
+      // );
+    }
+
+    return null;
+  }
+
+  void _zoomIn() {
+    _photoViewController.scale = _photoViewController.scale! * 1.2;
+  }
+
+  void _zoomOut() {
+    final currentScale =
+        _photoViewController.scale ?? 1.0; // default scale if null
+    _photoViewController.scale = currentScale / 1.2;
+  }
+
+  void _deleteImage() {
+    setState(() {
+      controller.imageFile = null;
+    });
+  }
+
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              PhotoView(
+                imageProvider: FileImage(file),
+                backgroundDecoration: const BoxDecoration(color: Colors.black),
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 3.0,
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Column(
+                  children: [
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_in_$index",
+                    //   onPressed: _zoomIn,
+                    //   backgroundColor: Colors.deepPurple,
+                    //   child: const Icon(Icons.zoom_in),
+                    // ),
+                    // const SizedBox(height: 8),
+                    // FloatingActionButton.small(
+                    //   heroTag: "zoom_out_$index",
+                    //   onPressed: _zoomOut,
+                    //   backgroundColor: Colors.deepPurple,
+                    //   child: const Icon(Icons.zoom_out),
+                    // ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "edit_$index",
+                      onPressed: () => _cropImage(file),
+                      child: const Icon(Icons.edit),
+                      backgroundColor: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {
+                          controller.imageFiles.removeAt(index);
+                        });
+                      },
+                      child: const Icon(Icons.delete),
+                      backgroundColor: Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
         onWillPop: () async {
-          controller.clearFormFields();
-          return true;
+          // Show a confirmation dialog
+          final shouldExit = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Exit Form'),
+              content: const Text(
+                  'You will lose any unsaved data. Do you want to exit?'),
+              actions: [
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(false), // Stay here
+                  child: const Text('No'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(true), // Confirm exit
+                  child: const Text('Yes'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldExit ?? false) {
+            controller.clearFormFields(); // ✅ Clear only if user confirms
+            return true; // Allow navigation (pop)
+          }
+
+          return false; // Cancel navigation
         },
         child: Scaffold(
           appBar: AppBar(
@@ -252,25 +434,115 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(children: [
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Image.file(
-                    widget.imageFile,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                  ),
-                ),
+                Obx(() {
+                  return GestureDetector(
+                    onTap: () => _pickImage(ImageSource.gallery),
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      height: MediaQuery.of(context).size.height * 0.3,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.grey,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: controller.imageFiles.isEmpty
+                          ? Center(
+                              child: Text(AppLocalizations.of(context)!
+                                  .tapToUploadDocs),
+                            )
+                          : Stack(
+                              children: [
+                                PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: controller.imageFiles.length,
+                                  onPageChanged: (index) {
+                                    setState(() {
+                                      controller.currentIndex.value = index;
+                                    });
+                                  },
+                                  itemBuilder: (_, index) {
+                                    final file = controller.imageFiles[index];
+                                    return GestureDetector(
+                                      onTap: () => _showFullImage(file, index),
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        margin: const EdgeInsets.all(8),
+                                        width: 100,
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: Colors.deepPurple),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          image: DecorationImage(
+                                            image: FileImage(file),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Positioned(
+                                  bottom: 40,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: Obx(() => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 8, horizontal: 16),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.black.withOpacity(0.5),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18),
+                                          ),
+                                        )),
+                                  ),
+                                ),
+                                if (controller.isEnable.value)
+                                  Positioned(
+                                    bottom: 16,
+                                    right: 16,
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          _pickImage(ImageSource.gallery),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: Colors.white, width: 2),
+                                        ),
+                                        padding: const EdgeInsets.all(8),
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  );
+                }),
                 const SizedBox(height: 20),
                 Column(
                   children: [
                     TextFormField(
                       controller: receiptDateController,
                       decoration: InputDecoration(
-                        labelText: 'Receipt Date *',
+                        labelText:
+                            '${AppLocalizations.of(context)!.receiptDate} *',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -301,122 +573,150 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              setState(() {
-                                controller.isManualEntryMerchant =
-                                    !controller.isManualEntryMerchant;
-                                if (controller.isManualEntryMerchant) {
-                                  controller.selectedPaidto = null;
-                                } else {
-                                  controller.manualPaidToController.clear();
-                                }
-                                // paidToError = null;
-                              });
-                            },
-                            child: Text(controller.isManualEntryMerchant
-                                ? 'Select from Merchant List'
-                                : "Can't find merchant? Enter manually"),
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // 👇 Conditional UI
-                        if (!controller.isManualEntryMerchant)
-                          SearchableMultiColumnDropdownField<MerchantModel>(
-                            labelText: 'Select Merchant',
-                            columnHeaders: const [
-                              'Merchant Name',
-                              'Merchant ID'
-                            ],
-                            items: controller.paidTo,
-                            selectedValue: controller.selectedPaidto,
-                            searchValue: (p) =>
-                                '${p.merchantNames} ${p.merchantId}',
-                            displayText: (p) => p.merchantNames,
-                            validator: (_) => null,
-                            onChanged: (p) {
-                              setState(() {
-                                controller.selectedPaidto = p;
-                                // paidToError = null;
-                              });
-                            },
-                            rowBuilder: (p, searchQuery) {
-                              Widget highlight(String text) {
-                                final lowerQuery = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(lowerQuery);
-
-                                if (start == -1 || searchQuery.isEmpty) {
-                                  return Text(text);
-                                }
-
-                                final end = start + searchQuery.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: highlight(p.merchantNames)),
-                                    Expanded(child: highlight(p.merchantId)),
-                                  ],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    controller.isManualEntryMerchant =
+                                        !controller.isManualEntryMerchant;
+                                    if (controller.isManualEntryMerchant) {
+                                      controller.selectedPaidto = null;
+                                    } else {
+                                      controller.manualPaidToController.clear();
+                                    }
+                                  });
+                                },
+                                // 🔥 disables the toggle button if not enabled
+                                child: Text(
+                                  controller.isManualEntryMerchant
+                                      ? AppLocalizations.of(context)!
+                                          .selectFromMerchantList
+                                      : AppLocalizations.of(context)!
+                                          .enterMerchantManually,
                                 ),
-                              );
-                            },
-                          )
-                        else
-                          TextFormField(
-                            controller: controller.manualPaidToController,
-                            decoration: InputDecoration(
-                              labelText: 'Enter Merchant Name',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            onChanged: (val) {
-                              setState(() {
-                                // paidToError = null;
-                              });
-                            },
-                          ),
+                            const SizedBox(height: 8),
+                            if (!controller.isManualEntryMerchant) ...[
+                              SearchableMultiColumnDropdownField<MerchantModel>(
+                                labelText: AppLocalizations.of(context)!
+                                    .selectMerchant,
+                                columnHeaders: [
+                                  AppLocalizations.of(context)!.merchantName,
+                                  AppLocalizations.of(context)!.merchantId
+                                ],
+                                items: controller.paidTo,
+                                selectedValue: controller.selectedPaidto,
+                                searchValue: (p) =>
+                                    '${p.merchantNames} ${p.merchantId}',
+                                displayText: (p) => p.merchantNames,
+                                validator: (value) {
+                                  print("validator$value");
+                                  if (controller
+                                      .paidToController.text.isEmpty) {
+                                    return 'Please select a merchant';
+                                  }
+                                  return null;
+                                },
+                                onChanged: (p) {
+                                  setState(() {
+                                    controller.selectedPaidto = p;
+                                    controller.paidToController.text =
+                                        p!.merchantId;
+                                  });
+                                },
+                                controller: controller.paidToController,
+                                rowBuilder: (p, searchQuery) {
+                                  Widget highlight(String text) {
+                                    final lowerQuery =
+                                        searchQuery.toLowerCase();
+                                    final lowerText = text.toLowerCase();
+                                    final start = lowerText.indexOf(lowerQuery);
+
+                                    if (start == -1 || searchQuery.isEmpty) {
+                                      return Text(text);
+                                    }
+
+                                    final end = start + searchQuery.length;
+                                    return RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: text.substring(0, start),
+                                          ),
+                                          TextSpan(
+                                            text: text.substring(start, end),
+                                          ),
+                                          TextSpan(
+                                            text: text.substring(end),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                            child: highlight(p.merchantNames)),
+                                        Expanded(
+                                            child: highlight(p.merchantId)),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ] else
+                              TextFormField(
+                                controller: controller.manualPaidToController,
+                                // 🔥 disables text field
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(context)!
+                                      .enterMerchantName,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter merchant name';
+                                  }
+                                  return null;
+                                },
+                                onChanged: (val) {
+                                  setState(() {});
+                                },
+                              ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         if (!_isItemized)
                           SearchableMultiColumnDropdownField<Project>(
-                            labelText: 'Project *',
-                            columnHeaders: const ['Project Name', 'Project ID'],
+                            labelText:
+                                '${AppLocalizations.of(context)!.projectName} *',
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.projectName,
+                              AppLocalizations.of(context)!.projectName
+                            ],
                             items: controller.project,
                             selectedValue: controller.selectedProject,
                             searchValue: (p) => '${p.name} ${p.code}',
                             displayText: (p) => p.code,
-                            validator: (value) =>
-                                value == null ? 'Please select Project' : null,
+                            validator: (value) {
+                              if (controller
+                                  .projectDropDowncontroller.text.isEmpty) {
+                                return AppLocalizations.of(context)!
+                                    .fieldRequired;
+                              }
+                              return null;
+                            },
                             onChanged: (p) {
                               setState(() {
                                 controller.selectedProject = p;
@@ -438,8 +738,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                     children: [
                                       TextSpan(
                                         text: text.substring(0, matchIndex),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                       TextSpan(
                                         text: text.substring(matchIndex, end),
@@ -450,8 +748,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                       ),
                                       TextSpan(
                                         text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                     ],
                                   ),
@@ -472,14 +768,23 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                           ),
                         if (!_isItemized) const SizedBox(height: 16),
                         SearchableMultiColumnDropdownField<PaymentMethodModel>(
-                          labelText: 'Paid With',
-                          columnHeaders: const ['Payment Name', 'Payment ID'],
+                          labelText: AppLocalizations.of(context)!.paidWith,
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.paymentName,
+                            AppLocalizations.of(context)!.paymentId
+                          ],
                           items: controller.paymentMethods,
                           selectedValue: controller.selectedPaidWith,
                           searchValue: (p) =>
                               '${p.paymentMethodName} ${p.paymentMethodId}',
                           displayText: (p) => p.paymentMethodName,
-                          validator: (_) => null,
+                          validator: (value) {
+                            if (controller.paymentMethodeID == null) {
+                              return AppLocalizations.of(context)!
+                                  .fieldRequired;
+                            }
+                            return null;
+                          },
                           onChanged: (p) {
                             setState(() {
                               controller.selectedPaidWith = p;
@@ -537,18 +842,24 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                         const SizedBox(height: 16),
                         if (!_isItemized)
                           SearchableMultiColumnDropdownField<ExpenseCategory>(
-                            labelText: 'Paid For *',
-                            columnHeaders: const [
-                              'Category Name',
-                              'Category ID'
+                            labelText:
+                                '${AppLocalizations.of(context)!.paidFor}*',
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.categoryName,
+                              AppLocalizations.of(context)!.categoryId
                             ],
                             items: controller.expenseCategory,
                             selectedValue: controller.selectedCategory,
                             searchValue: (p) =>
                                 '${p.categoryName} ${p.categoryId}',
                             displayText: (p) => p.categoryId,
-                            validator: (value) =>
-                                value == null ? 'Please select Category' : null,
+                            validator: (value) {
+                              if (controller.categoryController.text.isEmpty) {
+                                return AppLocalizations.of(context)!
+                                    .fieldRequired;
+                              }
+                              return null;
+                            },
                             onChanged: (p) {
                               setState(() {
                                 controller.selectedCategory = p;
@@ -570,8 +881,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                     children: [
                                       TextSpan(
                                         text: text.substring(0, matchIndex),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                       TextSpan(
                                         text: text.substring(matchIndex, end),
@@ -582,8 +891,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                       ),
                                       TextSpan(
                                         text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                     ],
                                   ),
@@ -606,10 +913,18 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                         TextFormField(
                           controller: referenceController,
                           decoration: InputDecoration(
-                            labelText: 'Reference *',
+                            labelText:
+                                '${AppLocalizations.of(context)!.referenceId}*',
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10)),
                           ),
+                          validator: (value) {
+                            if (referenceController.text.isEmpty) {
+                              return AppLocalizations.of(context)!
+                                  .fieldRequired;
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -634,9 +949,14 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                       result.toStringAsFixed(2);
                                 },
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Paid Amount *',
-                                  border: OutlineInputBorder(
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(
+                                      r'^\d*\.?\d*')), // Only digits and dots allowed
+                                ],
+                                decoration: InputDecoration(
+                                  labelText:
+                                      '${AppLocalizations.of(context)!.paidAmount} *',
+                                  border: const OutlineInputBorder(
                                     borderRadius: BorderRadius.only(
                                         topRight: Radius.circular(0),
                                         bottomRight: Radius.circular(0),
@@ -662,10 +982,10 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                       alignLeft: -90,
                                       dropdownWidth: 280,
                                       labelText: "",
-                                      columnHeaders: const [
-                                        'Code',
-                                        'Name',
-                                        'Symbol'
+                                      columnHeaders: [
+                                        AppLocalizations.of(context)!.code,
+                                        AppLocalizations.of(context)!.name,
+                                        AppLocalizations.of(context)!.symbol
                                       ],
                                       items: controller.currencies,
                                       selectedValue:
@@ -690,9 +1010,16 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                           ),
                                         ),
                                       ),
-                                      validator: (c) => c == null
-                                          ? 'Please pick a currency'
-                                          : null,
+                                      validator: (value) {
+                                        if (controller
+                                            .currencyDropDowncontroller
+                                            .text
+                                            .isEmpty) {
+                                          return AppLocalizations.of(context)!
+                                              .fieldRequired;
+                                        }
+                                        return null;
+                                      },
                                       onChanged: (c) {
                                         controller.selectedCurrency.value = c;
                                         controller.fetchExchangeRate();
@@ -764,11 +1091,20 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                 enabled: controller.isEnable.value,
                                 controller: controller.unitRate,
                                 decoration: InputDecoration(
-                                  labelText: 'Rate *',
+                                  labelText: AppLocalizations.of(context)!.rate,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter rate';
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return 'Please enter a valid number';
+                                  }
+                                  return null;
+                                },
                                 onChanged: (val) {
                                   // Fetch exchange rate if needed
                                   // controller.fetchExchangeRate();
@@ -797,16 +1133,17 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                         if (!_isItemized) const SizedBox(height: 16),
                         if (!_isItemized)
                           SearchableMultiColumnDropdownField<TaxGroupModel>(
-                            labelText: 'Tax Group *',
-                            columnHeaders: const ['Tax Group', 'Tax ID'],
+                            labelText:
+                                '${AppLocalizations.of(context)!.taxGroup} *',
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.taxGroup,
+                              AppLocalizations.of(context)!.taxId
+                            ],
                             items: controller.taxGroup,
                             selectedValue: controller.selectedTax,
                             searchValue: (tax) =>
                                 '${tax.taxGroup} ${tax.taxGroupId}',
                             displayText: (tax) => tax.taxGroupId,
-                            validator: (value) => value == null
-                                ? 'Please select Tax Group '
-                                : null,
                             onChanged: (tax) {
                               setState(() {
                                 controller.selectedTax = tax;
@@ -826,8 +1163,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                     children: [
                                       TextSpan(
                                         text: text.substring(0, start),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                       TextSpan(
                                         text: text.substring(start, end),
@@ -837,8 +1172,6 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                       ),
                                       TextSpan(
                                         text: text.substring(end),
-                                        style: const TextStyle(
-                                            color: Colors.black),
                                       ),
                                     ],
                                   ),
@@ -863,7 +1196,8 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                             controller: taxAmountController,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: 'Tax Amount',
+                              labelText:
+                                  AppLocalizations.of(context)!.taxAmount,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -874,7 +1208,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                           TextFormField(
                             controller: commentsController,
                             decoration: InputDecoration(
-                              labelText: "Comments",
+                              labelText: AppLocalizations.of(context)!.comments,
                               contentPadding: const EdgeInsets.symmetric(
                                   vertical: 20, horizontal: 16),
                               border: OutlineInputBorder(
@@ -882,61 +1216,210 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                               ),
                             ),
                           ),
-                        if (!_isItemized)
-                          Align(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _isItemized = true;
-                                  if (itemizeSections.isEmpty) {
-                                    _addItemizeSection();
-                                  }
-                                });
-                              },
-                              child: const Text('Add Itemize'),
-                            ),
-                          ),
                       ],
                     ),
                     if (_isItemized) _buildItemizedFields(),
-                    Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        Obx(() {
-                          return SizedBox(
-                            width: double.infinity,
-                            child: GradientButton(
-                              text: "Submit",
-                              isLoading: controller.buttonLoader.value,
-                              onPressed: () => _submitForm(true),
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
+                    Center(
+                      child: Column(
+                        children: [
+                          // 🚨 Submit Button
+                          Obx(() {
+                            bool isSubmitLoading =
+                                controller.buttonLoaders['submit'] ?? false;
+                            bool isSaveLoading =
+                                controller.buttonLoaders['save'] ?? false;
+                            bool isCancelLoading =
+                                controller.buttonLoaders['cancel'] ?? false;
+                            bool isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
+
+                            return SizedBox(
+                              width: 300,
+                              height: 48,
                               child: ElevatedButton(
-                                onPressed: () => _submitForm(false),
+                                onPressed: (isSubmitLoading ||
+                                        isSaveLoading ||
+                                        isCancelLoading ||
+                                        isAnyLoading)
+                                    ? null
+                                    : () async {
+                                        _isSubmitAttempted = true;
+                                        if (_formKey.currentState?.validate() ??
+                                            false) {
+                                          controller.setButtonLoading(
+                                              'submit', true);
+                                          try {
+                                            _submitForm(false);
+                                          } finally {
+                                            controller.setButtonLoading(
+                                                'submit', false);
+                                          }
+                                        } else {
+                                          setState(
+                                              () {}); // Refresh UI for inline errors
+                                        }
+                                      },
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF8E6EFF)),
-                                child: const Text("Save"),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  backgroundColor: AppColors.gradientEnd,
+                                ),
+                                child: isSubmitLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        AppLocalizations.of(context)!.submit,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () =>
-                                    controller.chancelButton(context),
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey),
-                                child: const Text("Cancel"),
+                            );
+                          }),
+
+                          const SizedBox(height: 20),
+
+                          // 💾 Save & Cancel Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                          false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
+                                  return ElevatedButton(
+                                      onPressed: (isSubmitLoading ||
+                                              isSaveLoading ||
+                                              isCancelLoading ||
+                                              isAnyLoading)
+                                          ? null
+                                          : () async {
+                                              _isSubmitAttempted = true;
+                                              if (_formKey.currentState
+                                                      ?.validate() ??
+                                                  false) {
+                                                controller.setButtonLoading(
+                                                    'save', true);
+                                                try {
+                                                  await controller
+                                                      .saveGeneralExpense(
+                                                          context,
+                                                          false,
+                                                          false);
+                                                } finally {
+                                                  controller.setButtonLoading(
+                                                      'save', false);
+                                                }
+                                              } else {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                        'Please fill all required fields.'),
+                                                    backgroundColor:
+                                                        Colors.redAccent,
+                                                  ),
+                                                );
+                                                setState(
+                                                    () {}); // Refresh UI for inline errors
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: const Size(130, 50),
+                                        backgroundColor: const Color.fromARGB(
+                                            241, 20, 94, 2),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: isSaveLoading
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : Text(AppLocalizations.of(context)!
+                                              .save));
+                                }),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Obx(() {
+                                  bool isSubmitLoading =
+                                      controller.buttonLoaders['submit'] ??
+                                          false;
+                                  bool isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  bool isCancelLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                          false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders.values
+                                      .any((loading) => loading);
+
+                                  return ElevatedButton(
+                                    onPressed: (isSubmitLoading ||
+                                            isSaveLoading ||
+                                            isCancelLoading ||
+                                            isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                                'cancel', true);
+                                            try {
+                                              controller.chancelButton(context);
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                  'cancel', false);
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      minimumSize: const Size(130, 50),
+                                      backgroundColor: Colors.grey,
+                                    ),
+                                    child: isCancelLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .cancel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
                   ],
                 ),
               ]),
@@ -956,9 +1439,9 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ExpansionTile(
               initiallyExpanded: true,
-              title: const Text(
-                'Itemized Expenses',
-                style: TextStyle(
+              title: Text(
+                AppLocalizations.of(context)!.itemize,
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   color: Colors.deepPurple,
@@ -982,12 +1465,13 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                           itemizeSections.indexOf(section)),
                       _updateTotalAmount);
                 }).toList(),
-                // Center(
-                //   child: ElevatedButton(
-                //     onPressed: _addItemizeSection,
-                //     child: const Text('Add Item'),
-                //   ),
-                // ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: _addItemizeSection,
+                    child: const Text('Add Item'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1094,7 +1578,7 @@ class ItemizeSection {
           dividerColor: Colors.transparent,
         ),
         child: ExpansionTile(
-          title: Text('Item $index'),
+          title: Text('${AppLocalizations.of(context)!.item} $index'),
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -1105,11 +1589,11 @@ class ItemizeSection {
                     onPressed: removeItemizeSection,
                     tooltip: 'Remove this item',
                   ),
-                IconButton(
-                  icon: const Icon(Icons.add, color: Colors.green),
-                  onPressed: addItemizeSection,
-                  tooltip: 'Add new item',
-                ),
+                // IconButton(
+                //   icon: const Icon(Icons.add, color: Colors.green),
+                //   onPressed: addItemizeSection,
+                //   tooltip: 'Add new item',
+                // ),
               ],
             ),
             Padding(
@@ -1117,14 +1601,21 @@ class ItemizeSection {
               child: Column(
                 children: [
                   SearchableMultiColumnDropdownField<Project>(
-                    labelText: 'Project *',
-                    columnHeaders: const ['Project Name', 'Project ID'],
+                    labelText: '${AppLocalizations.of(context)!.projectId} *',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.projectName,
+                      AppLocalizations.of(context)!.projectId
+                    ],
                     items: controller.project,
                     selectedValue: controller.selectedProject,
                     searchValue: (p) => '${p.name} ${p.code}',
                     displayText: (p) => p.code,
-                    validator: (value) =>
-                        value == null ? 'Please select Project' : null,
+                    validator: (value) {
+                      if (controller.projectDropDowncontroller.text.isEmpty) {
+                        return AppLocalizations.of(context)!.fieldRequired;
+                      }
+                      return null;
+                    },
                     onChanged: (p) {
                       controller.selectedProject = p;
                       controller.projectDropDowncontroller.text = p!.code;
@@ -1145,7 +1636,6 @@ class ItemizeSection {
                             children: [
                               TextSpan(
                                 text: text.substring(0, matchIndex),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(matchIndex, end),
@@ -1156,7 +1646,6 @@ class ItemizeSection {
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -1177,14 +1666,21 @@ class ItemizeSection {
                   ),
                   const SizedBox(height: 16),
                   SearchableMultiColumnDropdownField<ExpenseCategory>(
-                    labelText: 'Paid For *',
-                    columnHeaders: const ['Category Name', 'Category ID'],
+                    labelText: '${AppLocalizations.of(context)!.paidFor} *',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.categoryName,
+                      AppLocalizations.of(context)!.categoryId
+                    ],
                     items: controller.expenseCategory,
                     selectedValue: controller.selectedCategory,
                     searchValue: (p) => '${p.categoryName} ${p.categoryId}',
                     displayText: (p) => p.categoryId,
-                    validator: (value) =>
-                        value == null ? 'Please select Category' : null,
+                    validator: (value) {
+                      if (categoryController.text.isEmpty) {
+                        return AppLocalizations.of(context)!.fieldRequired;
+                      }
+                      return null;
+                    },
                     onChanged: (p) {
                       controller.selectedCategory = p;
                     },
@@ -1204,7 +1700,6 @@ class ItemizeSection {
                             children: [
                               TextSpan(
                                 text: text.substring(0, matchIndex),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(matchIndex, end),
@@ -1215,7 +1710,6 @@ class ItemizeSection {
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -1236,14 +1730,18 @@ class ItemizeSection {
                   ),
                   const SizedBox(height: 16),
                   SearchableMultiColumnDropdownField<Unit>(
-                    labelText: 'Unit *',
-                    columnHeaders: const ['Uom Id', 'Uom Name'],
+                    labelText: '${AppLocalizations.of(context)!.unit} *',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.uomId,
+                      AppLocalizations.of(context)!.uomName
+                    ],
                     items: controller.unit,
                     selectedValue: controller.selectedunit,
                     searchValue: (tax) => '${tax.code} ${tax.name}',
                     displayText: (tax) => tax.code,
-                    validator: (tax) =>
-                        tax == null ? 'Please select a Unit' : null,
+                    validator: (tax) => tax == null
+                        ? AppLocalizations.of(context)!.pleaseSelectUnit
+                        : null,
                     onChanged: (tax) {
                       controller.selectedunit = tax;
                       uomIdController.text = tax!.code;
@@ -1264,7 +1762,6 @@ class ItemizeSection {
                             children: [
                               TextSpan(
                                 text: text.substring(0, matchIndex),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(matchIndex, end),
@@ -1275,7 +1772,6 @@ class ItemizeSection {
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -1298,7 +1794,7 @@ class ItemizeSection {
                   TextFormField(
                     controller: commentsController,
                     decoration: InputDecoration(
-                      labelText: "Comment",
+                      labelText: AppLocalizations.of(context)!.comments,
                       contentPadding: const EdgeInsets.symmetric(
                           vertical: 20, horizontal: 16),
                       border: OutlineInputBorder(
@@ -1314,7 +1810,8 @@ class ItemizeSection {
                         child: TextFormField(
                           controller: unitPriceController,
                           decoration: InputDecoration(
-                            labelText: "Unit Amount *",
+                            labelText:
+                                "${AppLocalizations.of(context)!.unitAmount}*",
                             contentPadding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
                             border: OutlineInputBorder(
@@ -1338,10 +1835,12 @@ class ItemizeSection {
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter amount';
+                              return AppLocalizations.of(context)!
+                                  .fieldRequired;
                             }
                             if (double.tryParse(value) == null) {
-                              return 'Please enter valid number';
+                              return AppLocalizations.of(context)!
+                                  .enterValidRate;
                             }
                             return null;
                           },
@@ -1352,7 +1851,8 @@ class ItemizeSection {
                         child: TextFormField(
                           controller: quantityController,
                           decoration: InputDecoration(
-                            labelText: "Quantity *",
+                            labelText:
+                                "${AppLocalizations.of(context)!.quantity} *",
                             contentPadding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
                             border: OutlineInputBorder(
@@ -1365,10 +1865,11 @@ class ItemizeSection {
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter quantity';
+                              return AppLocalizations.of(context)!.field;
                             }
                             if (double.tryParse(value) == null) {
-                              return 'Please enter valid number';
+                              return AppLocalizations.of(context)!
+                                  .enterValidAmount;
                             }
                             return null;
                           },
@@ -1384,7 +1885,7 @@ class ItemizeSection {
                           controller: lineAmountController,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: "Line Amont",
+                            labelText: AppLocalizations.of(context)!.lineAmount,
                             contentPadding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
                             border: OutlineInputBorder(
@@ -1400,7 +1901,8 @@ class ItemizeSection {
                           controller: lineAmountINRController,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: "Line Amount in INR",
+                            labelText:
+                                AppLocalizations.of(context)!.lineAmountInInr,
                             contentPadding: const EdgeInsets.symmetric(
                                 vertical: 20, horizontal: 16),
                             border: OutlineInputBorder(
@@ -1414,14 +1916,21 @@ class ItemizeSection {
                   ),
                   const SizedBox(height: 16),
                   SearchableMultiColumnDropdownField<TaxGroupModel>(
-                    labelText: 'Tax Group *',
-                    columnHeaders: const ['Tax Group', 'Tax ID'],
+                    labelText: '${AppLocalizations.of(context)!.taxGroup} *',
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.taxAmount,
+                      AppLocalizations.of(context)!.taxId
+                    ],
                     items: controller.taxGroup,
                     selectedValue: controller.selectedTax,
                     searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
                     displayText: (tax) => tax.taxGroupId,
-                    validator: (value) =>
-                        value == null ? 'Please select Tax Group ' : null,
+                    validator: (value) {
+                      if (controller.selectedTax == null) {
+                        return AppLocalizations.of(context)!.fieldRequired;
+                      }
+                      return null;
+                    },
                     onChanged: (tax) {
                       controller.selectedTax = tax;
                     },
@@ -1439,7 +1948,6 @@ class ItemizeSection {
                             children: [
                               TextSpan(
                                 text: text.substring(0, start),
-                                style: const TextStyle(color: Colors.black),
                               ),
                               TextSpan(
                                 text: text.substring(start, end),
@@ -1449,7 +1957,6 @@ class ItemizeSection {
                               ),
                               TextSpan(
                                 text: text.substring(end),
-                                style: const TextStyle(color: Colors.black),
                               ),
                             ],
                           ),
@@ -1472,7 +1979,7 @@ class ItemizeSection {
                   TextFormField(
                     controller: taxAmountController,
                     decoration: InputDecoration(
-                      labelText: "Tax Amount",
+                      labelText: AppLocalizations.of(context)!.taxAmount,
                       contentPadding: const EdgeInsets.symmetric(
                           vertical: 20, horizontal: 16),
                       border: OutlineInputBorder(
@@ -1484,8 +1991,9 @@ class ItemizeSection {
                   const SizedBox(height: 16),
                   const SizedBox(height: 24),
                   Obx(() => SwitchListTile(
-                        title: const Text("Is Reimbursable",
-                            style: TextStyle(
+                        title: Text(
+                            AppLocalizations.of(context)!.isReimbursable,
+                            style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black87)),
@@ -1498,8 +2006,8 @@ class ItemizeSection {
                         },
                       )),
                   Obx(() => SwitchListTile(
-                        title: const Text("Is Billable",
-                            style: TextStyle(
+                        title: Text(AppLocalizations.of(context)!.isBillable,
+                            style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black87)),
@@ -1551,7 +2059,8 @@ class ItemizeSection {
                             ),
                           );
                         },
-                        child: const Text('Account Distribution'),
+                        child: Text(
+                            AppLocalizations.of(context)!.accountDistribution),
                       ),
                     ],
                   ),
@@ -1905,7 +2414,7 @@ class ItemizeSection {
 //                   children: [
 //                     TextSpan(
 //                       text: text.substring(0, start),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(start, end),
@@ -1916,7 +2425,7 @@ class ItemizeSection {
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(end),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                   ],
 //                 ),
@@ -1965,7 +2474,7 @@ class ItemizeSection {
 //                     children: [
 //                       TextSpan(
 //                         text: text.substring(0, matchIndex),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(matchIndex, end),
@@ -1976,7 +2485,7 @@ class ItemizeSection {
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(end),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                     ],
 //                   ),
@@ -2026,7 +2535,7 @@ class ItemizeSection {
 //                   children: [
 //                     TextSpan(
 //                       text: text.substring(0, start),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(start, end),
@@ -2037,7 +2546,7 @@ class ItemizeSection {
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(end),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                   ],
 //                 ),
@@ -2086,7 +2595,7 @@ class ItemizeSection {
 //                     children: [
 //                       TextSpan(
 //                         text: text.substring(0, matchIndex),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(matchIndex, end),
@@ -2097,7 +2606,7 @@ class ItemizeSection {
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(end),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                     ],
 //                   ),
@@ -2333,7 +2842,7 @@ class ItemizeSection {
 //                     children: [
 //                       TextSpan(
 //                         text: text.substring(0, start),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(start, end),
@@ -2343,7 +2852,7 @@ class ItemizeSection {
 //                       ),
 //                       TextSpan(
 //                         text: text.substring(end),
-//                         style: const TextStyle(color: Colors.black),
+//                         
 //                       ),
 //                     ],
 //                   ),
@@ -2453,7 +2962,7 @@ class ItemizeSection {
 //                   children: [
 //                     TextSpan(
 //                       text: text.substring(0, matchIndex),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(matchIndex, end),
@@ -2464,7 +2973,7 @@ class ItemizeSection {
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(end),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                   ],
 //                 ),
@@ -2511,7 +3020,7 @@ class ItemizeSection {
 //                   children: [
 //                     TextSpan(
 //                       text: text.substring(0, matchIndex),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(matchIndex, end),
@@ -2522,7 +3031,7 @@ class ItemizeSection {
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(end),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                   ],
 //                 ),
@@ -2615,7 +3124,7 @@ class ItemizeSection {
 //                   children: [
 //                     TextSpan(
 //                       text: text.substring(0, start),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(start, end),
@@ -2625,7 +3134,7 @@ class ItemizeSection {
 //                     ),
 //                     TextSpan(
 //                       text: text.substring(end),
-//                       style: const TextStyle(color: Colors.black),
+//                       
 //                     ),
 //                   ],
 //                 ),
@@ -3011,7 +3520,7 @@ class ItemizeSection {
 //                               children: [
 //                                 TextSpan(
 //                                   text: text.substring(0, matchIndex),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(matchIndex, end),
@@ -3022,7 +3531,7 @@ class ItemizeSection {
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(end),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                               ],
 //                             ),
@@ -3070,7 +3579,7 @@ class ItemizeSection {
 //                               children: [
 //                                 TextSpan(
 //                                   text: text.substring(0, matchIndex),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(matchIndex, end),
@@ -3081,7 +3590,7 @@ class ItemizeSection {
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(end),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                               ],
 //                             ),
@@ -3130,7 +3639,7 @@ class ItemizeSection {
 //                               children: [
 //                                 TextSpan(
 //                                   text: text.substring(0, matchIndex),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(matchIndex, end),
@@ -3141,7 +3650,7 @@ class ItemizeSection {
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(end),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                               ],
 //                             ),
@@ -3297,7 +3806,7 @@ class ItemizeSection {
 //                               children: [
 //                                 TextSpan(
 //                                   text: text.substring(0, start),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(start, end),
@@ -3307,7 +3816,7 @@ class ItemizeSection {
 //                                 ),
 //                                 TextSpan(
 //                                   text: text.substring(end),
-//                                   style: const TextStyle(color: Colors.black),
+//                                   
 //                                 ),
 //                               ],
 //                             ),

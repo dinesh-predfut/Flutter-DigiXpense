@@ -1,8 +1,6 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:digi_xpense/core/comman/widgets/button.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/data/service.dart';
@@ -16,26 +14,20 @@ class ForgetPassword extends StatefulWidget {
 
 class _ForgetPasswordState extends State<ForgetPassword> {
   final controller = Get.put(Controller());
-  // Reactive countdown
-  // seconds remaining
+  final _formKey = GlobalKey<FormState>();
+
   Timer? resendTimer;
-  // void handlesend() async {
-  //   setState(() {
-  //     controller.forgotisLoading.value = true;
-  //   });
-  //   controller.(context);
-  // }
+
   void handleSendLink() async {
-    if (controller.resendCountdown == 0) {
-      // Start loading
+    if (!_formKey.currentState!.validate()) return; // ✅ validate before API call
+
+    if (controller.resendCountdown.value == 0) {
       controller.forgotisLoading.value = true;
 
       try {
-        await controller.sendForgetPassword(context); // Your API call
-        // Success, start countdown
+        await controller.sendForgetPassword(context);
         startResendCountdown();
       } catch (e) {
-        // Handle error
         debugPrint("Error sending link: $e");
       } finally {
         controller.forgotisLoading.value = false;
@@ -44,11 +36,10 @@ class _ForgetPasswordState extends State<ForgetPassword> {
   }
 
   void startResendCountdown() {
-    controller.resendCountdown.value = 30; // Start at 30s
-
+    controller.resendCountdown.value = 30;
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (controller.resendCountdown.value > 0) {
-        controller.resendCountdown.value--; // Decrease countdown
+        controller.resendCountdown.value--;
       } else {
         timer.cancel();
       }
@@ -57,51 +48,51 @@ class _ForgetPasswordState extends State<ForgetPassword> {
 
   @override
   Widget build(BuildContext context) {
-    // detect keyboard status
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 100;
 
     return Scaffold(
-        backgroundColor: const Color.fromARGB(255, 36, 10, 112),
-        body: Stack(
-          children: [
-            // Background Image
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: keyboardVisible ? 150 : 400,
-              child: Image.asset(
-                'assets/forgetPassword.png',
-                fit: BoxFit.cover,
-              ),
+      backgroundColor: const Color.fromARGB(255, 36, 10, 112),
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: keyboardVisible ? 150 : 400,
+            child: Image.asset(
+              'assets/forgetPassword.png',
+              fit: BoxFit.cover,
             ),
-
-            // Login Form Container
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: keyboardVisible
-                    ? MediaQuery.of(context).size.height * 0.7
-                    : MediaQuery.of(context).size.height * 0.5,
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: keyboardVisible
+                  ? MediaQuery.of(context).size.height * 0.7
+                  : MediaQuery.of(context).size.height * 0.5,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Form(
+                key: _formKey, // ✅ wrap with Form
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    const Text("Forget Password",
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black)),
+                    const Text(
+                      "Forgot Password",
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black),
+                    ),
                     const SizedBox(height: 10),
                     const Text(
-                        "Don’t worry! It happens. Please enter the email associated with your account.",
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.normal)),
+                      "Don’t worry! It happens. Please enter the email associated with your account.",
+                      style: TextStyle(fontSize: 14, color: Colors.black),
+                    ),
                     const SizedBox(height: 20),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,12 +100,13 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                         const Text(
                           'Email address',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black),
                         ),
                         const SizedBox(height: 6),
-                        TextField(
+                        TextFormField(
+                          style: const TextStyle(color: Colors.black),
                           controller: controller.forgotemailController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(
@@ -122,6 +114,17 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                             ),
                             hintText: 'Enter your email',
                           ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return "Email is required";
+                            }
+                            final emailRegex = RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            if (!emailRegex.hasMatch(value.trim())) {
+                              return "Enter a valid email address";
+                            }
+                            return null;
+                          },
                         ),
                       ],
                     ),
@@ -144,20 +147,19 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                         child: GradientButton(
                           text: buttonText,
                           isLoading: isLoading,
-                          onPressed: () {
-                            isButtonDisabled ? null : handleSendLink();
-                          },
-                        ),
+                         onPressed: isButtonDisabled ? () {} : handleSendLink,)
+
                       );
                     }),
                     const SizedBox(height: 30),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text("Remember password?"),
+                        const Text("Remember password?",
+                            style: TextStyle(color: Colors.black)),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushNamed(context, AppRoutes.signin); // ✅
+                            Navigator.pushNamed(context, AppRoutes.signin);
                           },
                           child: const Text("Login"),
                         ),
@@ -167,7 +169,9 @@ class _ForgetPasswordState extends State<ForgetPassword> {
                 ),
               ),
             ),
-          ],
-        ));
+          ),
+        ],
+      ),
+    );
   }
 }

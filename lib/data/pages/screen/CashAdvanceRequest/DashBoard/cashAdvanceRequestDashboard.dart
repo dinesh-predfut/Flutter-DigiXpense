@@ -133,10 +133,16 @@ class _CashAdvanceRequestDashboardState
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
+      controller.searchControllerCashAdvance.clear();
+      controller.getProfilePicture();
+    });
     // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
-    controller.fetchManageExpensesCards().then((_) {
+    
+    controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
         _animationController = AnimationController(
@@ -178,465 +184,570 @@ class _CashAdvanceRequestDashboardState
               return true; // allow back navigation
             },
             child: Scaffold(
-              backgroundColor: const Color(0xFFF7F7F7),
-              body: Column(
-                children: [
-                  // Top Content in scroll view
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: double.infinity,
-                                  height: 130,
-                                  decoration: const BoxDecoration(
-                                    image: DecorationImage(
-                                      image: AssetImage('assets/Vector.png'),
+                // backgroundColor: const Color(0xFFF7F7F7),
+                body: Obx(() {
+                  return controller.isLoadingGE1.value
+                      ? const SkeletonLoaderPage()
+                      : LayoutBuilder(builder: (context, constraints) {
+                          final isSmallScreen = constraints.maxWidth < 600;
+                          final theme = Theme.of(context);
+                          final primaryColor = theme.primaryColor;
+                          return Column(
+                            children: [
+                              // Top Content in scroll view
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Stack(
+                                          children: [
+                                            if (primaryColor != const Color(0xff1a237e) &&
+                              primaryColor.value != 4282339765 )
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor,
+                                    primaryColor.withOpacity(
+                                        0.7), // Lighter primary color
+                                  ],
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
                                       fit: BoxFit.cover,
                                     ),
-                                    borderRadius: BorderRadius.only(
-                                      bottomLeft: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (primaryColor == const Color(0xff1a237e) ||  primaryColor.value == 4282339765)
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 40, 20, 20),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Column(
+                                      children: [
+                                        // const Text(
+                                        //   'Welcome to',
+                                        //   style: TextStyle(
+                                        //       color: Colors.white,
+                                        //       fontSize: 8),
+                                        // ),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: 100,
+                                            height: 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  padding:
-                                      const EdgeInsets.fromLTRB(10, 40, 20, 20),
-                                  child: Row(
+                                  const SizedBox(height: 20),
+                                  Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      // Left side (Welcome text + logo)
-                                      Flexible(
-                                        child: Column(
-                                          children: [
-                                            const Text(
-                                              'Welcome to',
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 8),
-                                            ),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              child: Image.asset(
-                                                'assets/XpenseWhite.png',
-                                                width: 100,
-                                                height: 40,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-
-                                      // Right side (Language Dropdown + Bell + Profile)
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                      const LanguageDropdown(),
+                                      Stack(
                                         children: [
-                                          const LanguageDropdown(),
-
-                                          // ✅ Notification Bell with Badge
-                                          Stack(
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(
-                                                    Icons.notifications,
-                                                    color: Colors.white),
-                                                onPressed: () {
-                                                  Navigator.pushNamed(context,
-                                                      AppRoutes.notification);
-                                                },
-                                              ),
-                                              // Badge
-                                              Obx(() {
-                                                final unreadCount = controller
-                                                    .unreadNotifications.length;
-                                                if (unreadCount == 0) {
-                                                  return const SizedBox
-                                                      .shrink();
-                                                }
-                                                return Positioned(
-                                                  right: 6,
-                                                  top: 6,
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color: Colors.red,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                      minWidth: 18,
-                                                      minHeight: 18,
-                                                    ),
-                                                    child: Text(
-                                                      '$unreadCount',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                    ),
-                                                  ),
-                                                );
-                                              }),
-                                            ],
-                                          ),
-
-                                          const SizedBox(width: 10),
-
-                                          // ✅ Profile Picture (Reactive)
-                                          GestureDetector(
-                                            onTap: () {
+                                          IconButton(
+                                            icon: const Icon(
+                                                Icons.notifications,
+                                                color: Colors.white),
+                                            onPressed: () {
                                               Navigator.pushNamed(context,
-                                                  AppRoutes.personalInfo);
+                                                  AppRoutes.notification);
                                             },
-                                            child: Obx(() => Container(
-                                                  padding:
-                                                      const EdgeInsets.all(2),
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                        color: Colors.white,
-                                                        width: 2),
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                    child: controller
-                                                            .isImageLoading
-                                                            .value
-                                                        ? const SizedBox(
-                                                            width: 40,
-                                                            height: 40,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              color:
-                                                                  Colors.white,
-                                                              strokeWidth: 2,
-                                                            ),
-                                                          )
-                                                        : controller.profileImage
-                                                                    .value !=
-                                                                null
-                                                            ? Image.file(
-                                                                controller
-                                                                    .profileImage
-                                                                    .value!,
-                                                                width: 40,
-                                                                height: 40,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              )
-                                                            : const Icon(
-                                                                Icons.person,
-                                                                size: 40,
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                  ),
-                                                )),
                                           ),
+                                          Obx(() {
+                                            final unreadCount = controller
+                                                .unreadNotifications.length;
+                                            if (unreadCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(4),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                  minWidth: 15,
+                                                  minHeight: 15,
+                                                ),
+                                                child: Text(
+                                                  '$unreadCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 6,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            );
+                                          }),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Obx(() {
-                              return NotificationListener<
-                                  UserScrollNotification>(
-                                onNotification: (notification) {
-                                  // Stop auto-scroll when user starts interacting
-                                  if (_animationController.isAnimating) {
-                                    _animationController.stop();
-                                    print(
-                                        "Auto-scroll stopped because user started scrolling");
-                                  }
-                                  _restartAnimationAfterDelay(); // ✅ Restart after delay
-                                  return false; // allow the scroll event to continue
-                                },
-                                child: SizedBox(
-                                  height: 140,
-                                  child: ListView.builder(
-                                    controller: _scrollController,
-                                    scrollDirection: Axis.horizontal,
-                                    physics:
-                                        const BouncingScrollPhysics(), // ✅ Manual scroll enabled
-                                    itemCount:
-                                        controller.manageExpensesCards.length,
-                                    itemBuilder: (context, index) {
-                                      final card =
-                                          controller.manageExpensesCards[index];
-                                      return GestureDetector(
-                                        onTap: () {
-                                          // Stop animation on card tap
-                                          if (_animationController
-                                              .isAnimating) {
-                                            _animationController.stop();
-                                            print(
-                                                "Auto-scroll stopped because user tapped a card");
-                                          }
-                                          _restartAnimationAfterDelay(); // ✅ Restart after delay
-                                        },
-                                        child: _buildStyledCard(card),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 10),
-                            Center(
-                              child: SizedBox(
-                                width: 300,
-                                height: 48,
-                                child: TextField(
-                                  controller: controller.searchController,
-                                  onChanged: (value) {
-                                    controller.searchQuery.value =
-                                        value.toLowerCase();
-                                  },
-                                  decoration: InputDecoration(
-                                    hintText: 'Search...',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 12),
-                                    prefixIcon: const Icon(Icons.search,
-                                        color: Colors.grey),
-                                  ),
-                                ),
-                              ),
+                                      const SizedBox(width: 10),
+                                     GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(context, AppRoutes.personalInfo);
+  },
+  child: Obx(() => AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+         
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 200),
+          scale: controller.isImageLoading.value ? 1.0 : 1.05,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Placeholder or Image
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[800],
+                  ),
+                  child: controller.isImageLoading.value
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : controller.profileImage.value != null
+                          ? Image.file(
+                              controller.profileImage.value!,
+                              fit: BoxFit.cover,
+                              width: 30,
+                              height: 30,
                             )
-                          ],
-                        ),
+                          : const Center(
+                              child: Icon(
+                                Icons.person,
+                                size: 28,
+                                color: Colors.white70,
+                              ),
+                            ),
+                ),
+                // Overlay shimmer when loading
+                if (controller.isImageLoading.value)
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.white10],
+                        stops: [0.7, 1.0],
                       ),
                     ),
                   ),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 8.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // 🔹 Responsive Dropdown Filter
-                        Expanded(
-                          flex: 3, // Takes 3 parts of available space
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.deepPurple.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
+                // Edit icon overlay on tap-ready state
+               
+              ],
+            ),
+          ),
+        ),
+      )),
+),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Obx(() => DropdownButton<String>(
-                                  value:
-                                      controller.selectedStatusDropDown.value,
-                                  isExpanded: true,
-                                  underline: Container(),
-                                  borderRadius: BorderRadius.circular(10),
-                                  style: const TextStyle(
-                                      color: Colors.deepPurple, fontSize: 14),
-                                  icon: const Icon(Icons.arrow_drop_down,
-                                      color: Colors.deepPurple),
-                                  onChanged: (String? newValue) {
-                                    if (newValue != null &&
-                                        newValue != controller.selectedStatus) {
-                                      // Update both legacy and reactive values for backward compatibility
-                                      controller.selectedStatus = newValue;
-                                      controller.selectedStatusDropDown.value =
-                                          newValue;
-                                      controller.fetchCashAdvanceRequisitions(); // Refetch with new filter
-                                    }
-                                  },
-                                  items: statusOptions
-                                      .map<DropdownMenuItem<String>>(
-                                          (String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(
-                                        value,
-                                        style: const TextStyle(
-                                            color: Colors.black),
-                                        overflow: TextOverflow.ellipsis,
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Obx(() {
+                                          return NotificationListener<
+                                              UserScrollNotification>(
+                                            onNotification: (notification) {
+                                              // Stop auto-scroll when user starts interacting
+                                              if (_animationController
+                                                  .isAnimating) {
+                                                _animationController.stop();
+                                                print(
+                                                    "Auto-scroll stopped because user started scrolling");
+                                              }
+                                              _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                              return false; // allow the scroll event to continue
+                                            },
+                                            child: SizedBox(
+                                              height: 140,
+                                              child: ListView.builder(
+                                                controller: _scrollController,
+                                                scrollDirection:
+                                                    Axis.horizontal,
+                                                physics:
+                                                    const BouncingScrollPhysics(), // ✅ Manual scroll enabled
+                                                itemCount: controller
+                                                    .manageExpensesCards.length,
+                                                itemBuilder: (context, index) {
+                                                  final card = controller
+                                                          .manageExpensesCards[
+                                                      index];
+                                                  return GestureDetector(
+                                                    onTap: () {
+                                                      // Stop animation on card tap
+                                                      if (_animationController
+                                                          .isAnimating) {
+                                                        _animationController
+                                                            .stop();
+                                                        print(
+                                                            "Auto-scroll stopped because user tapped a card");
+                                                      }
+                                                      _restartAnimationAfterDelay(); // ✅ Restart after delay
+                                                    },
+                                                    child:
+                                                        _buildStyledCard(card),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                        const SizedBox(height: 10),
+                                        Center(
+                                          child: SizedBox(
+                                            width: 300,
+                                            height: 48,
+                                            child: TextField(
+                                              controller: controller
+                                                  .searchControllerCashAdvance,
+                                              onChanged: (value) {
+                                                controller.searchQuery.value =
+                                                    value.toLowerCase();
+                                              },
+                                              decoration: InputDecoration(
+                                                hintText: AppLocalizations.of(context)!.search,
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 12),
+                                                prefixIcon: const Icon(
+                                                    Icons.search,
+                                                    color: Colors.grey),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0, vertical: 8.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // 🔹 Responsive Dropdown Filter
+                                    Expanded(
+                                      flex:
+                                          3, // Takes 3 parts of available space
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
+                                        decoration: BoxDecoration(
+                                           color:theme.colorScheme.primary,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Obx(() => DropdownButton<String>(
+                                              value: controller
+                                                  .selectedStatusDropDown.value,
+                                              isExpanded: true,
+                                              underline: Container(),
+                                              dropdownColor:
+                                    theme.colorScheme.secondaryContainer,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                               style:
+                                     const TextStyle(fontSize: 12),
+                                icon:  const Icon(Icons.arrow_drop_down,
+                                    color: Colors.white),
+                                  
+                                              onChanged: (String? newValue) {
+                                                if (newValue != null &&
+                                                    newValue !=
+                                                        controller
+                                                            .selectedStatus) {
+                                                  // Update both legacy and reactive values for backward compatibility
+                                                  controller.selectedStatus =
+                                                      newValue;
+                                                  controller
+                                                      .selectedStatusDropDown
+                                                      .value = newValue;
+                                                  controller
+                                                      .fetchCashAdvanceRequisitions(); // Refetch with new filter
+                                                }
+                                              },
+                                              items: statusOptions.map<
+                                                      DropdownMenuItem<String>>(
+                                                  (String value) {
+                                                return DropdownMenuItem<String>(
+                                                  value: value,
+                                                  child: Text(
+                                                    value,
+                                                  style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.colorScheme
+                                                .onBackground, // popup text color
+                                          ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              hint: const Text(
+                                                "Select Status",
+                                                style: TextStyle(
+                                                    color: Colors.grey),
+                                              ),
+                                            )),
+                                      ),
+                                    ),
+
+                                    const SizedBox(
+                                        width:
+                                            12), // Spacing between dropdown and button
+
+                                    // 🔹 Add Request Button
+                                    Expanded(
+                                      flex:
+                                          3, // Takes 2 parts of space (smaller than dropdown)
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          Navigator.pushNamed(context,
+                                              AppRoutes.formCashAdvanceRequest);
+                                        },
+                                        icon: const Icon(Icons.add_circle,
+                                            size: 18, color: Colors.white),
+                                        label: const Text(
+                                          "Add Request",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                          backgroundColor: Colors.blue.shade800,
+                                          elevation: 4,
+                                          shadowColor: Colors.blue.shade900
+                                              .withOpacity(0.4),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 12),
+                                          textStyle:
+                                              const TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.45,
+                                child: Obx(() {
+                                  if (controller.isLoadingCA.value) {
+                                    return const SkeletonLoaderPage();
+                                  }
+
+                                  // Get the full list from controller
+                                  final List<CashAdvanceRequisition> expenses =
+                                      controller.cashAdvanceListDashboard;
+                                  print(
+                                      "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@111111222r");
+
+                                  // Apply search filter
+                                  final query = controller.searchQuery.value
+                                      .toLowerCase()
+                                      .trim();
+                                  final filteredExpenses = query.isEmpty
+                                      ? expenses
+                                      : expenses.where((item) {
+                                          final lowerReqId =
+                                              item.requisitionId.toLowerCase();
+                                          final lowerEmployeeName =
+                                              item.employeeName.toLowerCase();
+                                          final lowerStatus =
+                                              item.approvalStatus.toLowerCase();
+
+                                          return lowerReqId.contains(query) ||
+                                              lowerEmployeeName
+                                                  .contains(query) ||
+                                              lowerStatus.contains(query);
+                                        }).toList();
+
+                                  if (filteredExpenses.isEmpty) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          // Lottie.asset(
+                                          //   'assets/animations/no_data.json', // Place under /assets/animations/
+                                          //   width: 200,
+                                          //   height: 200,
+                                          //   fit: BoxFit.cover,
+                                          // ),
+                                          const Text(
+                                            "No Cash Advances Found",
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            controller.searchQuery.value
+                                                    .isNotEmpty
+                                                ? 'Try a different search'
+                                                : 'You have no requests yet',
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade600),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton.icon(
+                                            onPressed: () {
+                                              controller
+                                                  .fetchCashAdvanceRequisitions();
+                                            },
+                                            icon: const Icon(Icons.refresh,
+                                                size: 16),
+                                            label: const Text("Refresh"),
+                                            style: ElevatedButton.styleFrom(
+                                              foregroundColor: Colors.white,
+                                              backgroundColor: Colors.blue,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
-                                  }).toList(),
-                                  hint: const Text(
-                                    "Select Status",
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                )),
-                          ),
-                        ),
+                                  }
 
-                        const SizedBox(
-                            width: 12), // Spacing between dropdown and button
+                                  return ListView.builder(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    itemCount: filteredExpenses.length,
+                                    itemBuilder: (ctx, idx) {
+                                      final item = filteredExpenses[idx];
 
-                        // 🔹 Add Request Button
-                        Expanded(
-                          flex:
-                              3, // Takes 2 parts of space (smaller than dropdown)
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                  context, AppRoutes.formCashAdvanceRequest);
-                            },
-                            icon: const Icon(Icons.add_circle,
-                                size: 18, color: Colors.white),
-                            label: const Text(
-                              "Add Request",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: Colors.blue.shade800,
-                              elevation: 4,
-                              shadowColor:
-                                  Colors.blue.shade900.withOpacity(0.4),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              textStyle: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.45,
-                    child: Obx(() {
-                      if (controller.isLoadingCA.value) {
-                        return const SkeletonLoaderPage();
-                      }
+                                      return Dismissible(
+                                        key: ValueKey(item
+                                            .requisitionId), // Unique key per item
+                                        background: _buildSwipeActionLeft(
+                                            isLoading), // View action (e.g., eye icon)
+                                        secondaryBackground:
+                                            _buildSwipeActionRight(), // Delete action
 
-                      // Get the full list from controller
-                      final List<CashAdvanceRequisition> expenses =
-                          controller.cashAdvanceListDashboard;
-                      print(
-                          "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@111111222r");
-
-                      // Apply search filter
-                      final query =
-                          controller.searchQuery.value.toLowerCase().trim();
-                      final filteredExpenses = query.isEmpty
-                          ? expenses
-                          : expenses.where((item) {
-                              final lowerReqId =
-                                  item.requisitionId.toLowerCase();
-                              final lowerEmployeeName =
-                                  item.employeeName.toLowerCase();
-                              final lowerStatus =
-                                  item.approvalStatus.toLowerCase();
-
-                              return lowerReqId.contains(query) ||
-                                  lowerEmployeeName.contains(query) ||
-                                  lowerStatus.contains(query);
-                            }).toList();
-
-                      if (filteredExpenses.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Lottie.asset(
-                              //   'assets/animations/no_data.json', // Place under /assets/animations/
-                              //   width: 200,
-                              //   height: 200,
-                              //   fit: BoxFit.cover,
-                              // ),
-                              const Text(
-                                "No Cash Advances Found",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                controller.searchQuery.value.isNotEmpty
-                                    ? 'Try a different search'
-                                    : 'You have no requests yet',
-                                style: TextStyle(
-                                    fontSize: 14, color: Colors.grey.shade600),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  controller.fetchCashAdvanceRequisitions();
-                                },
-                                icon: const Icon(Icons.refresh, size: 16),
-                                label: const Text("Refresh"),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: Colors.blue,
-                                ),
-                              ),
+                                        confirmDismiss: (direction) async {
+                                          if (direction ==
+                                              DismissDirection.startToEnd) {
+                                            // Swipe right → View Details
+                                            await _handleViewAction(
+                                                controller, item, ctx);
+                                            return false; // Don't remove
+                                          } else {
+                                            // Swipe left → Delete
+                                            return await _showDeleteConfirmation(
+                                                ctx, item, controller);
+                                          }
+                                        },
+                                        child: _buildCard(item, ctx),
+                                      );
+                                    },
+                                  );
+                                }),
+                              )
                             ],
-                          ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: filteredExpenses.length,
-                        itemBuilder: (ctx, idx) {
-                          final item = filteredExpenses[idx];
-
-                          return Dismissible(
-                            key: ValueKey(
-                                item.requisitionId), // Unique key per item
-                            background: _buildSwipeActionLeft(
-                                isLoading), // View action (e.g., eye icon)
-                            secondaryBackground:
-                                _buildSwipeActionRight(), // Delete action
-
-                            confirmDismiss: (direction) async {
-                              if (direction == DismissDirection.startToEnd) {
-                                // Swipe right → View Details
-                                await _handleViewAction(controller, item, ctx);
-                                return false; // Don't remove
-                              } else {
-                                // Swipe left → Delete
-                                return await _showDeleteConfirmation(
-                                    ctx, item, controller);
-                              }
-                            },
-                            child: _buildCard(item, ctx),
                           );
-                        },
-                      );
-                    }),
-                  )
-                ],
-              ),
-            ));
+                        });
+                })));
   }
 
   Future<void> _handleViewAction(
@@ -707,36 +818,42 @@ class _CashAdvanceRequestDashboardState
     });
   }
 
-  String _getTitle(String key) {
-    switch (key) {
-      case 'AmountSettled':
-        return ' Total Amount Settled';
-      case 'Inprogress':
-        return 'Total Advance In Progress';
-      case 'Pending':
-        return 'Total Amount Pending';
-      case 'TotalAmountReporting':
-        return 'Total Expenses';
+  String _getTitle(String status) {
+    switch (status) {
+      case 'Approved Expenses (Total)':
+        return AppLocalizations.of(context)!.approvedExpensesTotal;
+      case 'Expenses In Progress (Total)':
+        return AppLocalizations.of(context)!.expensesInProgressTotal;
+      case 'Approved Advances (Total)':
+        return AppLocalizations.of(context)!.approvedAdvancesTotal;
+      case 'Advances In Progress (Total)':
+        return AppLocalizations.of(context)!.advancesInProgressTotal;
       default:
-        return key;
+        return status;
     }
   }
 
   Widget _buildStyledCard(ManageExpensesCard card) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final onPrimaryColor = theme.colorScheme.onPrimary;
     return Container(
-      width: 180,
+      width: 200,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
+          colors: [
+            primaryColor.withOpacity(0.8), // Lighter primary color
+            primaryColor,
+          ],
           begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          end: Alignment.topRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.4),
+            color: primaryColor.withOpacity(0.4),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -777,19 +894,83 @@ class _CashAdvanceRequestDashboardState
 
   IconData _getIconForStatus(String status) {
     switch (status) {
-      case 'AmountSettled':
+      case 'Approved Expenses (Total)':
         return Icons.check_circle; // ✅
-      case 'Inprogress':
+      case 'Expenses In Progress (Total)':
         return Icons.sync; // 🔄
-      case 'Pending':
+      case 'Approved Advances (Total)':
         return Icons.hourglass_bottom; // ⏳
-      case 'TotalAmountReporting':
+      case ' Advances In Progress (Total)':
         return Icons.bar_chart; // 📊
       default:
         return Icons.category; // fallback
     }
   }
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.notification),
+        ),
+        Obx(() {
+          final count = controller.unreadNotifications.length;
+          if (count == 0) return const SizedBox();
+          return Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                    fontSize: 8,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
 
+  Widget _buildProfileAvatar() {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+      child: Obx(() => Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: controller.isImageLoading.value
+                  ? const SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : controller.profileImage.value != null
+                      ? Image.file(
+                          controller.profileImage.value!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.person, size: 40, color: Colors.white),
+            ),
+          )),
+    );
+  }
   // General TextField-like displa
 
   // Example itemized detail block
@@ -867,7 +1048,7 @@ Widget _buildCard(CashAdvanceRequisition item, BuildContext context) {
       // }
     },
     child: Card(
-      color: const Color.fromARGB(218, 245, 244, 244),
+      // color: const Color.fromARGB(218, 245, 244, 244),
       shadowColor: const Color.fromARGB(255, 82, 78, 78),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
