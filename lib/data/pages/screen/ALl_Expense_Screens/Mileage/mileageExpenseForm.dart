@@ -58,6 +58,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   @override
   void initState() {
     super.initState();
+   
     if (controller.totalDistanceKm != 0) {
       _calculateAllDistances();
     }
@@ -530,7 +531,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
             if (widget.isEditMode!)
               if (widget.mileageId != null &&
                   widget.mileageId!.approvalStatus != "Cancelled" &&
-                  widget.mileageId!.approvalStatus != "Approved" && widget.mileageId!.approvalStatus != "Pending")
+                  widget.mileageId!.approvalStatus != "Approved" && widget.mileageId!.approvalStatus != "Pending" ||  widget.mileageId!.stepType == "Review")
                 IconButton(
                   icon: Icon(
                     controller.isEnable.value
@@ -1117,7 +1118,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   );
                                 }),
                               ),
-                            if (!controller.isEnable.value &&
+                            if (!controller.isEnable.value && widget.mileageId!.stepType!.isEmpty &&
                                 widget.mileageId!.approvalStatus == "Pending")
                               Expanded(
                                 child: Obx(() {
@@ -1163,6 +1164,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 }),
                               ),
                             const SizedBox(width: 10),
+                            // if(!controller.isEnable.value)
+                            if(  widget.mileageId!.stepType!.isEmpty ||  widget.mileageId!.stepType == "Review" && !controller.isEnable.value)
                             Expanded(
                               child: Obx(() {
                                 final isLoading =
@@ -1400,7 +1403,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                     ),
 
                   // APPROVAL SECTION
-                  if (controller.isEnable.value &&
+                  if (!controller.isEnable.value &&
                       widget.mileageId!.stepType == "Approval")
                     Positioned(
                       left: 16,

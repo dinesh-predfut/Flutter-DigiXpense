@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:681028483669:android:4b309f01631a716dee32dc",
+        "mobilesdk_app_id": "1:681028483669:android:28c51bfa3610b72fee32dc",
         "android_client_info": {
-          "package_name": "com.example.digi_xpense"
+          "package_name": "com.example.digi_xpense1"
         }
       },
       "oauth_client": [],

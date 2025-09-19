@@ -1657,6 +1657,8 @@ class ExpenseTransModel {
 class ExpenseItem {
   final int? recId; // ✅ Optional field added
   final String? expenseId;
+    final String? expenseCategory;
+  final double? discount;
   final String expenseCategoryId;
   final double quantity;
   final String uomId;
@@ -1674,6 +1676,8 @@ class ExpenseItem {
   ExpenseItem({
     this.recId, // ✅ Constructor optional
     this.expenseId,
+    this.discount,
+     this.expenseCategory,
     required this.expenseCategoryId,
     required this.quantity,
     required this.uomId,
@@ -1693,6 +1697,8 @@ class ExpenseItem {
     return ExpenseItem(
       recId: json['RecId'], // ✅ Parse from JSON if available
       expenseId: json['ExpenseId'],
+       discount: (json['Discount'] ?? 0).toDouble(),
+      expenseCategory: json['ExpenseCategory']?.toString() ?? '',
       expenseCategoryId: json['ExpenseCategoryId'] ?? '',
       quantity: (json['Quantity'] ?? 0).toDouble(),
       uomId: json['UomId'] ?? '',
@@ -1764,6 +1770,73 @@ class CashAdvanceReqModel {
     };
   }
 }
+class ExpenseTrans {
+  final String description;
+  final double discount;
+  final String expenseCategory;
+  final String expenseCategoryId;
+  final bool isReimbursable;
+  final double lineAmountReporting;
+  final double lineAmountTrans;
+  final String projectId;
+  final int quantity;
+  final double taxAmount;
+  final String? taxGroup;
+  final double unitPriceTrans;
+  final String uomId;
+
+  ExpenseTrans({
+    required this.description,
+    required this.discount,
+    required this.expenseCategory,
+    required this.expenseCategoryId,
+    required this.isReimbursable,
+    required this.lineAmountReporting,
+    required this.lineAmountTrans,
+    required this.projectId,
+    required this.quantity,
+    required this.taxAmount,
+    this.taxGroup,
+    required this.unitPriceTrans,
+    required this.uomId,
+  });
+
+  factory ExpenseTrans.fromJson(Map<String, dynamic> json) {
+    return ExpenseTrans(
+      description: json['Description']?.toString() ?? '',
+      discount: (json['Discount'] ?? 0).toDouble(),
+      expenseCategory: json['ExpenseCategory']?.toString() ?? '',
+      expenseCategoryId: json['ExpenseCategoryId']?.toString() ?? '',
+      isReimbursable: json['IsReimbursable'] ?? false,
+      lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
+      lineAmountTrans: (json['LineAmountTrans'] ?? 0).toDouble(),
+      projectId: json['ProjectId']?.toString() ?? '',
+      quantity: (json['Quantity'] ?? 0).toInt(),
+      taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
+      taxGroup: json['TaxGroup']?.toString(),
+      unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
+      uomId: json['UomId']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'Description': description,
+      'Discount': discount,
+      'ExpenseCategory': expenseCategory,
+      'ExpenseCategoryId': expenseCategoryId,
+      'IsReimbursable': isReimbursable,
+      'LineAmountReporting': lineAmountReporting,
+      'LineAmountTrans': lineAmountTrans,
+      'ProjectId': projectId,
+      'Quantity': quantity,
+      'TaxAmount': taxAmount,
+      'TaxGroup': taxGroup,
+      'UnitPriceTrans': unitPriceTrans,
+      'UomId': uomId,
+    };
+  }
+}
 
 class ExpenseItemUpdate {
   final int? recId;
@@ -1777,7 +1850,7 @@ class ExpenseItemUpdate {
   final double lineAmountReporting;
   final String? projectId;
   final String? description;
-  final String? expenseId; // Modified to parse safely
+  final int? expenseId; // Modified to parse safely
   bool isReimbursable;
   bool isBillable;
   late final List<AccountingDistribution> accountingDistributions;
@@ -1813,7 +1886,7 @@ class ExpenseItemUpdate {
       lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
       projectId: json['ProjectId']?.toString(),
       description: json['Description']?.toString(),
-      expenseId: json['ExpenseId']?.toString(), // ✅ Fix applied
+      expenseId: json['ExpenseId'], // ✅ Fix applied
       isReimbursable: json['IsReimbursable'] ?? false,
       isBillable: json['IsBillable'] ?? false,
       accountingDistributions:
@@ -1931,7 +2004,7 @@ class GESpeficExpense {
   final String? location;
   final int? workitemrecid;
   final String? stepType;
-  final List<ExpenseItemUpdate> expenseTrans;
+   final List<ExpenseItemUpdate> expenseTrans;
 
   GESpeficExpense({
     required this.expenseId,

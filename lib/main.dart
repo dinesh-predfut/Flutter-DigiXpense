@@ -1,38 +1,34 @@
 import 'dart:convert';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/theme/theme.dart';
 import 'package:provider/provider.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+// Local imports
+import 'firebase_options.dart'; // ✅ Make sure this file exists in lib/
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
+import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:digi_xpense/theme/theme.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'core/constant/Parames/params.dart';
 
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+/// Locale Notifier
 class LocaleNotifier extends ChangeNotifier {
   Locale _locale;
   Locale get locale => _locale;
 
-  // Default constructor (lazy-loads)
   LocaleNotifier() : _locale = const Locale('en') {
     _loadLocale();
   }
 
-  // <-- Named constructor you tried to call
   LocaleNotifier.initial(this._locale);
 
   Future<void> _loadLocale() async {
     final prefs = await SharedPreferences.getInstance();
     final langId = prefs.getString('LanguageID') ?? 'LUG-01';
-    final code = getLocaleCodeFromId(langId);
-    _locale = Locale(code);
+    _locale = Locale(getLocaleCodeFromId(langId));
     notifyListeners();
   }
 
@@ -58,7 +54,6 @@ class LocaleNotifier extends ChangeNotifier {
   }
 }
 
-// top-level helper used above
 String getLocaleCodeFromId(String id) {
   switch (id) {
     case 'LUG-02':
@@ -73,7 +68,7 @@ String getLocaleCodeFromId(String id) {
   }
 }
 
-
+/// Theme Colors Map
 final Map<String, Color> themeColorMap = {
   "RED_THEME": Colors.red,
   "GREEN_THEME": Colors.green,
@@ -89,13 +84,10 @@ final Map<String, Color> themeColorMap = {
   "DARK_ORANGE_THEME": const Color(0xFFE65100),
 };
 
-/// ✅ Token check & decide initial route
+/// Determine initial route based on token
 Future<String> getInitialRoute(String? refreshToken) async {
-  print("refreshToken: $refreshToken");
-
   if (refreshToken == null || refreshToken.isEmpty || refreshToken == "null") {
-    print("❌ No refresh token, go to login");
-    return AppRoutes.entryScreen; // Login/entry page
+    return AppRoutes.entryScreen;
   }
 
   try {
@@ -103,29 +95,20 @@ Future<String> getInitialRoute(String? refreshToken) async {
       Uri.parse("https://api.digixpense.com/api/v1/tenant/auth/refresh_token"),
       headers: {
         "Content-Type": "application/json",
-        "Authorization": 'Bearer ${refreshToken ?? ''}'
+        "Authorization": 'Bearer $refreshToken',
       },
-      // body: jsonEncode({"refresh_token": refreshToken}),
     );
-
-    print("Response code: ${response.statusCode}");
-    print("Response body: ${response.body}");
 
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body);
-      print("@data$data");
       if (data["access_token"] != null) {
-        // ✅ Token valid → Save it & go to Dashboard
         Params.userToken = data["access_token"];
-        print("✅ Token refreshed successfully");
         return AppRoutes.dashboard_Main;
       }
     }
 
-    // ❌ Token invalid
     return AppRoutes.signin;
-  } catch (e) {
-    print("Error refreshing token: $e");
+  } catch (_) {
     return AppRoutes.signin;
   }
 }
@@ -133,118 +116,47 @@ Future<String> getInitialRoute(String? refreshToken) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load SharedPreferences
+  /// 🔹 Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, // ✅ Use the generated file
+  );
+
+  /// 🔹 SharedPreferences
   final prefs = await SharedPreferences.getInstance();
   final themeKey = prefs.getString("ThemeColor");
-
   final langId = prefs.getString("LanguageID") ?? "LUG-01";
-  final code = getLocaleCodeFromId(langId);
 
-  // create notifier with initial locale
-  final localeNotifier = LocaleNotifier.initial(Locale(code));
-  // Load refreshToken
-  await SetSharedPref().getData();
+  /// 🔹 LocaleNotifier
+  final localeNotifier = LocaleNotifier.initial(Locale(getLocaleCodeFromId(langId)));
 
-  if (Params.refreshtoken != null && Params.refreshtoken != "null") {
-    print("✅ Retrieved refreshToken: ${Params.refreshtoken}");
-  } else {
-    print("❌ No refreshToken found");
-  }
-
-  // 🔹 Define theme color map
-  final Map<String, Color> themeColorMap = {
-    'RED_THEME': Colors.red,
-    'BLUE_THEME': Colors.blue,
-    'GREEN_THEME': Colors.green,
-    'ORANGE_THEME': Colors.orange,
-    'PURPLE_THEME': Colors.purple,
-    'INDIGO_THEME': Colors.indigo,
-    'DARK_RED_THEME': const Color(0xFFB71C1C),
-    'DARK_BLUE_THEME': const Color(0xFF0D47A1),
-    'DARK_GREEN_THEME': const Color(0xFF1B5E20),
-    'DARK_PURPLE_THEME': const Color(0xFF6A1B9A),
-    'DARK_ORANGE_THEME': const Color(0xFFE65100),
-    'DARK_INDIGO_THEME': const Color(0xFF1A237E),
-  };
-
-  // 🔹 Determine initial color
+  /// 🔹 ThemeNotifier
   final Color initialColor =
-      themeKey != null && themeColorMap.containsKey(themeKey)
-          ? themeColorMap[themeKey]!
-          : const Color(0xFF1A237E);
+      themeColorMap[themeKey] ?? const Color(0xFF1A237E);
 
-  // 🔹 Create ThemeNotifier with correct theme
   final themeNotifier = ThemeNotifier(
     ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: initialColor),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.blue, // Will be updated in setColor
-        foregroundColor: Colors.white,
-        elevation: 4,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
       scaffoldBackgroundColor: Colors.grey[50]!,
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: initialColor,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: initialColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: initialColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: initialColor, width: 2),
-        ),
-        labelStyle: TextStyle(color: initialColor),
-        floatingLabelStyle: TextStyle(color: initialColor),
-      ),
     ),
   );
-
-  // 🔹 Apply theme (this updates _themeColorKey and calls notifyListeners)
   if (themeKey != null) {
     themeNotifier.setColor(initialColor, themeKey: themeKey);
-    print("✅ Applied saved theme: $themeKey");
   }
 
-  // 🔹 Get initial route
-  final String initialRoute = await getInitialRoute(Params.refreshtoken);
-  print("➡️ initialRoute: $initialRoute");
+  /// 🔹 Load refresh token
+  await SetSharedPref().getData();
 
-  // 🔹 Run App with pre-loaded providers
+  /// 🔹 Initial route
+  final initialRoute = await getInitialRoute(Params.refreshtoken);
+
+  /// 🔹 Run App
   runApp(
     MultiProvider(
       providers: [
-        // ✅ Use .value() to pass pre-initialized ThemeNotifier
         ChangeNotifierProvider<ThemeNotifier>.value(value: themeNotifier),
-
-        // ✅ Locale Notifier
-        ChangeNotifierProvider<LocaleNotifier>(
-          create: (_) => LocaleNotifier(),
-        ),
-
-        // ✅ Report Model
-        ChangeNotifierProvider<ReportModel>(
-          create: (_) => ReportModel(),
-        ),
-
-        // ✅ Add other providers as needed
+        ChangeNotifierProvider<LocaleNotifier>.value(value: localeNotifier),
+        ChangeNotifierProvider<ReportModel>(create: (_) => ReportModel()),
       ],
       child: MyApp(initialRoute: initialRoute),
     ),
@@ -261,7 +173,7 @@ class MyApp extends StatelessWidget {
     final localeNotifier = Provider.of<LocaleNotifier>(context);
 
     return MaterialApp(
-      title: 'My Flutter App',
+      title: 'Digi Xpense',
       debugShowCheckedModeBanner: false,
       initialRoute: initialRoute,
       onGenerateRoute: AppRoutes.generateRoute,

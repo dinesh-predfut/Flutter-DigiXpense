@@ -200,7 +200,7 @@ class _HubApprovalViewEditExpensePageState
       controller.uomId.text = item.uomId;
       controller.isReimbursite = item.isReimbursable;
       controller.isBillable.value = item.isBillable;
-      controller.expenseID = item.expenseId;
+      controller.expenseID = item.expenseId.toString();
       controller.split = (item.accountingDistributions ?? []).map((dist) {
         return AccountingSplit(
           paidFor: dist.dimensionValueId ?? '',
@@ -2304,66 +2304,63 @@ class _HubApprovalViewEditExpensePageState
     });
   }
 
-  void _showFullImage(File file, int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              PhotoView(
-                imageProvider: FileImage(file),
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 3.0,
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Column(
-                  children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_in),
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_out),
-                    // ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
-                      child: const Icon(Icons.edit),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
+void _showFullImage(File file, int index) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            PhotoView(
+              imageProvider: FileImage(file),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 3.0,
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: "edit_$index",
+                    onPressed: () async {
+                      final croppedFile = await _cropImage(file);
+                      if (croppedFile != null) {
                         setState(() {
-                          controller.imageFiles.removeAt(index);
+                          controller.imageFiles[index] = croppedFile;
                         });
-                      },
-                      child: const Icon(Icons.delete),
-                      backgroundColor: Colors.red,
-                    ),
-                  ],
-                ),
+                        Navigator.pop(context); // Close dialog and reopen to refresh
+                        _showFullImage(croppedFile, index);
+                      }
+                    },
+                    child: const Icon(Icons.edit),
+                    backgroundColor: Colors.deepPurple,
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: "delete_$index",
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        controller.imageFiles.removeAt(index);
+                      });
+                    },
+                    child: const Icon(Icons.delete),
+                    backgroundColor: Colors.red,
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(

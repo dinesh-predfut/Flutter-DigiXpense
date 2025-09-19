@@ -69,8 +69,10 @@ class _ApprovalViewEditExpensePageState
     employeeName.text = "";
     employyeID.text = "";
     merhantName.text = "";
-    _pageController = PageController(initialPage: controller.currentIndex.value);
-    controller.approvalamountINR.text = widget.items!.totalAmountReporting.toString();
+    _pageController =
+        PageController(initialPage: controller.currentIndex.value);
+    controller.approvalamountINR.text =
+        widget.items!.totalAmountReporting.toString();
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     _initializeItemizeControllers();
     _initializeData();
@@ -104,7 +106,8 @@ class _ApprovalViewEditExpensePageState
       controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
       controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
       controller.unitRate.text = widget.items!.exchRate.toString();
- 
+      controller.cashAdvReqIds = widget.items!.cashAdvReqId;
+      // controller.cashAdvanceIds.text = widget.items!.cashAdvReqId;
       controller.expenseID = widget.items!.expenseId;
       controller.recID = widget.items!.recId;
       workitemrecid = widget.items!.workitemrecid!;
@@ -457,7 +460,6 @@ class _ApprovalViewEditExpensePageState
                         : (controller.isEnable.value
                             ? Icons.remove_red_eye
                             : Icons.edit_document),
-                    
                   ),
                   onPressed: () {
                     setState(() {
@@ -541,25 +543,30 @@ class _ApprovalViewEditExpensePageState
                                       ),
 
                                       Positioned(
-                        bottom: 40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Obx(() => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 18),
-                                ),
-                              )),
-                        ),
-                      ),
+                                        bottom: 40,
+                                        left: 0,
+                                        right: 0,
+                                        child: Center(
+                                          child: Obx(() => Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 18),
+                                                ),
+                                              )),
+                                        ),
+                                      ),
                                       // Positioned(
                                       //   top: 40,
                                       //   right: 20,
@@ -770,8 +777,7 @@ class _ApprovalViewEditExpensePageState
                                   isMultiSelect: allowMultSelect ?? false,
                                   selectedValue: controller.singleSelectedItem,
                                   selectedValues: controller.multiSelectedItems,
-                                   controller: controller
-                                              .cashAdvanceIds,
+                                  controller: controller.cashAdvanceIds,
                                   enabled: controller.isEnable.value,
                                   searchValue: (proj) => proj.cashAdvanceReqId,
                                   displayText: (proj) => proj.cashAdvanceReqId,
@@ -1768,8 +1774,11 @@ class _ApprovalViewEditExpensePageState
                                                     if (states.contains(
                                                         MaterialState
                                                             .disabled)) {
-                                                      // ✅ Keep same thumb color even when disabled
-                                                      return Colors.green;
+                                                      return controller
+                                                              .isBillableCreate
+                                                          ? Colors.green
+                                                          : Colors
+                                                              .grey.shade400;
                                                     }
                                                     if (states.contains(
                                                         MaterialState
@@ -1785,9 +1794,12 @@ class _ApprovalViewEditExpensePageState
                                                     if (states.contains(
                                                         MaterialState
                                                             .disabled)) {
-                                                      // ✅ Keep same track color even when disabled
-                                                      return Colors.green
-                                                          .withOpacity(0.5);
+                                                      return controller
+                                                              .isBillableCreate
+                                                          ? Colors.green
+                                                              .withOpacity(0.5)
+                                                          : Colors
+                                                              .grey.shade300;
                                                     }
                                                     if (states.contains(
                                                         MaterialState
@@ -1809,13 +1821,16 @@ class _ApprovalViewEditExpensePageState
                                                           FontWeight.w500),
                                                 ),
                                                 value: itemController
-                                                    .isReimbursable,
+                                                    .isReimbursite,
                                                 onChanged: controller
                                                         .isEnable.value
                                                     ? (val) {
                                                         setState(() {
                                                           itemController
                                                                   .isReimbursable =
+                                                              val;
+                                                          itemController
+                                                                  .isReimbursite =
                                                               val;
                                                           controller
                                                                   .isReimbursite =
@@ -2228,10 +2243,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                            AppLocalizations.of(context)!.update,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .update,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2288,10 +2304,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                            AppLocalizations.of(context)!.updateAndAccept,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .updateAndAccept,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2347,10 +2364,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                            AppLocalizations.of(context)!.reject,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .reject,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2363,7 +2381,7 @@ class _ApprovalViewEditExpensePageState
                                   },
                                   style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey),
-                                  child:  Text(
+                                  child: Text(
                                     AppLocalizations.of(context)!.close,
                                   ),
                                 ),
@@ -2405,10 +2423,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                            AppLocalizations.of(context)!.approvals,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .approvals,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2446,10 +2465,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                            AppLocalizations.of(context)!.reject,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .reject,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2492,10 +2512,11 @@ class _ApprovalViewEditExpensePageState
                                               strokeWidth: 2,
                                             ),
                                           )
-                                        :  Text(
-                                           AppLocalizations.of(context)!.escalate,
-                                            style:
-                                                const TextStyle(color: Colors.white),
+                                        : Text(
+                                            AppLocalizations.of(context)!
+                                                .escalate,
+                                            style: const TextStyle(
+                                                color: Colors.white),
                                           ),
                                   ),
                                 );
@@ -2511,8 +2532,8 @@ class _ApprovalViewEditExpensePageState
                                   },
                                   style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey),
-                                  child:  Text(
-                                   AppLocalizations.of(context)!.close,
+                                  child: Text(
+                                    AppLocalizations.of(context)!.close,
                                   ),
                                 ),
                               ),
@@ -2528,8 +2549,8 @@ class _ApprovalViewEditExpensePageState
                             },
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey),
-                            child:  Text(
-                             AppLocalizations.of(context)!.cancel,
+                            child: Text(
+                              AppLocalizations.of(context)!.cancel,
                             ),
                           ),
                       ],
@@ -2650,23 +2671,20 @@ class _ApprovalViewEditExpensePageState
                 right: 10,
                 child: Column(
                   children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_in),
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_out),
-                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(
+                              context); // Close dialog and reopen to refresh
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
                       child: const Icon(Icons.edit),
                       backgroundColor: Colors.deepPurple,
                     ),
@@ -2762,7 +2780,7 @@ class _ApprovalViewEditExpensePageState
                       ),
                     ),
                     const SizedBox(height: 12),
-                     Text(
+                    Text(
                       AppLocalizations.of(context)!.action,
                       style: const TextStyle(
                         fontSize: 20,
@@ -2770,7 +2788,7 @@ class _ApprovalViewEditExpensePageState
                       ),
                     ),
                     if (status == "Escalate") ...[
-                       Text(
+                      Text(
                         '${AppLocalizations.of(context)!.selectUser}*',
                         style: const TextStyle(fontSize: 16),
                       ),
@@ -2778,7 +2796,7 @@ class _ApprovalViewEditExpensePageState
                       Obx(
                         () => SearchableMultiColumnDropdownField<User>(
                           labelText: '${AppLocalizations.of(context)!.user} *',
-                          columnHeaders:  [
+                          columnHeaders: [
                             AppLocalizations.of(context)!.userName,
                             AppLocalizations.of(context)!.userId,
                           ],

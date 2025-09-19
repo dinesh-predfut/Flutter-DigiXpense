@@ -16,6 +16,8 @@ import '../../../service.dart';
 import '../widget/router/router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -41,6 +43,7 @@ class _DashboardPageState extends State<DashboardPage>
     super.initState();
 
     _scrollController = ScrollController();
+    getDeviceDetails(context);
 
     // Kick off init flow
     _initializeAsync();
@@ -48,48 +51,46 @@ class _DashboardPageState extends State<DashboardPage>
 
   void _initializeAsync() async {
     controller.getPersonalDetails(context);
+    controller.digiSessionId = const Uuid().v4();
+    Timer(const Duration(seconds: 4), () {
+      controller.getCashAdvanceAPI();
+      controller.getExpenseList();
+      controller.fetchExpensesByCategory();
+      controller.fetchManageExpensesSummary();
+      controller.fetchExpensesByStatus();
+      controller.fetchManageExpensesCards().then((_) {
+        if (controller.manageExpensesCards.isNotEmpty) {
+          print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+          _animationController = AnimationController(
+            vsync: this,
+            duration: const Duration(seconds: 10),
+          )..repeat(reverse: false);
 
-  
-      controller.digiSessionId = const Uuid().v4();
-      Timer(const Duration(seconds: 4), () {
-        controller.getCashAdvanceAPI();
-        controller.getExpenseList();
-        controller.fetchExpensesByCategory();
-        controller.fetchManageExpensesSummary();
-        controller.fetchExpensesByStatus();
-        controller.fetchManageExpensesCards().then((_) {
-          if (controller.manageExpensesCards.isNotEmpty) {
-            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-            _animationController = AnimationController(
-              vsync: this,
-              duration: const Duration(seconds: 10),
-            )..repeat(reverse: false);
-
-        _animation =
-            Tween<double>(begin: 0, end: 1).animate(_animationController)
-              ..addListener(() {
-                if (_scrollController.hasClients) {
-                  final maxScroll = _scrollController.position.maxScrollExtent;
-                  _scrollController.jumpTo(_animation.value * maxScroll);
-                }
-              });
-      }
-        });
-        controller.fetchChartData();
-        controller.fetchExpensesByProjects();
-        controller.fetchAndReplaceValue();
-        controller.currencyDropDown();
-        controller.fetchNotifications();
-        controller.getPersonalDetails(context);
-        controller.configuration();
-        controller.getUserPref();
-        if (controller.profileImage.value == null) {
-          controller.getProfilePicture();
+          _animation = Tween<double>(begin: 0, end: 1)
+              .animate(_animationController)
+            ..addListener(() {
+              if (_scrollController.hasClients) {
+                final maxScroll = _scrollController.position.maxScrollExtent;
+                _scrollController.jumpTo(_animation.value * maxScroll);
+              }
+            });
         }
-        controller.isInitialized.value = true;
       });
-    }
-  
+      controller.fetchChartData();
+      controller.fetchExpensesByProjects();
+      controller.fetchAndReplaceValue();
+      registerDevice();
+      controller.currencyDropDown();
+      controller.fetchNotifications();
+      controller.getPersonalDetails(context);
+      controller.configuration();
+      controller.getUserPref();
+      if (controller.profileImage.value == null) {
+        controller.getProfilePicture();
+      }
+      controller.isInitialized.value = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -120,6 +121,59 @@ class _DashboardPageState extends State<DashboardPage>
       return true; // keep looping
     });
   }
+
+  Future<void> registerDevice() async {
+    try {
+      // Step 1: Get device details
+      final details = await getDeviceDetails(context);
+
+      print("📱 Registering device with details: $details");
+
+      // Step 2: Make POST API call
+      final response = await http.post(
+        Uri.parse(
+            'https://api.digixpense.com/api/v1/common/pushnotifications/registerdevice'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        },
+        body: jsonEncode(details),
+      );
+
+      // Step 3: Handle response
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("✅ Device registered successfully: $data");
+      } else {
+        print("❌ Failed to register device. Status: ${response.statusCode}");
+        print("Response: ${response.body}");
+      }
+    } catch (e) {
+      print("🚨 Error registering device: $e");
+    }
+  }
+
+ Future<Map<String, dynamic>> getDeviceDetails(BuildContext context) async {
+  print("Fetching device details...");
+  final token = await controller.getDeviceToken();
+  final platform = controller.getPlatform();
+  final deviceId = await controller.getDeviceId();
+
+  final details = {
+    "DeviceToken": token ?? "N/A",
+    "Platform": platform,
+    "DeviceId": deviceId ?? "N/A",
+    "ProjectId": "test-4aca4",
+    "AppIdentifier": "1:681028483669:android:28c51bfa3610b72fee32dc",
+  };
+
+  
+
+  return details; // ✅ You still return the Map
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +246,7 @@ class _DashboardPageState extends State<DashboardPage>
                                     children: [
                                       const LanguageDropdown(),
                                       _buildNotificationBadge(),
-                                      // _buildProfileAvatar(),
+                                      _buildProfileAvatar(),
                                     ],
                                   ),
                                 ],
@@ -294,82 +348,109 @@ class _DashboardPageState extends State<DashboardPage>
                                         ],
                                       ),
                                       const SizedBox(width: 10),
-                                
-
-GestureDetector(
-  onTap: () {
-    Navigator.pushNamed(context, AppRoutes.personalInfo);
-  },
-  child: Obx(() => AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-         
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 200),
-          scale: controller.isImageLoading.value ? 1.0 : 1.05,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              children: [
-                // Placeholder or Image
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.grey[800],
-                  ),
-                  child: controller.isImageLoading.value
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : controller.profileImage.value != null
-                          ? Image.file(
-                              controller.profileImage.value!,
-                              fit: BoxFit.cover,
-                              width: 30,
-                              height: 30,
-                            )
-                          : const Center(
-                              child: Icon(
-                                Icons.person,
-                                size: 28,
-                                color: Colors.white70,
-                              ),
-                            ),
-                ),
-                // Overlay shimmer when loading
-                if (controller.isImageLoading.value)
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Colors.transparent, Colors.white10],
-                        stops: [0.7, 1.0],
-                      ),
-                    ),
-                  ),
-                // Edit icon overlay on tap-ready state
-               
-              ],
-            ),
-          ),
-        ),
-      )),
-),
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                              context, AppRoutes.personalInfo);
+                                        },
+                                        child: Obx(() => AnimatedContainer(
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.15),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: AnimatedScale(
+                                                duration: const Duration(
+                                                    milliseconds: 200),
+                                                scale: controller
+                                                        .isImageLoading.value
+                                                    ? 1.0
+                                                    : 1.05,
+                                                child: ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(24),
+                                                  child: Stack(
+                                                    children: [
+                                                      // Placeholder or Image
+                                                      Container(
+                                                        width: 30,
+                                                        height: 30,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          color:
+                                                              Colors.grey[800],
+                                                        ),
+                                                        child: controller
+                                                                .isImageLoading
+                                                                .value
+                                                            ? const Center(
+                                                                child:
+                                                                    CircularProgressIndicator(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  strokeWidth:
+                                                                      2.5,
+                                                                ),
+                                                              )
+                                                            : controller.profileImage
+                                                                        .value !=
+                                                                    null
+                                                                ? Image.file(
+                                                                    controller
+                                                                        .profileImage
+                                                                        .value!,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                    width: 30,
+                                                                    height: 30,
+                                                                  )
+                                                                : const Center(
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .person,
+                                                                      size: 28,
+                                                                      color: Colors
+                                                                          .white70,
+                                                                    ),
+                                                                  ),
+                                                      ),
+                                                      // Overlay shimmer when loading
+                                                      if (controller
+                                                          .isImageLoading.value)
+                                                        Container(
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            shape:
+                                                                BoxShape.circle,
+                                                            gradient:
+                                                                const LinearGradient(
+                                                              colors: [
+                                                                Colors
+                                                                    .transparent,
+                                                                Colors.white10
+                                                              ],
+                                                              stops: [0.7, 1.0],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      // Edit icon overlay on tap-ready state
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            )),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -1125,42 +1206,35 @@ GestureDetector(
   }
 
   Widget _buildProfileAvatar() {
-  return GestureDetector(
-    onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
-    child: Obx(() => Container(
-          width: 64, // total container size (including border)
-          height: 64,
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32), // match container shape
-            child: controller.isImageLoading.value
-                ? const Center(
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+      child: Obx(() => Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: controller.isImageLoading.value
+                  ? const SizedBox(
+                      width: 40,
+                      height: 40,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  )
-                : controller.profileImage.value != null
-                    ? Image.file(
-                        controller.profileImage.value!,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                      )
-                    : const Icon(Icons.person, size: 40, color: Colors.white),
-          ),
-        )),
-  );
-}
-
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : controller.profileImage.value != null
+                      ? Image.file(
+                          controller.profileImage.value!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.person, size: 40, color: Colors.white),
+            ),
+          )),
+    );
+  }
 
   Widget _loaderBox() {
     return const SizedBox(

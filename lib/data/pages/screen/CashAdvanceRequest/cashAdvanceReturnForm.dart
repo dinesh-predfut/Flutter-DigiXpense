@@ -2746,65 +2746,61 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   void _showFullImage(File file, int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              PhotoView(
-                imageProvider: FileImage(file),
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 3.0,
-              ),
-              Positioned(
-                top: 10,
-                right: 10,
-                child: Column(
-                  children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   child: const Icon(Icons.zoom_in),
-                    //   backgroundColor: Colors.deepPurple,
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   child: const Icon(Icons.zoom_out),
-                    //   backgroundColor: Colors.deepPurple,
-                    // ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
-                      child: const Icon(Icons.edit),
-                      backgroundColor: Colors.deepPurple,
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            PhotoView(
+              imageProvider: FileImage(file),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 3.0,
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: "edit_$index",
+                    onPressed: () async {
+                      final croppedFile = await _cropImage(file);
+                      if (croppedFile != null) {
                         setState(() {
-                          controller.imageFiles.removeAt(index);
+                          controller.imageFiles[index] = croppedFile;
                         });
-                      },
-                      backgroundColor: Colors.red,
-                      child: const Icon(Icons.delete),
-                    ),
-                  ],
-                ),
+                        Navigator.pop(context); // Close dialog and reopen to refresh
+                        _showFullImage(croppedFile, index);
+                      }
+                    },
+                    child: const Icon(Icons.edit),
+                    backgroundColor: Colors.deepPurple,
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: "delete_$index",
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        controller.imageFiles.removeAt(index);
+                      });
+                    },
+                    child: const Icon(Icons.delete),
+                    backgroundColor: Colors.red,
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildImageArea() {
     final loc = AppLocalizations.of(context)!;

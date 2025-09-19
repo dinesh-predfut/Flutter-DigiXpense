@@ -53,7 +53,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   final TextEditingController cashAdvanceController = TextEditingController();
   final TextEditingController commentsController = TextEditingController();
   final TextEditingController totalInINRController = TextEditingController();
-
+  late GESpeficExpense expense;
   final List<ItemizeSection> itemizeSections = [];
   final PhotoViewController _photoViewController = PhotoViewController();
   @override
@@ -73,6 +73,10 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     controller.configuration();
     controller.fetchPaidwith();
     _initializeUnits();
+    expense = GESpeficExpense.fromJson(widget.apiResponse);
+
+  
+    controller.addToFinalItems(expense);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.fetchExchangeRate();
       controller.currencyDropDown();
@@ -111,7 +115,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
     taxAmountController.text =
         (widget.apiResponse['TaxAmount'] ?? 0).toString();
     descriptionController.text = widget.apiResponse['Description'] ?? '';
-    paymentMethodController.text = widget.apiResponse['PaymentMethod'] ?? '';
+    controller.paidWithController.text = widget.apiResponse['PaymentMethod'] ?? '';
     currencyController.text = widget.apiResponse['Currency'] ?? '';
     commentsController.text = widget.apiResponse['Comments'] ?? '';
 
@@ -215,8 +219,11 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
         }
       });
       controller.finalItems.add(
+        
         ExpenseItem(
           expenseCategoryId: item.categoryController.text.trim(),
+          expenseCategory: item.categoryController.text.trim(),
+          discount: 0,
           quantity: double.tryParse(item.quantityController.text) ?? 0,
           uomId: item.uomIdController.text.trim(),
           unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
@@ -350,23 +357,20 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                 right: 10,
                 child: Column(
                   children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_in),
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_out),
-                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(
+                              context); // Close dialog and reopen to refresh
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
                       child: const Icon(Icons.edit),
                       backgroundColor: Colors.deepPurple,
                     ),
@@ -788,9 +792,10 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                           onChanged: (p) {
                             setState(() {
                               controller.selectedPaidWith = p;
-                              controller.paymentMethodeID = p!.paymentMethodId;
+                              controller.paidWithController.text = p!.paymentMethodId;
                             });
                           },
+                          controller: controller.paidWithController,
                           rowBuilder: (p, searchQuery) {
                             Widget highlight(String text) {
                               final query = searchQuery.toLowerCase();
@@ -1249,7 +1254,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                           controller.setButtonLoading(
                                               'submit', true);
                                           try {
-                                            _submitForm(false);
+                                            _submitForm(true);
                                           } finally {
                                             controller.setButtonLoading(
                                                 'submit', false);
@@ -1319,11 +1324,9 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                                                 controller.setButtonLoading(
                                                     'save', true);
                                                 try {
-                                                  await controller
-                                                      .saveGeneralExpense(
-                                                          context,
-                                                          false,
-                                                          false);
+                                                controller.addToFinalItems(expense);
+                                                   
+                                                      _submitForm(false);
                                                 } finally {
                                                   controller.setButtonLoading(
                                                       'save', false);

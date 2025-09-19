@@ -495,49 +495,48 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
   @override
   Widget build(BuildContext context) {
-  return WillPopScope(
-  onWillPop: () async {
-    // Show confirmation dialog
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Form'),
-        content: const Text(
-          'You will lose any unsaved data. Do you want to exit?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // Stay here
-            child: const Text('No'),
+    return WillPopScope(
+      onWillPop: () async {
+        // Show confirmation dialog
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Exit Form'),
+            content: const Text(
+              'You will lose any unsaved data. Do you want to exit?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay here
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true), // Exit
+                child: const Text('Yes'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Exit
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
+        );
 
-    if (shouldExit ?? false) {
-      // ✅ Run your original logic only if user confirms
-      controller.clearFormFields();
-      controller.isEnable.value = false;
-      controller.isLoadingviewImage.value = false;
+        if (shouldExit ?? false) {
+          // ✅ Run your original logic only if user confirms
+          controller.clearFormFields();
+          controller.isEnable.value = false;
+          controller.isLoadingviewImage.value = false;
 
-      // Optional: Conditional navigation
-      // if(widget.isReadOnly){
-      //   Navigator.pushNamed(context, AppRoutes.generalExpense);
-      // } else {
-      //   Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
-      // }
+          // Optional: Conditional navigation
+          // if(widget.isReadOnly){
+          //   Navigator.pushNamed(context, AppRoutes.generalExpense);
+          // } else {
+          //   Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
+          // }
 
-      Navigator.of(context).pop();
-      return true; // allow back navigation
-    }
+          Navigator.of(context).pop();
+          return true; // allow back navigation
+        }
 
-    return false; // stay on the page
-  },
-
+        return false; // stay on the page
+      },
       child: Scaffold(
           appBar: AppBar(
               title: Obx(() => Text(
@@ -575,11 +574,12 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                       children: [
                         const SizedBox(height: 10),
                         GestureDetector(
-                          onTap: !controller.isEnable.value
-                              ? null
-                              : () => _pickImage(ImageSource.gallery),
+                          onTap: () => {
+                            if (controller.imageFiles.isEmpty)
+                              {_pickImage(ImageSource.gallery)}
+                          },
                           child: Container(
-                              width: MediaQuery.of(context).size.width *
+                              width: MediaQuery.of(context).size.width *  
                                   0.9, // 90% of screen width
                               height: MediaQuery.of(context).size.height *
                                   0.3, // 30% of screen height
@@ -869,8 +869,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   isMultiSelect: allowMultSelect ?? false,
                                   selectedValue: controller.singleSelectedItem,
                                   selectedValues: controller.multiSelectedItems,
-                                   controller: controller
-                                              .cashAdvanceIds,
+                                  controller: controller.cashAdvanceIds,
                                   enabled: controller.isEnable.value,
                                   searchValue: (proj) => proj.cashAdvanceReqId,
                                   displayText: (proj) => proj.cashAdvanceReqId,
@@ -2610,23 +2609,20 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 right: 10,
                 child: Column(
                   children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_in),
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_out),
-                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(
+                              context); // Close dialog and reopen to refresh
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
                       child: const Icon(Icons.edit),
                       backgroundColor: Colors.deepPurple,
                     ),

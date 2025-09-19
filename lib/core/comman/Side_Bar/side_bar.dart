@@ -40,7 +40,7 @@ class _MyDrawerState extends State<MyDrawer>
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     controller.userName.value = prefs.getString('userName') ?? '';
-print("controller.profileImage.value${controller.profileImage.value}");
+    print("controller.profileImage.value${controller.profileImage.value}");
     if (controller.profileImage.value == null) {
       await controller.getProfilePicture();
       controller.callProfile = true;
@@ -382,8 +382,12 @@ print("controller.profileImage.value${controller.profileImage.value}");
             onTap: () {
               _showLogoutConfirmation(context, () async {
                 final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
-
+                await prefs.remove('token');
+                await prefs.remove('employeeId');
+                await prefs.remove('userId');
+                await prefs.remove('refreshtoken');
+                await prefs.remove('userName');
+                controller.logout();
                 final themeNotifier =
                     Provider.of<ThemeNotifier>(context, listen: false);
                 await themeNotifier.clearTheme();

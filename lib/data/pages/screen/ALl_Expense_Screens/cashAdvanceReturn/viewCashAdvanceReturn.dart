@@ -60,88 +60,83 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   bool showItemizeDetails = true;
   List<Controller> itemizeControllers = [];
 
-@override
-void initState() {
-  super.initState();
-  print("merchantId${widget.isReadOnly}");
-  expenseIdController.text = "";
-  receiptDateController.text = "";
-  merhantName.text = "";
+  @override
+  void initState() {
+    super.initState();
+    print("merchantId${widget.isReadOnly}");
+    expenseIdController.text = "";
+    receiptDateController.text = "";
+    merhantName.text = "";
 
-  _pageController =
-      PageController(initialPage: controller.currentIndex.value);
+    _pageController =
+        PageController(initialPage: controller.currentIndex.value);
 
-  _initializeData();
-  _loadSettings();
+    _initializeData();
+    _loadSettings();
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    controller.fetchPaidto();
-    controller.fetchPaidwith();
-    controller.fetchProjectName();
-    controller.fetchExpenseCategory();
-    controller.fetchUnit();
-    controller.configuration();
-    controller.fetchTaxGroup();
-    controller.currencyDropDown();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchPaidto();
+      controller.fetchPaidwith();
+      controller.fetchProjectName();
+      controller.fetchExpenseCategory();
+      controller.fetchUnit();
+      controller.configuration();
+      controller.fetchTaxGroup();
+      controller.currencyDropDown();
 
-    if (widget.items != null) {
-      calculateAmounts(widget.items!.exchRate?.toString() ?? "1.0");
-      controller.fetchExpenseDocImage(widget.items!.recId);
-      historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+      if (widget.items != null) {
+        calculateAmounts(widget.items!.exchRate?.toString() ?? "1.0");
+        controller.fetchExpenseDocImage(widget.items!.recId);
+        historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
 
-      if (widget.items!.receiptDate != null) {
-        final formatted =
-            DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
-        controller.selectedDate = widget.items!.receiptDate;
-        receiptDateController.text = formatted;
+        if (widget.items!.receiptDate != null) {
+          final formatted =
+              DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
+          controller.selectedDate = widget.items!.receiptDate;
+          receiptDateController.text = formatted;
+        }
+
+        controller.paymentMethodID =
+            widget.items!.paymentMethod?.toString() ?? "";
+
+        if (widget.items!.workitemrecid != null) {
+          workitemrecid = widget.items!.workitemrecid!;
+        }
+
+        expenseIdController.text = widget.items!.expenseId ?? '';
+
+        controller.isManualEntryMerchant = widget.items!.merchantId == null;
+
+        controller.paidToController.text =
+            widget.items!.merchantId?.toString() ?? '';
+
+        controller.referenceID.text =
+            widget.items!.referenceNumber?.toString() ?? '';
+
+        controller.paidWithController.text = widget.items!.paymentMethod ?? '';
+
+        controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
+        controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
+        controller.unitRate.text = widget.items!.exchRate.toString();
+        controller.cashAdvReqIds = widget.items!.cashAdvReqId;
+        controller.amountINR.text =
+            widget.items!.totalAmountReporting.toString();
+        controller.expenseID = widget.items!.expenseId;
+        controller.recID = widget.items!.recId;
+        controller.isBillableCreate = widget.items!.isBillable;
+
+        if (widget.items!.merchantId == null &&
+            widget.items!.merchantName != null) {
+          controller.manualPaidToController.text = widget.items!.merchantName!;
+        }
+
+        controller.currencyDropDowncontroller.text =
+            widget.items!.currency ?? '';
       }
+    });
 
-      controller.paymentMethodID =
-          widget.items!.paymentMethod?.toString() ?? "";
-
-      if (widget.items!.workitemrecid != null) {
-        workitemrecid = widget.items!.workitemrecid!;
-      }
-
-      expenseIdController.text = widget.items!.expenseId ?? '';
-
-      controller.isManualEntryMerchant =
-          widget.items!.merchantId == null;
-
-      controller.paidToController.text =
-          widget.items!.merchantId?.toString() ?? '';
-
-      controller.referenceID.text =
-          widget.items!.referenceNumber?.toString() ?? '';
-
-      controller.paidWithController.text =
-          widget.items!.paymentMethod ?? '';
-
-      controller.paidAmount.text =
-          widget.items!.totalAmountTrans.toString();
-      controller.unitAmount.text =
-          widget.items!.totalAmountTrans.toString();
-      controller.unitRate.text = widget.items!.exchRate.toString();
-      controller.cashAdvReqIds = widget.items!.cashAdvReqId;
-      controller.amountINR.text =
-          widget.items!.totalAmountReporting.toString();
-      controller.expenseID = widget.items!.expenseId;
-      controller.recID = widget.items!.recId;
-      controller.isBillableCreate = widget.items!.isBillable;
-
-      if (widget.items!.merchantId == null &&
-          widget.items!.merchantName != null) {
-        controller.manualPaidToController.text = widget.items!.merchantName!;
-      }
-
-      controller.currencyDropDowncontroller.text =
-          widget.items!.currency ?? '';
-    }
-  });
-
-  _initializeItemizeControllers();
-}
-
+    _initializeItemizeControllers();
+  }
 
   Future<void> _initializeData() async {
     await loadAndAppendCashAdvanceList();
@@ -198,6 +193,7 @@ void initState() {
     itemizeControllers = widget.items?.expenseTrans?.map((item) {
           final controller = Controller();
 
+          print("Mapping AccountingDistribution => item: ${item.recId}");
           controller.projectDropDowncontroller.text = item.projectId ?? '';
           controller.descriptionController.text = item.description ?? '';
           controller.quantity.text = item.quantity?.toString() ?? '0';
@@ -212,7 +208,9 @@ void initState() {
           controller.uomId.text = item.uomId ?? '';
           controller.isReimbursable = item.isReimbursable ?? false;
           controller.isBillableCreate = item.isBillable ?? false;
-
+          controller.toExpenseItemUpdateModels(
+            item.recId,
+          );
           if (item.accountingDistributions != null &&
               item.accountingDistributions!.isNotEmpty) {
             controller.split = item.accountingDistributions!.map((dist) {
@@ -481,46 +479,46 @@ void initState() {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-  onWillPop: () async {
-    // Show confirmation dialog
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Form'),
-        content: const Text(
-            'You will lose any unsaved data. Do you want to exit?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // Stay
-            child: const Text('No'),
+      onWillPop: () async {
+        // Show confirmation dialog
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Exit Form'),
+            content: const Text(
+                'You will lose any unsaved data. Do you want to exit?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child: const Text('No'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true), // Exit
+                child: const Text('Yes'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Exit
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
+        );
 
-    if (shouldExit ?? false) {
-      // ✅ Your existing code runs only if user confirms
-      controller.clearFormFields();
-      controller.isEnable.value = false;
-      controller.isLoadingGE1.value = false;
+        if (shouldExit ?? false) {
+          // ✅ Your existing code runs only if user confirms
+          controller.clearFormFields();
+          controller.isEnable.value = false;
+          controller.isLoadingGE1.value = false;
 
-      // If you want to navigate conditionally, keep this logic
-      // if(widget.isReadOnly){
-      //   Navigator.pushNamed(context, AppRoutes.generalExpense);
-      // } else {
-      //   Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
-      // }
+          // If you want to navigate conditionally, keep this logic
+          // if(widget.isReadOnly){
+          //   Navigator.pushNamed(context, AppRoutes.generalExpense);
+          // } else {
+          //   Navigator.pushNamed(context, AppRoutes.myTeamExpenseDashboard);
+          // }
 
-      Navigator.of(context).pop();
-      return true; // allow pop
-    }
+          Navigator.of(context).pop();
+          return true; // allow pop
+        }
 
-    return false; // cancel pop
-  },
+        return false; // cancel pop
+      },
       child: Scaffold(
           appBar: AppBar(
             title: Text(
@@ -928,16 +926,12 @@ void initState() {
                                       .cashAdvanceRequest,
                                   items: controller.cashAdvanceListDropDown,
                                   isMultiSelect: allowMultSelect ?? false,
-                                  selectedValue:
-                                      controller.singleSelectedItem,
+                                  selectedValue: controller.singleSelectedItem,
                                   controller: controller.cashAdvanceIds,
-                                  selectedValues:
-                                      controller.multiSelectedItems,
+                                  selectedValues: controller.multiSelectedItems,
                                   enabled: controller.isEnable.value,
-                                  searchValue: (proj) =>
-                                      proj.cashAdvanceReqId,
-                                  displayText: (proj) =>
-                                      proj.cashAdvanceReqId,
+                                  searchValue: (proj) => proj.cashAdvanceReqId,
+                                  displayText: (proj) => proj.cashAdvanceReqId,
                                   validator: (proj) => proj == null
                                       ? 'Please select a CashAdvance Field'
                                       : null,
@@ -960,8 +954,8 @@ void initState() {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                              child: Text(
-                                                  proj.cashAdvanceReqId)),
+                                              child:
+                                                  Text(proj.cashAdvanceReqId)),
                                           Expanded(
                                             child: Text(
                                                 controller.formattedDate(
@@ -2174,23 +2168,30 @@ void initState() {
                                         : () async {
                                             controller.setButtonLoading(
                                                 'submit', true);
- controller.finalItemsSpecific =
-                                                    itemizeControllers
-                                                        .map((c) => c
-                                                            .toExpenseItemUpdateModel())
-                                                        .toList();
+                                            widget.items!.expenseTrans
+                                                .map((existingTrans) {
+                                              print(
+                                                  "existingTrans${existingTrans.recId}");
+                                              return controller
+                                                  .toExpenseItemUpdateModels(
+                                                existingTrans
+                                                    .recId, // ✅ preserve original recId
+                                              );
+                                            }).toList();
+                                            controller
+                                                .addToFinalItems(widget.items!);
 
-                                                controller
-                                                    .editAndUpdateCashAdvance(
-                                                        context,
-                                                        false,
-                                                        false,
-                                                        widget.items!.recId!,
-                                                        widget.items!.expenseId)
-                                                    .whenComplete(() {
-                                                  controller.setButtonLoading(
-                                                      'submit', false);
-                                                });
+                                            controller
+                                                .editAndUpdateCashAdvance(
+                                                    context,
+                                                    false,
+                                                    false,
+                                                    widget.items!.recId!,
+                                                    widget.items!.expenseId)
+                                                .whenComplete(() {
+                                              controller.setButtonLoading(
+                                                  'submit', false);
+                                            });
                                           },
                                     child: isSubmitLoading
                                         ? const SizedBox(
@@ -2233,14 +2234,15 @@ void initState() {
                                                 isSubmitLoading ||
                                                 isAnyLoading)
                                             ? null
-                                            : () {
+                                            : () async {
                                                 controller.setButtonLoading(
                                                     'saveGE', true);
-                                                controller.finalItemsSpecific =
-                                                    itemizeControllers
-                                                        .map((c) => c
-                                                            .toExpenseItemUpdateModel())
-                                                        .toList();
+
+                                              // controller
+                                              //         .toExpenseItemUpdateModels();
+                                                
+                                                controller.addToFinalItems(
+                                                    widget.items!);
 
                                                 controller
                                                     .editAndUpdateCashAdvance(
@@ -3078,25 +3080,22 @@ void initState() {
                 right: 10,
                 child: Column(
                   children: [
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_in_$index",
-                    //   onPressed: _zoomIn,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_in),
-                    // ),
-                    // const SizedBox(height: 8),
-                    // FloatingActionButton.small(
-                    //   heroTag: "zoom_out_$index",
-                    //   onPressed: _zoomOut,
-                    //   backgroundColor: Colors.deepPurple,
-                    //   child: const Icon(Icons.zoom_out),
-                    // ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(
                       heroTag: "edit_$index",
-                      onPressed: () => _cropImage(file),
-                      backgroundColor: Colors.deepPurple,
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(
+                              context); // Close dialog and reopen to refresh
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
                       child: const Icon(Icons.edit),
+                      backgroundColor: Colors.deepPurple,
                     ),
                     const SizedBox(height: 8),
                     FloatingActionButton.small(

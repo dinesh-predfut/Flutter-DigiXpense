@@ -515,11 +515,12 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         isMandatory && proj == null
                                             ? loc.selectLocale
                                             : null,
-                                    onChanged: (proj) {
+                                    onChanged: (proj) async{
                                       controller.selectedLocation = proj;
                                       controller.selectedLocationController =
                                           proj!.location;
-                                      controller.fetchPerDiemRates();
+                                      await controller.fetchPerDiemRates();
+                                      controller.fetchExchangeRatePerdiem();
                                       // loadAndAppendCashAdvanceList();
                                       field['Error'] =
                                           null; // Clear error when value selected
@@ -1943,7 +1944,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   }
                   controller.selectedDate = picked;
                   controllers.text = formatDate(picked);
-                  controller.fetchPerDiemRates();
+                 await controller.fetchPerDiemRates();
+                  controller.fetchExchangeRatePerdiem();
                   if (controller.locationController.text.isNotEmpty) {
                     loadAndAppendCashAdvanceList();
 
@@ -1959,7 +1961,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
             decoration: InputDecoration(
               labelText: label,
               filled: true,
-              // fillColor: enabled ? Colors.white : Colors.grey.shade200,
+              // fillColor: enabled ? Color.fromARGB(69, 207, 206, 206) : Colors.grey.shade200,
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               suffixIcon: const Icon(Icons.calendar_today),

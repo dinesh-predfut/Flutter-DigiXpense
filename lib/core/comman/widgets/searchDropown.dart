@@ -139,7 +139,6 @@ class _SearchableMultiColumnDropdownFieldState<T>
   Widget _buildDropdownContent() {
     final List<T> sortedItems = List.from(widget.items);
 
-    // Sort to prioritize matches
     if (widget.searchValue != null) {
       sortedItems.sort((a, b) {
         final aMatch = widget.searchValue!(a)
@@ -192,7 +191,15 @@ class _SearchableMultiColumnDropdownFieldState<T>
                 return InkWell(
                   hoverColor: Colors.blue.withOpacity(0.08),
                   onTap: () => _selectItem(item),
-                  child: widget.rowBuilder(item, _searchQuery),
+                  child: Container(
+                    height: 48,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    color: _selectedItem == item
+                        ? Theme.of(context).primaryColor.withOpacity(0.1)
+                        : Colors.transparent,
+                    child: widget.rowBuilder(item, _searchQuery),
+                  ),
                 );
               },
             ),

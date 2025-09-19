@@ -36,6 +36,9 @@ import 'package:libphonenumber/libphonenumber.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:crypto/crypto.dart';
 
 class Controller extends GetxController {
   final TextEditingController emailController = TextEditingController();
@@ -235,9 +238,58 @@ class Controller extends GetxController {
   void onInit() {
     super.onInit();
     loadSavedCredentials();
-
+    getDeviceToken();
+    getPlatform();
+    getDeviceId();
     // getInitialRoute();
     // cashAdvanceIds = TextEditingController();
+  }
+
+  Future<String?> getDeviceToken() async {
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+      // Request permission for iOS
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        print("Push notification permission denied");
+        return null;
+      }
+
+      String? token = await messaging.getToken();
+      print("Device Token: $token");
+      return token;
+    } catch (e) {
+      print("Error getting device token: $e");
+      return null;
+    }
+  }
+
+  String getPlatform() {
+    if (Platform.isAndroid) return "Android";
+    if (Platform.isIOS) return "iOS";
+    return "Unknown";
+  }
+
+  Future<String?> getDeviceId() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        return androidInfo.id; // unique Android ID
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor; // unique iOS ID
+      }
+      return null;
+    } catch (e) {
+      print("Error getting device ID: $e");
+      return null;
+    }
   }
 
   Future<String> getInitialRoute() async {
@@ -612,6 +664,56 @@ class Controller extends GetxController {
     }
   }
 
+  Future<Map<String, dynamic>> getDeviceDetails() async {
+    print("tokens");
+    final token = await getDeviceToken();
+    final platform = getPlatform();
+    final deviceId = await getDeviceId();
+    print("token$token");
+    print("platform$platform");
+    print("deviceId$deviceId");
+    return {
+      "DeviceToken": token,
+      "Platform": platform,
+      "DeviceId": deviceId,
+      "ProjectId": "test-4aca4",
+      "AppIdentifier":
+          "1:681028483669:android:28c51bfa3610b72fee32dc", // from AndroidManifest/Info.plist
+    };
+  }
+
+  Future<void> logout() async {
+    try {
+      // Step 1: Get device details
+      final details = await getDeviceDetails();
+
+      print("📱 Registering device with details: $details");
+
+      // Step 2: Make POST API call
+      final response = await http.post(
+        Uri.parse(
+            'https://api.digixpense.com/api/v1/common/pushnotifications/logout'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        },
+        body: jsonEncode(details),
+      );
+
+      // Step 3: Handle response
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print("✅ Device registered successfully: $data");
+      } else {
+        print("❌ Failed to register device. Status: ${response.statusCode}");
+        print("Response: ${response.body}");
+      }
+    } catch (e) {
+      print("🚨 Error registering device: $e");
+    }
+  }
+
   void clearFormFields() {
     print("Cleared ALL2");
     multiSelectedItems.value = [];
@@ -713,6 +815,36 @@ class Controller extends GetxController {
 
           return dist;
         }).toList());
+  }
+
+  ExpenseItemUpdate toExpenseItemUpdateModels(int? recId) {
+    print("checkRECID$recId");
+    return ExpenseItemUpdate(
+      recId: recId,
+      expenseCategoryId: categoryController.text,
+      quantity: double.tryParse(quantity.text) ?? 1.0,
+      uomId: uomId.text,
+      unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
+      taxAmount: double.tryParse(taxAmount.text) ?? 0,
+      taxGroup: taxGroupController.text,
+      lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
+      lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
+      projectId: projectDropDowncontroller.text,
+      description: descriptionController.text,
+      isReimbursable: isReimbursable,
+      isBillable: isBillableCreate,
+      accountingDistributions: accountingDistributions.map((controller) {
+        return AccountingDistribution(
+          recId: controller?.recId,
+          transAmount:
+              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
+          reportAmount:
+              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
+          allocationFactor: controller?.allocationFactor ?? 0.0,
+          dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+        );
+      }).toList(),
+    );
   }
 
   ExpenseItem toExpenseItemModel() {
@@ -3012,12 +3144,22 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "PaymentMethod": paidWithController.text ?? '',
-      "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
-      "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      // "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
+      // "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
       "IsReimbursable": true,
       "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
-      "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting": approvalamountINR.text.isNotEmpty
+          ? double.tryParse(approvalamountINR.text) ?? 0
+          : 0,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
       "Source": "Web",
       "IsBillable": false,
       "ExpenseType": "General Expenses",
@@ -3028,7 +3170,7 @@ class Controller extends GetxController {
         "File": attachmentPayload,
       },
       // if (hasValidUnit && finalItems.isNotEmpty)
-      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
 
     final url = Uri.parse(
@@ -3068,6 +3210,7 @@ class Controller extends GetxController {
         );
       }
     } catch (e) {
+      print("Error$e");
       Fluttertoast.showToast(
         msg: 'Error: $e',
         toastLength: Toast.LENGTH_SHORT,
@@ -3207,7 +3350,7 @@ class Controller extends GetxController {
     print("FileChecker");
     isLoadingviewImage.value = true;
     print("FileChecker:");
-    imageFiles.value = [];
+    imageFiles.clear();
     final response = await http.get(
       Uri.parse('${Urls.getExpensImage}$recId'),
       headers: {
@@ -3259,26 +3402,32 @@ class Controller extends GetxController {
       List<File> imageFiles) async {
     isUploading.value = true;
 
+    final List<Map<String, dynamic>> files = [];
+
     try {
       for (int i = 0; i < imageFiles.length; i++) {
         final file = imageFiles[i];
-        final base64Data = base64Encode(await file.readAsBytes());
+        final fileBytes = await file.readAsBytes();
+
+        final base64Data = base64Encode(fileBytes);
         final fileName = p.basename(file.path);
         final mimeType = getMimeType(file);
 
+        // ✅ Generate SHA-256 hash as Hashmapkey
+        final hash = sha256.convert(fileBytes).toString();
+        print("FileChecker: $hash");
         files.add({
           "index": i,
           "name": fileName,
           "type": mimeType,
           "base64Data": base64Data,
-          "Hashmapkey": ""
+          "Hashmapkey": hash,
         });
-        print("FileChecker: $files");
       }
     } catch (e) {
       print("❌ Error while preparing attachments: $e");
     } finally {
-      isUploading.value = false; // hide loader
+      isUploading.value = false;
     }
 
     return files;
@@ -3333,31 +3482,39 @@ class Controller extends GetxController {
   }
 
   void addToFinalItems(GESpeficExpense expense) {
-    final items = expense.expenseTrans.map((trans) {
+    finalItemsSpecific.clear(); // Clear previous items first
+
+    for (var trans in expense.expenseTrans) {
+      print("Processing trans.recId: ${trans.recId}"); // Debug log
+
+      // Preserve the original recId from the transaction
+      final int? originalRecId = trans.recId;
+
       final taxGroupValue =
           (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
               ? trans.taxGroup
               : null;
 
+      // Map accounting distributions while preserving their recIds
       final mappedDistributions = trans.accountingDistributions?.map((dist) {
-            print(
-                "Mapping AccountingDistribution => RecId: ${dist.recId}, TransAmount: ${dist.transAmount}, ReportAmount: ${dist.reportAmount}, AllocationFactor: ${dist.allocationFactor}, DimensionValueId: ${dist.dimensionValueId}");
-
+            print("Distribution recId: ${dist.recId}");
             return AccountingDistribution(
               transAmount: dist.transAmount,
               reportAmount: dist.reportAmount,
               dimensionValueId: dist.dimensionValueId,
               allocationFactor: dist.allocationFactor,
-              recId: dist.recId,
+              recId: dist.recId, // Preserve the distribution recId
             );
           }).toList() ??
           [];
-      return ExpenseItemUpdate(
-        quantity: trans.quantity,
-        recId: recID,
-        expenseId: expenseID,
+
+      // Create the expense item update model with preserved recId
+      final item = ExpenseItemUpdate(
+        recId: originalRecId, // ✅ This preserves the original recId
+        expenseId: recID, // Parent expense ID
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
+        quantity: trans.quantity,
         unitPriceTrans: trans.unitPriceTrans,
         taxAmount: trans.taxAmount,
         taxGroup: taxGroupValue,
@@ -3369,9 +3526,16 @@ class Controller extends GetxController {
         isBillable: trans.isBillable,
         accountingDistributions: mappedDistributions,
       );
-    }).toList();
 
-    finalItemsSpecific.addAll(items);
+      print("Final item recId: ${item.recId}");
+      finalItemsSpecific.add(item);
+    }
+
+    print("Total items in finalItemsSpecific: ${finalItemsSpecific.length}");
+    print(
+        "Items with recId: ${finalItemsSpecific.where((item) => item.recId != null).length}");
+    print(
+        "Items without recId: ${finalItemsSpecific.where((item) => item.recId == null).length}");
   }
 
   double getTotalLineAmount() {
@@ -3400,7 +3564,7 @@ class Controller extends GetxController {
     print("hasValidUnit$hasValidUnit${selectedunit?.code}");
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
-
+      "ExpenseId": '',
       "EmployeeId": Params.employeeId,
       "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
@@ -3410,7 +3574,7 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWith ?? paidWithCashAdvance.value,
+      "PaymentMethod": paidWithController.text ?? '',
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -3423,7 +3587,10 @@ class Controller extends GetxController {
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
       "UserExchRate":
           unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
-
+      "IsAlcohol": false,
+      "IsDuplicated": false,
+      "IsForged": false,
+      "IsTobacco": false,
       "Source": "Web",
       "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
@@ -4826,7 +4993,7 @@ class Controller extends GetxController {
         exchangeamountInController.text =
             parsedResponse.totalAmountTrans.toStringAsFixed(2);
         perDiemController.text = parsedResponse.perdiemId.toString();
-        fetchExchangeRatePerdiem();
+
         isLoadingGE1.value = false;
         return allocationLines;
       } else {
@@ -5065,10 +5232,12 @@ class Controller extends GetxController {
         "ExpenseId": expenseID ?? '',
         "RecId": recId,
         "ProjectId": selectedProject != null ? selectedProject?.code : null,
-        "TotalAmountTrans":
-            amountInController.text.isNotEmpty ? amountInController.text : '0',
-        "TotalAmountReporting":
-            amountInController.text.isNotEmpty ? amountInController.text : '0',
+        "TotalAmountTrans": exchangeamountInController.text.isNotEmpty
+            ? double.parse(exchangeamountInController.text)
+            : 0.0,
+        "TotalAmountReporting": amountInController.text.isNotEmpty
+            ? double.parse(amountInController.text)
+            : 0.0,
         "EmployeeId": Params.employeeId ?? '',
         "EmployeeName":
             firstNameController.text.isNotEmpty ? firstNameController.text : '',

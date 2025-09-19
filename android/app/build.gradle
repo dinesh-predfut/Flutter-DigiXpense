@@ -34,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.digi_xpense"
+        applicationId "com.example.digi_xpense1"
         minSdkVersion 21
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
