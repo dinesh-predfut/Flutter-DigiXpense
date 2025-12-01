@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
@@ -31,6 +32,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     "In Process",
     "All",
   ];
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
 
   @override
   void initState() {
@@ -94,6 +96,9 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     });
   }
 
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -105,6 +110,9 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
       },
       child: Scaffold(
         // backgroundColor: const Color(0xFFF7F7F7),
+          key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        drawer: const MyDrawer(),
         body: LayoutBuilder(
           builder: (context, constraints) {
             final isSmallScreen = constraints.maxWidth < 600;
@@ -112,8 +120,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
             return Column(
               children: [
                 // 🔹 Responsive Header
-                if (primaryColor != const Color(0xff1a237e) &&
-                    primaryColor.value != 4282339765)
+              if (primaryColor != const Color(0xFF1e4db7) )
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -128,11 +135,24 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                         ],
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Logo
+                      IconButton(
+                    onPressed: _openMenu,
+                    icon: Icon(Icons.menu, color: Colors.black, size: 20),
+                    // Optional: Add custom background or shape
+                    style: IconButton.styleFrom(
+                      // backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                    ),
+                  ),
+                
                         ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
@@ -154,174 +174,63 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                       ],
                     ),
                   ),
-                if (primaryColor == const Color(0xff1a237e) ||
-                    primaryColor.value == 4282339765)
-                  Container(
-                    width: double.infinity,
-                    height: 100,
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage('assets/Vector.png'),
-                        fit: BoxFit.cover,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(10),
-                        bottomRight: Radius.circular(10),
-                      ),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(10, 40, 20, 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Column(
-                            children: [
-                              // const Text(
-                              //   'Welcome to',
-                              //   style: TextStyle(
-                              //       color: Colors.white,
-                              //       fontSize: 8),
-                              // ),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: Image.asset(
-                                  'assets/XpenseWhite.png',
-                                  width: 100,
-                                  height: 40,
+             if (primaryColor == const Color(0xFF1e4db7) )
+                Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
                                   fit: BoxFit.cover,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const LanguageDropdown(),
-                            Stack(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.notifications,
-                                      color: Colors.white),
-                                  onPressed: () {
-                                    Navigator.pushNamed(
-                                        context, AppRoutes.notification);
-                                  },
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
                                 ),
-                                Obx(() {
-                                  final unreadCount =
-                                      controller.unreadNotifications.length;
-                                  if (unreadCount == 0) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Positioned(
-                                    right: 6,
-                                    top: 6,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 15,
-                                        minHeight: 15,
-                                      ),
-                                      child: Text(
-                                        '$unreadCount',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 6,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
                                     ),
-                                  );
-                                }),
-                              ],
-                            ),
-                            const SizedBox(width: 10),
-                           GestureDetector(
-  onTap: () {
-    Navigator.pushNamed(context, AppRoutes.personalInfo);
-  },
-  child: Obx(() => AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-         
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 200),
-          scale: controller.isImageLoading.value ? 1.0 : 1.05,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              children: [
-                // Placeholder or Image
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.grey[800],
-                  ),
-                  child: controller.isImageLoading.value
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : controller.profileImage.value != null
-                          ? Image.file(
-                              controller.profileImage.value!,
-                              fit: BoxFit.cover,
-                              width: 30,
-                              height: 30,
-                            )
-                          : const Center(
-                              child: Icon(
-                                Icons.person,
-                                size: 28,
-                                color: Colors.white70,
+                                    // Optional: Add custom background or shape
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(8),
+                                    ),
+                                  ),
+
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                ),
-                // Overlay shimmer when loading
-                if (controller.isImageLoading.value)
-                  Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.white10],
-                        stops: [0.7, 1.0],
-                      ),
-                    ),
-                  ),
-                // Edit icon overlay on tap-ready state
-               
-              ],
-            ),
-          ),
-        ),
-      )),
-),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                 const SizedBox(height: 12),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -347,7 +256,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                   height: 140,
                   child: Obx(() {
                     if (controller.manageExpensesCards.isEmpty) {
-                      return const Center(child: Text("No data"));
+                      return  Center(child: Text(loc.pleaseWait));
                     }
                     return NotificationListener<UserScrollNotification>(
                       onNotification: (notification) {
@@ -418,10 +327,12 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                               .selectedStatusDropDownmyteamCashAdvance.value,
                           isExpanded: true,
                           underline: Container(),
-                          dropdownColor: theme.colorScheme.secondaryContainer,
+                          dropdownColor: theme.colorScheme.primary,
                           borderRadius: BorderRadius.circular(10),
-                          icon: const Icon(Icons.arrow_drop_down,
-                              color: Colors.deepPurple),
+                          icon:  Icon(Icons.arrow_drop_down,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondary),
                           onChanged: (String? newValue) {
                             if (newValue != null &&
                                 newValue !=
@@ -444,8 +355,9 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                                 value,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: theme.colorScheme
-                                      .onBackground, // popup text color
+                                  color: controller.selectedStatusDropDownmyteamCashAdvance.value == value
+                      ? theme.colorScheme.secondary // ACTIVE DROPDOWN ITEM COLOR
+                      : Colors.white, // popup text color
                                 ),
                               ),
                             );
@@ -764,94 +676,80 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
     );
   }
 
-  Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
-    final onPrimaryColor = theme.colorScheme.onPrimary;
-    final controller = Get.put(Controller());
-    return GestureDetector(
-      onTap: () {
-        // if (item.expenseType == "PerDiem") {
-        //   controller.fetchSecificPerDiemItem(context, item.recId, false);
-        // } else if (item.expenseType == "General Expenses") {
-        //   print("Expenses${item.recId}");
-        //   controller.fetchSecificExpenseItem(context, item.recId, false);
-        //   controller.fetchExpenseHistory(item.recId);
-        // } else if (item.expenseType == "Mileage") {
-        //   controller.fetchMileageDetails(context, item.recId);
-        // } else if (item.expenseType == "CashAdvanceReturn") {
-        controller.fetchSpecificCashAdvanceItem(context, item.recId);
-        // } else {
-        //   ScaffoldMessenger.of(context).showSnackBar(
-        //     SnackBar(
-        //         content: Text("Unknown expense type: ${item.expenseType}")),
-        //   );
-        // }
-      },
-      child: Card(
-        // color: const Color.fromARGB(218, 245, 244, 244),
-        shadowColor: const Color.fromARGB(255, 82, 78, 78),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: ID + Date
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(item.requisitionId,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  // Text(
-                  //   item.requestDate != null
-                  //       ? DateFormat('dd-MM-yyyy').format(item.requestDate as DateTime)
-                  //       : 'No date',
-                  //   style: const TextStyle(
-                  //       fontSize: 12, color: Color.fromARGB(255, 41, 41, 41)),
-                  // ),
-                ],
-              ),
+ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
+  final theme = Theme.of(context);
+  final primaryColor = theme.primaryColor;
+  final onPrimaryColor = theme.colorScheme.onPrimary;
+  final controller = Get.put(Controller());
 
-              const SizedBox(height: 4),
+  return GestureDetector(
+    onTap: () {
+      controller.fetchSpecificCashAdvanceItem(context, item.recId,false);
+    },
+    child: Card(
+      shadowColor: const Color.fromARGB(255, 82, 78, 78),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: ID + Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  item.requisitionId ?? "",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
 
-              // Category
-              Text(item.expenseCategoryId.toString(),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
 
-              const SizedBox(height: 6),
+            // Category
+            Text(
+              item.expenseCategoryId?.toString() ?? "",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
 
-              // Status and Amount
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 0, 110, 255),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      item.approvalStatus,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
+            const SizedBox(height: 6),
+
+            // Status and Amount
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 0, 110, 255),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    item.totalRequestedAmount.toString(),
+                  child: Text(
+                    item.approvalStatus ?? "",
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                      color: Colors.white,
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                Text(
+                  item.totalRequestedAmount?.toString() ?? "",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 }

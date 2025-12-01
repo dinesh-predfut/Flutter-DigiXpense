@@ -235,9 +235,11 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get enterValidAmount => 'أدخل مبلغاً صالحاً';
 @override String get currency => 'العملة *';
 @override String get pleaseSelectCurrency => 'يرجى اختيار العملة';
-@override String get rate => 'السعر *';
+@override String get rate => 'السعر';
 @override String get rateRequired => 'مطلوب إدخال السعر';
 @override String get enterValidRate => 'أدخل سعراً صالحاً';
+@override String get lightheme => 'ألوان الثيم الفاتح';
+@override String get darktheme => 'ألوان الثيم الداكن';
 @override String get amountInInr => 'المبلغ بالروبية الهندية';
 @override String get policyViolations => 'انتهاكات السياسة';
 @override String get checkPolicies => 'تحقق من السياسات';
@@ -246,12 +248,14 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get receiptRequiredAmount => 'المبلغ يتطلب إيصالاً: أي مصروف يجب أن يكون له إيصال';
 @override String get descriptionMandatory => 'إذا جعل المسؤول الوصف إلزامياً لجميع المصروفات';
 @override String get expiredPolicy => 'المصروف المنتهي يعتبر مخالفة للسياسة';
-
+@override String get notifications => 'الإشعارات';
+@override String get unread => 'غير مقروءة';
+@override String get allNotifications => 'جميع الإشعارات';
 @override String get taxId => 'الرقم الضريبي';
 @override String get back => 'رجوع';
 @override String get taxAmount => 'قيمة الضريبة';
 @override String get cropImage => 'اقتصاص الصورة';
-@override String get referenceId => 'معرّف المرجع';
+@override String get referenceId => ' المرجع';
 @override String get pleaseSelectMerchant => 'يرجى اختيار تاجر';
 @override String get pleaseEnterMerchantName => 'يرجى إدخال اسم التاجر';
 @override String get createPerDiem => 'إنشاء بدل يومي';
@@ -260,10 +264,27 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get perDiemDetails => 'تفاصيل البدل اليومي';
 @override String get expenseId => 'معرّف المصروف';
 @override String get employeeId => 'معرّف الموظف';
+@override
+String get exitWarning => 'ستفقد أي بيانات غير محفوظة. هل تريد الخروج؟';
+@override
+String get duplicateReceiptWarning => 'يبدو أن هذه الإيصال مكرر. هل تريد المتابعة؟';
 
+@override
+String get continueText => 'متابعة';
+
+@override
+String get duplicateReceiptDetected => 'تم اكتشاف إيصال مكرر';
+
+@override
+String get extractingReceipt => 'نحن نقوم باستخراج إيصالك';
+
+@override
+String get exitForm => 'خروج من النموذج';
 @override String get location => 'الموقع';
 @override String get country => 'الدولة';
 @override String get pleaseSelectLocation => 'يرجى اختيار موقع';
+@override
+String get pleaseWait => 'يرجى الانتظار...';
 
 @override String get fromDate => 'من تاريخ';
 @override String get toDate => 'إلى تاريخ';
@@ -312,6 +333,37 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get unitAmountIsRequired => 'مطلوب مبلغ الوحدة';
 @override String get cashAdvanceRequisitionId => 'معرف طلب السلفة النقدية';
 @override String get totalEstimatedAmountInInr => 'إجمالي المبلغ التقديري بالروبية الهندية';
+@override String get totalEstimatedAmountIn => 'مالي المبلغ التقديري بالروبية الهندية';
+@override
+String get employeeName => 'اسم الموظف';
+@override
+String get justification => 'التبرير';
+@override
+String get justificationRequired => 'التبرير مطلوب';
+
+@override
+String get enterJustification => 'أدخل التبرير';
+
+@override
+String get pleaseEnterJustification => 'يرجى إدخال التبرير';
+
+@override
+String get somethingWentWrong => 'حدث خطأ ما:';
+@override
+String get timezoneName => 'اسم المنطقة الزمنية';
+
+@override
+String get timezoneCode => 'رمز المنطقة الزمنية';
+
+@override
+String get timezoneId => 'معرف المنطقة الزمنية';
+
+@override
+String get languageName => 'اسم اللغة';
+
+@override
+String get languageId => 'معرف اللغة';
+
 @override String get search => 'بحث';
 @override String get businessJustification => 'مبرر العمل';
 @override String get id => 'المعرف';

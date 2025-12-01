@@ -38,7 +38,7 @@ class ApprovalHubPage extends StatefulWidget {
 }
 
 class _ApprovalHubPageState extends State<ApprovalHubPage> {
-  late Future<Map<String, dynamic>> futureData;
+   Future<Map<String, dynamic>>? futureData;
   bool showCancelIcon = false;
   bool isFutureReady = false;
   final controller = Get.put(Controller());
@@ -57,37 +57,54 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
       FilterItem(id: 'ProjectId', label: 'Project Id', type: 'text'),
       FilterItem(id: 'PaymentMethod', label: 'Payment Method', type: 'text'),
       FilterItem(
-          id: 'TotalAmountTrans',
-          label: 'Total Amount (Transaction)',
-          type: 'number'),
+        id: 'TotalAmountTrans',
+        label: 'Total Amount (Transaction)',
+        type: 'number',
+      ),
       FilterItem(
-          id: 'TotalAmountReporting',
-          label: 'Total Amount (Reporting)',
-          type: 'number'),
+        id: 'TotalAmountReporting',
+        label: 'Total Amount (Reporting)',
+        type: 'number',
+      ),
       FilterItem(
-          id: 'ExpenseCategoryId', label: 'Expense Category Id', type: 'text'),
+        id: 'ExpenseCategoryId',
+        label: 'Expense Category Id',
+        type: 'text',
+      ),
       FilterItem(
-          id: 'ExpenseCategoryName', label: 'Expense Category', type: 'text'),
+        id: 'ExpenseCategoryName',
+        label: 'Expense Category',
+        type: 'text',
+      ),
       FilterItem(id: 'MerchantName', label: 'Merchant Name', type: 'text'),
       FilterItem(
-          id: 'IsReimbursable', label: 'Is Reimbursable', type: 'boolean'),
+        id: 'IsReimbursable',
+        label: 'Is Reimbursable',
+        type: 'boolean',
+      ),
       FilterItem(id: 'CurrencyCode', label: 'Currency Code', type: 'text'),
       FilterItem(
-          id: 'TransactionDate', label: 'Transaction Date', type: 'date'),
+        id: 'TransactionDate',
+        label: 'Transaction Date',
+        type: 'date',
+      ),
       FilterItem(id: 'SubmissionDate', label: 'Submission Date', type: 'date'),
       FilterItem(id: 'Country', label: 'Country', type: 'text'),
       FilterItem(id: 'City', label: 'City', type: 'text'),
       FilterItem(id: 'Department', label: 'Department', type: 'text'),
       FilterItem(id: 'EmployeeId', label: 'Employee Id', type: 'text'),
+      FilterItem(id: 'Status', label: 'Status', type: 'text'),
       FilterItem(
-          id: 'Status',
-          label: 'Status',
-          type: 'text'), // Could be 'boolean' if only Approved/Rejected
-      FilterItem(
-          id: 'ReceiptAttached', label: 'Receipt Attached', type: 'boolean'),
+        id: 'ReceiptAttached',
+        label: 'Receipt Attached',
+        type: 'boolean',
+      ),
       FilterItem(id: 'Description', label: 'Description', type: 'text'),
       FilterItem(
-          id: 'ApprovedAmount', label: 'Approved Amount', type: 'number'),
+        id: 'ApprovedAmount',
+        label: 'Approved Amount',
+        type: 'number',
+      ),
       FilterItem(id: 'VendorId', label: 'Vendor Id', type: 'text'),
       FilterItem(id: 'CostCenter', label: 'Cost Center', type: 'text'),
     ],
@@ -100,15 +117,19 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
       FilterItem(id: 'ReturnDate', label: 'Return Date', type: 'date'),
       FilterItem(id: 'SubmittedDate', label: 'Submitted Date', type: 'date'),
       FilterItem(
-          id: 'Status',
-          label: 'Status',
-          type: 'text'), // e.g., Pending, Approved, Rejected
+        id: 'Status',
+        label: 'Status',
+        type: 'text',
+      ), // e.g., Pending, Approved, Rejected
       FilterItem(id: 'Description', label: 'Description', type: 'text'),
       FilterItem(id: 'ApprovedBy', label: 'Approved By', type: 'text'),
       FilterItem(id: 'Department', label: 'Department', type: 'text'),
       FilterItem(id: 'ProjectId', label: 'Project Id', type: 'text'),
       FilterItem(
-          id: 'ReceiptSubmitted', label: 'Receipt Submitted', type: 'boolean'),
+        id: 'ReceiptSubmitted',
+        label: 'Receipt Submitted',
+        type: 'boolean',
+      ),
       FilterItem(id: 'ExchangeRate', label: 'Exchange Rate', type: 'number'),
       FilterItem(id: 'Notes', label: 'Notes', type: 'text'),
     ],
@@ -126,10 +147,14 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
   }
 
   Future<void> loadSkippedItems() async {
+  print("its calling ");
     final storage = await controller.prefs;
     final items = storage.getStringList('skippedWorkItems');
 
-    final skippedList = items?.map((e) => int.parse(e)).toList() ?? [];
+    final skippedList = items
+    ?.map((e) => double.tryParse(e)?.toInt() ?? 0)
+    .toList() ?? [];
+
 
     controller.skippedWorkItems.clear();
     if (skippedList.isNotEmpty) {
@@ -165,32 +190,34 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
         return HubApprovalViewEditCashAdvanceReturnPage(
           items: GESpeficExpense.fromJson(data),
           isReadOnly: false,
-        );
+        );  
       default:
         return const Center(child: Text("Unsupported Expense Type"));
     }
   }
-String getLocalizedTitle(BuildContext context, String? titleName) {
-  final loc = AppLocalizations.of(context)!;
-  switch (titleName) {
-    case "General Expenses":
-      return loc.generalExpense;
-    case "CashAdvanceReturn": 
-      return loc.cashAdvanceReturn;
-    case "PerDiem":
-      return loc.perDiem;
-    case "Mileage":
-      return loc.mileage;
-    default:
-      return "";
+
+  String getLocalizedTitle(BuildContext context, String? titleName) {
+    final loc = AppLocalizations.of(context)!;
+    switch (titleName) {
+      case "General Expenses":
+        return loc.generalExpense;
+      case "CashAdvanceReturn":
+        return loc.cashAdvanceReturn;
+      case "PerDiem":
+        return loc.perDiem;
+      case "Mileage":
+        return loc.mileage;
+      default:
+        return "";
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
         controller.clearFormFields();
+        controller.closeField();
         controller.isEnable.value = false;
         controller.isLoadingGE1.value = false;
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
@@ -201,12 +228,25 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
           // backgroundColor: const Color.fromARGB(255, 11, 1, 61),
           elevation: 0,
           leading: const BackButton(color: Colors.white),
-          title: Obx(
-            () => Text(
-              "${AppLocalizations.of(context)!.approvalHub} ${getLocalizedTitle(context, titleName?.value)}",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+        title: Obx(
+  () => Row(
+    children: [
+      Expanded(
+        child: Text(
+          "${AppLocalizations.of(context)!.approvalHub} ${getLocalizedTitle(context, titleName?.value)}",
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
           ),
+          softWrap: true,
+          overflow: TextOverflow.visible, // avoids overflow
+        ),
+      ),
+    ],
+  ),
+),
+
+
 
           actions: [
             IconButton(
@@ -306,16 +346,22 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                          ),
-                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
+                           onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
+
                         ),
                       ],
                     ),
                   ),
                   const Divider(
-                      height: 1, thickness: 1, indent: 16, endIndent: 16),
+                    height: 1,
+                    thickness: 1,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
 
                   // Content Padding
                   Padding(
@@ -349,8 +395,9 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                           labelText: '',
                           items: types, // List of String
                           selectedValue: localSelectedType,
-                          columnHeaders: const [],
-                          searchValue: (type) => type ?? '', // How to search
+                          columnHeaders: const ["Select Type"],
+                          searchValue: (type) =>
+                              type ?? '', // Used for searching
                           displayText: (type) => type ?? 'Select Type',
                           onChanged: (String? newValue) {
                             setStateModal(() {
@@ -364,33 +411,71 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                             final lowerQuery = query.toLowerCase();
                             final start = lowerText.indexOf(lowerQuery);
 
-                            Widget highlightText() {
-                              if (start == -1 || query.isEmpty) {
-                                return Text(type);
-                              }
+                            // Highlight matched text (optional)
+                            if (start != -1 && query.isNotEmpty) {
+                              final beforeMatch = type.substring(0, start);
+                              final matchText = type.substring(
+                                start,
+                                start + query.length,
+                              );
+                              final afterMatch = type.substring(
+                                start + query.length,
+                              );
 
-                              final end = start + query.length;
-                              return RichText(
-                                text: TextSpan(
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                  horizontal: 16,
+                                ),
+                                child: Row(
                                   children: [
-                                    TextSpan(text: type.substring(0, start)),
-                                    TextSpan(
-                                      text: type.substring(start, end),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                    Expanded(
+                                      child: RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: beforeMatch,
+                                              style: const TextStyle(
+                                                // color: Colors.black,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: matchText,
+                                              style: const TextStyle(
+                                                // color: Colors.blue,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: afterMatch,
+                                              style: const TextStyle(
+                                                // color: Colors.black,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    TextSpan(text: type.substring(end)),
                                   ],
                                 ),
                               );
                             }
 
+                            // Default text (no highlight)
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 16),
+                                vertical: 10,
+                                horizontal: 16,
+                              ),
                               child: Row(
-                                children: [Expanded(child: highlightText())],
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      type,
+                                     
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },
@@ -414,37 +499,13 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                             });
                           },
                           rowBuilder: (item, query) {
-                            highlight(String text, String query) {
-                              final lowerText = text.toLowerCase();
-                              final lowerQuery = query.toLowerCase();
-                              final start = lowerText.indexOf(lowerQuery);
-                              if (start == -1 || query.isEmpty)
-                                return Text(text);
-
-                              final end = start + query.length;
-                              return RichText(
-                                text: TextSpan(
-                                  children: [
-                                    TextSpan(text: text.substring(0, start)),
-                                    TextSpan(
-                                      text: text.substring(start, end),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue),
-                                    ),
-                                    TextSpan(text: text.substring(end)),
-                                  ],
-                                ),
-                              );
-                            }
-
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 16),
+                                vertical: 10,
+                                horizontal: 16,
+                              ),
                               child: Row(
-                                children: [
-                                  Expanded(child: highlight(item.label, query))
-                                ],
+                                children: [Expanded(child: Text(item.label))],
                               ),
                             );
                           },
@@ -465,7 +526,8 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                         // 🔹 Value Input (Dynamic)
                         if (localSelectedField != null) ...[
                           _buildLabel(
-                              '${AppLocalizations.of(context)!.value} *'),
+                            '${AppLocalizations.of(context)!.value} *',
+                          ),
                           _buildValueInput(
                             field: localSelectedField!,
                             value: controller.localFieldValue ?? '',
@@ -487,7 +549,9 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                               style: TextButton.styleFrom(
                                 foregroundColor: Colors.grey,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 12),
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -511,8 +575,9 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                                   });
 
                                   // Apply filter
-                                  final skippedList =
-                                      controller.skippedWorkItems.toList();
+                                  final skippedList = controller
+                                      .skippedWorkItems
+                                      .toList();
                                   futureData = controller.fetchApprovalData(
                                     skippedList,
                                     field: localSelectedField!.id,
@@ -523,7 +588,8 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          "Filtered by ${localSelectedField!.label}"),
+                                        "Filtered by ${localSelectedField!.label}",
+                                      ),
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -531,8 +597,10 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          AppLocalizations.of(context)!
-                                              .pleaseFillAllRequiredFields),
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.pleaseFillAllRequiredFields,
+                                      ),
                                       backgroundColor: Colors.redAccent,
                                       behavior: SnackBarBehavior.floating,
                                     ),
@@ -540,11 +608,17 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 11, 1, 61),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  11,
+                                  1,
+                                  61,
+                                ),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 12),
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -553,7 +627,9 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
                               child: Text(
                                 AppLocalizations.of(context)!.applyFilters,
                                 style: const TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.bold),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -570,7 +646,7 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
     );
   }
 
-// Helper: Reusable Label Widget
+  // Helper: Reusable Label Widget
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
@@ -579,7 +655,7 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Color.fromARGB(255, 40, 40, 40),
+          // color: Color.fromARGB(255, 40, 40, 40),
         ),
       ),
     );
@@ -619,10 +695,7 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
         items: booleanOptions.map((opt) {
-          return DropdownMenuItem<String>(
-            value: opt,
-            child: Text(opt),
-          );
+          return DropdownMenuItem<String>(value: opt, child: Text(opt));
         }).toList(),
         onChanged: (val) => onChanged(val ?? ''),
         dropdownColor: Colors.white,
@@ -630,6 +703,7 @@ String getLocalizedTitle(BuildContext context, String? titleName) {
     } else if (field.type == 'number') {
       return TextField(
         keyboardType: TextInputType.number,
+
         decoration: const InputDecoration(
           // labelText: 'Value *',
           hintText: 'Eg: 1000',

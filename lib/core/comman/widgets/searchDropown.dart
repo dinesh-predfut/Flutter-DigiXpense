@@ -54,15 +54,23 @@ class _SearchableMultiColumnDropdownFieldState<T>
   String _searchQuery = '';
   T? _selectedItem;
   bool _isOverlayOpen = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
+
+    // Initialize selected item and controller text from initial value
     if (widget.selectedValue != null) {
       _selectedItem = widget.selectedValue;
-      _controller.text = widget.displayText(widget.selectedValue as T);
+
+      // Only set text if controller is not externally controlled
+      if (widget.controller == null) {
+        _controller.text = widget.displayText(widget.selectedValue as T);
+      }
     }
+
     _controller.addListener(_handleSearch);
 
     _focusNode.addListener(() {
@@ -76,10 +84,20 @@ class _SearchableMultiColumnDropdownFieldState<T>
     setState(() {
       _searchQuery = _controller.text;
     });
+
+    // If the user clears the text, clear the selected item
+    if (_controller.text.isEmpty && _selectedItem != null) {
+      setState(() {
+        _selectedItem = null;
+      });
+      widget.onChanged(null);
+    }
+
     _overlayEntry?.markNeedsBuild();
   }
 
   void _showOverlay() {
+    // Hide any other open dropdown before showing this one
     _currentOpenOverlay?._hideOverlay();
 
     final renderBox = context.findRenderObject() as RenderBox;
@@ -91,25 +109,40 @@ class _SearchableMultiColumnDropdownFieldState<T>
     final spaceBelow = screenHeight - offset.dy - size.height;
     final spaceAbove = offset.dy;
 
+    // Determine if the dropdown should show above or below the field
     final showAbove =
         spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: widget.alignLeft ?? offset.dx,
-        width: widget.dropdownWidth ?? size.width,
-        top: showAbove
-            ? offset.dy - dropdownHeight - 5
-            : offset.dy + size.height + 5,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(0, showAbove ? -dropdownHeight - 5 : size.height + 5),
-          child: Material(
-            elevation: 4,
-            child: _buildDropdownContent(),
+      builder: (context) => Stack(
+        children: [
+          // Transparent barrier to detect taps outside the dropdown
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _hideOverlay,
+              behavior: HitTestBehavior.translucent,
+              child: Container(color: Colors.transparent),
+            ),
           ),
-        ),
+
+          // Positioned dropdown
+          Positioned(
+            left: widget.alignLeft ?? offset.dx,
+            width: widget.dropdownWidth ?? size.width,
+            top: showAbove
+                ? offset.dy - dropdownHeight - 5
+                : offset.dy + size.height + 5,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(
+                0,
+                showAbove ? -dropdownHeight - 5 : size.height + 5,
+              ),
+              child: Material(elevation: 4, child: _buildDropdownContent()),
+            ),
+          ),
+        ],
       ),
     );
 
@@ -117,6 +150,20 @@ class _SearchableMultiColumnDropdownFieldState<T>
     _currentOpenOverlay = this;
     setState(() => _isOverlayOpen = true);
 
+    // Auto-scroll to selected item after opening
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_selectedItem != null) {
+        final index = widget.items.indexOf(_selectedItem as T);
+        if (index >= 0 && index < widget.items.length) {
+          final position = index * 48.0; // Approx height per row
+          _scrollController.jumpTo(
+            position.clamp(0.0, _scrollController.position.maxScrollExtent),
+          );
+        }
+      }
+    });
+
+    // Hide overlay if scroll position changes
     ScrollableState? scrollableState = Scrollable.of(context);
     scrollableState?.position.addListener(_hideOverlay);
   }
@@ -137,18 +184,30 @@ class _SearchableMultiColumnDropdownFieldState<T>
   }
 
   Widget _buildDropdownContent() {
-    final List<T> sortedItems = List.from(widget.items);
+    List<T> sortedItems = List.from(widget.items);
 
-    if (widget.searchValue != null) {
+    // Sort based on search query
+    if (widget.searchValue != null && _searchQuery.isNotEmpty) {
       sortedItems.sort((a, b) {
-        final aMatch = widget.searchValue!(a)
-            .toLowerCase()
-            .contains(_searchQuery.toLowerCase());
-        final bMatch = widget.searchValue!(b)
-            .toLowerCase()
-            .contains(_searchQuery.toLowerCase());
-        if (aMatch == bMatch) return 0;
-        return aMatch ? -1 : 1;
+        final aMatch = widget.searchValue!(a).toLowerCase().contains(
+          _searchQuery.toLowerCase(),
+        );
+        final bMatch = widget.searchValue!(b).toLowerCase().contains(
+          _searchQuery.toLowerCase(),
+        );
+
+        final aStartsWith = widget.searchValue!(a).toLowerCase().startsWith(
+          _searchQuery.toLowerCase(),
+        );
+        final bStartsWith = widget.searchValue!(b).toLowerCase().startsWith(
+          _searchQuery.toLowerCase(),
+        );
+
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+        return 0;
       });
     }
 
@@ -160,45 +219,75 @@ class _SearchableMultiColumnDropdownFieldState<T>
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-            color: Theme.of(context).primaryColor.withOpacity(0.08),
-            child: Row(
-              children: widget.columnHeaders
-                  .map(
-                    (header) => Expanded(
-                      child: Text(
-                        header,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+          // Header Row
+         Container(
+  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+  color: Theme.of(context).primaryColor,
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.start,
+    children: widget.columnHeaders
+        .map(
+          (header) => Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                header,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 8,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
+        )
+        .toList(),
+  ),
+),
+
           const Divider(height: 0, thickness: 1),
+
+          // List Items
           Flexible(
             child: ListView.builder(
+              controller: _scrollController,
               padding: EdgeInsets.zero,
               shrinkWrap: true,
               physics: const ClampingScrollPhysics(),
               itemCount: sortedItems.length,
               itemBuilder: (context, index) {
                 final item = sortedItems[index];
+
+                bool isSearchMatch = false;
+                if (_searchQuery.isNotEmpty && widget.searchValue != null) {
+                  isSearchMatch = widget.searchValue!(item)
+                      .toLowerCase()
+                      .contains(_searchQuery.toLowerCase());
+                }
+
+                // Highlight selected or matching row
+                Color? rowColor;
+                if (_selectedItem != null && _selectedItem == item) {
+                  rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
+                } else if (isSearchMatch) {
+                  rowColor = Theme.of(context).focusColor.withOpacity(0.1);
+                } else {
+                  rowColor = Colors.transparent;
+                }
+
                 return InkWell(
                   hoverColor: Colors.blue.withOpacity(0.08),
                   onTap: () => _selectItem(item),
                   child: Container(
                     height: 48,
                     alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    color: _selectedItem == item
-                        ? Theme.of(context).primaryColor.withOpacity(0.1)
-                        : Colors.transparent,
-                    child: widget.rowBuilder(item, _searchQuery),
+                    // padding: const EdgeInsets.symmetric(horizontal: 12),
+                    color: rowColor,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: widget.rowBuilder(item, _searchQuery),
+                    ),
                   ),
                 );
               },
@@ -212,7 +301,11 @@ class _SearchableMultiColumnDropdownFieldState<T>
   void _selectItem(T item) {
     _controller.text = widget.displayText(item);
     _searchQuery = '';
-    _selectedItem = item;
+
+    setState(() {
+      _selectedItem = item;
+    });
+
     widget.onChanged(item);
     _hideOverlay();
     _focusNode.unfocus();
@@ -224,6 +317,7 @@ class _SearchableMultiColumnDropdownFieldState<T>
     if (widget.controller == null) _controller.dispose();
     _focusNode.dispose();
     _hideOverlay();
+    _scrollController.dispose();
     if (_currentOpenOverlay == this) {
       _currentOpenOverlay = null;
     }
@@ -245,7 +339,8 @@ class _SearchableMultiColumnDropdownFieldState<T>
                 controller: _controller,
                 focusNode: _focusNode,
                 enabled: widget.enabled ?? true,
-                decoration: widget.inputDecoration ??
+                decoration:
+                    widget.inputDecoration ??
                     InputDecoration(
                       labelText: widget.labelText,
                       filled: widget.backgroundColor != null,
@@ -254,11 +349,18 @@ class _SearchableMultiColumnDropdownFieldState<T>
                         borderRadius: BorderRadius.circular(10),
                       ),
                       suffixIcon: IconButton(
-                        icon: Icon(_isOverlayOpen
-                            ? Icons.arrow_drop_up
-                            : Icons.arrow_drop_down),
+                        icon: Icon(
+                          _isOverlayOpen
+                              ? Icons.arrow_drop_up
+                              : Icons.arrow_drop_down,
+                        ),
                         onPressed: () {
-                          _isOverlayOpen ? _hideOverlay() : _showOverlay();
+                          if (_isOverlayOpen) {
+                            _hideOverlay();
+                          } else {
+                            _focusNode.requestFocus();
+                            _showOverlay();
+                          }
                         },
                       ),
                     ),
@@ -271,7 +373,7 @@ class _SearchableMultiColumnDropdownFieldState<T>
                   padding: const EdgeInsets.only(top: 4, left: 12),
                   child: Text(
                     fieldState.errorText!,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
             ],

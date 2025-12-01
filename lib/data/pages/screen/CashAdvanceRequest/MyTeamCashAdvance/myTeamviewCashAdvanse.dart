@@ -665,45 +665,14 @@ employeeId.text=widget.items!.employeeId;
                   },
                   controller: controller.justificationController,
                   rowBuilder: (p, searchQuery) {
-                    Widget highlight(String text) {
-                      final lowerQuery = searchQuery.toLowerCase();
-                      final lowerText = text.toLowerCase();
-                      final start = lowerText.indexOf(lowerQuery);
-
-                      if (start == -1 || searchQuery.isEmpty) {
-                        return Text(text);
-                      }
-
-                      final end = start + searchQuery.length;
-                      return RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: text.substring(0, start),
-                              
-                            ),
-                            TextSpan(
-                              text: text.substring(start, end),
-                              style: const TextStyle(
-                                color: Colors.black,
-                              ),
-                            ),
-                            TextSpan(
-                              text: text.substring(end),
-                              
-                            ),
-                          ],
-                        ),
-                      );
-                    }
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       child: Row(
                         children: [
-                          Expanded(child: highlight(p.name)),
-                          Expanded(child: highlight(p.id)),
+                          Expanded(child: Text(p.name)),
+                          Expanded(child: Text(p.id)),
                         ],
                       ),
                     );
@@ -745,44 +714,14 @@ employeeId.text=widget.items!.employeeId;
                   },
                   controller: controller.paidWithController,
                   rowBuilder: (p, searchQuery) {
-                    Widget highlight(String text) {
-                      final query = searchQuery.toLowerCase();
-                      final lowerText = text.toLowerCase();
-                      final start = lowerText.indexOf(query);
-
-                      if (start == -1 || query.isEmpty) return Text(text);
-
-                      final end = start + query.length;
-                      return RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                              text: text.substring(0, start),
-                              
-                            ),
-                            TextSpan(
-                              text: text.substring(start, end),
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            TextSpan(
-                              text: text.substring(end),
-                              
-                            ),
-                          ],
-                        ),
-                      );
-                    }
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       child: Row(
                         children: [
-                          Expanded(child: highlight(p.paymentMethodName)),
-                          Expanded(child: highlight(p.paymentMethodId)),
+                          Expanded(child: Text(p.paymentMethodName)),
+                          Expanded(child: Text(p.paymentMethodId)),
                         ],
                       ),
                     );
@@ -923,50 +862,14 @@ employeeId.text=widget.items!.employeeId;
                                   controller:
                                       itemController.projectDropDowncontroller,
                                   rowBuilder: (p, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final query = searchQuery.toLowerCase();
-                                      final lowerText = text.toLowerCase();
-                                      final matchIndex =
-                                          lowerText.indexOf(query);
-
-                                      if (matchIndex == -1 || query.isEmpty)
-                                        return Text(text);
-
-                                      final end = matchIndex + query.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  text.substring(0, matchIndex),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(
-                                                  matchIndex, end),
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
 
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 12, horizontal: 16),
                                       child: Row(
                                         children: [
-                                          Expanded(child: highlight(p.name)),
-                                          Expanded(child: highlight(p.code)),
+                                          Expanded(child: Text(p.name)),
+                                          Expanded(child: Text(p.code)),
                                         ],
                                       ),
                                     );
@@ -1009,41 +912,6 @@ employeeId.text=widget.items!.employeeId;
                                   },
                                   controller: itemController.categoryController,
                                   rowBuilder: (p, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final query = searchQuery.toLowerCase();
-                                      final lower = text.toLowerCase();
-                                      final matchIndex = lower.indexOf(query);
-
-                                      if (matchIndex == -1 || query.isEmpty)
-                                        return Text(text);
-
-                                      final end = matchIndex + query.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  text.substring(0, matchIndex),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(
-                                                  matchIndex, end),
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
 
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
@@ -1051,9 +919,9 @@ employeeId.text=widget.items!.employeeId;
                                       child: Row(
                                         children: [
                                           Expanded(
-                                              child: highlight(p.categoryName)),
+                                              child: Text(p.categoryName)),
                                           Expanded(
-                                              child: highlight(p.categoryId)),
+                                              child: Text(p.categoryId)),
                                         ],
                                       ),
                                     );
@@ -1113,50 +981,6 @@ employeeId.text=widget.items!.employeeId;
                                                   itemController);
                                             },
                                             rowBuilder: (loc, searchQuery) {
-                                              Widget highlight(String text) {
-                                                final lowerQuery =
-                                                    searchQuery.toLowerCase();
-                                                final lowerText =
-                                                    text.toLowerCase();
-                                                final start = lowerText
-                                                    .indexOf(lowerQuery);
-                                                if (start == -1 ||
-                                                    searchQuery.isEmpty) {
-                                                  return Text(text);
-                                                }
-
-                                                final end =
-                                                    start + searchQuery.length;
-                                                return RichText(
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            0, start),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            start, end),
-                                                        style: const TextStyle(
-                                                          color: Colors.blue,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            text.substring(end),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
 
                                               return Padding(
                                                 padding:
@@ -1237,50 +1061,14 @@ employeeId.text=widget.items!.employeeId;
                                   },
                                   controller: itemController.uomId,
                                   rowBuilder: (tax, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final query = searchQuery.toLowerCase();
-                                      final lower = text.toLowerCase();
-                                      final matchIndex = lower.indexOf(query);
-
-                                      if (matchIndex == -1 || query.isEmpty) {
-                                        return Text(text);
-                                      }
-
-                                      final end = matchIndex + query.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  text.substring(0, matchIndex),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(
-                                                  matchIndex, end),
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                              style: const TextStyle(
-                                                  color: Colors.black),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
 
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 12, horizontal: 16),
                                       child: Row(
                                         children: [
-                                          Expanded(child: highlight(tax.code)),
-                                          Expanded(child: highlight(tax.name)),
+                                          Expanded(child: Text(tax.code)),
+                                          Expanded(child: Text(tax.name)),
                                         ],
                                       ),
                                     );
@@ -1327,6 +1115,11 @@ employeeId.text=widget.items!.employeeId;
                                 ),
                                 TextField(
                                   keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'^\d*\.?\d{0,2}'),
+                                              ), // Allows numbers with up to 2 decimal places
+                                            ],
                                   controller: itemController.unitAmount,
                                   enabled: controller.isEnable.value,
                                   
@@ -1768,62 +1561,6 @@ employeeId.text=widget.items!.employeeId;
                                                   }
                                                 },
                                                 rowBuilder: (c, searchQuery) {
-                                                  Widget highlight(
-                                                      String text) {
-                                                    final lowerQuery =
-                                                        searchQuery
-                                                            .toLowerCase();
-                                                    final lowerText =
-                                                        text.toLowerCase();
-                                                    final start = lowerText
-                                                        .indexOf(lowerQuery);
-                                                    if (start == -1 ||
-                                                        searchQuery.isEmpty) {
-                                                      return Text(text,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize:
-                                                                      12));
-                                                    }
-                                                    final end = start +
-                                                        searchQuery.length;
-                                                    return RichText(
-                                                      text: TextSpan(
-                                                        children: [
-                                                          TextSpan(
-                                                            text:
-                                                                text.substring(
-                                                                    0, start),
-                                                            style:
-                                                                const TextStyle(
-                                                                    color: Colors
-                                                                        .black),
-                                                          ),
-                                                          TextSpan(
-                                                            text:
-                                                                text.substring(
-                                                                    start, end),
-                                                            style:
-                                                                const TextStyle(
-                                                              color:
-                                                                  Colors.blue,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                          ),
-                                                          TextSpan(
-                                                            text: text
-                                                                .substring(end),
-                                                            style:
-                                                                const TextStyle(
-                                                                    color: Colors
-                                                                        .black),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  }
 
                                                   return Padding(
                                                     padding: const EdgeInsets
@@ -1833,13 +1570,13 @@ employeeId.text=widget.items!.employeeId;
                                                     child: Row(
                                                       children: [
                                                         Expanded(
-                                                            child: highlight(
+                                                            child: Text(
                                                                 c.code)),
                                                         Expanded(
-                                                            child: highlight(
+                                                            child: Text(
                                                                 c.name)),
                                                         Expanded(
-                                                            child: highlight(
+                                                            child: Text(
                                                                 c.symbol)),
                                                       ],
                                                     ),
@@ -3135,6 +2872,7 @@ employeeId.text=widget.items!.employeeId;
                       ),
                     ],
                   ),
+                   const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -3145,33 +2883,32 @@ employeeId.text=widget.items!.employeeId;
   );
 }
 
-  // ... (keep all your existing helper methods below)
   Future<File?> _cropImage(File file) async {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.square,
-      ],
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Colors.deepPurple,
-          toolbarWidgetColor: Colors.white,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        )
-      ],
-    );
+  final croppedFile = await ImageCropper().cropImage(
+    sourcePath: file.path,
+    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Crop Image',
+        toolbarColor: Colors.deepPurple,
+        toolbarWidgetColor: Colors.white,
+        lockAspectRatio: false,
+      ),
+      IOSUiSettings(
+        title: 'Crop Image',
+        aspectRatioLockEnabled: false,
+      ),
+    ],
+  );
 
-    if (croppedFile != null) {
-      return File(croppedFile.path);
-    }
-
-    return null;
+  if (croppedFile != null) {
+    final croppedImage = File(croppedFile.path); return croppedImage;
+    // ignore: use_build_context_synchronously
+    // await controller.sendUploadedFileToServer(context, croppedImage);
   }
+
+  return null;
+}
 
   void _zoomIn() {
     _photoViewController.scale = _photoViewController.scale! * 1.2;
@@ -3190,50 +2927,72 @@ employeeId.text=widget.items!.employeeId;
 void _showFullImage(File file, int index) {
   showDialog(
     context: context,
+    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
     builder: (context) {
       return Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent, // remove white box background
+        insetPadding: const EdgeInsets.all(8),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            PhotoView(
-              imageProvider: FileImage(file),
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
+            // Full image view
+            PhotoView.customChild(
               minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 3.0,
+              maxScale: PhotoViewComputedScale.covered * 9.0,
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              child: Image.file(file, fit: BoxFit.contain),
             ),
+
+            // Close button (top-left)
             Positioned(
-              top: 10,
-              right: 10,
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                 onPressed: () {
+                            // controller.closeField();
+                            Navigator.pop(context);
+                          },
+              ),
+            ),
+
+            // Floating edit & delete buttons (top-right)
+            Positioned(
+              top: 80,
+              right: 20,
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "edit_$index",
-                    onPressed: () async {
-                      final croppedFile = await _cropImage(file);
-                      if (croppedFile != null) {
-                        setState(() {
-                          controller.imageFiles[index] = croppedFile;
-                        });
-                        Navigator.pop(context); // Close dialog and reopen to refresh
-                        _showFullImage(croppedFile, index);
-                      }
-                    },
-                    child: const Icon(Icons.edit),
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "delete_$index",
-                    onPressed: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        controller.imageFiles.removeAt(index);
-                      });
-                    },
-                    child: const Icon(Icons.delete),
-                    backgroundColor: Colors.red,
-                  ),
+                  // if (controller.isEnable.value)
+                  //   FloatingActionButton.small(
+                  //     heroTag: "edit_$index",
+                  //     onPressed: () async {
+                  //       final croppedFile = await _cropImage(file);
+                  //       if (croppedFile != null) {
+                  //         setState(() {
+                  //           controller.imageFiles[index] = croppedFile;
+                  //         });
+                  //         Navigator.pop(context);
+                  //         _showFullImage(croppedFile, index);
+                  //       }
+                  //     },
+                  //     backgroundColor: Colors.deepPurple,
+                  //     child: const Icon(Icons.edit),
+                  //   ),
+                  // const SizedBox(height: 12),
+                  // if (controller.isEnable.value)
+                  //   FloatingActionButton.small(
+                  //     heroTag: "delete_$index",
+                  //     onPressed: () {
+                  //       Navigator.pop(context);
+                  //       setState(() {
+                  //         controller.imageFiles.removeAt(index);
+                  //       });
+                  //     },
+                  //     backgroundColor: Colors.red,
+                  //     child: const Icon(Icons.delete),
+                  //   ),
                 ],
               ),
             ),
@@ -3243,7 +3002,6 @@ void _showFullImage(File file, int index) {
     },
   );
 }
-
   Widget buildDateField(
     String label,
     TextEditingController controllers, {
@@ -3265,7 +3023,7 @@ void _showFullImage(File file, int index) {
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat('yyyy-MM-dd') // Adjust your format
+                          DateFormat('dd-MM-yyyy') // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -3281,7 +3039,7 @@ void _showFullImage(File file, int index) {
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
                     controller.selectedDateMileage = picked;
                     controller.fetchMileageRates();
                     controller.selectedDate = picked;

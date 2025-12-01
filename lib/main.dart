@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:digi_xpense/data/pages/screen/screenLoader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 // Local imports
-import 'firebase_options.dart'; // ✅ Make sure this file exists in lib/
+import 'firebase_options.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
 import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
 import 'package:digi_xpense/theme/theme.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
-import 'core/constant/Parames/params.dart';
+import 'package:digi_xpense/core/constant/Parames/params.dart';
 
 /// Locale Notifier
 class LocaleNotifier extends ChangeNotifier {
@@ -70,13 +71,13 @@ String getLocaleCodeFromId(String id) {
 
 /// Theme Colors Map
 final Map<String, Color> themeColorMap = {
-  "RED_THEME": Colors.red,
+  "RED_THEME": Colors.pinkAccent,
   "GREEN_THEME": Colors.green,
   "BLUE_THEME": Colors.blue,
   "ORANGE_THEME": Colors.orange,
   "PURPLE_THEME": Colors.purple,
   "INDIGO_THEME": Colors.indigo,
-  "DARK_RED_THEME": const Color(0xFFB71C1C),
+  "DARK_RED_THEME": const Color.fromARGB(255, 250, 60, 155),
   "DARK_GREEN_THEME": const Color(0xFF1B5E20),
   "DARK_BLUE_THEME": const Color(0xFF0D47A1),
   "DARK_INDIGO_THEME": const Color(0xFF1A237E),
@@ -84,81 +85,127 @@ final Map<String, Color> themeColorMap = {
   "DARK_ORANGE_THEME": const Color(0xFFE65100),
 };
 
-/// Determine initial route based on token
-Future<String> getInitialRoute(String? refreshToken) async {
-  if (refreshToken == null || refreshToken.isEmpty || refreshToken == "null") {
-    return AppRoutes.entryScreen;
-  }
+class AppInitializer {
+  static Future<AppInitData> initialize() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    final response = await http.post(
-      Uri.parse("https://api.digixpense.com/api/v1/tenant/auth/refresh_token"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": 'Bearer $refreshToken',
-      },
+    // Initialize Firebase (non-blocking)
+    final firebaseFuture = Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    if (response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      if (data["access_token"] != null) {
-        Params.userToken = data["access_token"];
-        return AppRoutes.dashboard_Main;
-      }
+    // Load SharedPreferences and other data in parallel
+    final prefs = await SharedPreferences.getInstance();
+    final themeKey = prefs.getString("ThemeColor");
+    final langId = prefs.getString("LanguageID") ?? "LUG-01";
+    final refreshToken = prefs.getString('refresh_token');
+     final initialRoute = await _getInitialRoute(refreshToken);
+    // Wait for Firebase initialization to complete
+    await firebaseFuture;
+    await SetSharedPref().getData();
+
+    // Initialize theme
+    final Color initialColor = themeColorMap[themeKey] ?? const Color(0xFF1A237E);
+    final themeNotifier = ThemeNotifier(
+      ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: initialColor),
+        scaffoldBackgroundColor: Colors.grey[50]!,
+      ),
+      null,
+    );
+    if (themeKey != null) {
+      themeNotifier.setColor(initialColor, themeKey: themeKey);
     }
 
-    return AppRoutes.signin;
-  } catch (_) {
-    return AppRoutes.signin;
+    // Initialize locale
+    final localeNotifier = LocaleNotifier.initial(
+      Locale(getLocaleCodeFromId(langId)),
+    );
+
+    // Determine initial route
+   
+
+    return AppInitData(
+      themeNotifier: themeNotifier,
+      localeNotifier: localeNotifier,
+      initialRoute: initialRoute,
+    );
+  }
+
+  static Future<String> _getInitialRoute(String? refreshToken) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastRoute = prefs.getString('refresh_token');
+    
+    if (lastRoute == "Login") {
+      return AppRoutes.signin;
+    } else if (refreshToken == null || refreshToken.isEmpty || refreshToken == "null") {
+      return AppRoutes.entryScreen;
+    } else {
+      return AppRoutes.dashboard_Main;
+    }
   }
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+class AppInitData {
+  final ThemeNotifier themeNotifier;
+  final LocaleNotifier localeNotifier;
+  final String initialRoute;
 
-  /// 🔹 Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // ✅ Use the generated file
-  );
+  AppInitData({
+    required this.themeNotifier,
+    required this.localeNotifier,
+    required this.initialRoute,
+  });
+}
 
-  /// 🔹 SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  final themeKey = prefs.getString("ThemeColor");
-  final langId = prefs.getString("LanguageID") ?? "LUG-01";
-
-  /// 🔹 LocaleNotifier
-  final localeNotifier = LocaleNotifier.initial(Locale(getLocaleCodeFromId(langId)));
-
-  /// 🔹 ThemeNotifier
-  final Color initialColor =
-      themeColorMap[themeKey] ?? const Color(0xFF1A237E);
-
-  final themeNotifier = ThemeNotifier(
-    ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: initialColor),
-      scaffoldBackgroundColor: Colors.grey[50]!,
-    ),
-  );
-  if (themeKey != null) {
-    themeNotifier.setColor(initialColor, themeKey: themeKey);
-  }
-
-  /// 🔹 Load refresh token
-  await SetSharedPref().getData();
-
-  /// 🔹 Initial route
-  final initialRoute = await getInitialRoute(Params.refreshtoken);
-
-  /// 🔹 Run App
+void main() {
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ThemeNotifier>.value(value: themeNotifier),
-        ChangeNotifierProvider<LocaleNotifier>.value(value: localeNotifier),
-        ChangeNotifierProvider<ReportModel>(create: (_) => ReportModel()),
-      ],
-      child: MyApp(initialRoute: initialRoute),
+    FutureBuilder<AppInitData>(
+      future: AppInitializer.initialize(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData) {
+            final initData = snapshot.data!;
+            return MultiProvider(
+              providers: [
+                ChangeNotifierProvider<ThemeNotifier>.value(value: initData.themeNotifier),
+                ChangeNotifierProvider<LocaleNotifier>.value(value: initData.localeNotifier),
+                ChangeNotifierProvider<ReportModel>(create: (_) => ReportModel()),
+              ],
+              child: MyApp(initialRoute: initData.initialRoute),
+            );
+          } else {
+            // Fallback if initialization fails
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/logo.png', // Update with your logo path
+                        width: 200,
+                        height: 200,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Initialization failed'),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+        } else {
+          // Show loading screen while initializing
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+
+            home: Logo_ScreenLanding(),
+          );
+        }
+      },
     ),
   );
 }
@@ -175,9 +222,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Digi Xpense',
       debugShowCheckedModeBanner: false,
+      
       initialRoute: initialRoute,
       onGenerateRoute: AppRoutes.generateRoute,
-      theme: themeNotifier.getTheme(),
+      theme: themeNotifier.theme,
       locale: localeNotifier.locale,
       supportedLocales: const [
         Locale('en'),

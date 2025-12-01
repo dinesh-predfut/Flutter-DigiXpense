@@ -59,143 +59,97 @@ class UserProfile {
   }
 }
 class UserSettings {
-  final String defaultDateFormat;
-  final String defaultCurrency;
-  final String defaultTimeZone;
-  final String defaultLanguageId;
-  final String decimalSeperator;
-  final String? defaultPaymentMethodId;
-  final bool themeDirection;
-  final String themeColor;
-  final String defaultTimeZoneValue;
-  final bool showAnalyticsOnList;
-  final String firstName;
-  final String? middleName;
-  final String lastName;
-  final String? profilePicture;
-  final String? logo;
-  final String? darkLogo;
-  final String? favicon;
+  final String? name;
+  final String? value;
+  final String? defaultValue;
+  final String? displayName;
 
   UserSettings({
-    required this.defaultDateFormat,
-    required this.defaultCurrency,
-    required this.defaultTimeZone,
-    required this.defaultLanguageId,
-    required this.decimalSeperator,
-    this.defaultPaymentMethodId,
-    required this.themeDirection,
-    required this.themeColor,
-    required this.defaultTimeZoneValue,
-    required this.showAnalyticsOnList,
-    required this.firstName,
-    this.middleName,
-    required this.lastName,
-    this.profilePicture,
-    this.logo,
-    this.darkLogo,
-    this.favicon,
+    this.name,
+    this.value,
+    this.defaultValue,
+    this.displayName,
   });
 
-  factory UserSettings.fromJson(Map<String, dynamic> json) {
-    return UserSettings(
-      defaultDateFormat: json['DefaultDateFormat'] as String,
-      defaultCurrency: json['DefaultCurrency'] as String,
-      defaultTimeZone: json['DefaultTimeZone'] as String,
-      defaultLanguageId: json['DefaultLanguageId'] as String,
-      decimalSeperator: json['DecimalSeperator'] as String,
-      defaultPaymentMethodId: json['DefaultPaymentMethodId'] as String?,
-      themeDirection: json['ThemeDirection'] as bool,
-      themeColor: json['ThemeColor'] as String,
-      defaultTimeZoneValue: json['DefaultTimeZoneValue'].toString(),
-      showAnalyticsOnList: json['ShowAnalyticsOnList'] as bool,
-      firstName: json['FirstName'] as String,
-      middleName: json['MiddleName'] as String?,
-      lastName: json['LastName'] as String,
-      profilePicture: json['ProfilePicture'] as String?,
-      logo: json['Logo'] as String?,
-      darkLogo: json['DarkLogo'] as String?,
-      favicon: json['Favicon'] as String?,
-    );
-  }
+  factory UserSettings.fromJson(Map<String, dynamic> json) => UserSettings(
+        name: json['Name'] as String?,
+        value: json['Value'] as String?,
+        defaultValue: json['DefaultValue'] as String?,
+        displayName: json['DisplayName'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Name': name,
+        'Value': value,
+        'DefaultValue': defaultValue,
+        'DisplayName': displayName,
+      };
 }
 class OrganizationSettings {
-  final String? taxGroupId;
-  final String? exchangeRateProvider;
-  final String? allowDomains;
-  final bool enableProject;
-  final bool enableUserDelegate;
-  final int numberOfDecimal;
-  final bool allowThemesSettings;
-  final String organizationDefaultCurrency;
-  final String orgDefaultLanguageId;
-  final String orgDecimalSeperator;
-  final String organizationDefaultCurrencySymbol;
-  final bool organizationEnablePerdiem;
-  final bool organizationEnableMileage;
-  final String organizationDefaultMileagUnit;
+  final String? name;
+  final String? value;
+  final String? defaultValue;
+  final String? displayName;
+  final String? organizationDefaultMileagUnit;
 
   OrganizationSettings({
-    this.taxGroupId,
-    this.exchangeRateProvider,
-    this.allowDomains,
-    required this.enableProject,
-    required this.enableUserDelegate,
-    required this.numberOfDecimal,
-    required this.allowThemesSettings,
-    required this.organizationDefaultCurrency,
-    required this.orgDefaultLanguageId,
-    required this.orgDecimalSeperator,
-    required this.organizationDefaultCurrencySymbol,
-    required this.organizationEnablePerdiem,
-    required this.organizationEnableMileage,
-    required this.organizationDefaultMileagUnit,
+    this.name,
+    this.value,
+    this.defaultValue,
+    this.displayName,
+    this.organizationDefaultMileagUnit,
   });
 
-  factory OrganizationSettings.fromJson(Map<String, dynamic> json) {
-    return OrganizationSettings(
-      taxGroupId: json['TaxGroupId'] as String?,
-      exchangeRateProvider: json['ExchangeRateProvider'] as String?,
-      allowDomains: json['AllowDomains'] as String?,
-      enableProject: json['EnableProject'] as bool,
-      enableUserDelegate: json['EnableUserDelegate'] as bool,
-      numberOfDecimal: json['NumberOfDecimal'] as int,
-      allowThemesSettings: json['AllowThemesSettings'] as bool,
-      organizationDefaultCurrency:
-          json['OrganizationDefaultCurrency'] as String,
-      orgDefaultLanguageId: json['OrgDefaultLanguageId'] as String,
-      orgDecimalSeperator: json['OrgDecimalSeperator'] as String,
-      organizationDefaultCurrencySymbol:
-          json['OrganizationDefaultCurrencySymbol'] as String,
-      organizationEnablePerdiem: json['OrganizationEnablePerdiem'] as bool,
-      organizationEnableMileage: json['OrganizationEnableMileage'] as bool,
-      organizationDefaultMileagUnit:
-          json['OrganizationDefaultMileagUnit'] as String,
-    );
-  }
+  factory OrganizationSettings.fromJson(Map<String, dynamic> json) =>
+      OrganizationSettings(
+        name: json['Name'] as String?,
+        value: json['Value'] as String?,
+        defaultValue: json['DefaultValue'] as String?,
+        displayName: json['DisplayName'] as String?,
+        organizationDefaultMileagUnit:
+            json['OrganizationDefaultMileageUnit'] as String? ??
+                json['OrganizationDefaultMileagUnit'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Name': name,
+        'Value': value,
+        'DefaultValue': defaultValue,
+        'DisplayName': displayName,
+        'OrganizationDefaultMileagUnit': organizationDefaultMileagUnit,
+      };
 }
+
+
 class UserPermissions {
-  final List<String> read;
-  final List<String> write;
-  final List<String> update;
-  final List<String> delete;
+  final List<String>? read;
+  final List<String>? write;
+  final List<String>? update;
+  final List<String>? delete;
 
   UserPermissions({
-    required this.read,
-    required this.write,
-    required this.update,
-    required this.delete,
+    this.read,
+    this.write,
+    this.update,
+    this.delete,
   });
 
-  factory UserPermissions.fromJson(Map<String, dynamic> json) {
-    return UserPermissions(
-      read: List<String>.from(json['Read']),
-      write: List<String>.from(json['Write']),
-      update: List<String>.from(json['Update']),
-      delete: List<String>.from(json['Delete']),
-    );
-  }
+  factory UserPermissions.fromJson(Map<String, dynamic> json) =>
+      UserPermissions(
+        read: List<String>.from(json['Read'] ?? []),
+        write: List<String>.from(json['Write'] ?? []),
+        update: List<String>.from(json['Update'] ?? []),
+        delete: List<String>.from(json['Delete'] ?? []),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Read': read,
+        'Write': write,
+        'Update': update,
+        'Delete': delete,
+      };
 }
+
 class Role {
   final String? roleId;
   final String? roleName;
@@ -211,4 +165,5 @@ class Role {
       roleName: json['RoleName'] as String?,
     );
   }
+  
 }

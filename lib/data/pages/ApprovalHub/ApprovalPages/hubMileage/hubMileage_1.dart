@@ -74,12 +74,13 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
       final formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
+      controller.employeeName.text = expense.employeeName;
       controller.expenseID = expense.expenseId;
       controller.recID = expense.recId ?? 0; // Use 0 as fallback if null
       // controller.workitemrecid = expense.workitemRecId!;
-      // controller.mileageVehicleName.text = expense.vehicalType ?? '';
+      controller.mileageVehicleName.text = expense.vehicalType ?? '';
       controller.projectIdController.text = expense.projectId;
-      // controller.mileageVehicleID.text = expense.mileageRateId;
+      controller.mileageVehicleID.text = expense.mileageRateId;
       controller.mileagDateController.text = formattedDate;
       controller.calculatedAmountINR = expense.totalAmountReporting;
       // final matchingVehicle = controller.vehicleTypes.firstWhere(
@@ -247,6 +248,10 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     print("controller.calculatedAmountINR1");
 
     return WillPopScope(onWillPop: () async {
+       controller.clearFormFields();
+        controller.clearFormFieldsPerdiem();
+          controller.resetFieldsMileage();
+         controller.clearFormFieldsPerdiem();
       Navigator.pop(context);
       return true; // allow back navigation
     }, child: Scaffold(body: Obx(() {
@@ -260,7 +265,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                     // height: 300,
                     width: double.infinity,
                     decoration: const BoxDecoration(
-                      color: Colors.white,
+                      // color: Colors.white,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(30),
                         topRight: Radius.circular(30),
@@ -287,6 +292,12 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                 "${AppLocalizations.of(context)!.employeeId} *",
                                 controller.employeeIdController,
                                 false),
+                                if (widget.mileageId != null)
+                                   buildTextField(
+                            "${AppLocalizations.of(context)!.employeeName} *",
+                            controller.employeeName,
+                             false,
+                          ),
                           buildDateField(
                               "${AppLocalizations.of(context)!.mileageDate} *",
                               controller.mileagDateController),
@@ -341,12 +352,12 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                           ...controller.configList
                               .where((field) =>
                                   field['FieldName'] == 'Project Id' &&
-                                  field['FieldName'] !=
-                                      'Location') // 👈 filter only Project Id
+                                  field['IsEnabled'] == true) // 👈 filter only Project Id
                               .map((field) {
                             final String label = field['FieldName'];
                             final bool isMandatory =
-                                field['IsMandatory'] ?? false;
+                                field['IsMandatory'];
+
 
                             Widget inputField;
 
@@ -380,44 +391,14 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                     // controller.fetchExpenseCategory();
                                   },
                                   rowBuilder: (proj, searchQuery) {
-                                    Widget highlight(String text) {
-                                      final lowerQuery =
-                                          searchQuery.toLowerCase();
-                                      final lowerText = text.toLowerCase();
-                                      final start =
-                                          lowerText.indexOf(lowerQuery);
-                                      if (start == -1 || searchQuery.isEmpty)
-                                        return Text(text);
-
-                                      final end = start + searchQuery.length;
-                                      return RichText(
-                                        text: TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text: text.substring(0, start),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(start, end),
-                                              style: const TextStyle(
-                                                color: Colors.blue,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            TextSpan(
-                                              text: text.substring(end),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }
 
                                     return Padding(
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 12, horizontal: 16),
                                       child: Row(
                                         children: [
-                                          Expanded(child: highlight(proj.name)),
-                                          Expanded(child: highlight(proj.code)),
+                                          Expanded(child: Text(proj.name)),
+                                          Expanded(child: Text(proj.code)),
                                         ],
                                       ),
                                     );
@@ -599,23 +580,25 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                     );
                                   },
                                 ),
+                               
                               ],
                             ),
-                          ElevatedButton(
-                            onPressed: handleSubmit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.gradientEnd,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30)),
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            child: Text(
-                              AppLocalizations.of(context)!.next,
-                              style: const TextStyle(
-                                  fontSize: 16, color: Colors.white),
-                            ),
-                          ),
+                             SizedBox(height: 83,),
+                          // ElevatedButton(
+                          //   onPressed: handleSubmit,
+                          //   style: ElevatedButton.styleFrom(
+                          //     backgroundColor: AppColors.gradientEnd,
+                          //     padding: const EdgeInsets.symmetric(vertical: 14),
+                          //     shape: RoundedRectangleBorder(
+                          //         borderRadius: BorderRadius.circular(30)),
+                          //     minimumSize: const Size(double.infinity, 50),
+                          //   ),
+                          //   child: Text(
+                          //     AppLocalizations.of(context)!.next,
+                          //     style: const TextStyle(
+                          //         fontSize: 16, color: Colors.white),
+                          //   ),
+                          // ),
                           const SizedBox(height: 12),
                         ],
                       ),
@@ -686,8 +669,8 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                 color: Colors.deepPurple,
               ),
             ),
-            backgroundColor: Colors.white,
-            collapsedBackgroundColor: Colors.white,
+            // backgroundColor: Colors.white,
+            // collapsedBackgroundColor: Colors.white,
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
@@ -716,7 +699,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
           labelStyle: const TextStyle(color: Colors.black87),
           suffixIcon: suffix,
           filled: true,
-          fillColor: Colors.white,
+          
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           // contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
@@ -737,7 +720,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
           if (controllers.text.isNotEmpty) {
             try {
               initialDate =
-                  DateFormat('yyyy-MM-dd') // <-- Match your text format
+                  DateFormat('dd-MM-yyyy') // <-- Match your text format
                       .parseStrict(controllers.text.trim());
             } catch (e) {
               print("Invalid date in controllers.text: ${controllers.text}");
@@ -754,7 +737,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
 
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+            controllers.text = DateFormat('dd-MM-yyyy').format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();
@@ -781,7 +764,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
           labelText: label,
           labelStyle: const TextStyle(color: Colors.black87),
           filled: true,
-          fillColor: Colors.white,
+         
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

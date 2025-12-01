@@ -104,13 +104,30 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
       }
     }
   }
+void _handleSearch() {
+  setState(() {
+    _searchQuery = _controller.text;
+  });
 
-  void _handleSearch() {
-    setState(() {
-      _searchQuery = _controller.text;
-    });
-    _overlayEntry?.markNeedsBuild();
+  // 🔹 Reset selection if user clears the field
+  if (_controller.text.isEmpty) {
+    if (widget.isMultiSelect && _selectedItems.isNotEmpty) {
+      setState(() {
+        _selectedItems.clear();
+      });
+      widget.onMultiChanged?.call([]);
+      controller.cashAdvanceIds.text = '';
+    } else if (!widget.isMultiSelect && _selectedItem != null) {
+      setState(() {
+        _selectedItem = null;
+      });
+      widget.onChanged(null);
+    }
   }
+
+  _overlayEntry?.markNeedsBuild();
+}
+
 
   void _showOverlay() {
     _currentOpenOverlay?._hideOverlay();

@@ -388,8 +388,14 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
           actions: [
             IconButton(
                 icon: const Icon(Icons.share_rounded), onPressed: () => {
-                    controller.fetchSecificExpenseItem(
-                                    context, widget.email.refRecId,true)
+                  if(widget.email.emailStatus == "SuccessfullyProcessed"){
+controller.fetchSecificExpenseItemEmailHub(
+                                    context, widget.email.refRecId,true,"InProgress")
+                  } else{
+                    controller.fetchSecificExpenseItemEmailHub(
+                                    context, widget.email.refRecId,true,"unprocessedexpense")
+                  }
+                    
                 }),
           ],
         ),

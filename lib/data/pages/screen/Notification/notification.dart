@@ -1,5 +1,6 @@
 import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/service.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -37,8 +38,10 @@ class _NotificationPageState extends State<NotificationPage>
 
   @override
   Widget build(BuildContext context) {
+       final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFEFEFF1),
+      // backgroundColor: const Color(0xFFEFEFF1),
       body: Column(
         children: [
           _buildHeader(),
@@ -67,15 +70,12 @@ class _NotificationPageState extends State<NotificationPage>
   }
 
   Widget _buildHeader() {
+       final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
       height: 140,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0F1C44), Color(0xFF2E3C85)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+      decoration:  BoxDecoration(
+       color: theme.primaryColor,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Row(
@@ -85,8 +85,8 @@ class _NotificationPageState extends State<NotificationPage>
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 8),
-          const Text(
-            'Notifications',
+           Text(
+            AppLocalizations.of(context)!.notifications,
             style: TextStyle(
                 color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
@@ -104,12 +104,12 @@ class _NotificationPageState extends State<NotificationPage>
         onTap: (_) {
           setState(() {}); // Refresh UI on tab change
         },
-        indicatorColor: Colors.deepPurple,
-        labelColor: Colors.black,
+        indicatorColor: Theme.of(context).colorScheme.secondary,
+        labelColor: Theme.of(context).colorScheme.secondary,
         unselectedLabelColor: Colors.grey,
-        tabs: const [
-          Tab(text: "Unread"), // Swapped tab labels
-          Tab(text: "All Notifications"),
+        tabs:  [
+          Tab(text: AppLocalizations.of(context)!.unread,), // Swapped tab labels
+          Tab(text: AppLocalizations.of(context)!.allNotifications),
         ],
       ),
     );
@@ -137,7 +137,7 @@ class _NotificationPageState extends State<NotificationPage>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: item.read
-                  ? Colors.white
+                  ? const Color.fromARGB(255, 177, 174, 174)
                   : const Color.fromARGB(185, 195, 224, 238),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -213,8 +213,11 @@ class _NotificationPageState extends State<NotificationPage>
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
+            onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
+            child:  Text(AppLocalizations.of(context)!.close),
           )
         ],
       ),

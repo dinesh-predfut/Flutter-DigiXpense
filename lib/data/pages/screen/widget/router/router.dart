@@ -13,6 +13,7 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Appr
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/expenseReportPrintPage.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsdashboard.dart';
+import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Unprocessed_Expense/viewUnProcessExpense.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/unProcessed.dart';
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
@@ -55,6 +56,8 @@ class AppRoutes {
   static const String generalExpense = '/expense/generalExpense';
   static const String expenseForm = '/expense/generalExpense/from';
   static const String getSpecificExpense = '/expense/getSpecificExpense/view';
+    static const String unProcessExpense = '/expense/unProcessExpense/view';
+
   static const String getSpecificCashAdvanseView =
       '/expense/getSpecificCashAdvanseView/view';
   static const String myTeamExpenseDashboard =
@@ -124,23 +127,28 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
-            builder: (_) => const MyTeamExpenseDashboard());
+          builder: (_) => const MyTeamExpenseDashboard(),
+        );
       case unProcessed:
         return MaterialPageRoute(builder: (_) => const UnProcess());
       case cashAdvanceRequestDashboard:
         return MaterialPageRoute(
-            builder: (_) => const CashAdvanceRequestDashboard());
+          builder: (_) => const CashAdvanceRequestDashboard(),
+        );
       case reportCreateScreen:
         return MaterialPageRoute(
-            builder: (_) => const ReportCreateScreen(isEdit: false));
+          builder: (_) => const ReportCreateScreen(isEdit: false),
+        );
       case reportsDashboard:
         return MaterialPageRoute(builder: (_) => const MyReportsDashboard());
       case myTeamcashAdvanceDashboard:
         return MaterialPageRoute(
-            builder: (_) => const MyTeamCashAdvanceDashboard());
+          builder: (_) => const MyTeamCashAdvanceDashboard(),
+        );
       case formCashAdvanceRequest:
         return MaterialPageRoute(
-            builder: (_) => const FormCashAdvanceRequest());
+          builder: (_) => const FormCashAdvanceRequest(),
+        );
       case emailHubScreen:
         return MaterialPageRoute(builder: (_) => const EmailHubScreen());
       case expensePaginationPage:
@@ -149,19 +157,21 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
       case AppRoutes.viewCashAdvanseReturnForms:
         final args = settings.arguments as Map<String, dynamic>?;
+                final bool readOnly = args?['readOnly'] == true;
+
         print("args$args");
         return MaterialPageRoute(
-          builder: (_) => ViewCashAdvanseReturnForm(
-            items: args?['item'],
-          ),
+          builder: (_) => ViewCashAdvanseReturnForm(items: args?['item'],isReadOnly: readOnly),
         );
       case approvalDashboardForDashboard:
         return MaterialPageRoute(
-            builder: (_) => const PendingApprovalDashboardforPending());
+          builder: (_) => const PendingApprovalDashboardforPending(),
+        );
 
       case approvalDashboard:
         return MaterialPageRoute(
-            builder: (_) => const PendingApprovalDashboard());
+          builder: (_) => const PendingApprovalDashboard(),
+        );
       case mileageDetailsPage:
         final args = settings.arguments as Map<String, dynamic>;
         final expense = args['item'] as ExpenseModelMileage;
@@ -171,24 +181,21 @@ class AppRoutes {
         );
       case generalExpense:
         return MaterialPageRoute(
-            builder: (_) => const GeneralExpenseDashboard());
+          builder: (_) => const GeneralExpenseDashboard(),
+        );
       case perDiem:
         final args = settings.arguments as Map<String, dynamic>?;
         final bool readOnly = args?['readOnly'] == true;
         if (args != null) {
           print("argsperDiems${args['readOnly']}");
           return MaterialPageRoute(
-            builder: (_) => CreatePerDiemPage(
-              item: args['item'],
-              isReadOnly: readOnly,
-            ),
+            builder: (_) =>
+                CreatePerDiemPage(item: args['item'], isReadOnly: readOnly),
           );
         } else {
           // fallback: navigate to CreatePerDiemPage without item or show error
           return MaterialPageRoute(
-            builder: (_) => const CreatePerDiemPage(
-              isReadOnly: true,
-            ),
+            builder: (_) => const CreatePerDiemPage(isReadOnly: true),
           );
         }
       case hubmileageExpense:
@@ -227,13 +234,12 @@ class AppRoutes {
         final args = settings.arguments as Map<String, dynamic>?;
 
         ExpenseModelMileage? expense;
-        bool isReadOnly = false; 
+        bool isReadOnly = false;
 
         if (args != null) {
           if (args.containsKey('item')) {
             expense = args['item'] as ExpenseModelMileage;
           }
-          
         }
 
         return MaterialPageRoute(
@@ -242,11 +248,14 @@ class AppRoutes {
             isReadOnly: args?['isReadOnly'] ?? false,
           ),
         );
+      case AppRoutes.autoScan:
+        final rawArgs = settings.arguments as Map;
+        final args = Map<String, dynamic>.from(rawArgs);
 
-      case autoScan:
-        final args = settings.arguments as Map<String, dynamic>;
         final File imageFile = args['imageFile'];
-        final Map<String, dynamic> apiResponse = args['apiResponse'];
+        final Map<String, dynamic> apiResponse = Map<String, dynamic>.from(
+          args['apiResponse'],
+        );
 
         return MaterialPageRoute(
           builder: (_) => AutoScanExpensePage(
@@ -258,11 +267,7 @@ class AppRoutes {
       case profile:
         return MaterialPageRoute(
           builder: (_) => const ScaffoldWithNav(
-            pages: [
-              DashboardPage(),
-              GeneralExpenseDashboard(),
-              LoginScreen(),
-            ],
+            pages: [DashboardPage(), GeneralExpenseDashboard(), LoginScreen()],
             initialIndex: 0,
           ),
         );
@@ -306,7 +311,15 @@ class AppRoutes {
             isReadOnly: true,
           ),
         );
-
+ case AppRoutes.unProcessExpense:
+        final args = settings.arguments as Map<String, dynamic>?;
+        print("args$args");
+        return MaterialPageRoute(
+          builder: (_) => UnprocessEditExpensePage(
+            items: args?['item'],
+            isReadOnly: args?['readOnly'],
+          ),
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

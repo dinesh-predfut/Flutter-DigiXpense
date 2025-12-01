@@ -1,6 +1,6 @@
 class Urls {
   static const String baseURL = "https://api.digixpense.com";
-  static const login = "$baseURL/api/v1/tenant/auth/login/";
+    static const login = "$baseURL/api/v1/tenant/auth/login/";
   static const forgetPassword =
       "$baseURL/api/v1/tenant/auth/forgotpassword/?user_id=";
   static const getPersonalByID =
@@ -40,7 +40,7 @@ class Urls {
   static const getPaidwithDropdown =
       "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId%2CReimbursible";
   static const getProjectDropdown =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/projectid?EmployeeId=EMP001&TransactionDate=";
+      "$baseURL/api/v1/expenseregistration/expenseregistration/projectid";
   static const taxGroup =
       "$baseURL/api/v1/expenseregistration/expenseregistration/taxgroups?filter_query=TAXTaxGroups.IsActive__eq%3Dtrue&page=1&sort_order=asc";
   static const unitDropdown =
@@ -50,7 +50,7 @@ class Urls {
   static const expenseCategory =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expensecategory?ProjectId=";
   static const exchangeRate =
-      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion";
+      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversionfromorg";
   static const saveGenderalExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistrationscreen?functionalentity=ExpenseRequisition";
   static const cashadvancerequisitions =
@@ -62,7 +62,7 @@ class Urls {
   static const getallMyteamsCashAdvanseRequest =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/myteamcashadvances?";
   static const getSpecificGeneralExpense =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistration?";
+      "$baseURL/api/v1/expenseregistration/expenseregistration";
        static const getSpecificUnprocess =
       "$baseURL/api/v1/expenseregistration/expenseregistration/unprocessedexpense?";
   static const getSpecificCashAdvanceApproval =
@@ -74,7 +74,7 @@ class Urls {
   static const updateApprovalStatus =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
   static const updateApprovalStatusCashAdvance =
-      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
   static const getSpecificPerdiemExpense =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
   static const getSpecificPerdiemExpenseApproval =
@@ -132,6 +132,8 @@ class Urls {
       "$baseURL/api/v1/expenseregistration/expenseregistration/reviewexpenseregistration?";
   static const cashAdvanceChart =
       "$baseURL/api/v1/dashboard/widgets/ExpenseTrends?role=Spender&end_date=";
+        static const cashadvanceregistrationApi =
+      "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/reviewcashadvancereturn?";
   static const expenseChart =
       "$baseURL/api/v1/dashboard/widgets/ExpensesThisMonth";
   static const projectExpenseChart =
@@ -158,8 +160,8 @@ class Urls {
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
   static const cashadvancerequisition =
       "$baseURL/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_by=ModifiedDatetime&sort_order=desc";
-  static const emailHubList =
-      "$baseURL/api/v1/forwardemailmanagement/fetchallemails";
+    static const emailHubList =
+        "$baseURL/api/v1/forwardemailmanagement/fetchallemails?filter_query=STPForwordedEmails.CreatedBy__eq%3D";
   static const emailHubGetSpecific =
       "$baseURL/api/v1/forwardemailmanagement/fetch_specific_emails";
   static const emailHubProcess =
@@ -180,5 +182,7 @@ class Urls {
     "&page=1&sort_by=PaymentMethodName&sort_order=asc"
     "&choosen_fields=PaymentMethodName%2CPaymentMethodId";
       static const aiAnalytics =
-      "https://978cbf9ee1b0.ngrok-free.app/digiA/TALK_TO_DB";
+      "$baseURL/api/v1/aiapis/aiapis/talktodb?";
+         static const logOut =
+      "$baseURL/api/v1/common/pushnotifications/logout";
 }

@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-class Params {
+class   Params {
   static String userToken = "null";
   static String userId = "Null";
   static String refreshtoken = "null";
@@ -36,14 +36,14 @@ class SetSharedPref {
   Future<void> getData() async {
     SharedPreferences pref = await SharedPreferences.getInstance();
 
-    Params.userToken = pref.getString("token") ?? "null";
+    Params.userToken = pref.getString("access_token") ?? "null";
     Params.refreshtoken = pref.getString("refresh_token") ?? "null";
     Params.employeeId = pref.getString("EmployeeId") ?? "null";
     Params.userId = pref.getString("userId") ?? "null";
       Params.userName = pref.getString("userName") ?? "null";
 
     print("Retrieved userId: ${Params.refreshtoken}");
-  }
+  } 
 
   Future<void> clearData() async {
     SharedPreferences pref = await SharedPreferences.getInstance();
@@ -57,4 +57,5 @@ class SetSharedPref {
 Params.userName = "null";
     print("Data cleared, userId is now ${Params.userId}"); // Debugging log
   }
+ 
 }

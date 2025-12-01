@@ -246,6 +246,7 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
                   ),
                 ],
               ),
+               const SizedBox(height: 30),
             ],
           ),
         ),

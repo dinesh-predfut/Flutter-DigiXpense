@@ -8,8 +8,10 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:digi_xpense/data/models.dart';
+import 'package:digi_xpense/data/pages/API_Service/apiService.dart'
+    show ApiService;
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsCreateForm.dart';
-import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnEditForm.dart';
+import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:digi_xpense/main.dart';
 import 'package:digi_xpense/theme/theme.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +23,6 @@ import 'package:intl/intl.dart';
 import 'package:digi_xpense/core/constant/Parames/models.dart';
 import 'package:digi_xpense/core/constant/Parames/params.dart';
 import 'package:digi_xpense/core/constant/url.dart';
-import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart';
 import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 // ignore: duplicate_import
@@ -32,10 +33,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'pages/EmailHub/emailDetailsPage.dart';
 import 'pages/screen/widget/router/router.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:libphonenumber/libphonenumber.dart';
+
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:crypto/crypto.dart';
@@ -49,6 +49,7 @@ class Controller extends GetxController {
   final TextEditingController countryPresentTextController =
       TextEditingController();
   final TextEditingController employeeIdController = TextEditingController();
+  final TextEditingController employeeName = TextEditingController();
   final TextEditingController middleNameController = TextEditingController();
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
@@ -59,6 +60,7 @@ class Controller extends GetxController {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController street = TextEditingController();
   final TextEditingController locale = TextEditingController();
+  final TextEditingController justificationnotes = TextEditingController();
   // final TextEditingController state = TextEditingController();
   final TextEditingController city = TextEditingController();
   final TextEditingController postalCode = TextEditingController();
@@ -130,6 +132,7 @@ class Controller extends GetxController {
       TextEditingController();
   late TextEditingController currencyDropDowncontroller2 =
       TextEditingController();
+  late TextEditingController prefPaymentMethod = TextEditingController();
   late TextEditingController currencyDropDowncontrollerCA3 =
       TextEditingController();
   late TextEditingController currencyDropDowncontrollerCA2 =
@@ -140,13 +143,14 @@ class Controller extends GetxController {
     TextEditingController(), // Start Trip
     TextEditingController(), // End Trip
   ];
-// Per Diem
-
+  // Per Diem
+  RxString selectedIcon = ''.obs;
   final TextEditingController fromDateController = TextEditingController();
   final TextEditingController mileagDateController = TextEditingController();
   final TextEditingController toDateController = TextEditingController();
   // final TextEditingController locationController = TextEditingController();
   final TextEditingController daysController = TextEditingController();
+  final TextEditingController selectedCountryCode = TextEditingController();
   final TextEditingController perDiemController = TextEditingController();
   final TextEditingController exchangeCurrencyCode = TextEditingController();
   final TextEditingController amountInController = TextEditingController();
@@ -154,13 +158,13 @@ class Controller extends GetxController {
       TextEditingController();
   final TextEditingController purposeController = TextEditingController();
   final Map<String, Color> themeColorMap = {
-    "RED_THEME": Colors.red,
+    "RED_THEME": Colors.pinkAccent,
     "GREEN_THEME": Colors.green,
     "BLUE_THEME": Colors.blue,
     "ORANGE_THEME": Colors.orange,
     "PURPLE_THEME": Colors.purple,
     "INDIGO_THEME": Colors.indigo,
-    "DARK_RED_THEME": Color(0xFFB71C1C),
+    "DARK_RED_THEME": const Color.fromARGB(255, 250, 60, 155),
     "DARK_GREEN_THEME": Color(0xFF1B5E20),
     "DARK_BLUE_THEME": Color(0xFF0D47A1),
     "DARK_INDIGO_THEME": Color(0xFF1A237E),
@@ -171,6 +175,10 @@ class Controller extends GetxController {
   String? digiSessionId;
   String? cashAdvReqIds;
   String? themeColorCode;
+  var showMileage = false.obs;
+  var showPerDiem = false.obs;
+  var showExpense = false.obs;
+  var showCashAdvance = false.obs;
   List<VehicleType> vehicleTypes = []; // Dropdown values from API
   VehicleType? selectedVehicleType; // Currently selected type
   MileageRateResponse? mileageRateResponse;
@@ -179,19 +187,38 @@ class Controller extends GetxController {
   var expensesByStatus = <ExpenseAmountByStatus>[].obs;
   var manageExpensesCards = <ManageExpensesCard>[].obs;
   var managecashAdvanceCards = <ManageExpensesCard>[].obs;
+  var customFieldsDropDownvalue = <Map<String, dynamic>>[].obs;
+  var isFetchingStates = false.obs;
+  var isFetchingStatesSecond = false.obs;
   final List<ExpenseItem> itemizeControllers = <ExpenseItem>[];
+  bool isAlcohol = false;
+  bool isTobacco = false;
+  bool isDuplicated = false;
+  RxBool userPref = false.obs;
+  RxBool showQuantityError = false.obs;
+  RxBool showUnitAmountError = false.obs;
+  RxBool showUnitError = false.obs;
+  RxBool showTaxAmountError = false.obs;
+    RxBool showTaxGroupError = false.obs;
 
-// Define this at the class level
+  RxBool showPaidForError = false.obs;
+  RxBool showProjectError = false.obs;
+  RxBool enableNextBtn = true.obs;
+  RxBool setQuality = true.obs;
+  // Define this at the class level
   Set<int> skippedWorkItems = {};
   var expenseChartData = <ExpenseAmountByStatus>[].obs;
   final RxBool showSkipButton = true.obs;
   SharedPreferences? _prefs;
+  List<double>? initialUnitPriceTrans; // Make sure to initialize this list
+
   final String skippedItemsKey = 'skippedWorkItems';
   RxList<CashAdvanceModel> cashAdvanceList = <CashAdvanceModel>[].obs;
   RxList<ExpenseListModel> expenseList = <ExpenseListModel>[].obs;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   List<PendingCashAdvanceApproval> pendingApprovalcashAdvanse = [];
   var isUploadingCards = false.obs;
+  var isUploadingCardsUpdate = false.obs;
   var isLoadingStatus = false.obs;
   var callAPIDashBoard = true.obs;
   final RxBool showCancelIcon = true.obs;
@@ -216,7 +243,7 @@ class Controller extends GetxController {
   final TextEditingController justificationController = TextEditingController();
   final TextEditingController totalunitEstimatedAmount =
       TextEditingController();
-//  final TextEditingController expenseIdController = TextEditingController();
+  //  final TextEditingController expenseIdController = TextEditingController();
   RxDouble calculatedPercentage = 0.0.obs;
   String? localFieldValue;
   final TextEditingController requestedPercentage = TextEditingController();
@@ -292,23 +319,22 @@ class Controller extends GetxController {
     }
   }
 
-  Future<String> getInitialRoute() async {
-    print("refreshToken${Params.refreshtoken}");
-    // 1. Check if refresh token is available
+  Future<String> generateToken() async {
+    // print("refreshToken${Params.refreshtoken}");
+    // // 1. Check if refresh token is available
     final refreshToken = Params.refreshtoken;
-    print("refreshToken${Params.refreshtoken}");
-    if (refreshToken == null || refreshToken.isEmpty) {
-      return AppRoutes.entryScreen; // No token at all
-    }
+    // print("refreshToken${Params.refreshtoken}");
+    // if (refreshToken == null || refreshToken.isEmpty) {
+    //   return AppRoutes.entryScreen; // No token at all
+    // }
 
     try {
       // 2. Call API to validate
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            "https://api.digixpense.com/api/v1/tenant/auth/refresh_token"),
-        headers: {
-          "Content-Type": "application/json",
-        },
+          "https://api.digixpense.com/api/v1/tenant/auth/refresh_token",
+        ),
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode({"refresh_token": refreshToken}),
       );
 
@@ -316,7 +342,7 @@ class Controller extends GetxController {
         final data = jsonDecode(response.body);
         if (data["access_token"] != null) {
           // ✅ Token valid → go to Dashboard
-          Params.userToken = data["access_token"];
+          Params.userToken = data["refresh_token"];
           return AppRoutes.dashboard_Main;
         }
       }
@@ -335,7 +361,7 @@ class Controller extends GetxController {
   }
 
   String selectedStatus = "Un Reported";
-  final selectedStatusDropDown = "Un Reported".obs;
+  var selectedStatusDropDown = "Un Reported".obs;
   var selectedExpenseType = "All Expenses".obs;
   String selectedStatusmyteam = "In Process";
   final selectedStatusDropDownmyteam = "In Process".obs;
@@ -345,6 +371,8 @@ class Controller extends GetxController {
   var phoneNumber = ''.obs;
   List<GESpeficExpense> getSpecificListGExpense = [];
   RxList<GESpeficExpense> specificExpenseList = <GESpeficExpense>[].obs;
+  RxList<UnprocessExpenseModels> unProcessModelList =
+      <UnprocessExpenseModels>[].obs;
   RxList<CashAdvanceRequestHeader> specificCashAdvanceList =
       <CashAdvanceRequestHeader>[].obs;
   RxList<PerdiemResponseModel> specificPerdiemList =
@@ -379,7 +407,7 @@ class Controller extends GetxController {
   final searchControllerCashAdvanceMyteams = TextEditingController();
   final searchControllerCashAdvanceApproval = TextEditingController();
   late double expenseChartvalue = 0.0;
-  late double exchangeRate;
+  double? exchangeRate;
   bool isManualEntry = false;
   bool isManualEntryMerchant = false;
   bool isReadOnly = false;
@@ -438,7 +466,7 @@ class Controller extends GetxController {
   String dimension1 = 'Corporate-BR01-ENG';
   String dimension2 = 'Corporate-BR01-ENG';
   String selectedCountryName = '';
-  String selectedCountryCode = '';
+  // String selectedCountryCode = '';
   String selectedContectCountryName = '';
   String selectedContectCountryCode = '';
   String selectedContectStateName = '';
@@ -467,6 +495,7 @@ class Controller extends GetxController {
   final RxBool isGESubmitBTNLoading = false.obs;
   final RxBool isGEPersonalInfoLoading = false.obs;
   final RxBool isLoadingGE1 = false.obs;
+  final RxBool isLoadingunprocess = false.obs;
   final RxBool isLoadingGE2 = false.obs;
   final RxBool isUploading = false.obs;
   final RxBool forgotisLoading = false.obs;
@@ -493,8 +522,10 @@ class Controller extends GetxController {
   Rx<Locales> selectedLocale = Locales(code: '', name: '').obs;
   Rx<Payment> selectedPayment = Payment(code: '', name: '').obs;
   Rx<PaymentMethodModel> selectedPaymentSetting = PaymentMethodModel(
-          paymentMethodName: '', paymentMethodId: '', reimbursible: false)
-      .obs;
+    paymentMethodName: '',
+    paymentMethodId: '',
+    reimbursible: false,
+  ).obs;
   Rx<Timezone> selectedTimezone = Timezone(code: '', name: '', id: '').obs;
   var countries = <Country>[].obs;
   List<Language> language = [];
@@ -512,19 +543,19 @@ class Controller extends GetxController {
   RxList<Map<String, dynamic>> configList = <Map<String, dynamic>>[].obs;
   RxList<Map<String, dynamic>> configListAdvance = <Map<String, dynamic>>[].obs;
   RxList<File> imageFiles = <File>[].obs;
-// GeneralExpense
+  // GeneralExpense
   bool isReimbursite = false;
   bool isReimbursable = false;
   // bool isBillable = false;
   bool isBillableCreate = false;
   RxBool isReimbursiteCreate = false.obs;
-  RxBool isBillable = false.obs; // ✅ Reactive
+  RxBool isBillable = false.obs;
   RxBool isisBillablereate = false.obs;
   var checkboxValues = <String, bool>{}.obs;
   Color getRandomMildColor() {
     Random random = Random();
-    int red = (random.nextInt(128) + 127); // 127–255
-    int green = (random.nextInt(128) + 127); // 127–255
+    int red = (random.nextInt(128) + 127);
+    int green = (random.nextInt(128) + 127);
     int blue = (random.nextInt(128) + 127); // 127–255
     return Color.fromARGB(255, red, green, blue);
   }
@@ -568,10 +599,8 @@ class Controller extends GetxController {
       var decodeData = jsonDecode(await response.stream.bytesToString());
 
       if (response.statusCode == 201) {
-        final prefs = await SharedPreferences.getInstance();
         signInModel.value = UserProfile.fromJson(decodeData);
-        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-        // ✅ Save token first
+
         await SetSharedPref().setData(
           token: signInModel.value.accessToken ?? "null",
           employeeId: signInModel.value.employeeId ?? "null",
@@ -580,15 +609,12 @@ class Controller extends GetxController {
           userName: signInModel.value.userName ?? "null",
         );
 
-        // ✅ Wait until Params.userToken is not empty (just to be safe)
         while (Params.userToken.isEmpty) {
           await Future.delayed(const Duration(milliseconds: 50));
         }
 
-        isLoadingLogin.value = false;
         await saveCredentials();
 
-        // Set controllers
         employeeIdController.text = decodeData['employeeId'] ?? '';
         middleNameController.text = decodeData['UserName'] ?? '';
         firstNameController.text = decodeData['UserName'] ?? '';
@@ -607,21 +633,30 @@ class Controller extends GetxController {
         paidWithCashAdvance.value = settings["DefaultPaymentMethodId"] ?? '';
 
         await prefs.setString(
-            "ThemeColor", settings["ThemeColor"] ?? "BLUE_THEME");
+          "ThemeColor",
+          settings["ThemeColor"] ?? "BLUE_THEME",
+        );
 
-        final themeNotifier =
-            Provider.of<ThemeNotifier>(context, listen: false);
+        final themeNotifier = Provider.of<ThemeNotifier>(
+          context,
+          listen: false,
+        );
         final color = ThemeNotifier.themeColorMap[settings["ThemeColor"]]!;
         themeNotifier.setColor(color, themeKey: settings["ThemeColor"]);
 
         await prefs.setString(
-            "LanguageID", settings["DefaultLanguageId"] ?? "LUG-01");
+          "LanguageID",
+          settings["DefaultLanguageId"] ?? "LUG-01",
+        );
         final localeCode = getLocaleCodeFromId(settings["DefaultLanguageId"]);
-        Provider.of<LocaleNotifier>(context, listen: false)
-            .setLocale(Locale(localeCode));
+        Provider.of<LocaleNotifier>(
+          context,
+          listen: false,
+        ).setLocale(Locale(localeCode));
 
         debugPrint("✅ Token set: ${Params.userToken}");
-
+        getProfilePicture();
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         Fluttertoast.showToast(
           msg: "Login successful!",
           toastLength: Toast.LENGTH_SHORT,
@@ -630,12 +665,9 @@ class Controller extends GetxController {
           textColor: Colors.white,
           fontSize: 16.0,
         );
-
-        // ✅ Navigate only after token is guaranteed to exist
+        isLoadingLogin.value = false;
       } else {
         isLoadingLogin.value = false;
-        // Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-        // Show error toast
         Fluttertoast.showToast(
           msg: decodeData["message"] ?? "Login failed. Please try again.",
           toastLength: Toast.LENGTH_SHORT,
@@ -647,9 +679,6 @@ class Controller extends GetxController {
       }
     } catch (e) {
       isLoadingLogin.value = false;
-      // ignore: use_build_context_synchronously
-      // Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-      // Show exception toast
       Fluttertoast.showToast(
         msg: "An error occurred: $e",
         toastLength: Toast.LENGTH_SHORT,
@@ -659,8 +688,6 @@ class Controller extends GetxController {
         fontSize: 16.0,
       );
       print("An error occurred: $e");
-      isLoadingLogin.value = false;
-      rethrow;
     }
   }
 
@@ -689,10 +716,10 @@ class Controller extends GetxController {
 
       print("📱 Registering device with details: $details");
 
-      // Step 2: Make POST API call
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            'https://api.digixpense.com/api/v1/common/pushnotifications/logout'),
+          'https://api.digixpense.com/api/v1/common/pushnotifications/logout',
+        ),
         headers: {
           'accept': 'application/json',
           'Content-Type': 'application/json',
@@ -714,11 +741,26 @@ class Controller extends GetxController {
     }
   }
 
+  void closeField() {
+    clearFormFields();
+    resetFieldsMileage();
+    clearFormFieldsPerdiem();
+  }
+
   void clearFormFields() {
     print("Cleared ALL2");
+    referenceID.clear();
+    justificationnotes.clear();
+    categoryController.clear();
+    projectDropDowncontroller.clear();
+    isAlcohol = false;
+    isTobacco = false;
+    isDuplicated = false;
+    selectedIcon.value = "";
     multiSelectedItems.value = [];
     singleSelectedItem = null;
     cashAdvanceListDropDown.clear();
+    amountInController.clear();
     // singleSelectedItem=[] as CashAdvanceDropDownModel?;
     cashAdvanceIds.text = "";
     justificationController.clear();
@@ -742,6 +784,7 @@ class Controller extends GetxController {
     selectedCurrency.value = null;
     selectedTax = null;
     selectedProject = null;
+    selectedCategory = null;
     selectedDate = DateTime.now();
     imageFiles.clear();
     finalItems.clear();
@@ -759,6 +802,7 @@ class Controller extends GetxController {
     isEnable.value = false;
     isReimbursiteCreate.value = false;
     isBillable.value = false;
+    isBillableCreate = false;
     finalItemsCashAdvance = [];
     print("Cleared ALL ");
   }
@@ -769,52 +813,51 @@ class Controller extends GetxController {
   }
 
   ExpenseItemUpdate toExpenseItemUpdateModel() {
-    // print("Mais$unitRates");
+    print("Mais${lineAmount.text}");
     return ExpenseItemUpdate(
-        recId: recID,
-        expenseCategoryId: categoryController.text ?? '',
-        quantity: double.tryParse(quantity.text) ?? 1.00,
-        uomId: uomId.text ?? '',
-        unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
-        taxAmount: double.tryParse(taxAmount.text) ?? 0,
-        taxGroup: taxGroupController.text,
-        lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
-        lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
-        projectId: projectDropDowncontroller.text,
-        description: descriptionController.text,
-        isReimbursable: isReimbursable,
-        isBillable: isBillableCreate,
-        //  "Description": descriptionController.text,
-        //       "ExpenseCategoryId": selectedCategoryId,
-        //       "ExpenseId": 2079768,
-        //       "ExpenseTransCustomFieldValues": [],
-        //       "ExpenseTransExpensecategorycustomfieldvalues": [],
-        //       "IsReimbursable": isReimbursite,
-        //       "LineAmountReporting": amountINR.text,
-        //       "LineAmountTrans": quantity.text,
-        //       "ProjectId": selectedProject!.code,
-        //       "Quantity": quantity.text,
-        //       "RecId": 2079785,
-        //       "TaxAmount": taxAmount.text,
-        //       "TaxGroup": selectedTax!.taxGroupId,
-        //       "UnitPriceTrans": 223,
-        //       "UomId": "Uom-001"
-        accountingDistributions: accountingDistributions.map((controller) {
-          final dist = AccountingDistribution(
-            recId: controller?.recId,
-            transAmount:
-                double.tryParse(controller?.transAmount.toString() ?? '') ??
-                    0.0,
-            reportAmount:
-                double.tryParse(controller?.reportAmount.toString() ?? '') ??
-                    0.0,
-            allocationFactor: controller?.allocationFactor ?? 0.0,
-            dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-            // currency: selectedCurrency.value?.code ?? "IND",
-          );
+      recId: recID,
+      expenseCategoryId: categoryController.text ?? '',
+      quantity: double.tryParse(quantity.text) ?? 1.00,
+      uomId: uomId.text ?? '',
+      unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
+      taxAmount: double.tryParse(taxAmount.text) ?? 0,
+      taxGroup: taxGroupController.text,
+      lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
+      lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
+      projectId: projectDropDowncontroller.text,
+      description: descriptionController.text,
+      isReimbursable: isReimbursable,
+      isBillable: isBillableCreate,
+      //  "Description": descriptionController.text,
+      //       "ExpenseCategoryId": selectedCategoryId,
+      //       "ExpenseId": 2079768,
+      //       "ExpenseTransCustomFieldValues": [],
+      //       "ExpenseTransExpensecategorycustomfieldvalues": [],
+      //       "IsReimbursable": isReimbursite,
+      //       "LineAmountReporting": amountINR.text,
+      //       "LineAmountTrans": quantity.text,
+      //       "ProjectId": selectedProject!.code,
+      //       "Quantity": quantity.text,
+      //       "RecId": 2079785,
+      //       "TaxAmount": taxAmount.text,
+      //       "TaxGroup": selectedTax!.taxGroupId,
+      //       "UnitPriceTrans": 223,
+      //       "UomId": "Uom-001"
+      accountingDistributions: accountingDistributions.map((controller) {
+        final dist = AccountingDistribution(
+          recId: controller?.recId,
+          transAmount:
+              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
+          reportAmount:
+              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
+          allocationFactor: controller?.allocationFactor ?? 0.0,
+          dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+          // currency: selectedCurrency.value?.code ?? "IND",
+        );
 
-          return dist;
-        }).toList());
+        return dist;
+      }).toList(),
+    );
   }
 
   ExpenseItemUpdate toExpenseItemUpdateModels(int? recId) {
@@ -837,9 +880,15 @@ class Controller extends GetxController {
         return AccountingDistribution(
           recId: controller?.recId,
           transAmount:
-              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
+              double.tryParse(
+                controller?.transAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
           reportAmount:
-              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
+              double.tryParse(
+                controller?.reportAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
           allocationFactor: controller?.allocationFactor ?? 0.0,
           dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
         );
@@ -879,9 +928,15 @@ class Controller extends GetxController {
       accountingDistributions: accountingDistributions.map((controller) {
         return AccountingDistribution(
           transAmount:
-              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
+              double.tryParse(
+                controller?.transAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
           reportAmount:
-              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
+              double.tryParse(
+                controller?.reportAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
           allocationFactor: controller?.allocationFactor ?? 0.0,
           dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
         );
@@ -889,8 +944,10 @@ class Controller extends GetxController {
     );
   }
 
-  void calculateLineAmounts(Controller itemController,
-      [ExpenseItemUpdate? expenseTran]) {
+  void calculateLineAmounts(
+    Controller itemController, [
+    ExpenseItemUpdate? expenseTran,
+  ]) {
     double quantity = double.tryParse(itemController.quantity.text) ?? 0.0;
     double unitPrice =
         double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
@@ -912,7 +969,7 @@ class Controller extends GetxController {
   Future<List<PaidForModel>> fetchPaidForList() async {
     final url = Uri.parse(Urls.dimensionValueDropDown);
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -934,8 +991,33 @@ class Controller extends GetxController {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const Center(
-          child: CircularProgressIndicator(),
+        builder: (_) => Dialog(
+          // backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  // color: Colors.deepPurpleAccent,
+                  strokeWidth: 4,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '${AppLocalizations.of(context)!.pleaseWait}\n${AppLocalizations.of(context)!.extractingReceipt}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    // color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
 
@@ -957,109 +1039,109 @@ class Controller extends GetxController {
         'type': mimeType,
       });
 
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await ApiService.post(url, headers: headers, body: body);
 
       Navigator.of(context).pop(); // Close the loader
 
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
 
-        print("Success: $responseData");
-        imageFiles.add(file);
+        print(" $responseData");
+        // imageFiles.add(file);
         // Navigate with image + response data
         // ignore: use_build_context_synchronously
         Navigator.pushNamed(
           context,
           AppRoutes.autoScan,
-          arguments: {
-            'imageFile': file,
-            'apiResponse': responseData,
-          },
+          arguments: {'imageFile': file, 'apiResponse': responseData},
         );
       } else {
-        Fluttertoast.showToast(
-          msg: "${response.statusCode} => ${response.body}",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: const Color.fromARGB(255, 35, 2, 124),
-          textColor: const Color.fromARGB(255, 253, 252, 253),
-          fontSize: 16.0,
+        final body = jsonDecode(response.body);
+
+        final message =
+            body['detail']?['message'] ??
+            body['message'] ??
+            'Something went wrong';
+        Navigator.pushNamed(
+          context,
+          AppRoutes.autoScan,
+          arguments: {'imageFile': file, 'apiResponse': body},
         );
+        // Fluttertoast.showToast(
+        //   msg: message,
+        //   toastLength: Toast.LENGTH_SHORT,
+        //   gravity: ToastGravity.BOTTOM,
+        //   backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+        //   textColor: const Color.fromARGB(255, 212, 210, 241),
+        //   fontSize: 16.0,
+        // );
       }
     } catch (e) {
+      //  final body = jsonDecode(response.body);
+      print(e);
       Fluttertoast.showToast(
-        msg: "$e",
+        msg: "Something went wrong",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
-        backgroundColor: const Color.fromARGB(255, 35, 2, 124),
+        backgroundColor: const Color.fromARGB(255, 250, 1, 1),
         textColor: const Color.fromARGB(255, 253, 252, 253),
         fontSize: 16.0,
       );
     }
   }
 
-  Future<void> pickImageProfile() async {
+  Future<bool> pickImageProfile() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null) return;
-
+    if (pickedFile == null) return false;
     isImageLoading.value = true;
     profileImage.value = File(pickedFile.path);
-
     try {
       final bytes = await File(pickedFile.path).readAsBytes();
       final base64Str = base64Encode(bytes);
       final dataUrl = 'data:image/png;base64,$base64Str';
-
       await uploadProfilePicture(dataUrl);
-      print('Upload done, profileImage = ${profileImage.value}');
+      return true;
     } catch (e) {
       print('Error picking/uploading image: $e');
+      return false;
     } finally {
       isImageLoading.value = false;
     }
   }
 
   Future<void> uploadProfilePicture(String base64Image) async {
-    final url = Uri.parse(
-      '${Urls.updateProfilePicture}${Params.userId}',
-    );
-
+    final url = Uri.parse('${Urls.updateProfilePicture}${Params.userId}');
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${Params.userToken ?? ''}',
     };
-    final body = jsonEncode({
-      'ProfilePicture': base64Image,
-    });
-
-    final response = await http.patch(url, headers: headers, body: body);
+    final body = jsonEncode({'ProfilePicture': base64Image});
+    final response = await ApiService.patch(url, headers: headers, body: body);
     final Map<String, dynamic> responseData = jsonDecode(response.body);
     final String message =
         responseData['detail']?['message'] ?? 'No message found';
     if (response.statusCode == 200 || response.statusCode == 280) {
-      final responseData = jsonDecode(response.body);
-      print('Upload successful: ${responseData['detail']}');
+      await Future.delayed(const Duration(seconds: 2));
+      await getProfilePicture();
       Fluttertoast.showToast(
         msg: message,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
-        backgroundColor: const Color.fromARGB(255, 35, 2, 124),
-        textColor: const Color.fromARGB(255, 253, 252, 253),
+        backgroundColor: Color.fromARGB(255, 35, 2, 124),
+        textColor: Colors.white,
         fontSize: 16.0,
       );
     } else {
-      print('Upload failed [${response.statusCode}]: ${response.body}');
       profileImage.value = null;
       Fluttertoast.showToast(
         msg: message,
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
-        backgroundColor: const Color.fromARGB(255, 173, 3, 3),
-        textColor: const Color.fromARGB(255, 253, 252, 253),
+        backgroundColor: Color.fromARGB(255, 173, 3, 3),
+        textColor: Colors.white,
         fontSize: 16.0,
       );
-      // you might parse response.body here to show validation errors
     }
   }
 
@@ -1067,18 +1149,13 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.countryList);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        countries.value =
-            List<Country>.from(data.map((item) => Country.fromJson(item)));
+        countries.value = List<Country>.from(
+          data.map((item) => Country.fromJson(item)),
+        );
 
         countryNames = countries.map((c) => c.name).toList();
 
@@ -1093,40 +1170,50 @@ class Controller extends GetxController {
     }
   }
 
-  Future<void> deleteProfilePicture() async {
-    print("Deleting profile picture");
+  Future<bool> deleteProfilePicture() async {
+    try {
+      const defaultProfileBase64 =
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABzUlEQVR42mL8//8/AzSACylCxEZMDAwM7e3twb+5uTkZ4GLiIiZmRkZGdvDw8HBCQkIGdlBQUHhzwMDAwPpPyMjI2Pj48gDsDAwMIAEODg7+Qn5+f2YGBgTmNjY1fAp0JOTg4G5GBgYH8BDEhIS/GYyMjJ+QExMDvxvb29f8BeoGBgbiASUlJZcRgYGAB8o6OjqwmZmZkTwSkoKEqDg4PD//z8/M8DJCSkuJnwQHR0d0mBsbCwHkFJSUtAMjIyPMjJycpE8BQUFF4gICAg/2BgYGHwD5GRkUnJSUlZ8T///9/9BQUFAh4eHj/Pz8+D8VFxc/AYmJiVHBYGBg3wIWFhYH8b179z8GRgYGRsTk5+YfgYGBoZlA8uXLf0NLS0v8f+vr6f+BgYF7g4eHBfwMDw3+QkpLCJQUFBeYyMzN/gYGBAYwAAAwBXmHrXs+3bXgAAAABJRU5ErkJggg==";
 
-    const defaultProfileBase64 =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABzUlEQVR42mL8//8/AzSACylCxEZMDAwM7e3twb+5uTkZ4GLiIiZmRkZGdvDw8HBCQkIGdlBQUHhzwMDAwPpPyMjI2Pj48gDsDAwMIAEODg7+Qn5+f2YGBgTmNjY1fAp0JOTg4G5GBgYH8BDEhIS/GYyMjJ+QExMDvxvb29f8BeoGBgbiASUlJZcRgYGAB8o6OjqwmZmZkTwSkoKEqDg4PD//z8/M8DJCSkuJnwQHR0d0mBsbCwHkFJSUtAMjIyPMjJycpE8BQUFF4gICAg/2BgYGHwD5GRkUnJSUlZ8T///9/9BQUFAh4eHj/Pz8+D8VFxc/AYmJiVHBYGBg3wIWFhYH8b179z8GRgYGRsTk5+YfgYGBoZlA8uXLf0NLS0v8f+vr6f+BgYF7g4eHBfwMDw3+QkpLCJQUFBeYyMzN/gYGBAYwAAAwBXmHrXs+3bXgAAAABJRU5ErkJggg==";
+      final url = Uri.parse('${Urls.updateProfilePicture}${Params.userId}');
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken ?? ''}',
+      };
 
-    final url = Uri.parse(
-      '${Urls.updateProfilePicture}${Params.userId}',
-    );
+      final body = jsonEncode({
+        'ProfilePicture': 'data:image/png;base64,$defaultProfileBase64',
+      });
 
-    final headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${Params.userToken ?? ''}',
-    };
-
-    final body = jsonEncode({
-      'ProfilePicture': 'data:image/png;base64,$defaultProfileBase64',
-    });
-
-    final response = await http.patch(url, headers: headers, body: body);
-    if (response.statusCode == 200 || response.statusCode == 280) {
-      final responseData = jsonDecode(response.body);
-      profileImage.value = null;
-      print('Delete successful: ${responseData['detail']}');
-      Fluttertoast.showToast(
-        msg: "${responseData['detail']['message']}",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: const Color.fromARGB(255, 35, 2, 124),
-        textColor: const Color.fromARGB(255, 253, 252, 253),
-        fontSize: 16.0,
+      final response = await ApiService.patch(
+        url,
+        headers: headers,
+        body: body,
       );
-    } else {
-      print('Delete failed [${response.statusCode}]: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 280) {
+        final responseData = jsonDecode(response.body);
+        profileImage.value = null;
+
+        Fluttertoast.showToast(
+          msg: "${responseData['detail']['message']}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 35, 2, 124),
+          textColor: const Color.fromARGB(255, 253, 252, 253),
+          fontSize: 16.0,
+        );
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('profileImagePath');
+        return true;
+      } else {
+        print('Delete failed [${response.statusCode}]: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error deleting profile picture: $e');
+      return false;
     }
   }
 
@@ -1136,11 +1223,10 @@ class Controller extends GetxController {
 
       forgotisLoading.value = true;
 
-      final response = await http.post(
-          Uri.parse('${Urls.forgetPassword}${forgotemailController.text}'),
-          headers: {
-            'Content-Type': 'application/json',
-          });
+      final response = await ApiService.post(
+        Uri.parse('${Urls.forgetPassword}${forgotemailController.text}'),
+        headers: {'Content-Type': 'application/json'},
+      );
 
       final decodeData = jsonDecode(response.body);
 
@@ -1148,9 +1234,8 @@ class Controller extends GetxController {
         forgotisLoading.value = false;
 
         Fluttertoast.showToast(
-          msg: "Reset Password Link Sended Your Mail ID :${{
-            forgotemailController.text
-          }}",
+          msg:
+              "Reset Password Link Sended Your Mail ID :${{forgotemailController.text}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green,
@@ -1190,8 +1275,10 @@ class Controller extends GetxController {
   }
 
   Future<void> loadSavedCredentials() async {
+    print("rememberMeLoad$rememberMe");
     final prefs = await SharedPreferences.getInstance();
     rememberMe = prefs.getBool('rememberMe') ?? false;
+    print("rememberMeLoad${prefs.getBool('rememberMe')}");
 
     if (rememberMe) {
       emailController.text = prefs.getString('email') ?? '';
@@ -1200,7 +1287,7 @@ class Controller extends GetxController {
   }
 
   Future<void> saveCredentials() async {
-    print("rememberMe$rememberMe");
+    print("rememberMeThink$rememberMe");
     final prefs = await SharedPreferences.getInstance();
     if (rememberMe) {
       await prefs.setBool('rememberMe', true);
@@ -1225,8 +1312,10 @@ class Controller extends GetxController {
     final uri = Uri.parse(url);
 
     print("urlss$uri");
-    await launchUrl(uri,
-        mode: LaunchMode.externalApplication); // or .inAppWebView
+    await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    ); // or .inAppWebView
   }
 
   Future<void> fetchLanguageList() async {
@@ -1234,13 +1323,7 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.languageList);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         // final data = jsonDecode(response.body);
@@ -1248,8 +1331,9 @@ class Controller extends GetxController {
         //   data.map((item) => Country.fromJson(item)),
         // );
         final data = jsonDecode(response.body);
-        language =
-            List<Language>.from(data.map((item) => Language.fromJson(item)));
+        language = List<Language>.from(
+          data.map((item) => Language.fromJson(item)),
+        );
         isLoading.value = false;
         countryNames = language.map((c) => c.code).toList();
         print('language to load countries$data');
@@ -1269,13 +1353,7 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.timeZoneDropdown);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         // final data = jsonDecode(response.body);
@@ -1283,8 +1361,9 @@ class Controller extends GetxController {
         //   data.map((item) => Country.fromJson(item)),
         // );
         final data = jsonDecode(response.body);
-        timezone =
-            List<Timezone>.from(data.map((item) => Timezone.fromJson(item)));
+        timezone = List<Timezone>.from(
+          data.map((item) => Timezone.fromJson(item)),
+        );
         // countryNames = timezone.map((c) => c.name).toList();
         print('timezone to load timezone$timezone');
         isLoading.value = false;
@@ -1302,26 +1381,18 @@ class Controller extends GetxController {
     print('Fetching payment methods...');
     isLoading.value = true;
 
-    final url = Uri.parse(
-      Urls.paymentMethodId,
-    );
+    final url = Uri.parse(Urls.paymentMethodId);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
 
         // Map API data to List<PaymentMethod>
         selectedPaymentSettinglist = List<PaymentMethodModel>.from(
-            data.map((item) => PaymentMethodModel.fromJson(item)));
+          data.map((item) => PaymentMethodModel.fromJson(item)),
+        );
         // data.map((item) => PaymentMethod.fromJson(item)).toList();
 
         print('✅ Payment methods loaded: ${paymentMethods.length}');
@@ -1340,18 +1411,13 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.locale);
     isLoading.value = true;
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        localeData =
-            List<Locales>.from(data.map((item) => Locales.fromJson(item)));
+        localeData = List<Locales>.from(
+          data.map((item) => Locales.fromJson(item)),
+        );
         isLoading.value = false;
         // countryNames = localeData.map((c) => c.name).toList();
         // print('localeData to load countries$countryNames');
@@ -1364,20 +1430,14 @@ class Controller extends GetxController {
   }
 
   Future<List<StateModels>> fetchState([String? code]) async {
+    isFetchingStates.value = true;
     final countryCode = selectedCountry.value!.code ?? "IND";
     final url = Uri.parse(
       '${Urls.stateList}$countryCode&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId',
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoading.value = true;
@@ -1388,7 +1448,7 @@ class Controller extends GetxController {
         );
 
         statesres.value = states;
-
+        isFetchingStates.value = false;
         isLoading.value = false;
         return states;
       } else {
@@ -1402,6 +1462,7 @@ class Controller extends GetxController {
   }
 
   Future<List<StateModels>> fetchSecondState() async {
+    isFetchingStatesSecond.value = true;
     print("countryCode$selectedContectCountryCode");
     final countryCode = selectedContectCountryCode ?? "IND";
     final url = Uri.parse(
@@ -1409,14 +1470,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoading.value = true;
@@ -1427,7 +1481,7 @@ class Controller extends GetxController {
         );
 
         statesconst.value = states;
-
+        isFetchingStatesSecond.value = false;
         isLoading.value = false;
         return states;
       } else {
@@ -1444,13 +1498,7 @@ class Controller extends GetxController {
     isLoading.value = true;
     final url = Uri.parse(Urls.correncyDropdown);
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes)) as List;
@@ -1479,38 +1527,33 @@ class Controller extends GetxController {
     try {
       // Safely construct query parameters
       final queryParams = <String, String>{
-        'TransactionDate': fromDate.toString(),
+        'TransactionDate': fromDate.toStringAsFixed(2),
       };
 
       if (selectedProject?.code != null && selectedProject!.code.isNotEmpty) {
         queryParams['ProjectId'] = selectedProject!.code;
       }
 
-      final url =
-          Uri.parse(Urls.expenseCategory).replace(queryParameters: queryParams);
-
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final url = Uri.parse(
+        Urls.expenseCategory,
+      ).replace(queryParameters: queryParams);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
         if (data is List) {
-          expenseCategory.value =
-              data.map((e) => ExpenseCategory.fromJson(e)).toList();
+          expenseCategory.value = data
+              .map((e) => ExpenseCategory.fromJson(e))
+              .toList();
           print('Expense categories loaded: ${expenseCategory.length}');
         } else {
           print('Unexpected response format: $data');
         }
       } else {
         print(
-            'Failed to load expense categories. Status: ${response.statusCode}');
+          'Failed to load expense categories. Status: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('Error fetching categories: $e');
@@ -1519,18 +1562,79 @@ class Controller extends GetxController {
     }
   }
 
+  FieldConfig getFieldConfig(String fieldName) {
+    final field = configList.firstWhere(
+      (f) => f['FieldName'] == fieldName,
+      orElse: () => {
+        'FieldName': fieldName,
+        'IsEnabled': false,
+        'IsMandatory': false,
+      }, // Default values if not found
+    );
+
+    return FieldConfig(
+      field['IsEnabled'] == true,
+      field['IsMandatory'] == true,
+    );
+  }
+
+  bool validateAllFields() {
+    for (var field in configList) {
+      final String name = field['FieldName'];
+      final bool enabled = field['IsEnabled'] == true;
+      final bool mandatory = field['IsMandatory'] == true;
+
+      // Skip hidden fields
+      if (!enabled) continue;
+
+      // If mandatory → must have value
+      if (mandatory) {
+        final value = getFieldValue(name);
+
+        if (value.trim().isEmpty || value == "null") {
+          // showError("$name is required");
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  String getFieldValue(String fieldName) {
+    switch (fieldName) {
+      case "Project Id":
+        return projectDropDowncontroller.text;
+
+      case "Tax Group":
+        return taxGroupController.text;
+
+      case "Tax Amount":
+        return taxAmount.text;
+
+      case "is Reimbursible":
+        return isReimbursable.toString(); // or Yes/No
+
+      case "Refrence Id":
+        return referenceID.text;
+
+      case "Is Billable":
+        return isBillable.toString();
+
+      case "Location":
+        return locationController.text;
+
+      default:
+        return "";
+    }
+  }
+
   Future<void> configuration() async {
-    isLoadingGE2.value = true;
+    // isLoadingGE2.value = true;
     isLoadingGE1.value = true;
     final url = Uri.parse(Urls.geconfigureField);
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1539,18 +1643,18 @@ class Controller extends GetxController {
           configList.addAll(data.cast<Map<String, dynamic>>());
 
           print('Appended configList: $configList');
-          isLoadingGE2.value = false;
+          // isLoadingGE2.value = false;
           isLoadingGE1.value = false;
           print('currencies to load countries$currencies');
         }
       } else {
         print('Failed to load countries');
-        isLoadingGE2.value = false;
+        // isLoadingGE2.value = false;
         isLoadingGE1.value = false;
       }
     } catch (e) {
       print('Error fetching countries: $e');
-      isLoadingGE2.value = false;
+      // isLoadingGE2.value = false;
       isLoadingGE1.value = false;
     }
   }
@@ -1560,8 +1664,9 @@ class Controller extends GetxController {
     return list.firstWhere(test, orElse: () => fallback);
   }
 
-  Future<void> getUserPref() async {
+  Future<void> getUserPref(BuildContext context) async {
     // isLoading.value = true;
+    userPref.value = false;
     isLoadingGE1.value = true;
 
     final url = Uri.parse(
@@ -1569,7 +1674,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.get(
+      final response = await ApiService.get(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -1606,9 +1711,12 @@ class Controller extends GetxController {
       if (themeKey != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("ThemeColor", themeKey);
-        // If using GetX (ThemeController):
-        // final themeController = Get.find<ThemeController>();
-        // themeController.setTheme(color, themeKey);
+        final themeNotifier = Provider.of<ThemeNotifier>(
+          context,
+          listen: false,
+        );
+        final color = ThemeNotifier.themeColorMap[themeKey]!;
+        themeNotifier.setColor(color, themeKey: themeKey);
       }
 
       // assign values (defer observable triggers)
@@ -1640,7 +1748,10 @@ class Controller extends GetxController {
         selectedPaymentSettinglist,
         (p) => p.paymentMethodId == defaultPaymentId,
         PaymentMethodModel(
-            paymentMethodId: '', paymentMethodName: '', reimbursible: false),
+          paymentMethodId: '',
+          paymentMethodName: '',
+          reimbursible: false,
+        ),
       );
 
       final format = dateFormatMap.entries.firstWhere(
@@ -1648,7 +1759,8 @@ class Controller extends GetxController {
         orElse: () => const MapEntry('dd_mm_yyyy', 'dd/MM/yyyy'),
       );
 
-      final emailList = defaultReceiptEmailRaw
+      final emailList =
+          defaultReceiptEmailRaw
               ?.split(';')
               .map((e) => e.trim())
               .where((e) => e.isNotEmpty)
@@ -1662,30 +1774,27 @@ class Controller extends GetxController {
       selectedLocale.value = locale;
       selectedTimezone.value = tz;
       selectedPaymentSetting.value = pay;
+      prefPaymentMethod.text = pay.paymentMethodId;
       selectedFormat = format;
       emails = emailList;
       fetchExchangeRate();
       // DEBUG
-      print("Timezone: $tz - from: $currencyDropDowncontroller");
+      print("Timezone: $tz - from: ${currencyDropDowncontroller.text}");
       isLoading.value = false;
+      userPref.value = true;
     } catch (e) {
       print('Error loading prefs: $e');
     } finally {
       isLoading.value = false;
       isLoadingGE1.value = false;
+      userPref.value = true;
     }
   }
 
   Future<void> paymentMethode() async {
     final url = Uri.parse(Urls.defalutPayment);
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List;
@@ -1703,47 +1812,36 @@ class Controller extends GetxController {
 
   Future<void> getProfilePicture() async {
     isImageLoading.value = true;
-    // profileImage.value = null; // Clear old image
     final url = Uri.parse('${Urls.getProfilePicture}${Params.userId}');
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
-        print('✅ Profile picture fetched successfully');
-
         final String base64String = response.body;
         final cleaned = base64String.contains(',')
             ? base64String.split(',')[1]
             : base64String;
-
         final Uint8List bytes = base64Decode(cleaned);
-
-        // Save image to temporary directory
         final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/profile_image_${Params.userId}.png');
+        final file = File(
+          '${dir.path}/profile_image_${Params.userId}_${DateTime.now().millisecondsSinceEpoch}.png',
+        );
         await file.writeAsBytes(bytes);
-
-        // final prefs = await SharedPreferences.getInstance();
-        // await prefs.setString('profile_image_path', file.toString());
+        imageCache.clear();
+        imageCache.clearLiveImages();
+        profileImage.value = null;
         profileImage.value = file;
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString('profileImagePath', file.path);
         isImageLoading.value = false;
-        print(' Profile image stored at: ${file.path}');
       } else {
-        print('Failed to fetch profile picture: ${response.statusCode}');
         isImageLoading.value = false;
       }
     } catch (e) {
-      print(' Error fetching profile picture: $e');
+      print('Error fetching profile picture: $e');
       isImageLoading.value = false;
     }
   }
-
   // Future<void> loadProfilePictureFromStorage() async {
   //   final prefs = await SharedPreferences.getInstance();
   //   final filePath = prefs.getString('profile_image_path');
@@ -1769,12 +1867,12 @@ class Controller extends GetxController {
       "employeeaddress": [
         {
           "AddressId": addressID.text,
-          "Country": selectedCountryCode,
+          "Country": selectedCountryCode.text,
           "State": statePresentTextController.text,
           "Street": street.text,
           "City": city.text,
           "PostalCode": postalCode.text,
-          "Addresspurpose": "Permanent"
+          "Addresspurpose": "Permanent",
         },
         {
           "AddressId": contactaddressID.text,
@@ -1783,13 +1881,13 @@ class Controller extends GetxController {
           "Street": contactStreetController.text,
           "City": contactCityController.text,
           "PostalCode": contactPostalController.text,
-          "Addresspurpose": "Contact"
-        }
-      ]
+          "Addresspurpose": "Contact",
+        },
+      ],
     };
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse('${Urls.updateAddressDetails}${Params.userId}'),
         headers: {
           "Content-Type": "application/json",
@@ -1803,7 +1901,7 @@ class Controller extends GetxController {
         // isUploading.value = false;
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -1812,15 +1910,16 @@ class Controller extends GetxController {
         );
         // print("✅ ");
       } else {
+        final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Error:  ${response.body}",
+          msg: "  ${responseData['detail']['message']}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${responseData['detail']['message']}");
         isGEPersonalInfoLoading.value = false;
         // isUploading.value = false;
       }
@@ -1858,14 +1957,17 @@ class Controller extends GetxController {
       "DefaultDateFormat": selectedFormat?.value,
       "EmailsForRecieptForwarding": emails.join(';'),
       "ShowAnalyticsOnList": true,
-      "DefaultPaymentMethodId": selectedPaymentSetting.value.paymentMethodId,
+      "DefaultPaymentMethodId": (prefPaymentMethod.text.isEmpty)
+          ? null
+          : prefPaymentMethod.text,
+
       "ThemeDirection": false,
       "ThemeColor": themeColorCode,
-      "DecimalSeperator": selectedLocale.value.code
+      "DecimalSeperator": selectedLocale.value.code,
     };
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse('${Urls.userPreferencesAPI}${Params.userId}'),
         headers: {
           "Content-Type": "application/json",
@@ -1878,6 +1980,11 @@ class Controller extends GetxController {
         buttonLoader.value = false;
         final responseData = jsonDecode(response.body);
         final prefs = await SharedPreferences.getInstance();
+        final localeCode = getLocaleCodeFromId(selectedLanguage!.code);
+        Provider.of<LocaleNotifier>(
+          context,
+          listen: false,
+        ).setLocale(Locale(localeCode));
         await prefs.setString("ThemeColor", themeColorCode!);
         final themeNotifier =
             // ignore: use_build_context_synchronously
@@ -1885,7 +1992,7 @@ class Controller extends GetxController {
         final color = ThemeNotifier.themeColorMap[themeColorCode!]!;
         themeNotifier.setColor(color, themeKey: themeColorCode!);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -1895,14 +2002,14 @@ class Controller extends GetxController {
         // print("✅ ");
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         buttonLoader.value = false;
       }
     } catch (e) {
@@ -1916,18 +2023,9 @@ class Controller extends GetxController {
     print('userId: ${Params.userId}');
     try {
       final uri = Uri.parse(
-          '${Urls.getPersonalByID}?UserId=${Params.userId}&lockid=${Params.userId}&screen_name=user');
-      final request = http.Request('GET', uri)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      print('Requesting: $uri');
-
-      // Send request
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+        '${Urls.getPersonalByID}?UserId=${Params.userId}&lockid=${Params.userId}&screen_name=user',
+      );
+      final response = await ApiService.get(uri);
 
       print('Status Code: ${response.statusCode}');
       print('Response Body: ${response.body}');
@@ -1935,7 +2033,7 @@ class Controller extends GetxController {
       if (response.statusCode != 200) {
         isLoading.value = false;
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
         );
         return false;
@@ -1963,6 +2061,11 @@ class Controller extends GetxController {
       firstNameController.text = emp['FirstName'] ?? '';
       middleNameController.text = emp['MiddleName'] ?? '';
       lastNameController.text = emp['LastName'] ?? '';
+      if (userName.value.isEmpty) {
+        userName.value =
+            "${emp['FirstName'] ?? ''} ${emp['MiddleName'] ?? ''} ${emp['LastName'] ?? ''}"
+                .trim();
+      }
 
       gender.text = emp['Gender'] ?? '';
       final fullNumber = emp['ContactNumber'] ?? '';
@@ -2019,7 +2122,7 @@ class Controller extends GetxController {
       statePresentTextController.text = state;
       postalCode.text = perm['PostalCode'] ?? '';
       addressID.text = perm['AddressId'] ?? '';
-      selectedCountryCode = perm['Country'] ?? '';
+      selectedCountryCode.text = perm['Country'] ?? '';
 
       contactStreetController.text = cont['Street'] ?? '';
       contactCityController.text = cont['City'] ?? '';
@@ -2029,17 +2132,18 @@ class Controller extends GetxController {
       contactaddressID.text = cont['AddressId'] ?? '';
       contactCountryController = cont['Country'] ?? '';
 
-      final bool isSameAsPermanents = (perm['Street'] == cont['Street']) &&
+      final bool isSameAsPermanents =
+          (perm['Street'] == cont['Street']) &&
           (perm['City'] == cont['City']) &&
           (perm['State'] == cont['State']) &&
           (perm['PostalCode'] == cont['PostalCode']) &&
           (perm['Country'] == cont['Country']);
 
       isSameAsPermanent = isSameAsPermanents;
-// Delay mapping with Timer to ensure dropdown options are loaded
+      // Delay mapping with Timer to ensure dropdown options are loaded
       Timer(const Duration(seconds: 5), () {
         selectedCountry.value = countries.firstWhere(
-          (p) => p.code == selectedCountryCode,
+          (p) => p.code == selectedCountryCode.text,
           orElse: () => Country(code: '', name: ''),
         );
         isLoading.value = true;
@@ -2050,7 +2154,10 @@ class Controller extends GetxController {
           );
           countryConstTextController.text = selectedContCountry.value!.name;
         }
-
+        print(
+          "electedContCountry.value!.code${selectedContCountry.value?.code}",
+        );
+        selectedContectCountryCode = selectedContCountry.value!.code;
         isLoading.value = false;
         selectedState.value = statesres.firstWhere(
           (p) => p.name == state,
@@ -2086,7 +2193,7 @@ class Controller extends GetxController {
 
   Future<List<MerchantModel>> fetchPaidto() async {
     final dateToUse = selectedDate ?? DateTime.now();
-    print("fetchPaidto${selectedProject?.code}");
+    // print("fetchPaidto${selectedProject?.code}");
     print("fetchPaidto$selectedDate");
     isLoading.value = true;
     print("fromDate$dateToUse");
@@ -2098,19 +2205,10 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     isLoadingGE2.value = true;
 
-    final url = Uri.parse(
-      '${Urls.getPaidtoDropdown}$fromDate',
-    );
+    final url = Uri.parse('${Urls.getPaidtoDropdown}$fromDate');
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoadingGE1.value = false;
@@ -2141,26 +2239,20 @@ class Controller extends GetxController {
   }
 
   Future<List<LocationModel>> fetchLocation() async {
-    isLoadingGE2.value = true;
+    // isLoadingGE2.value = true;
 
     final url = Uri.parse(Urls.locationDropDown);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoading.value = true;
         final data = jsonDecode(response.body);
 
         locationDropDown = List<LocationModel>.from(
-            data.map((item) => LocationModel.fromJson(item)));
+          data.map((item) => LocationModel.fromJson(item)),
+        );
         location.value = locationDropDown;
         isLoading.value = false;
         isLoadingGE2.value = false;
@@ -2168,13 +2260,13 @@ class Controller extends GetxController {
         return locationDropDown;
       } else {
         print('Failed to load states. Status code: ${response.statusCode}');
-        isLoadingGE2.value = false;
+        // isLoadingGE2.value = false;
 
         return [];
       }
     } catch (e) {
       print('Error fetching states: $e');
-      isLoadingGE2.value = false;
+      // isLoadingGE2.value = false;
 
       return [];
     }
@@ -2186,21 +2278,15 @@ class Controller extends GetxController {
     isLoading.value = true;
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
+    final employeeId = Params.employeeId;
     isLoadingGE1.value = true;
     isLoadingGE2.value = true;
     final url = Uri.parse(
-      '${Urls.getProjectDropdown}$fromDate',
+      '${Urls.getProjectDropdown}?EmployeeId=$employeeId&TransactionDate=$fromDate',
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         // isLoadingGE1.value = false;
@@ -2232,19 +2318,10 @@ class Controller extends GetxController {
 
   Future<List<TaxGroupModel>> fetchTaxGroup() async {
     isLoadingGE1.value = true;
-    final url = Uri.parse(
-      Urls.taxGroup,
-    );
+    final url = Uri.parse(Urls.taxGroup);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoadingGE1.value = false;
@@ -2271,19 +2348,10 @@ class Controller extends GetxController {
 
   Future<List<Unit>> fetchUnit() async {
     isLoadingGE1.value = true;
-    final url = Uri.parse(
-      Urls.unitDropdown,
-    );
+    final url = Uri.parse(Urls.unitDropdown);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoadingGE1.value = false;
@@ -2310,19 +2378,10 @@ class Controller extends GetxController {
 
   Future<List<Unit>> fetchcurrencySymbol() async {
     isLoadingGE1.value = true;
-    final url = Uri.parse(
-      Urls.currencySymbol,
-    );
+    final url = Uri.parse(Urls.currencySymbol);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         isLoadingGE1.value = false;
@@ -2361,23 +2420,18 @@ class Controller extends GetxController {
     print("fetchExpenseCategory$fromDate");
     double? parsedAmount = double.tryParse(paidAmount.text);
     print("parsedAmount$parsedAmount");
-    final String amount =
-        parsedAmount != null ? parsedAmount.toInt().toString() : '0';
+    final String amount = parsedAmount != null
+        ? parsedAmount.toInt().toStringAsFixed(2)
+        : '0';
     final currencyCode = selectedCurrency.value?.code ?? "INR";
 
     final url = Uri.parse(
-      '${Urls.exchangeRate}/$amount/${currencyDropDowncontroller.text}/$fromDate',
+      '${Urls.exchangeRate}/$amount/$currencyCode/$fromDate',
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
+      final response = await ApiService.get(url);
 
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
@@ -2387,7 +2441,7 @@ class Controller extends GetxController {
         print("amountINR: ${quantity.text}");
 
         if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
-          // unitRate.text = data['ExchangeRate'].toString();
+          unitRate.text = data['ExchangeRate'].toStringAsFixed(2);
 
           final double totalAmount = (data['Total_Amount'] is String)
               ? double.tryParse(data['Total_Amount']) ?? 0
@@ -2398,11 +2452,11 @@ class Controller extends GetxController {
 
           amountINR.text = totalAmount.toStringAsFixed(2);
           exchangeRate = rate;
-          unitRate.text = rate.toString();
-          amountInController.text = totalAmount.toString();
-          lineAmount.text = totalAmount.toString();
+          unitRate.text = rate.toStringAsFixed(2);
+          amountInController.text = totalAmount.toStringAsFixed(2);
+          lineAmount.text = totalAmount.toStringAsFixed(2);
           lineAmountINR.text = totalINR.toStringAsFixed(2);
-          quantity.text = rate.toString();
+          quantity.text = rate.toStringAsFixed(2);
         }
         for (var itemController in itemizeControllers) {
           calculateLineAmounts(itemController as Controller);
@@ -2431,14 +2485,7 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.getPaidwithDropdown);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -2448,13 +2495,15 @@ class Controller extends GetxController {
             .toList();
 
         print(
-            "paymentMethods: ${paymentMethods.map((e) => e.paymentMethodName).toList()}");
+          "paymentMethods: ${paymentMethods.map((e) => e.paymentMethodName).toList()}",
+        );
         isLoadingGE2.value = false;
 
         return paymentMethods;
       } else {
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         isLoadingGE2.value = false;
 
         return [];
@@ -2467,31 +2516,28 @@ class Controller extends GetxController {
     }
   }
 
-  Future<List<GESpeficExpense>> unprocessSpecificEnter(
-      int workitemrecid) async {
+  Future<List<UnprocessExpenseModels>> unprocessSpecificEnter(
+    int workitemrecid,
+  ) async {
     isLoadingGE1.value = true;
-    final url = Uri.parse('${Urls.getSpecificUnprocess}RecId=$workitemrecid');
+    final url = Uri.parse(
+      '${Urls.getSpecificUnprocess}RecId=$workitemrecid&lock_id=$workitemrecid&screen_name=MyExpense',
+    );
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final expenses = (data as List)
-            .map((item) => GESpeficExpense.fromJson(item))
+        unProcessModelList.value = (data as List)
+            .map((item) => UnprocessExpenseModels.fromJson(item))
             .toList();
-        specificExpenseList.value = expenses;
         isLoadingGE1.value = false;
-        return expenses;
+        return unProcessModelList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load Cash Advance. Status code: ${response.statusCode}');
+          'Failed to load Cash Advance. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -2507,14 +2553,14 @@ class Controller extends GetxController {
   //   final url = Uri.parse('${Urls.getSpecificUnprocess}RecId=$recId');
 
   //   try {
-  //     final request = http.Request('GET', url)
+  //     final request = ApiService.Request('GET', url)
   //       ..headers.addAll({
   //         'Content-Type': 'application/json',
   //         'Authorization': 'Bearer ${Params.userToken ?? ''}',
   //       });
 
   //     final streamed = await request.send();
-  //     final response = await http.Response.fromStream(streamed);
+  //     final response = await ApiService.Response.fromStream(streamed);
 
   //     if (response.statusCode == 200) {
   //       final data = jsonDecode(response.body);
@@ -2551,22 +2597,80 @@ class Controller extends GetxController {
   //     return [];
   //   }
   // }
-
-  Future<List<GESpeficExpense>> fetchSecificExpenseItem(context, int recId,
-      [bool? bool]) async {
+  Future<List<UnprocessExpenseModels>> fetchSecificExpenseItemEmailHub(
+    context,
+    int recId,
+    bool bool,
+    String status,
+  ) async {
     isLoadingGE1.value = true;
+    late Uri url;
 
-    final url = Uri.parse('${Urls.getSpecificGeneralExpense}RecId=$recId');
+    if (status == "unprocessedexpense") {
+      url = Uri.parse(
+        '${Urls.getSpecificGeneralExpense}/$status?RecId=$recId&lock_id=$recId&screen_name=MyExpense',
+      );
+    } else {
+      url = Uri.parse(
+        '${Urls.getSpecificGeneralExpense}/expenseregistration?RecId=$recId&redirection=false',
+      );
+    }
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
+      final response = await ApiService.get(url);
 
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        unProcessModelList.value = (data as List)
+            .map((item) => UnprocessExpenseModels.fromJson(item))
+            .toList();
+
+        for (var expense in specificExpenseList) {
+          expenseIdController.text = expense.expenseId;
+          receiptDateController.text = DateFormat(
+            'dd/MM/yyyy',
+          ).format(expense.receiptDate);
+        }
+
+        print("Expense ID: ${expenseIdController.text}");
+        isLoadingGE1.value = false;
+
+        Navigator.pushNamed(
+          context,
+          AppRoutes.unProcessExpense,
+          arguments: {'item': unProcessModelList[0], 'readOnly': bool},
+        );
+
+        return unProcessModelList;
+      } else {
+        isLoadingGE1.value = false;
+        print(
+          'Failed to load specific expense. Status code: ${response.statusCode}',
+        );
+        return [];
+      }
+    } catch (e, stack) {
+      isLoadingGE1.value = false;
+      print('Error fetching specific expense: $e');
+      print(stack);
+      return [];
+    }
+  }
+
+  Future<List<GESpeficExpense>> fetchSecificExpenseItem(
+    context,
+    int recId, [
+    bool? bool,
+  ]) async {
+    isLoadingGE1.value = true;
+
+    final url = Uri.parse(
+      '${Urls.getSpecificGeneralExpense}/expenseregistration?RecId=$recId&lock_id=$recId&screen_name=MyExpense',
+    );
+
+    try {
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -2577,8 +2681,9 @@ class Controller extends GetxController {
 
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
-          receiptDateController.text =
-              DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+          receiptDateController.text = DateFormat(
+            'dd/MM/yyyy',
+          ).format(expense.receiptDate);
         }
 
         print("Expense ID: ${expenseIdController.text}");
@@ -2587,17 +2692,15 @@ class Controller extends GetxController {
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificExpense,
-          arguments: {
-            'item': specificExpenseList[0],
-            'readOnly': bool,
-          },
+          arguments: {'item': specificExpenseList[0], 'readOnly': bool},
         );
 
         return specificExpenseList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load specific expense. Status code: ${response.statusCode}');
+          'Failed to load specific expense. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e, stack) {
@@ -2609,20 +2712,18 @@ class Controller extends GetxController {
   }
 
   Future<List<GESpeficExpense>> fetchSecificCashAdvanceReturn(
-      context, int recId, bool bool) async {
+    context,
+    int recId,
+    bool bool,
+  ) async {
     isLoadingGE1.value = true;
 
-    final url = Uri.parse('${Urls.getSpecificGeneralExpense}RecId=$recId');
+    final url = Uri.parse(
+      '${Urls.getSpecificGeneralExpense}/expenseregistration?RecId=$recId',
+    );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -2633,8 +2734,9 @@ class Controller extends GetxController {
 
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
-          receiptDateController.text =
-              DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+          receiptDateController.text = DateFormat(
+            'dd/MM/yyyy',
+          ).format(expense.receiptDate);
         }
 
         print("Expense ID: ${expenseIdController.text}");
@@ -2643,17 +2745,15 @@ class Controller extends GetxController {
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificCashAdvanseView,
-          arguments: {
-            'item': specificExpenseList[0],
-            'readOnly': bool,
-          },
+          arguments: {'item': specificExpenseList[0], 'readOnly': bool},
         );
 
         return specificExpenseList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load specific expense. Status code: ${response.statusCode}');
+          'Failed to load specific expense. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e, stack) {
@@ -2665,20 +2765,17 @@ class Controller extends GetxController {
   }
 
   Future<List<GESpeficExpense>> fetchSecificCashAdvanceReturnApproval(
-      context, int workitemrecid, bool bool) async {
+    context,
+    int workitemrecid,
+    bool bool,
+  ) async {
     isLoadingGE1.value = true;
     final url = Uri.parse(
-        '${Urls.getSpecificCashAdvanceApproval}workitemrecid=$workitemrecid&lock_id=$workitemrecid&screen_name=MyPendingApproval');
+      '${Urls.getSpecificCashAdvanceApproval}workitemrecid=$workitemrecid&lock_id=$workitemrecid&screen_name=MyPendingApproval',
+    );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -2688,24 +2785,23 @@ class Controller extends GetxController {
 
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
-          receiptDateController.text =
-              DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+          receiptDateController.text = DateFormat(
+            'dd/MM/yyyy',
+          ).format(expense.receiptDate);
         }
         print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificCashAdvanseView,
-          arguments: {
-            'item': specificExpenseList[0],
-            'readOnly': bool,
-          },
+          arguments: {'item': specificExpenseList[0], 'readOnly': bool},
         );
         return getSpecificListGExpense;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -2717,10 +2813,14 @@ class Controller extends GetxController {
   }
 
   Future<ExpenseModelMileage> fetchMileageDetails(
-      context, expenseId, readOnly) async {
-    final response = await http.get(
+    context,
+    expenseId,
+    readOnly,
+  ) async {
+    final response = await ApiService.get(
       Uri.parse(
-          "${Urls.mileageregistrationview}milageregistration?RecId=$expenseId&lock_id=$expenseId&screen_name=MileageRegistration"),
+        "${Urls.mileageregistrationview}milageregistration?RecId=$expenseId&lock_id=$expenseId&screen_name=MileageRegistration",
+      ),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${Params.userToken}',
@@ -2734,10 +2834,7 @@ class Controller extends GetxController {
       Navigator.pushNamed(
         context,
         AppRoutes.mileageExpensefirst,
-        arguments: {
-          'item': expense,
-          'isReadOnly': readOnly,
-        },
+        arguments: {'item': expense, 'isReadOnly': readOnly},
       );
 
       return expense;
@@ -2747,10 +2844,14 @@ class Controller extends GetxController {
   }
 
   Future<ExpenseModelMileage> fetchMileageDetailsApproval(
-      context, expenseId, readOnly) async {
-    final response = await http.get(
+    context,
+    expenseId,
+    readOnly,
+  ) async {
+    final response = await ApiService.get(
       Uri.parse(
-          "${Urls.mileageregistrationview}detailedapproval?workitemrecid=$expenseId"),
+        "${Urls.mileageregistrationview}detailedapproval?workitemrecid=$expenseId",
+      ),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${Params.userToken}',
@@ -2802,7 +2903,7 @@ class Controller extends GetxController {
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(Urls.updateApprovalStatus),
         headers: {
           'Content-Type': 'application/json',
@@ -2825,7 +2926,7 @@ class Controller extends GetxController {
         );
         clearFormFields();
 
-        print("✅ Approval Action Success: ${response.body}");
+        print("✅ Approval Action  ${response.body}");
         return true;
       } else {
         Fluttertoast.showToast(
@@ -2839,7 +2940,7 @@ class Controller extends GetxController {
         return false;
       }
     } catch (e) {
-      print("❌ API Error: $e");
+      print("❌ API  $e");
       return false;
     }
   }
@@ -2873,7 +2974,7 @@ class Controller extends GetxController {
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(Urls.updateApprovalStatus),
         headers: {
           'Content-Type': 'application/json',
@@ -2897,7 +2998,7 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         clearFormFields();
 
-        print("✅ Approval Action Success: ${response.body}");
+        print("✅ Approval Action  ${response.body}");
         return true;
       } else {
         Fluttertoast.showToast(
@@ -2911,7 +3012,7 @@ class Controller extends GetxController {
         return false;
       }
     } catch (e) {
-      print("❌ API Error: $e");
+      print("❌ API  $e");
       return false;
     }
   }
@@ -2935,6 +3036,7 @@ class Controller extends GetxController {
     }
 
     final Map<String, dynamic> payload = {
+      "UserId": "",
       "workitemrecid": workitemrecid,
       "decision": status,
       "comment": comment,
@@ -2945,7 +3047,7 @@ class Controller extends GetxController {
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(Urls.updateApprovalStatusCashAdvance),
         headers: {
           'Content-Type': 'application/json',
@@ -2967,7 +3069,7 @@ class Controller extends GetxController {
         );
         clearFormFields();
 
-        print("✅ Approval Action Success: ${response.body}");
+        print("✅ Approval Action  ${response.body}");
         return true;
       } else {
         Fluttertoast.showToast(
@@ -2981,26 +3083,22 @@ class Controller extends GetxController {
         return false;
       }
     } catch (e) {
-      print("❌ API Error: $e");
+      print("❌ API  $e");
       return false;
     }
   }
 
   Future<List<GESpeficExpense>> fetchSecificApprovalExpenseItem(
-      context, int recId) async {
+    context,
+    int recId,
+  ) async {
     isLoadingGE1.value = true;
     final url = Uri.parse(
-        '${Urls.getSpecificGeneralExpenseApproval}workitemrecid=$recId&lock_id=$recId&screen_name=MyPendingApproval');
+      '${Urls.getSpecificGeneralExpenseApproval}workitemrecid=$recId&lock_id=$recId&screen_name=MyPendingApproval',
+    );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -3011,23 +3109,23 @@ class Controller extends GetxController {
 
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
-          receiptDateController.text =
-              DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+          receiptDateController.text = DateFormat(
+            'dd/MM/yyyy',
+          ).format(expense.receiptDate);
         }
         print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificExpenseApproval,
-          arguments: {
-            'item': specificExpenseList[0],
-          },
+          arguments: {'item': specificExpenseList[0]},
         );
         return getSpecificListGExpense;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -3039,18 +3137,21 @@ class Controller extends GetxController {
   }
 
   Future<void> reviewMileageRegistration(
-      context, bool action, int workitemrecid) async {
+    context,
+    bool action,
+    int workitemrecid,
+  ) async {
     final expenseTranArray = buildExpenseTrans();
     Map<String, dynamic> expenseTransMap = {};
     for (int i = 0; i < expenseTranArray.length; i++) {
-      expenseTransMap[i.toString()] = expenseTranArray[i];
+      expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
     }
     final payload = {
       "workitemrecid": workitemrecid,
       "TotalAmountTrans": calculatedAmountINR,
       "TotalAmountReporting": calculatedAmountINR,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": Params.employeeName,
+      "EmployeeName": userName.value,
       "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
       "Source": "Web",
       "ExchRate": 1,
@@ -3076,7 +3177,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         url,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -3099,6 +3200,104 @@ class Controller extends GetxController {
           backgroundColor: Colors.green[100],
           textColor: Colors.green[800],
         );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await approvalJustification(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        return;
       } else {
         Fluttertoast.showToast(
           msg: message,
@@ -3110,7 +3309,7 @@ class Controller extends GetxController {
       }
     } catch (e) {
       Fluttertoast.showToast(
-        msg: 'Error: $e',
+        msg: ' $e',
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
       );
@@ -3118,7 +3317,10 @@ class Controller extends GetxController {
   }
 
   Future<void> reviewGendralExpense(
-      context, bool action, int workitemrecid) async {
+    context,
+    bool action,
+    int workitemrecid,
+  ) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -3136,7 +3338,209 @@ class Controller extends GetxController {
       "ExpenseId": expenseID,
       "RecId": recID,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : paidToController.text ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": cashAdvanceIds.text,
+      "Location": "", // or locationController.text.trim()
+      "PaymentMethod": paidWithController.text ?? '',
+      // "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
+      // "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      "IsReimbursable": isReimbursite,
+      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting": approvalamountINR.text.isNotEmpty
+          ? double.tryParse(approvalamountINR.text) ?? 0
+          : 0,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
+      "Source": "Web",
+      "IsBillable": isBillableCreate,
+      "ExpenseType": "General Expenses",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+
+      "DocumentAttachment": {"File": attachmentPayload},
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+    };
+
+    final url = Uri.parse(
+      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
+    );
+
+    try {
+      final response = await ApiService.put(
+        url,
+        headers: {
+          'Authorization': 'Bearer ${Params.userToken}',
+          'Content-Type': 'application/json',
+          'DigiSessionID': digiSessionId.toString(),
+        },
+        body: jsonEncode(requestBody),
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        resetFieldsMileage();
+        clearFormFields();
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await approvalJustification(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        return;
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      print("Error$e");
+      Fluttertoast.showToast(
+        msg: ' $e',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> hubreviewGendralExpense(
+    context,
+    bool action,
+    int workitemrecid,
+  ) async {
+    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
+    print("finalItems${finalItems.length}");
+
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "workitemrecid": workitemrecid,
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseID,
+      "RecId": recID,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : paidToController.text ?? '',
@@ -3166,9 +3570,7 @@ class Controller extends GetxController {
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
 
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+      "DocumentAttachment": {"File": attachmentPayload},
       // if (hasValidUnit && finalItems.isNotEmpty)
       "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
@@ -3178,7 +3580,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         url,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -3191,7 +3593,7 @@ class Controller extends GetxController {
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
-        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         resetFieldsMileage();
         Fluttertoast.showToast(
           msg: message,
@@ -3212,98 +3614,7 @@ class Controller extends GetxController {
     } catch (e) {
       print("Error$e");
       Fluttertoast.showToast(
-        msg: 'Error: $e',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
-  }
-
-  Future<void> hubreviewGendralExpense(
-      context, bool action, int workitemrecid) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
-    print("receiptDate$receiptDate");
-    final attachmentPayload = await buildDocumentAttachment(imageFiles);
-    print("receiptDate$attachmentPayload");
-    print("finalItems${finalItems.length}");
-
-    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
-
-    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
-    final Map<String, dynamic> requestBody = {
-      "workitemrecid": workitemrecid,
-      "ReceiptDate": receiptDate,
-      "ExpenseId": expenseID,
-      "RecId": recID,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
-      "MerchantName": isManualEntryMerchant
-          ? manualPaidToController.text.trim()
-          : selectedPaidto?.merchantNames ?? '',
-      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": cashAdvanceIds.text,
-      "Location": "", // or locationController.text.trim()
-      "PaymentMethod": paidWithController.text ?? '',
-      "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
-      "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
-      "IsReimbursable": true,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
-      "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
-      "Source": "Web",
-      "IsBillable": false,
-      "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
-      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
-      // if (hasValidUnit && finalItems.isNotEmpty)
-      "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
-    };
-
-    final url = Uri.parse(
-      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
-    );
-
-    try {
-      final response = await http.put(
-        url,
-        headers: {
-          'Authorization': 'Bearer ${Params.userToken}',
-          'Content-Type': 'application/json',
-          'DigiSessionID': digiSessionId.toString(),
-        },
-        body: jsonEncode(requestBody),
-      );
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      final String message =
-          responseData['detail']?['message'] ?? 'No message found';
-      if (response.statusCode == 202 || response.statusCode == 280) {
-        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
-        resetFieldsMileage();
-        Fluttertoast.showToast(
-          msg: message,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.green[100],
-          textColor: Colors.green[800],
-        );
-      } else {
-        Fluttertoast.showToast(
-          msg: message,
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.red[200],
-          textColor: Colors.red[800],
-        );
-      }
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: 'Error: $e',
+        msg: ' $e',
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
       );
@@ -3311,9 +3622,10 @@ class Controller extends GetxController {
   }
 
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(
-          '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc'),
+        '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc',
+      ),
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
         'Content-Type': 'application/json',
@@ -3329,9 +3641,10 @@ class Controller extends GetxController {
   }
 
   Future<List<ExpenseHistory>> cashadvanceTracking(int? recId) async {
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(
-          '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_order=asc'),
+        '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_order=asc',
+      ),
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
         'Content-Type': 'application/json',
@@ -3351,7 +3664,7 @@ class Controller extends GetxController {
     isLoadingviewImage.value = true;
     print("FileChecker:");
     imageFiles.clear();
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse('${Urls.getExpensImage}$recId'),
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
@@ -3385,7 +3698,8 @@ class Controller extends GetxController {
     } else {
       isLoadingviewImage.value = false;
       throw Exception(
-          'Failed to load expense document images: ${response.statusCode}');
+        'Failed to load expense document images: ${response.statusCode}',
+      );
     }
   }
 
@@ -3399,7 +3713,8 @@ class Controller extends GetxController {
   }
 
   Future<List<Map<String, dynamic>>> buildDocumentAttachment(
-      List<File> imageFiles) async {
+    List<File> imageFiles,
+  ) async {
     isUploading.value = true;
 
     final List<Map<String, dynamic>> files = [];
@@ -3435,9 +3750,14 @@ class Controller extends GetxController {
 
   void cashAdvanceReturnFinalItem(CashAdvanceRequestHeader expense) {
     final items = expense.cshCashAdvReqTrans.map((trans) {
-      final taxGroupValue =
-          (taxGroup.isNotEmpty) ? taxGroup.first.taxGroupId : '';
-      print("&&&&&&${trans.description}");
+      final taxGroupValue = (taxGroup.isNotEmpty)
+          ? taxGroup.first.taxGroupId
+          : '';
+      print("🔍 Debug - totalRequestedAmount: ${trans.lineAdvanceRequested}");
+      print(
+        "🔍 Debug - requestedPercentage: ${trans.lineRequestedAdvanceInReporting}",
+      );
+      print("&&&&&&11${trans.lineAdvanceRequested}");
       final newItem = CashAdvanceRequestItemize(
         recId: trans.recId,
         cashAdvReqHeader: trans.cashAdvReqHeader,
@@ -3452,7 +3772,7 @@ class Controller extends GetxController {
         location: trans.location,
         lineEstimatedAmount: trans.lineEstimatedAmount,
         lineEstimatedAmountInReporting: trans.lineEstimatedAmountInReporting,
-        // lineAdvanceRequested: double.tryParse(paidAmount.text) ?? 0.0,
+        lineAdvanceRequested: trans.lineAdvanceRequested,
         lineRequestedAdvanceInReporting: trans.lineRequestedAdvanceInReporting,
         lineRequestedExchangerate: trans.estimatedExchangerate,
         lineEstimatedExchangerate: trans.lineEstimatedAmount,
@@ -3464,11 +3784,15 @@ class Controller extends GetxController {
         accountingDistributions: accountingDistributions.map((controller) {
           return AccountingDistribution(
             transAmount:
-                double.tryParse(controller?.transAmount.toString() ?? '') ??
-                    0.0,
+                double.tryParse(
+                  controller?.transAmount.toStringAsFixed(2) ?? '',
+                ) ??
+                0.0,
             reportAmount:
-                double.tryParse(controller?.reportAmount.toString() ?? '') ??
-                    0.0,
+                double.tryParse(
+                  controller?.reportAmount.toStringAsFixed(2) ?? '',
+                ) ??
+                0.0,
             allocationFactor: controller?.allocationFactor ?? 0.0,
             dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
           );
@@ -3485,18 +3809,37 @@ class Controller extends GetxController {
     finalItemsSpecific.clear(); // Clear previous items first
 
     for (var trans in expense.expenseTrans) {
-      print("Processing trans.recId: ${trans.recId}"); // Debug log
+      print("""
+    --- Expense Transaction ---
+    recId: ${trans.recId}
+    expenseId: ${trans.expenseId}
+    expenseCategoryId: ${trans.expenseCategoryId}
+    uomId: ${trans.uomId}
+    quantity: ${trans.quantity}
+    unitPriceTrans: ${trans.unitPriceTrans}
+    taxAmount: ${trans.taxAmount}
+    taxGroup: ${trans.taxGroup}
+    lineAmountTranss: ${trans.lineAmountTrans}
+    lineAmountReporting: ${trans.lineAmountReporting}
+    projectId: ${trans.projectId}
+    description: ${trans.description}
+    isReimbursable: ${trans.isReimbursable}
+    isBillable: ${trans.isBillable}
+    accountingDistributions: ${trans.accountingDistributions?.map((d) => d.toJson()).toList()}
+    ----------------------------
+    """);
 
       // Preserve the original recId from the transaction
-      final int? originalRecId = trans.recId;
+      final int? originalRecId = trans.recId ?? expense.recId;
 
       final taxGroupValue =
           (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
-              ? trans.taxGroup
-              : null;
+          ? trans.taxGroup
+          : null;
 
       // Map accounting distributions while preserving their recIds
-      final mappedDistributions = trans.accountingDistributions?.map((dist) {
+      final mappedDistributions =
+          trans.accountingDistributions?.map((dist) {
             print("Distribution recId: ${dist.recId}");
             return AccountingDistribution(
               transAmount: dist.transAmount,
@@ -3511,7 +3854,7 @@ class Controller extends GetxController {
       // Create the expense item update model with preserved recId
       final item = ExpenseItemUpdate(
         recId: originalRecId, // ✅ This preserves the original recId
-        expenseId: recID, // Parent expense ID
+        expenseId: int.tryParse(expenseID ?? ''), // Parent expense ID
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
         quantity: trans.quantity,
@@ -3533,15 +3876,98 @@ class Controller extends GetxController {
 
     print("Total items in finalItemsSpecific: ${finalItemsSpecific.length}");
     print(
-        "Items with recId: ${finalItemsSpecific.where((item) => item.recId != null).length}");
+      "Items with recId ${finalItemsSpecific.where((item) => item.recId != null).length}",
+    );
     print(
-        "Items without recId: ${finalItemsSpecific.where((item) => item.recId == null).length}");
+      "Items without recId: ${finalItemsSpecific.where((item) => item.recId == null).length}",
+    );
+  }
+
+  void addToFinalItemsUnProcess(UnprocessExpenseModels expense) {
+    // Clear any previously stored items
+    finalItemsSpecific.clear();
+
+    if (expense.expenseTrans.isEmpty) {
+      print(
+        "⚠️ No expense transactions found for Expense ID: ${expense.expenseId}",
+      );
+      return;
+    }
+
+    for (var trans in expense.expenseTrans) {
+      final int? originalRecId = trans.recId ?? expense.recId;
+
+      final taxGroupValue =
+          (trans.taxGroup != null && trans.taxGroup!.trim().isNotEmpty)
+          ? trans.taxGroup
+          : null;
+
+      // Map and preserve AccountingDistribution recIds safely
+      final mappedDistributions =
+          trans.accountingDistributions
+              ?.map(
+                (dist) => AccountingDistribution(
+                  transAmount: dist.transAmount,
+                  reportAmount: dist.reportAmount,
+                  dimensionValueId: dist.dimensionValueId,
+                  allocationFactor: dist.allocationFactor,
+                  recId: dist.recId,
+                ),
+              )
+              .toList() ??
+          [];
+
+      // ✅ Create ExpenseItemUpdate object
+      final item = ExpenseItemUpdate(
+        recId: originalRecId,
+        expenseId: int.tryParse(
+          expense.expenseId.replaceAll(RegExp(r'[^0-9]'), ''),
+        ), // safer parse
+        expenseCategoryId: trans.expenseCategoryId,
+        uomId: trans.uomId,
+        quantity: trans.quantity ?? 0,
+        unitPriceTrans: trans.unitPriceTrans ?? 0,
+        taxAmount: trans.taxAmount ?? 0,
+        taxGroup: taxGroupValue,
+        lineAmountTrans: trans.lineAmountTrans ?? 0,
+        lineAmountReporting: trans.lineAmountReporting ?? 0,
+        projectId: trans.projectId,
+        description: trans.description ?? '',
+        isReimbursable: trans.isReimbursable,
+        isBillable: trans.isBillable,
+        accountingDistributions: mappedDistributions,
+      );
+
+      finalItemsSpecific.add(item);
+
+      // 🔍 Optional concise debug log
+      print("""
+---------------------------
+Expense Item Added:
+  ExpenseId: ${expense.expenseId}
+  Transaction RecId: ${trans.recId}
+  Final RecId Used: ${item.recId}
+  TaxGroup: ${item.taxGroup}
+  LineAmountTrans: ${item.lineAmountTrans}
+  Accounting Dist Count: ${mappedDistributions.length}
+---------------------------
+""");
+    }
+
+    // ✅ Final Summary
+    print("✅ Total Items Added: ${finalItemsSpecific.length}");
+    print(
+      "   Items with RecId: ${finalItemsSpecific.where((e) => e.recId != null).length}",
+    );
+    print(
+      "   Items without RecId: ${finalItemsSpecific.where((e) => e.recId == null).length}",
+    );
   }
 
   double getTotalLineAmount() {
     double total = 0.0;
     for (var section in itemizeSections) {
-      double amount = double.tryParse(section.amount.toString()) ?? 0.0;
+      double amount = double.tryParse(section.amount.toStringAsFixed(2)) ?? 0.0;
       total += amount;
     }
     return total;
@@ -3574,49 +4000,56 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWithController.text ?? '',
+      "PaymentMethod": paidWithCashAdvance.value!.isEmpty
+          ? null
+          : paidWithCashAdvance.value,
+
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
-      "TotalAmountReporting":
-          amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty
+          ? double.tryParse(amountINR.text) ?? 0
+          : 0,
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
       "Currency": currencyDropDowncontroller.text,
-      "ExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
-      "UserExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
-      "IsAlcohol": false,
-      "IsDuplicated": false,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "IsAlcohol": isAlcohol,
+      "IsDuplicated": isDuplicated,
       "IsForged": false,
-      "IsTobacco": false,
+      "IsTobacco": isTobacco,
       "Source": "Web",
+      // if (!hasValidUnit) "ExpenseCategoryId": categoryController.text.trim(),
       "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
-      if (!hasValidUnit) "ExpenseCategoryId": selectedCategoryId,
+      if (!hasValidUnit) "ExpenseCategoryId": categoryController.text.trim(),
+      // if (!hasValidUnit) "ExpenseCategoryId": selectedCategoryId,
       if (!hasValidUnit) 'ProjectId': selectedProject?.code,
       if (!hasValidUnit) 'Description': descriptionController.text,
       if (!hasValidUnit)
         "TaxGroup": !hasValidUnit ? selectedTax?.taxGroupId : null,
-      if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
+      if (!hasValidUnit) "TaxAmount": double.tryParse(taxAmount.text) ?? 0,
       if (!hasValidUnit)
-        'AccountingDistributions':
-            accountingDistributions.map((e) => e?.toJson()).toList(),
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+        'AccountingDistributions': accountingDistributions
+            .map((e) => e?.toJson())
+            .toList(),
+      "DocumentAttachment": {"File": attachmentPayload},
       if (hasValidUnit && finalItems.isNotEmpty)
         "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=${reSubmit ?? false}&screen_name=MyExpenseSubmit=$bool&Resubmit=false&screen_name=MyExpense'),
+          '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=${reSubmit ?? false}&screen_name=MyExpense',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3637,23 +4070,134 @@ class Controller extends GetxController {
         clearFormFields();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
-      } else {
+      } else if (response.statusCode == 430) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await logJustificationAPI(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+
+        return;
+      } else {
+        final data = jsonDecode(response.body);
+        final message = data['detail']['message'];
+        Fluttertoast.showToast(
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -3675,8 +4219,190 @@ class Controller extends GetxController {
     return ids.join(';');
   }
 
+  Future<void> logJustificationAPI(
+    String justificationNote,
+    List<String> justificationReq,
+    int refRecId,
+    List<dynamic> refRecLineId,
+    String policyId,
+    String versionNumber,
+    context,
+  ) async {
+    final url = Uri.parse(
+      'https://api.digixpense.com/api/v1/policymanagement/policyverify/log_justification?functionalentity=ExpenseRequisition',
+    );
+
+    final payload = {
+      "JustificationNotes": justificationNote,
+      "RefRecId": refRecId,
+      "JustificationRequirements": justificationReq,
+      "TransactionType": "Expense",
+      "RefRecLineId": refRecLineId,
+      "PolicyId": policyId,
+      "VersionNumber": versionNumber,
+    };
+
+    try {
+      final response = await ApiService.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        print("Justification Error: ${response.body}");
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[100],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      print("❌ Justification Exception: $e");
+    }
+  }
+
+  Future<void> approvalJustification(
+    String justificationNote,
+    List<String> justificationReq,
+    int refRecId,
+    List<dynamic> refRecLineId,
+    String policyId,
+    String versionNumber,
+    context,
+  ) async {
+    final url = Uri.parse(
+      'https://api.digixpense.com/api/v1/policymanagement/policyverify/log_justification?functionalentity=ExpenseRequisition',
+    );
+
+    final payload = {
+      "JustificationNotes": justificationNote,
+      "RefRecId": refRecId,
+      "JustificationRequirements": justificationReq,
+      "TransactionType": "Expense",
+      "RefRecLineId": refRecLineId,
+      "PolicyId": policyId,
+      "VersionNumber": versionNumber,
+    };
+
+    try {
+      final response = await ApiService.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        print("Justification Error: ${response.body}");
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[100],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      print("❌ Justification Exception: $e");
+    }
+  }
+
+  Future<void> cashAdvanceRequestDashboard(
+    String justificationNote,
+    List<String> justificationReq,
+    int refRecId,
+    List<dynamic> refRecLineId,
+    String policyId,
+    String versionNumber,
+    context,
+  ) async {
+    final url = Uri.parse(
+      'https://api.digixpense.com/api/v1/policymanagement/policyverify/log_justification?functionalentity=CashAdvanceRequisition',
+    );
+
+    final payload = {
+      "JustificationNotes": justificationNote,
+      "RefRecId": refRecId,
+      "JustificationRequirements": justificationReq,
+      "TransactionType": "Expense",
+      "RefRecLineId": refRecLineId,
+      "PolicyId": policyId,
+      "VersionNumber": versionNumber,
+    };
+
+    try {
+      final response = await ApiService.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        print("Justification Error: ${response.body}");
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[100],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      print("❌ Justification Exception: $e");
+    }
+  }
+
   Future<void> createcashAdvanceReturn(
-      context, bool bool, bool? reSubmit, int recId, String? expenseId) async {
+    context,
+    bool bool,
+    bool? reSubmit,
+    int recId,
+    String? expenseId,
+  ) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -3696,7 +4422,7 @@ class Controller extends GetxController {
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -3708,15 +4434,18 @@ class Controller extends GetxController {
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
-      "TotalAmountReporting":
-          amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty
+          ? double.tryParse(amountINR.text) ?? 0
+          : 0,
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
-      "UserExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
+      "Currency": currencyDropDowncontroller.text,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
 
       "Source": "Web",
       "IsBillable": isBillable.value,
@@ -3731,19 +4460,19 @@ class Controller extends GetxController {
         "TaxGroup": !hasValidUnit ? selectedTax?.taxGroupId : null,
       if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
       if (!hasValidUnit)
-        'AccountingDistributions':
-            accountingDistributions.map((e) => e?.toJson()).toList(),
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+        'AccountingDistributions': accountingDistributions
+            .map((e) => e?.toJson())
+            .toList(),
+      "DocumentAttachment": {"File": attachmentPayload},
       if (hasValidUnit && finalItems.isNotEmpty)
         "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.cashadvancerequisitions}&submit=$bool&resubmit=${reSubmit ?? false}&screen_name=MyExpense'),
+          '${Urls.cashadvancerequisitions}&submit=$bool&resubmit=${reSubmit ?? false}&screen_name=MyExpense',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3765,7 +4494,7 @@ class Controller extends GetxController {
 
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -3774,14 +4503,14 @@ class Controller extends GetxController {
         );
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -3800,124 +4529,95 @@ class Controller extends GetxController {
   }
 
   CashAdvanceRequestItemizeFornew toCashAdvanceRequestItemize() {
+    // Debug prints to verify values
+    print("🔍 Debug - selectedCategoryId: $selectedCategoryId");
+    print("🔍 Debug - quantity: ${quantity.text}");
+    print("🔍 Debug - unitAmount: ${unitAmount.text}");
+    print("🔍 Debug - paidAmountCA1: ${paidAmountCA1.text}");
+    print("🔍 Debug - totalRequestedAmount: ${totalRequestedAmount.text}");
+    print("🔍 Debug - requestedPercentage: ${requestedPercentage.text}");
+
     return CashAdvanceRequestItemizeFornew(
-      expenseCategoryId: selectedCategoryId ?? '',
-      quantity: (double.tryParse(quantity.text) ?? 0).toInt(),
+      expenseCategoryId: selectedCategoryId?.isNotEmpty == true
+          ? selectedCategoryId!
+          : '',
+      quantity: (double.tryParse(quantity.text) ?? 0.0).toInt(),
       uomId: selectedunit?.code ?? '',
-      unitEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 1,
-      taxAmount: double.tryParse(taxAmount.text) ?? 1,
+
+      // Fixed: Use unitAmount for unit estimated amount, paidAmountCA1 for line amount
+      unitEstimatedAmount: double.tryParse(unitAmount.text) ?? 0.0,
+      lineEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
+      lineEstimatedAmountInReporting: double.tryParse(amountINRCA1.text) ?? 0.0,
+
+      taxAmount: double.tryParse(taxAmount.text) ?? 0.0,
       taxGroup: selectedTax?.taxGroupId,
-      lineEstimatedAmount: double.tryParse(estimatedamountINR.text) ?? 1,
-      lineEstimatedAmountInReporting:
-          double.tryParse(estimatedamountINR.text) ?? 1,
+
       projectId: selectedProject?.code,
+      location: selectedLocation?.city,
       description: descriptionController.text,
       isReimbursable: isReimbursite,
       isBillable: isBillableCreate,
-      // baseUnit: (double.tryParse(unitRateCA1.text) ?? 1).toInt(),
-
-      // baseUnitRequested: (double.tryParse(unitRateCA2.text) ?? 1).toInt(),
 
       createdBy: Params.userId ?? '',
       createdDatetime: DateTime.now().millisecondsSinceEpoch,
-      // maxAllowedPercentage: 100,
-      // percentage: int.tryParse(requestedPercentage.text) ?? 100,
-      // percentage: 100,
 
-      location: selectedLocation!.city,
       requestDate: DateTime.now().millisecondsSinceEpoch,
       employeeId: Params.employeeId ?? '',
-      estimatedCurrency: selectedCurrency.value?.code ?? "INR",
-      // estimatedExchangerate: selectedExchangeRate ?? 1.0,
-      exchRate: double.tryParse(quantity.text) ?? 1,
-      // paymentMethodId: paymentMethodId?.'',
-      // paymentMethodName: selectedPaymentMethod?.paymentMethodName ?? '',
-      userExchRate: double.tryParse(quantity.text) ?? 1,
 
-      totalEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
-      totalEstimatedAmountInReporting:
-          double.tryParse(paidAmountCA1.text) ?? 0.0,
+      // Currency and exchange rates
+      estimatedCurrency: currencyDropDowncontrollerCA3.text,
+      exchRate: double.tryParse(unitRateCA1.text) ?? 1.0,
+      userExchRate: double.tryParse(unitRateCA1.text) ?? 1.0,
+
+      // Requested amounts
       totalRequestedAmount: double.tryParse(totalRequestedAmount.text) ?? 0.0,
       totalRequestedAmountInReporting:
-          double.tryParse(totalRequestedAmount.text) ?? 0.0,
+          double.tryParse(amountINRCA2.text) ?? 0.0,
+
+      // Line advance requested amounts
       lineAdvanceRequested: double.tryParse(totalRequestedAmount.text) ?? 0.0,
       lineRequestedAdvanceInReporting:
-          double.tryParse(totalRequestedAmount.text) ?? 0.0,
-      lineRequestedCurrency: currencyDropDowncontrollerCA3.text ?? "",
-      lineRequestedExchangerate: double.tryParse(unitRateCA1.text) ?? 0.0,
-      maxAllowedPercentage:
-          (double.tryParse(requestedPercentage.text) ?? 1).toInt(),
+          double.tryParse(amountINRCA2.text) ?? 0.0,
+      lineRequestedCurrency: currencyDropDowncontrollerCA2.text,
+      lineRequestedExchangerate: double.tryParse(unitRateCA2.text) ?? 0.0,
+
+      // Percentage values - FIXED: Remove the .toInt() to preserve decimal values
+      maxAllowedPercentage: (double.tryParse(requestedPercentage.text) ?? 1)
+          .toInt(),
       percentage: (double.tryParse(requestedPercentage.text) ?? 1).toInt(),
-      // // ✅ Business Justification
-      // businessJustification: BusinessJustification(
-      //   id: selectedBusinessJustification?.id ?? '',
-      //   name: selectedBusinessJustification?.name ?? '',
-      //   applicability: selectedBusinessJustification?.applicability ?? '',
-      //   description: selectedBusinessJustification?.description ?? '',
-      // ),
 
-      // prefferedPaymentMethod: PrefferedPaymentMethod(
-      //   paymentMethodId: selectedPaymentMethod?.paymentMethodId ?? '',
-      //   paymentMethodName: selectedPaymentMethod?.paymentMethodName ?? '',
-      //   isSelected: selectedPaymentMethod?.isSelected ?? false,
-      // ),
-
-      // ✅ CSH Header Category Custom Field Values
-      // cshHeaderCategoryCustomFieldValues: cshCategoryFields.map((field) {
-      //   return CustomFieldValue(
-      //     customFieldEntity: field.customFieldEntity,
-      //     fieldId: field.fieldId,
-      //     fieldValue: field.fieldValue,
-      //     fieldName: field.fieldName,
-      //   );
-      // }).toList(),
-
-      // // ✅ CSH Header Custom Field Values
-      // cshHeaderCustomFieldValues: cshHeaderCustomFields.map((field) {
-      //   return CustomFieldValue(
-      //     customFieldEntity: field.customFieldEntity,
-      //     fieldId: field.fieldId,
-      //     fieldValue: field.fieldValue,
-      //     fieldName: field.fieldName,
-      //   );
-      // }).toList(),
-
-      // ✅ Accounting Distributions
-      accountingDistributions: accountingDistributions.map((controller) {
-        return AccountingDistribution(
-          transAmount:
-              double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
-          reportAmount:
-              double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
-          allocationFactor: controller?.allocationFactor ?? 0.0,
-          dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-          // currency: selectedCurrency.value?.code ?? "INR",
-        );
-      }).toList(),
-
-      // // ✅ Document Attachments
-      // documentAttachment: attachedDocuments.map((doc) {
-      //   return DocumentAttachment(
-      //     fileName: doc.fileName,
-      //     fileType: doc.fileType,
-      //     fileUrl: doc.fileUrl,
-      //     uploadedDatetime: doc.uploadedDatetime,
-      //     uploadedBy: currentUserEmail ?? '',
-      //   );
-      // }).toList(),
-
-      // cashAdvTrans: cashAdvanceTransactions,
+      // Accounting Distributions - FIXED null safety
+      accountingDistributions: accountingDistributions
+          .where((c) => c != null)
+          .map((controller) {
+            return AccountingDistribution(
+              transAmount:
+                  double.tryParse(controller!.transAmount.toStringAsFixed(2)) ??
+                  0.0,
+              reportAmount:
+                  double.tryParse(controller.reportAmount.toStringAsFixed(2)) ??
+                  0.0,
+              allocationFactor: controller.allocationFactor ?? 0.0,
+              dimensionValueId: controller.dimensionValueId ?? 'Branch001',
+            );
+          })
+          .toList(),
     );
   }
 
   Future<void> saveCashAdvance(
-      BuildContext context, bool submit, bool? reSubmit, int? recId,
-      [String? reqID]) async {
+    BuildContext context,
+    bool submit,
+    bool? reSubmit,
+    int? recId, [
+    String? reqID,
+  ]) async {
     try {
       print("cashAdvTransPayload");
       // Format the request date
-      final formattedDate =
-          DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
+      final formattedDate = DateFormat(
+        'dd/MM/yyyy',
+      ).format(selectedDate ?? DateTime.now());
       final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -3926,15 +4626,16 @@ class Controller extends GetxController {
       // final attachmentPayload = await buildDocumentAttachment(imageFiles);
 
       // Build CashAdvTrans items
-      final cashAdvTransPayload =
-          finalItemsCashAdvanceNew.map((item) => item.toJson()).toList();
+      final cashAdvTransPayload = finalItemsCashAdvanceNew
+          .map((item) => item.toJson())
+          .toList();
       print("cashAdvTransPayload$cashAdvTransPayload");
 
       // Construct request body
       final Map<String, dynamic> requestBody = {
         "RequestDate": requestDate,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": Params.userName,
+        "EmployeeName": userName.value,
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
@@ -3947,17 +4648,16 @@ class Controller extends GetxController {
         "RequisitionId": expenseIdController.text,
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {
-          "File": attachmentPayload,
-        },
+        "DocumentAttachment": {"File": attachmentPayload},
       };
 
       print("🔗 API Request Body: $requestBody");
 
       // API call
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            "${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv"),
+          "${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyCshAdv",
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -3978,16 +4678,126 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
 
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 406) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.red[800],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[100],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await cashAdvanceRequestDashboard(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           backgroundColor: Colors.redAccent,
           textColor: Colors.white,
           toastLength: Toast.LENGTH_LONG,
@@ -4007,13 +4817,18 @@ class Controller extends GetxController {
   }
 
   Future<void> saveinEditCashAdvance(
-      BuildContext context, bool submit, bool? reSubmit, int? recId,
-      [String? reqID]) async {
+    BuildContext context,
+    bool submit,
+    bool? reSubmit,
+    int? recId, [
+    String? reqID,
+  ]) async {
     try {
       print("cashAdvTransPayload");
       // Format the request date
-      final formattedDate =
-          DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
+      final formattedDate = DateFormat(
+        'dd/MM/yyyy',
+      ).format(selectedDate ?? DateTime.now());
       final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       print("cashAdvTransPayload2");
@@ -4021,8 +4836,9 @@ class Controller extends GetxController {
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
 
       // Build CashAdvTrans items
-      final cashAdvTransPayload =
-          finalItemsCashAdvance.map((item) => item.toJson()).toList();
+      final cashAdvTransPayload = finalItemsCashAdvance
+          .map((item) => item.toJson())
+          .toList();
       print("cashAdvTransPayload$cashAdvTransPayload");
 
       // Construct request body
@@ -4031,29 +4847,31 @@ class Controller extends GetxController {
         "RecId": recId ?? "",
         "RequestDate": requestDate,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": Params.userName,
+        "EmployeeName": userName.value,
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
         "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
             ? double.tryParse(estimatedamountINR.text) ?? 0
             : 0,
-        "PrefferedPaymentMethod": paidWithController.text,
+        "PrefferedPaymentMethod": paidWithController.text.isEmpty
+            ? null
+            : paidWithController.text,
+
         "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {
-          "File": attachmentPayload,
-        },
+        "DocumentAttachment": {"File": attachmentPayload},
       };
 
       print("🔗 API Request Body: $requestBody");
 
       // API call
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            "${Urls.cashadvanceregistration}registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyExpense"),
+          "${Urls.cashadvanceregistration}registercashadvance?functionalentity=CashAdvanceRequisition&submit=$submit&resubmit=${reSubmit ?? false}&screen_name=MyExpense",
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -4074,16 +4892,125 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
 
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
+      } else if (response.statusCode == 406) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.red[800],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[100],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+        clearFormFields();
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await cashAdvanceRequestDashboard(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           backgroundColor: Colors.redAccent,
           textColor: Colors.white,
           toastLength: Toast.LENGTH_LONG,
@@ -4105,13 +5032,18 @@ class Controller extends GetxController {
   }
 
   Future<void> reviewandUpdateCashAdvance(
-      BuildContext context, bool submit, int? recId, String? requisitionId,
-      [int? reqID]) async {
+    BuildContext context,
+    bool submit,
+    int? recId,
+    String? requisitionId, [
+    int? reqID,
+  ]) async {
     try {
       print("cashAdvTransPayload");
       // Format the request date
-      final formattedDate =
-          DateFormat('dd/MM/yyyy').format(selectedDate ?? DateTime.now());
+      final formattedDate = DateFormat(
+        'dd/MM/yyyy',
+      ).format(selectedDate ?? DateTime.now());
       final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       print("cashAdvTransPayload2");
@@ -4119,9 +5051,10 @@ class Controller extends GetxController {
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
 
       // Build CashAdvTrans items
-      final cashAdvTransPayload =
-          finalItemsCashAdvance.map((item) => item.toJson()).toList();
-      print("cashAdvTransPayload$cashAdvTransPayload");
+      final cashAdvTransPayload = finalItemsCashAdvance
+          .map((item) => item.toJson())
+          .toList();
+      print("cashAdvTransPayloadx$cashAdvTransPayload");
 
       // Construct request body
       final Map<String, dynamic> requestBody = {
@@ -4130,7 +5063,7 @@ class Controller extends GetxController {
         "workitemrecid": reqID ?? '',
         "RequestDate": requestDate,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": Params.userName,
+        "EmployeeName": userName.value,
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
@@ -4142,17 +5075,16 @@ class Controller extends GetxController {
         "ReferenceId": referenceID.text.trim(),
         "CashAdvTrans": cashAdvTransPayload,
         "CSHHeaderCustomFieldValues": [],
-        "DocumentAttachment": {
-          "File": attachmentPayload,
-        },
+        "DocumentAttachment": {"File": attachmentPayload},
       };
 
       print("🔗 API Request Body: $requestBody");
 
       // API call
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse(
-            "${Urls.cashadvanceregistration}reviewcashadvancerequisition?updateandaccept=$submit&screen_name=MyPendingApproval"),
+          "${Urls.cashadvanceregistration}reviewcashadvancerequisition?updateandaccept=$submit&screen_name=MyPendingApproval",
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -4173,16 +5105,111 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.approvalDashboardForDashboard);
 
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboardForDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+        clearFormFields();
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await logJustificationAPI(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           backgroundColor: Colors.redAccent,
           textColor: Colors.white,
           toastLength: Toast.LENGTH_LONG,
@@ -4204,7 +5231,11 @@ class Controller extends GetxController {
   }
 
   Future<void> saveinviewPageGeneralExpense(
-      context, bool bool, bool? reSubmit, int recId) async {
+    context,
+    bool bool,
+    bool? reSubmit,
+    int recId,
+  ) async {
     isLoadingGE1.value = true;
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
@@ -4228,7 +5259,7 @@ class Controller extends GetxController {
       "ExpenseId": expenseID,
       "RecId": recID,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : paidToController.text ?? '',
@@ -4236,14 +5267,25 @@ class Controller extends GetxController {
       "ReferenceNumber": referenceID.text,
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
-      "PaymentMethod": paymentMethodID,
-      "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
-      "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      "PaymentMethod": (paymentMethodID == null || paymentMethodID.isEmpty)
+          ? null
+          : paymentMethodID,
+      "TotalAmountTrans": (double.tryParse(paidAmount.text) ?? 0).toInt(),
+      "TotalAmountReporting": (double.tryParse(amountINR.text) ?? 0).toInt(),
+
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
       "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
-      "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
       "Source": "Web",
+      "IsAlcohol": isAlcohol,
+      "IsDuplicated": isDuplicated,
+      "IsForged": false,
+      "IsTobacco": isTobacco,
       "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
@@ -4257,17 +5299,16 @@ class Controller extends GetxController {
       // if (!hasValidUnit)
       //   'AccountingDistributions':
       //       accountingDistributions.map((e) => e?.toJson()).toList(),
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+      "DocumentAttachment": {"File": attachmentPayload},
       // if (hasValidUnit && finalItems.isNotEmpty)
       "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=$reSubmit&screen_name=MyExpenseSubmit=$bool&Resubmit=$reSubmit&screen_name=MyExpense'),
+          '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=$reSubmit&screen_name=MyExpenseSubmit=$bool&Resubmit=$reSubmit&screen_name=MyExpense',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -4289,24 +5330,390 @@ class Controller extends GetxController {
         isLoadingGE1.value = false;
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
+      } else if (response.statusCode == 430) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+        clearFormFields();
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await logJustificationAPI(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+
+        return;
       } else {
         isLoadingGE1.value = false;
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
+        finalItems.clear();
+        finalItemsSpecific.clear();
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+
+      if (!bool) {
+        isUploading.value = false;
+      } else {
+        isGESubmitBTNLoading.value = false;
+      }
+    }
+  }
+
+  Future<void> saveinviewPageGeneralExpenseUnProcess(
+    context,
+    bool bool,
+    bool? reSubmit,
+    int recId,
+  ) async {
+    isLoadingGE1.value = true;
+    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
+    print("finalItems${finalItems.length}");
+    if (!bool) {
+      isUploading.value = true;
+      isLoadingGE1.value = true;
+    } else {
+      isGESubmitBTNLoading.value = true;
+      isLoadingGE1.value = true;
+    }
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseID,
+      "UnprocessedRecId": recID,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": userName.value,
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : paidToController.text ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "ReferenceNumber": referenceID.text,
+      "CashAdvReqId": cashAdvanceIds.text,
+      "Location": "", // or locationController.text.trim()
+      "PaymentMethod": paymentMethodID,
+      "TotalAmountTrans": (double.tryParse(paidAmount.text) ?? 0).toInt(),
+      "TotalAmountReporting": (double.tryParse(amountINR.text) ?? 0).toInt(),
+
+      if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
+      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "Source": "Web",
+      "IsAlcohol": isAlcohol,
+      "IsDuplicated": isDuplicated,
+      "IsForged": false,
+      "IsTobacco": isTobacco,
+      "IsBillable": isBillableCreate,
+      "ExpenseType": "General Expenses",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) 'ProjectId': selectedProject?.code ?? '',
+      // if (!hasValidUnit) 'Description': descriptionController.text,
+      // if (!hasValidUnit) "TaxGroup": selectedTax?.taxGroupId ?? '',
+      // if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
+      // if (!hasValidUnit)
+      //   'AccountingDistributions':
+      //       accountingDistributions.map((e) => e?.toJson()).toList(),
+      "DocumentAttachment": {"File": attachmentPayload},
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+    };
+
+    try {
+      final response = await ApiService.post(
+        Uri.parse(
+          '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=$reSubmit&screen_name=MyExpense&unprocessed_recId=$recId',
+        ),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+      print("requestBody$requestBody");
+      if (response.statusCode == 280 || response.statusCode == 201) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'] ?? 'Expense created';
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        isLoadingGE1.value = false;
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 430) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+        clearFormFields();
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await logJustificationAPI(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+
+        return;
+      } else {
+        isLoadingGE1.value = false;
+        Fluttertoast.showToast(
+          msg: " ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌  ${response.body}");
         finalItems.clear();
         finalItemsSpecific.clear();
         if (!bool) {
@@ -4327,7 +5734,12 @@ class Controller extends GetxController {
   }
 
   Future<void> editAndUpdateCashAdvance(
-      context, bool bool, bool? reSubmit, int recId, String expenseId) async {
+    context,
+    bool bool,
+    bool? reSubmit,
+    int recId,
+    String expenseId,
+  ) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -4348,7 +5760,7 @@ class Controller extends GetxController {
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -4360,15 +5772,19 @@ class Controller extends GetxController {
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
-      "TotalAmountReporting":
-          amountINR.text.isNotEmpty ? double.tryParse(amountINR.text) ?? 0 : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty
+          ? double.tryParse(amountINR.text) ?? 0
+          : 0,
 
       // if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
-      "ExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
-      "UserExchRate":
-          unitRate.text.isNotEmpty ? double.tryParse(unitRate.text) ?? 1 : 1,
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
 
       "Source": "Web",
       "IsBillable": isBillable.value,
@@ -4384,17 +5800,16 @@ class Controller extends GetxController {
       // if (!hasValidUnit)
       //   'AccountingDistributions':
       //       accountingDistributions.map((e) => e?.toJson()).toList(),
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+      "DocumentAttachment": {"File": attachmentPayload},
       // if (hasValidUnit && finalItems.isNotEmpty)
       "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
     };
     print(jsonEncode(requestBody));
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.cashadvancerequisitions}&submit=$bool&resubmit=$reSubmit&screen_name=MyExpense'),
+          '${Urls.cashadvancerequisitions}&submit=$bool&resubmit=$reSubmit&screen_name=MyExpense',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -4415,7 +5830,7 @@ class Controller extends GetxController {
         clearFormFields();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "$message (RecId: $recId)",
+          msg: "$message ",
           backgroundColor: Colors.green[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -4424,14 +5839,14 @@ class Controller extends GetxController {
         );
       } else {
         Fluttertoast.showToast(
-          msg: "Error: ${response.body}",
+          msg: " ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         finalItems.clear();
         finalItemsSpecific.clear();
         if (!bool) {
@@ -4451,6 +5866,137 @@ class Controller extends GetxController {
     }
   }
 
+  Future<void> cashadvanceregistrations(
+    context,
+    bool bool,
+    int recId,
+    String expenseId,
+    int workitemrecid,
+  ) async {
+    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    print("receiptDate$attachmentPayload");
+    print("finalItems${finalItems.length}");
+    if (!bool) {
+      isUploading.value = true;
+    } else {
+      isGESubmitBTNLoading.value = true;
+    }
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseId ?? '',
+      if (recId > 0) "RecId": recId,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": userName.value,
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : selectedPaidto?.merchantNames ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": cashAdvanceIds.text,
+      "Location": "", // or locationController.text.trim()
+      "ReferenceNumber": referenceID.text,
+      "PaymentMethod": paidWithCashAdvance.value,
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty
+          ? double.tryParse(amountINR.text) ?? 0
+          : 0,
+
+      // if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
+      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "workitemrecid": workitemrecid,
+      "Source": "Web",
+      "IsBillable": isBillable.value,
+      "ExpenseType": "CashAdvanceReturn",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) 'ProjectId': selectedProject?.code ?? '',
+      // if (!hasValidUnit) 'Description': descriptionController.text,
+      // if (!hasValidUnit) "TaxGroup": selectedTax?.taxGroupId ?? '',
+      // if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
+      // if (!hasValidUnit)
+      //   'AccountingDistributions':
+      //       accountingDistributions.map((e) => e?.toJson()).toList(),
+      "DocumentAttachment": {"File": attachmentPayload},
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+    };
+    print(jsonEncode(requestBody));
+    try {
+      final response = await ApiService.put(
+        Uri.parse(
+          '${Urls.cashadvanceregistrationApi}updateandaccept=$bool&screen_name=MyPendingApproval',
+        ),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}",
+        },
+        body: jsonEncode(requestBody),
+      );
+      print("requestBody$requestBody");
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'] ?? 'Expense created';
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: " ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        print("❌  ${response.body}");
+        finalItems.clear();
+        finalItemsSpecific.clear();
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+      }
+    } catch (e) {
+      print("❌ Exception: $e");
+
+      if (!bool) {
+        isUploading.value = false;
+      } else {
+        isGESubmitBTNLoading.value = false;
+      }
+    }
+  }
   // Future<void> saveinviewPageGeneralExpense(context, bool bool) async {
   //   final digiSessionIdNew = const Uuid().v4();
 
@@ -4507,7 +6053,7 @@ class Controller extends GetxController {
   //   };
 
   //   try {
-  //     final response = await http.post(
+  //     final response = await ApiService.post(
   //       Uri.parse(
   //           '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=false&screen_name=MyExpense'),
   //       headers: {
@@ -4530,20 +6076,20 @@ class Controller extends GetxController {
   //       final recId = data['detail']['RecId'];
   //       Navigator.pushNamed(context, AppRoutes.generalExpense);
   //       Fluttertoast.showToast(
-  //         msg: "$message (RecId: $recId)",
+  //         msg: "$message ",
   //         toastLength: Toast.LENGTH_LONG,
   //         gravity: ToastGravity.BOTTOM,
   //       );
   //     } else {
   //       Fluttertoast.showToast(
-  //         msg: "Error: ${response.body}",
+  //         msg: " ${response.body}",
   //         toastLength: Toast.LENGTH_SHORT,
   //         gravity: ToastGravity.BOTTOM,
   //         backgroundColor: const Color.fromARGB(255, 250, 1, 1),
   //         textColor: const Color.fromARGB(255, 212, 210, 241),
   //         fontSize: 16.0,
   //       );
-  //       print("❌ Error: ${response.body}");
+  //       print("❌  ${response.body}");
   //       if (!bool) {
   //         isUploading.value = false;
   //       } else {
@@ -4604,20 +6150,14 @@ class Controller extends GetxController {
     final url = Uri.parse(fullUrl);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        getAllListGExpense.value =
-            (data as List).map((item) => GExpense.fromJson(item)).toList();
+        getAllListGExpense.value = (data as List)
+            .map((item) => GExpense.fromJson(item))
+            .toList();
 
         isLoadingGE1.value = false;
         print("Fetched Expenses: $getAllListGExpense");
@@ -4636,38 +6176,33 @@ class Controller extends GetxController {
   }
 
   Future<List<GExpense>> fetchUnprocessExpense() async {
-    isLoadingGE1.value = true;
+    isLoadingunprocess.value = true;
     final url = Uri.parse(
-        '${Urls.unProcessedList}${Params.userId}&page=1&sort_order=asc');
+      '${Urls.unProcessedList}${Params.userId}&page=1&sort_order=asc',
+    );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        getAllListGExpense.value =
-            (data as List).map((item) => GExpense.fromJson(item)).toList();
+        getAllListGExpense.value = (data as List)
+            .map((item) => GExpense.fromJson(item))
+            .toList();
 
-        isLoadingGE1.value = false;
+        isLoadingunprocess.value = false;
         print("Fetched Expenses: $getAllListGExpense");
 
         return getAllListGExpense;
       } else {
         print('❌ Failed to load expenses. Status code: ${response.statusCode}');
-        isLoadingGE1.value = false;
+        isLoadingunprocess.value = false;
         return [];
       }
     } catch (e) {
       print('❌ Error fetching expenses: $e');
-      isLoadingGE1.value = false;
+      isLoadingunprocess.value = false;
       return [];
     }
   }
@@ -4693,7 +6228,8 @@ class Controller extends GetxController {
     String filterQuery = '';
     if (filterStatus != null) {
       final encodedQuery = Uri.encodeComponent(
-          "EXPExpenseHeader.ApprovalStatus__eq=$filterStatus");
+        "EXPExpenseHeader.ApprovalStatus__eq=$filterStatus",
+      );
       filterQuery = "filter_query=$encodedQuery";
     }
 
@@ -4701,19 +6237,13 @@ class Controller extends GetxController {
     final url = Uri.parse(fullUrl);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        getAllListGExpense.value =
-            (data as List).map((item) => GExpense.fromJson(item)).toList();
+        getAllListGExpense.value = (data as List)
+            .map((item) => GExpense.fromJson(item))
+            .toList();
 
         print("✅ Fetched Expenses: $getAllListGExpense");
         isLoadingGE1.value = false;
@@ -4751,7 +6281,8 @@ class Controller extends GetxController {
     String filterQuery = '';
     if (filterStatus != null) {
       final encodedQuery = Uri.encodeComponent(
-          "CSHCashAdvReqHeader.ApprovalStatus__eq=$filterStatus");
+        "CSHCashAdvReqHeader.ApprovalStatus__eq=$filterStatus",
+      );
       filterQuery = "filter_query=$encodedQuery";
     }
 
@@ -4759,14 +6290,7 @@ class Controller extends GetxController {
     final url = Uri.parse(fullUrl);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -4793,7 +6317,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     try {
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(Urls.pendingApprovals),
         headers: {
           'Content-Type': 'application/json',
@@ -4801,14 +6325,15 @@ class Controller extends GetxController {
         },
       );
       // final streamed = await request.send();
-      // final response = await http.Response.fromStream(streamed);
+      // final response = await ApiService.Response.fromStream(streamed);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
 
         pendingApprovals.clear();
-        pendingApprovals.value =
-            (data).map((item) => ExpenseModel.fromJson(item)).toList();
+        pendingApprovals.value = (data)
+            .map((item) => ExpenseModel.fromJson(item))
+            .toList();
 
         isLoadingGE1.value = false;
         print("Fetched pendingApprovals: $pendingApprovals");
@@ -4816,7 +6341,8 @@ class Controller extends GetxController {
         return pendingApprovals;
       } else {
         print(
-            '❌ Failed to load pendingApprovals. Status code: ${response.statusCode}');
+          '❌ Failed to load pendingApprovals. Status code: ${response.statusCode}',
+        );
         isLoadingGE1.value = false;
         return [];
       }
@@ -4830,7 +6356,7 @@ class Controller extends GetxController {
   Future<List<ExpenseModel>> fetchExpenses(String token) async {
     // const String url = 'https://yourapi.com/expenses'; // Replace with your API URL
 
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(Urls.pendingApprovals),
       headers: {
         'Content-Type': 'application/json',
@@ -4852,14 +6378,7 @@ class Controller extends GetxController {
     final url = Uri.parse(Urls.getPaidwithDropdown);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -4870,12 +6389,14 @@ class Controller extends GetxController {
             .toList();
 
         print(
-            "paymentMethods: ${paymentMethods.map((e) => e.paymentMethodName).toList()}");
+          "paymentMethods: ${paymentMethods.map((e) => e.paymentMethodName).toList()}",
+        );
 
         return paymentMethods;
       } else {
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -4906,14 +6427,8 @@ class Controller extends GetxController {
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
+      final response = await ApiService.get(url);
 
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
@@ -4923,7 +6438,7 @@ class Controller extends GetxController {
         print("amountINR: ${quantity.text}");
 
         if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
-          unitRate.text = data['ExchangeRate'].toString();
+          unitRate.text = data['ExchangeRate'].toStringAsFixed(2);
 
           final double totalAmount = (data['Total_Amount'] is String)
               ? double.tryParse(data['Total_Amount']) ?? 0
@@ -4934,11 +6449,11 @@ class Controller extends GetxController {
 
           amountINR.text = totalINR.toStringAsFixed(2);
           exchangeRate = rate;
-          unitRate.text = rate.toString();
-          amountInController.text = totalAmount.toString();
-          lineAmount.text = totalAmount.toString();
+          unitRate.text = rate.toStringAsFixed(2);
+          amountInController.text = totalAmount.toStringAsFixed(2);
+          lineAmount.text = totalAmount.toStringAsFixed(2);
           lineAmountINR.text = totalINR.toStringAsFixed(2);
-          quantity.text = rate.toString();
+          quantity.text = rate.toStringAsFixed(2);
         }
 
         return ExchangeRateResponse.fromJson(data);
@@ -4961,6 +6476,7 @@ class Controller extends GetxController {
   }
 
   Future<List<AllocationLine>> fetchPerDiemRates() async {
+    print('its Callies');
     isLoadingGE1.value = true;
     try {
       final fromDate = parseDateToEpoch(fromDateController.text);
@@ -4974,14 +6490,8 @@ class Controller extends GetxController {
       final url = Uri.parse(
         '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=$employeeId',
       );
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        });
+      final response = await ApiService.get(url);
 
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final parsedResponse = PerDiemResponseModel.fromJson(body);
@@ -4989,14 +6499,29 @@ class Controller extends GetxController {
         perdiemResponse.value = parsedResponse;
         perDiem.value = true;
         allocationLines = parsedResponse.allocationLines ?? [];
-        daysController.text = parsedResponse.totalDays.toString();
-        exchangeamountInController.text =
-            parsedResponse.totalAmountTrans.toStringAsFixed(2);
+        daysController.text = parsedResponse.totalDays.toStringAsFixed(2);
+        exchangeamountInController.text = parsedResponse.totalAmountTrans
+            .toStringAsFixed(2);
         perDiemController.text = parsedResponse.perdiemId.toString();
 
         isLoadingGE1.value = false;
         return allocationLines;
       } else {
+        final body = jsonDecode(response.body);
+
+        final message =
+            body['detail']?['message'] ??
+            body['message'] ??
+            'Something went wrong';
+
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
         isLoadingGE1.value = false;
         return [];
       }
@@ -5033,7 +6558,7 @@ class Controller extends GetxController {
     totalDistanceKm = 0;
     calculatedAmountINR = 0;
     // isRoundTrip = false;
-    // projectIdController.clear();
+    // projectIdController.clear();  RxString selectedIcon = ''.obs;
     isRoundTrip = false;
     // Reset dropdowns or selections
     selectedProject = null;
@@ -5062,7 +6587,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.delete(
+      final response = await ApiService.delete(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -5090,7 +6615,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.delete(
+      final response = await ApiService.delete(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -5102,7 +6627,7 @@ class Controller extends GetxController {
         final responseData = jsonDecode(response.body);
         await fetchUnprocessExpense(); // Be sure to await for UI sync
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Color.fromARGB(255, 22, 87, 3),
@@ -5113,7 +6638,7 @@ class Controller extends GetxController {
       } else {
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Color.fromARGB(255, 59, 250, 1),
@@ -5130,32 +6655,35 @@ class Controller extends GetxController {
   }
 
   Future<void> updatePerDiemDetails(
-      context, bool bool, bool resubmit, int? recIds,
-      [String? expenseID]) async {
+    context,
+    bool bool,
+    bool resubmit,
+    int? recIds, [
+    String? expenseID,
+  ]) async {
     Map<String, dynamic> buildPayload() {
       return {
         "ExpenseId": expenseID ?? '',
         // ignore: prefer_null_aware_operators
         "ProjectId": selectedProject != null ? selectedProject?.code : null,
         "TotalAmountTrans": exchangeamountInController.text.isNotEmpty
-            ? double.parse(exchangeamountInController.text)
-            : 0.0,
+            ? double.parse(exchangeamountInController.text).round()
+            : 0,
         "TotalAmountReporting": amountInController.text.isNotEmpty
-            ? double.parse(amountInController.text)
-            : 0.0,
-
+            ? double.parse(amountInController.text).round()
+            : 0,
         "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName":
-            firstNameController.text.isNotEmpty ? firstNameController.text : '',
+        "EmployeeName": userName.value,
         "ReceiptDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "Currency": "INR",
-        "Description":
-            purposeController.text.isNotEmpty ? purposeController.text : '',
+        "Currency": selectedCurrency.value?.code ?? 'INR',
+        "Description": purposeController.text.isNotEmpty
+            ? purposeController.text
+            : '',
         "Source": "Web",
         "ExchRate": 1,
-        "RecId": recIds,
+        if (recIds != null) "RecId": recIds,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
         "CashAdvReqId": cashAdvanceIds.text,
@@ -5177,13 +6705,16 @@ class Controller extends GetxController {
     }
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.perDiemRegistration}&Submit=$bool&Resubmit=$resubmit&screen_name=PerDiemRegistration'),
+          '${Urls.perDiemRegistration}&Submit=$bool&Resubmit=$resubmit&screen_name=PerDiemRegistration',
+        ),
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json, text/plain, */*",
           "Authorization": "Bearer ${Params.userToken}",
         },
+
         body: jsonEncode(buildPayload()),
       );
 
@@ -5195,7 +6726,7 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -5203,16 +6734,120 @@ class Controller extends GetxController {
           fontSize: 16.0,
         );
         // print("✅ ");
-      } else {
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFieldsPerdiem();
+        fetchPerDiemRates();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "Error:  ${response.body}",
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+        clearFormFieldsPerdiem();
+        fetchPerDiemRates();
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await logJustificationAPI(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+      } else {
+        final body = jsonDecode(response.body);
+        final message =
+            body['detail']?['message'] ??
+            body['message'] ??
+            'Something went wrong';
+
+        Fluttertoast.showToast(
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+
+        print("❌  ${response.body}");
         buttonLoader.value = false;
         isUploading.value = false;
       }
@@ -5222,8 +6857,13 @@ class Controller extends GetxController {
     }
   }
 
-  Future<void> perdiemApprovalReview(context, bool bool, int? workitemrecid,
-      String? recId, String expenseID) async {
+  Future<void> perdiemApprovalReview(
+    context,
+    bool bool,
+    int? workitemrecid,
+    String? recId,
+    String expenseID,
+  ) async {
     // buttonLoader.value = true;
     // isUploading.value = true;
     print(recId);
@@ -5239,14 +6879,14 @@ class Controller extends GetxController {
             ? double.parse(amountInController.text)
             : 0.0,
         "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName":
-            firstNameController.text.isNotEmpty ? firstNameController.text : '',
+        "EmployeeName": userName.value,
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
         "Currency": "INR",
-        "Description":
-            purposeController.text.isNotEmpty ? purposeController.text : '',
+        "Description": purposeController.text.isNotEmpty
+            ? purposeController.text
+            : '',
         "Source": "Web",
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
@@ -5271,9 +6911,10 @@ class Controller extends GetxController {
     }
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse(
-            '${Urls.approvalPerdiemreview}updateandaccept=$bool&screen_name=MyPendingApproval'),
+          '${Urls.approvalPerdiemreview}updateandaccept=$bool&screen_name=MyPendingApproval',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -5289,7 +6930,7 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -5297,16 +6938,120 @@ class Controller extends GetxController {
           fontSize: 16.0,
         );
         // print("✅ ");
-      } else {
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         Fluttertoast.showToast(
-          msg: "Error:  ${response.body}",
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await approvalJustification(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        return;
+      } else {
+        final body = jsonDecode(response.body);
+        final message =
+            body['detail']?['message'] ??
+            body['message'] ??
+            'Something went wrong';
+
+        Fluttertoast.showToast(
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         buttonLoader.value = false;
         isUploading.value = false;
       }
@@ -5316,8 +7061,13 @@ class Controller extends GetxController {
     }
   }
 
-  Future<void> hubperdiemApprovalReview(context, bool bool, int? workitemrecid,
-      String? recId, String expenseID) async {
+  Future<void> hubperdiemApprovalReview(
+    context,
+    bool bool,
+    int? workitemrecid,
+    String? recId,
+    String expenseID,
+  ) async {
     // buttonLoader.value = true;
     // isUploading.value = true;
     print(recId);
@@ -5326,19 +7076,21 @@ class Controller extends GetxController {
         "ExpenseId": expenseID ?? '',
         "RecId": recId,
         "ProjectId": selectedProject != null ? selectedProject?.code : null,
-        "TotalAmountTrans":
-            amountInController.text.isNotEmpty ? amountInController.text : '0',
-        "TotalAmountReporting":
-            amountInController.text.isNotEmpty ? amountInController.text : '0',
+        "TotalAmountTrans": amountInController.text.isNotEmpty
+            ? amountInController.text
+            : '0',
+        "TotalAmountReporting": amountInController.text.isNotEmpty
+            ? amountInController.text
+            : '0',
         "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName":
-            firstNameController.text.isNotEmpty ? firstNameController.text : '',
+        "EmployeeName": userName.value,
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
         "Currency": "INR",
-        "Description":
-            purposeController.text.isNotEmpty ? purposeController.text : '',
+        "Description": purposeController.text.isNotEmpty
+            ? purposeController.text
+            : '',
         "Source": "Web",
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
@@ -5363,9 +7115,10 @@ class Controller extends GetxController {
     }
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse(
-            '${Urls.approvalPerdiemreview}updateandaccept=$bool&screen_name=MyPendingApproval'),
+          '${Urls.approvalPerdiemreview}updateandaccept=$bool&screen_name=MyPendingApproval',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -5381,7 +7134,7 @@ class Controller extends GetxController {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: "Success: ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -5391,14 +7144,14 @@ class Controller extends GetxController {
         // print("✅ ");
       } else {
         Fluttertoast.showToast(
-          msg: "Error:  ${response.body}",
+          msg: "  ${response.body}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 250, 1, 1),
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        print("❌ Error: ${response.body}");
+        print("❌  ${response.body}");
         buttonLoader.value = false;
         isUploading.value = false;
       }
@@ -5409,19 +7162,15 @@ class Controller extends GetxController {
   }
 
   Future<List<PerdiemResponseModel>> fetchSecificPerDiemItem(
-      context, int recId, bool readOnly) async {
+    context,
+    int recId,
+    bool readOnly,
+  ) async {
     isLoadingGE2.value = true;
     final url = Uri.parse('${Urls.getSpecificPerdiemExpense}$recId');
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -5445,7 +7194,8 @@ class Controller extends GetxController {
       } else {
         isLoadingGE2.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -5457,20 +7207,16 @@ class Controller extends GetxController {
   }
 
   Future<List<PerdiemResponseModel>> fetchSecificPerDiemItemApproval(
-      context, int recId) async {
+    context,
+    int recId,
+  ) async {
     isLoadingGE1.value = true;
     final url = Uri.parse(
-        '${Urls.getSpecificPerdiemExpenseApproval}workitemrecid=$recId&lock_id=$recId&screen_name=MyPendingApproval');
+      '${Urls.getSpecificPerdiemExpenseApproval}workitemrecid=$recId&lock_id=$recId&screen_name=MyPendingApproval',
+    );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -5488,15 +7234,14 @@ class Controller extends GetxController {
         Navigator.pushNamed(
           context,
           AppRoutes.perDiem,
-          arguments: {
-            'item': specificPerdiemList[0],
-          },
+          arguments: {'item': specificPerdiemList[0]},
         );
         return specificPerdiemList;
       } else {
         isLoadingGE1.value = false;
         print(
-            'Failed to load payment methods. Status code: ${response.statusCode}');
+          'Failed to load payment methods. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -5512,7 +7257,7 @@ class Controller extends GetxController {
       isLoading.value = true;
 
       // Make API call
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse('${Urls.getNotifications}${Params.userId}'),
         headers: {
           'Content-Type': 'application/json',
@@ -5524,12 +7269,14 @@ class Controller extends GetxController {
         final data = json.decode(response.body) as List<dynamic>;
 
         // Map JSON to NotificationModel
-        notifications.value =
-            data.map((e) => NotificationModel.fromJson(e)).toList();
+        notifications.value = data
+            .map((e) => NotificationModel.fromJson(e))
+            .toList();
 
         // Filter unread notifications
-        unreadNotifications.value =
-            notifications.where((n) => !n.read).toList();
+        unreadNotifications.value = notifications
+            .where((n) => !n.read)
+            .toList();
         unreadCount.value = unreadNotifications.length;
         print("unreadNotifications.value${unreadCount.value}");
       } else {
@@ -5542,11 +7289,32 @@ class Controller extends GetxController {
     }
   }
 
-  void markAsRead(NotificationModel notification) {
-    notification.read = true;
-    unreadNotifications.removeWhere((n) => n.recId == notification.recId);
-    unreadNotifications.refresh();
-    notifications.refresh();
+  void markAsRead(NotificationModel notification) async {
+    try {
+      final url = Uri.parse(
+        "https://api.digixpense.com/api/v1/websocket/notifications/${notification.recId}/read/",
+      );
+
+      // Call API
+      final response = await ApiService.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken}", // add your token here
+        },
+      );
+
+      if (response.statusCode == 200) {
+        notification.read = true;
+        unreadNotifications.removeWhere((n) => n.recId == notification.recId);
+        unreadNotifications.refresh();
+        notifications.refresh();
+      } else {
+        print("❌ Mark as read failed: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ Error marking as read: $e");
+    }
   }
 
   Future<List<String>> fetchPlaceSuggestions(String input) async {
@@ -5554,7 +7322,7 @@ class Controller extends GetxController {
     final url =
         'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$apiKey&components=country:in';
 
-    final response = await http.get(Uri.parse(url));
+    final response = await ApiService.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -5579,7 +7347,8 @@ class Controller extends GetxController {
       final position = await Geolocator.getCurrentPosition();
 
       print(
-          '📍 Current Position: Lat=${position.latitude}, Lng=${position.longitude}');
+        '📍 Current Position: Lat=${position.latitude}, Lng=${position.longitude}',
+      );
 
       // _currentLatLng = LatLng(position.latitude, position.longitude);
     } else {
@@ -5596,7 +7365,7 @@ class Controller extends GetxController {
         '${Urls.cancelApprovals}context_recid=$contextRecId&screen_name=$screenName&functionalentity=$functionalEntity';
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         Uri.parse(apiUrl),
         headers: {
           'Content-Type': 'application/json',
@@ -5609,6 +7378,7 @@ class Controller extends GetxController {
       if (response.statusCode == 200 || response.statusCode == 202) {
         clearFormFieldsPerdiem();
         clearFormFields();
+        chancelButton(context);
         Fluttertoast.showToast(
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
@@ -5629,7 +7399,61 @@ class Controller extends GetxController {
       }
     } catch (e) {
       Fluttertoast.showToast(
-        msg: "Error: $e",
+        msg: " $e",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  Future<void> cancelCashadvance(
+    BuildContext context,
+    String contextRecId,
+  ) async {
+    // Static values
+    const String screenName = "MyCashAdvance";
+    const String functionalEntity = "CashAdvanceRequisition";
+
+    final String apiUrl =
+        '${Urls.cancelApprovals}context_recid=$contextRecId&screen_name=$screenName&functionalentity=$functionalEntity';
+
+    try {
+      final response = await ApiService.put(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${Params.userToken}', // API Token in header
+        },
+      );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200 || response.statusCode == 202) {
+        clearFormFieldsPerdiem();
+        clearFormFields();
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: " $e",
         toastLength: Toast.LENGTH_LONG,
         gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
@@ -5647,9 +7471,10 @@ class Controller extends GetxController {
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     try {
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
-            '${Urls.empmileagevehicledetails}${Params.employeeId}&ReceiptDate=$fromDate'),
+          '${Urls.empmileagevehicledetails}${Params.employeeId}&ReceiptDate=$fromDate',
+        ),
         headers: {
           "Authorization": 'Bearer ${Params.userToken ?? ''}',
           "Content-Type": "application/json",
@@ -5661,20 +7486,22 @@ class Controller extends GetxController {
 
         final data = jsonDecode(response.body);
 
-        vehicleTypes =
-            (data as List).map((item) => VehicleType.fromJson(item)).toList();
+        vehicleTypes = (data as List)
+            .map((item) => VehicleType.fromJson(item))
+            .toList();
 
         // selectedVehicleType = vehicleTypes.first;
 
         debugPrint(
-            "Vehicle Types: ${vehicleTypes.map((v) => v.name).toList()}");
+          "Vehicle Types: ${vehicleTypes.map((v) => v.name).toList()}",
+        );
         isLoadingGE2.value = false;
       } else {
-        debugPrint("API Error: ${response.statusCode}");
+        debugPrint("API  ${response.statusCode}");
         isLoadingGE2.value = false;
       }
     } catch (e) {
-      debugPrint("API Error: $e");
+      debugPrint("API  $e");
       isLoadingGE2.value = false;
     }
   }
@@ -5794,21 +7621,28 @@ class Controller extends GetxController {
     tripControllers.add(TextEditingController());
   }
 
-  Future<void> submitMileageExpense(context, bool bool, bool submit, int? recId,
-      [String? expenseId]) async {
+  Future<void> submitMileageExpense(
+    context,
+    bool boolValue,
+    bool submit,
+    int? recId, [
+    String? expenseId,
+  ]) async {
     try {
-      // Build ExpenseTrans payload
+      // 🔹 Build ExpenseTrans payload
       final expenseTranArray = buildExpenseTrans();
       Map<String, dynamic> expenseTransMap = {};
+
       for (int i = 0; i < expenseTranArray.length; i++) {
         expenseTransMap[i.toString()] = expenseTranArray[i];
       }
-      // Prepare main payload
+
+      // 🔹 Prepare main payload
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
         "TotalAmountReporting": calculatedAmountINR,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": Params.employeeName,
+        "EmployeeName": userName.value,
         "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
         "Source": "Web",
         "ExchRate": 1,
@@ -5820,32 +7654,47 @@ class Controller extends GetxController {
         "VehicleType": selectedVehicleType?.name ?? "Car",
         "FromLocation": tripControllers.first.text,
         "ToLocation": tripControllers.last.text,
-        // "RecId": null,
         "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": [],
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": [],
         "ExpenseTrans": expenseTransMap,
-        "ProjectId":
-            projectIdController.text.isEmpty ? null : projectIdController.text,
+        "ProjectId": projectIdController.text.isEmpty
+            ? null
+            : projectIdController.text,
       };
 
-      // Print payload for debugging
-      print(jsonEncode(payload));
+      // 🔹 Debug log
+      print("🚀 SUBMIT PAYLOAD => ${jsonEncode(payload)}");
 
-      // Send POST API request
-      final response = await http.post(
+      // 🔹 API call
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.mileageregistration}Submit=$bool&Resubmit=$submit&screen_name=MileageRegistration'),
+          '${Urls.mileageregistration}Submit=$boolValue&Resubmit=$submit&screen_name=MileageRegistration',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
         },
         body: jsonEncode(payload),
       );
+
+      print("📡 RESPONSE STATUS: ${response.statusCode}");
+      print("📡 RESPONSE BODY: ${response.body}");
+
       final Map<String, dynamic> responseData = jsonDecode(response.body);
-      final String message =
-          responseData['detail']?['message'] ?? 'No message found';
+
+      // ✅ Safely extract message (can be List or String)
+      dynamic msgData = responseData['detail']?['message'];
+      String message = 'No message found';
+
+      if (msgData is String) {
+        message = msgData;
+      } else if (msgData is List) {
+        message = msgData.join("\n");
+      }
+
+      // ✅ Success responses
       if (response.statusCode == 200 ||
           response.statusCode == 201 ||
           response.statusCode == 208 ||
@@ -5860,8 +7709,137 @@ class Controller extends GetxController {
           backgroundColor: Colors.green[100],
           textColor: Colors.green[800],
         );
+
         Navigator.pushNamed(context, AppRoutes.generalExpense);
-      } else {
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        resetFieldsMileage();
+        clearFormFieldsPerdiem();
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      }
+      // 🟡 Policy justification required (HTTP 428)
+      else if (response.statusCode == 428) {
+        resetFieldsMileage();
+        clearFormFieldsPerdiem();
+
+        try {
+          final detail = responseData['detail'] ?? {};
+
+          // Handle message safely
+          dynamic msg = detail['message'];
+          List<String> justificationReq = [];
+
+          if (msg is List) {
+            justificationReq = msg.map((e) => e.toString()).toList();
+          } else if (msg is String) {
+            justificationReq = [msg];
+          } else {
+            justificationReq = ["Justification required"];
+          }
+
+          final String policyId = detail['policyid']?.toString() ?? '';
+          final String versionNumber =
+              detail['version_number']?.toString() ?? '';
+          final int refRecId =
+              int.tryParse(detail['refrecid']?.toString() ?? '0') ?? 0;
+          final List<dynamic> refRecLineId = (detail['refreclineid'] is List)
+              ? detail['refreclineid']
+              : [];
+
+          // 🟢 Show Justification Dialog
+          final justificationNote = await showDialog<String>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) {
+              final controller = TextEditingController();
+              return AlertDialog(
+                title: Text(
+                  AppLocalizations.of(context)!.justificationRequired,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (justificationReq.isNotEmpty)
+                      Text(
+                        justificationReq.join("\n\n"),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.enterJustification,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(AppLocalizations.of(context)!.cancel),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      final text = controller.text.trim();
+                      if (text.isNotEmpty) {
+                        Navigator.pop(context, text);
+                      } else {
+                        Fluttertoast.showToast(
+                          msg: AppLocalizations.of(
+                            context,
+                          )!.pleaseEnterJustification,
+                          backgroundColor: Colors.orange[200],
+                        );
+                      }
+                    },
+                    child: Text(AppLocalizations.of(context)!.save),
+                  ),
+                ],
+              );
+            },
+          );
+
+          // 🔹 Call justification API if user entered a note
+          if (justificationNote != null && justificationNote.isNotEmpty) {
+            await logJustificationAPI(
+              justificationNote,
+              justificationReq,
+              refRecId,
+              refRecLineId,
+              policyId,
+              versionNumber,
+              context,
+            );
+          }
+        } catch (e) {
+          Fluttertoast.showToast(
+            msg: message,
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.red[200],
+            textColor: Colors.red[800],
+          );
+          print("❌ Error handling 428 justification: $e");
+        }
+      }
+      // 🔴 Other errors
+      else {
         Fluttertoast.showToast(
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
@@ -5871,7 +7849,6 @@ class Controller extends GetxController {
         );
         expenseTrans = [];
         expenseTrans.clear();
-        // print("Error: ${response.body}");
       }
     } catch (e) {
       print("🔥 Exception during API call: $e");
@@ -5879,21 +7856,25 @@ class Controller extends GetxController {
   }
 
   Future<void> approvalHubsubmitMileageExpense(
-      context, bool bool, bool submit, int? recId,
-      [String? expenseId]) async {
+    context,
+    bool bool,
+    bool submit,
+    int? recId, [
+    String? expenseId,
+  ]) async {
     try {
       // Build ExpenseTrans payload
       final expenseTranArray = buildExpenseTrans();
       Map<String, dynamic> expenseTransMap = {};
       for (int i = 0; i < expenseTranArray.length; i++) {
-        expenseTransMap[i.toString()] = expenseTranArray[i];
+        expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
       }
       // Prepare main payload
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
         "TotalAmountReporting": calculatedAmountINR,
         "EmployeeId": Params.employeeId,
-        "EmployeeName": Params.employeeName,
+        "EmployeeName": userName.value,
         "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
         "Source": "Web",
         "ExchRate": 1,
@@ -5918,9 +7899,10 @@ class Controller extends GetxController {
       print(jsonEncode(payload));
 
       // Send POST API request
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
-            '${Urls.mileageregistration}Submit=$bool&Resubmit=$submit&screen_name=MileageRegistration'),
+          '${Urls.mileageregistration}Submit=$bool&Resubmit=$submit&screen_name=MileageRegistration',
+        ),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer ${Params.userToken}",
@@ -5954,7 +7936,7 @@ class Controller extends GetxController {
         );
         expenseTrans = [];
         expenseTrans.clear();
-        // print("Error: ${response.body}");
+        // print(" ${response.body}");
       }
     } catch (e) {
       print("🔥 Exception during API call: $e");
@@ -5977,10 +7959,11 @@ class Controller extends GetxController {
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     print("receiptDate$receiptDate");
-    final url =
-        Uri.parse('${Urls.getCustomField}=PerDiem&Fromdate=$receiptDate');
+    final url = Uri.parse(
+      '${Urls.getCustomField}=PerDiem&Fromdate=$receiptDate',
+    );
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         "Authorization": "Bearer ${Params.userToken}",
@@ -6003,7 +7986,7 @@ class Controller extends GetxController {
   Future<List<DimensionHierarchy>> fetchDimensionHierarchies() async {
     final url = Uri.parse('${Urls.getdimensionsDropdownName}1752172200000');
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
@@ -6022,7 +8005,7 @@ class Controller extends GetxController {
   Future<List<DimensionValue>> fetchDimensionValues() async {
     final url = Uri.parse(Urls.getdimensionsDropdownValue);
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
@@ -6042,9 +8025,10 @@ class Controller extends GetxController {
   Future<void> fetchChartData() async {
     final int endDate = DateTime.now().millisecondsSinceEpoch;
     isUploadingCards.value = true;
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(
-          '${Urls.cashAdvanceChart}$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
+        '${Urls.cashAdvanceChart}$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+      ),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${Params.userToken}', // 👈 Pass token
@@ -6056,7 +8040,8 @@ class Controller extends GetxController {
       final jsonResponse = json.decode(response.body);
       final xAxis = List<String>.from(jsonResponse['XAxis']);
       final yAxis = List<double>.from(
-          jsonResponse['YAxis'].map((e) => (e ?? 0).toDouble())); // Null safety
+        jsonResponse['YAxis'].map((e) => (e ?? 0).toDouble()),
+      ); // Null safety
 
       chartData = List.generate(
         xAxis.length,
@@ -6070,7 +8055,7 @@ class Controller extends GetxController {
       isUploadingCards.value = false;
       // isLoading = false;
 
-      print('Error: ${response.statusCode} ${response.body}');
+      print(' ${response.statusCode} ${response.body}');
     }
   }
 
@@ -6081,7 +8066,8 @@ class Controller extends GetxController {
         .subtract(const Duration(days: 30))
         .millisecondsSinceEpoch;
 
-    final String apiUrl = '${Urls.expenseChart}'
+    final String apiUrl =
+        '${Urls.expenseChart}'
         '?role=Spender'
         '&start_date=$startDate'
         '&end_date=$endDate'
@@ -6090,7 +8076,7 @@ class Controller extends GetxController {
         '&sort_by=Value'
         '&sort_order=asc';
 
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(apiUrl),
       headers: {
         'Content-Type': 'application/json',
@@ -6121,10 +8107,11 @@ class Controller extends GetxController {
     try {
       isUploadingCards.value = true;
 
-      const String apiUrl = '${Urls.projectExpenseChart}'
+      const String apiUrl =
+          '${Urls.projectExpenseChart}'
           '?role=Spender&page=1&limit=10&sort_by=y&sort_order=asc';
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(apiUrl),
         headers: {
           'Content-Type': 'application/json',
@@ -6134,20 +8121,18 @@ class Controller extends GetxController {
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = json.decode(response.body);
-        final expenses =
-            jsonData.map((item) => ProjectExpense.fromJson(item)).toList();
+        final expenses = jsonData
+            .map((item) => ProjectExpense.fromJson(item))
+            .toList();
 
         projectExpenses.value = expenses;
         isUploadingCards.value = false;
       } else {
-        Get.snackbar(
-          "Error",
-          "Failed to fetch data: ${response.statusCode}",
-        );
+        Get.snackbar("Error", "Failed to fetch data: ${response.statusCode}");
         isUploadingCards.value = false;
       }
     } catch (e) {
-      print("Error: $e");
+      print(" $e");
       Get.snackbar("Error", "Something went wrong!");
       isUploadingCards.value = false;
     } finally {
@@ -6159,9 +8144,10 @@ class Controller extends GetxController {
     try {
       isUploadingCards.value = true;
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
-            '${Urls.baseURL}/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc'),
+          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+        ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
@@ -6183,8 +8169,13 @@ class Controller extends GetxController {
           for (var status in yAxis) {
             total += (status['data'][i] ?? 0.0);
           }
-          expenses.add(ProjectExpensebycategory(
-              x: categories[i], y: total, color: getRandomMildColor()));
+          expenses.add(
+            ProjectExpensebycategory(
+              x: categories[i],
+              y: total,
+              color: getRandomMildColor(),
+            ),
+          );
         }
 
         projectExpensesbyCategory.assignAll(expenses);
@@ -6204,7 +8195,7 @@ class Controller extends GetxController {
   Future<void> fetchExpensesByStatus() async {
     try {
       isUploadingCards.value = true;
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
           '${Urls.baseURL}/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
         ),
@@ -6217,8 +8208,9 @@ class Controller extends GetxController {
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
         List<String> xAxis = List<String>.from(jsonResponse['XAxis']);
-        List<double> yAxis =
-            List<double>.from(jsonResponse['YAxis'].map((e) => e.toDouble()));
+        List<double> yAxis = List<double>.from(
+          jsonResponse['YAxis'].map((e) => e.toDouble()),
+        );
 
         final data = List.generate(
           xAxis.length,
@@ -6243,9 +8235,10 @@ class Controller extends GetxController {
     try {
       isUploadingCards.value = true;
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
-            '${Urls.baseURL}/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}'),
+          '${Urls.baseURL}/api/v1/dashboard/dashboard/manageexpenses?employeeid=${Params.employeeId}',
+        ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
           'Content-Type': 'application/json',
@@ -6267,7 +8260,9 @@ class Controller extends GetxController {
         isUploadingCards.value = false;
       } else {
         Get.snackbar(
-            'Error', 'Failed to fetch summary: ${response.statusCode}');
+          'Error',
+          'Failed to fetch summary: ${response.statusCode}',
+        );
         isUploadingCards.value = false;
       }
     } catch (e) {
@@ -6279,7 +8274,8 @@ class Controller extends GetxController {
   }
 
   Future<void> fetchUsers() async {
-    final rawUrl = "${Urls.esCalateUserList}${Params.userId}"
+    final rawUrl =
+        "${Urls.esCalateUserList}${Params.userId}"
         "&page=1"
         "&sort_order=asc"
         "&choosen_fields=UserName%2CUserId";
@@ -6287,7 +8283,7 @@ class Controller extends GetxController {
     try {
       final uri = Uri.parse(rawUrl); // ✅ convert String to Uri
 
-      final response = await http.get(
+      final response = await ApiService.get(
         uri,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -6321,10 +8317,11 @@ class Controller extends GetxController {
     isUploadingCards.value = true;
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
-    String url = "${Urls.cashAdvanceList}"
+    String url =
+        "${Urls.cashAdvanceList}"
         "?employee_id=${Params.employeeId}&ProjectId=${projectIdController.text}&Location=&ExpenseCategoryId=$selectedCategoryId&PaymentMethod=$paymentMethodID&Currency=INR&ReceiptDate=$fromDate";
 
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(url),
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
@@ -6348,7 +8345,7 @@ class Controller extends GetxController {
     try {
       isUploadingCards.value = true;
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
           '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/analytics',
         ),
@@ -6415,7 +8412,7 @@ class Controller extends GetxController {
     try {
       isUploadingCards.value = true;
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
           '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader?filter_query=CSHCashAdvReqHeader.CreatedBy__eq%3D${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
         ),
@@ -6437,7 +8434,9 @@ class Controller extends GetxController {
         isUploadingCards.value = false;
       } else {
         Get.snackbar(
-            'Error', 'Failed to fetch expense cards: ${response.statusCode}');
+          'Error',
+          'Failed to fetch expense cards: ${response.statusCode}',
+        );
         isUploadingCards.value = false;
       }
     } catch (e) {
@@ -6454,7 +8453,7 @@ class Controller extends GetxController {
       // Start loader
       isUploadingCards.value = true;
 
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
           '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=EXPExpenseHeader.CreatedBy__eq%3D${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
         ),
@@ -6485,7 +8484,7 @@ class Controller extends GetxController {
           Get.snackbar('Info', 'No expense records found.');
         }
       } else {
-        print("❌ API Error: ${response.statusCode}");
+        print("❌ API  ${response.statusCode}");
         Get.snackbar(
           'Error',
           'Failed to fetch expenses. Status Code: ${response.statusCode}',
@@ -6536,14 +8535,7 @@ class Controller extends GetxController {
     final Uri url = Uri.parse(baseUrl);
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -6562,7 +8554,8 @@ class Controller extends GetxController {
         return cashAdvanceListDashboard.toList();
       } else {
         print(
-            '❌ Failed to load cash advances. Status: ${response.statusCode}, Body: ${response.body}');
+          '❌ Failed to load cash advances. Status: ${response.statusCode}, Body: ${response.body}',
+        );
         isLoadingCA.value = false;
         return [];
       }
@@ -6584,13 +8577,7 @@ class Controller extends GetxController {
         '?RecId=$recId&screen_name=MyCashAdvance',
       );
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer ${Params.userToken ?? ""}',
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await ApiService.get(url);
 
       isDeleting.value = false;
 
@@ -6603,23 +8590,29 @@ class Controller extends GetxController {
         if (success || responseData['message']?.contains('success') == true) {
           // Remove locally
           cashAdvanceList.removeWhere((item) => item.recId == recId);
-          Get.snackbar("Success", "Cash advance deleted successfully",
-              backgroundColor: Colors.green, colorText: Colors.white);
+          Get.snackbar(
+            "Success",
+            "Cash advance deleted successfully",
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+          );
           return true;
         } else {
           throw Exception(responseData['message'] ?? 'Delete failed');
         }
       } else {
         throw Exception(
-            'HTTP ${response.statusCode}: ${response.reasonPhrase}');
+          'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+        );
       }
     } catch (e) {
       isDeleting.value = false;
       Get.snackbar(
-          "Delete Failed",
-          e.toString().contains("401")
-              ? "Unauthorized. Please log in again."
-              : "Could not delete request. Please try again.");
+        "Delete Failed",
+        e.toString().contains("401")
+            ? "Unauthorized. Please log in again."
+            : "Could not delete request. Please try again.",
+      );
       return false;
     }
   }
@@ -6629,13 +8622,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     final url = Uri.parse(Urls.geconfigureFieldCashAdvance);
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -6665,21 +8652,15 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     final url = Uri.parse(Urls.businessJustification);
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         // configListAdvance.value = [];
         if (data is List) {
-          justification.assignAll(data
-              .map((json) => Businessjustification.fromJson(json))
-              .toList());
+          justification.assignAll(
+            data.map((json) => Businessjustification.fromJson(json)).toList(),
+          );
 
           print('justification: $justification');
           isLoadingGE2.value = false;
@@ -6699,7 +8680,9 @@ class Controller extends GetxController {
   }
 
   Future<ExchangeRateResponse?> fetchExchangeRateCA(
-      String? currencyCode, String? amount) async {
+    String? currencyCode,
+    String? amount,
+  ) async {
     final dateToUse = selectedDate ?? DateTime.now();
     final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
@@ -6707,22 +8690,17 @@ class Controller extends GetxController {
     final currencyValue = currencyCodes ?? "INR";
 
     double? parsedAmount = double.tryParse(amount!);
-    final String amounts =
-        parsedAmount != null ? parsedAmount.toInt().toString() : '0';
+    final String amounts = parsedAmount != null
+        ? parsedAmount.toInt().toStringAsFixed(2)
+        : '0';
 
     final url = Uri.parse(
       '${Urls.exchangeRate}/$amounts/$currencyValue/$fromDate',
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
+      final response = await ApiService.get(url);
 
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
@@ -6752,7 +8730,8 @@ class Controller extends GetxController {
     print("Callx");
     // Get the required values directly from controller
     final dateToUse = selectedDate ?? DateTime.now();
-    final String requestDateEpoch = dateToUse.millisecondsSinceEpoch.toString();
+    final String requestDateEpoch = dateToUse.millisecondsSinceEpoch
+        .toStringAsFixed(2);
     final String employeeId = Params.employeeId;
     final String expenseCategory = selectedCategoryId;
     final String location = locationController.text ?? '';
@@ -6766,23 +8745,18 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        },
-      );
+      final response = await ApiService.get(url);
+
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['MaxAllowedPercentage'] != null) {
-          final double percentage =
-              (data['MaxAllowedPercentage'] as num).toDouble();
+          final double percentage = (data['MaxAllowedPercentage'] as num)
+              .toDouble();
 
-          requestedPercentage.text = '${percentage.toInt()} %';
+          requestedPercentage.text = percentage.toString();
 
           return percentage;
         }
@@ -6804,7 +8778,10 @@ class Controller extends GetxController {
   }
 
   Future<Object> fetchSpecificCashAdvanceItem(
-      BuildContext context, int recId) async {
+    BuildContext context,
+    int recId,
+    bool bool,
+  ) async {
     isLoadingCA.value = true;
 
     // Build the URL with query parameters
@@ -6813,14 +8790,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -6834,7 +8804,8 @@ class Controller extends GetxController {
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
               ? DateFormat('dd/MM/yyyy').format(
-                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!))
+                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!),
+                )
               : '';
           // Add more controllers if needed
           print("Requisition ID: ${requisitionIdController.text}");
@@ -6848,15 +8819,24 @@ class Controller extends GetxController {
         Navigator.pushNamed(
           context,
           AppRoutes.viewCashAdvanseReturnForms,
-          arguments: {
-            'item': specificCashAdvanceList[0],
-          },
+          arguments: {'item': specificCashAdvanceList[0], "readOnly": bool},
         );
         return specificCashAdvanceList;
       } else {
         isLoadingCA.value = false;
+        final data = jsonDecode(response.body);
+        final String message = data['detail']?['message'] ?? 'No message found';
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
         print(
-            'Failed to load Cash Advance. Status code: ${response.statusCode}');
+          'Failed to load Cash Advance. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -6867,7 +8847,9 @@ class Controller extends GetxController {
   }
 
   Future<Object> fetchSpecificCashAdvanceApprovalItem(
-      BuildContext context, int workitemrecid) async {
+    BuildContext context,
+    int workitemrecid,
+  ) async {
     isLoadingCA.value = true;
 
     // Build the URL with query parameters
@@ -6876,14 +8858,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final request = http.Request('GET', url)
-        ..headers.addAll({
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken ?? ''}',
-        });
-
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
+      final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -6897,7 +8872,8 @@ class Controller extends GetxController {
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
               ? DateFormat('dd/MM/yyyy').format(
-                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!))
+                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!),
+                )
               : '';
           // Add more controllers if needed
           print("Requisition ID: ${requisitionIdController.text}");
@@ -6911,15 +8887,24 @@ class Controller extends GetxController {
         Navigator.pushNamed(
           context,
           AppRoutes.viewCashAdvanseReturnForms,
-          arguments: {
-            'item': specificCashAdvanceList[0],
-          },
+          arguments: {'item': specificCashAdvanceList[0]},
         );
         return specificCashAdvanceList;
       } else {
+        final data = jsonDecode(response.body);
+        final String message = data['detail']?['message'] ?? 'No message found';
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
         isLoadingCA.value = false;
         print(
-            'Failed to load Cash Advance. Status code: ${response.statusCode}');
+          'Failed to load Cash Advance. Status code: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -6955,7 +8940,7 @@ class Controller extends GetxController {
 
         final exchangeResponse1 = results[0] as ExchangeRateResponse?;
         if (exchangeResponse1 != null) {
-          unitRateCA1.text = exchangeResponse1.exchangeRate.toString();
+          unitRateCA1.text = exchangeResponse1.exchangeRate.toStringAsFixed(2);
           amountINRCA1.text = exchangeResponse1.totalAmount.toStringAsFixed(2);
           isVisible.value = true;
         }
@@ -6964,7 +8949,7 @@ class Controller extends GetxController {
         if (maxPercentage != null && maxPercentage > 0) {
           double calculatedPercentage = (paidAmounts * maxPercentage) / 100;
 
-          totalRequestedAmount.text = calculatedPercentage.toString();
+          totalRequestedAmount.text = calculatedPercentage.toStringAsFixed(2);
           calculatedPercentage = calculatedPercentage;
           requestedPercentage.text = '${maxPercentage.toInt()} %';
 
@@ -6981,11 +8966,13 @@ class Controller extends GetxController {
         final reqCurrency = currencyDropDowncontrollerCA2.text;
 
         if (reqCurrency.isNotEmpty && reqPaidAmount.isNotEmpty) {
-          final exchangeResponse =
-              await fetchExchangeRateCA(reqCurrency, reqPaidAmount);
+          final exchangeResponse = await fetchExchangeRateCA(
+            reqCurrency,
+            reqPaidAmount,
+          );
 
           if (exchangeResponse != null) {
-            unitRateCA2.text = exchangeResponse.exchangeRate.toString();
+            unitRateCA2.text = exchangeResponse.exchangeRate.toStringAsFixed(2);
             amountINRCA2.text = exchangeResponse.totalAmount.toStringAsFixed(2);
           }
         }
@@ -7000,13 +8987,7 @@ class Controller extends GetxController {
       '${Urls.getApprovalDashboardData}pendingcashasvanceapprovals?filter_query=CSHCashAdvReqHeader.ApprovalStatus__eq%3DPending&page=1&sort_order=asc',
     );
 
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${Params.userToken}',
-      },
-    );
+    final response = await ApiService.get(url);
 
     if (response.statusCode == 200) {
       final List<dynamic> jsonData = jsonDecode(response.body);
@@ -7015,9 +8996,6 @@ class Controller extends GetxController {
           .map((item) => PendingCashAdvanceApproval.fromJson(item))
           .toList();
 
-      pendingApprovalcashAdvanse.addAll(newApprovals);
-
-      // ✅ Append to the existing list
       pendingApprovalcashAdvanse.addAll(newApprovals);
 
       isLoadingGE1.value = false;
@@ -7030,13 +9008,7 @@ class Controller extends GetxController {
   Future<CashAdvanceGeneralSettings?> fetchGeneralSettings() async {
     final url = Uri.parse(Urls.cashadvanceGeneralSettings);
 
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer ${Params.userToken}',
-        'Content-Type': 'application/json',
-      },
-    );
+    final response = await ApiService.get(url);
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body);
@@ -7050,17 +9022,9 @@ class Controller extends GetxController {
   }
 
   Future<SequenceNumber?> fetchCashAdvanceSequence() async {
-    final url = Uri.parse(
-      Urls.cashadvancerequisition,
-    );
+    final url = Uri.parse(Urls.cashadvancerequisition);
 
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${Params.userToken}',
-      },
-    );
+    final response = await ApiService.get(url);
 
     print('Status Codes: ${response.statusCode}');
     print('Response Body: ${response.body}');
@@ -7087,9 +9051,10 @@ class Controller extends GetxController {
   Future<List<CashAdvanceDropDownModel>> fetchCashAdvanceList() async {
     viewCashAdvanceLoader.value = true;
     final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid?employee_id=${Params.employeeId}&ProjectId=&Location=&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller.text ?? ''}&ReceiptDate=${selectedDate ?? ''}');
+      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cshadvreqid?employee_id=${Params.employeeId}&ProjectId=&Location=&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller.text ?? ''}&ReceiptDate=${selectedDate ?? ''}',
+    );
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         'Content-Type': 'application/json',
@@ -7112,7 +9077,9 @@ class Controller extends GetxController {
   }
 
   void preloadCashAdvanceSelections(
-      List<CashAdvanceDropDownModel> allItems, String? idsString) {
+    List<CashAdvanceDropDownModel> allItems,
+    String? idsString,
+  ) {
     if (idsString == null || idsString.isEmpty) return;
     print('Comma-separated Text: ${allItems}');
     viewCashAdvanceLoader.value = true;
@@ -7123,8 +9090,9 @@ class Controller extends GetxController {
     final ids = idsString.split(';').toSet().toList();
 
     // Filter matching items
-    final selectedItems =
-        allItems.where((item) => ids.contains(item.cashAdvanceReqId)).toList();
+    final selectedItems = allItems
+        .where((item) => ids.contains(item.cashAdvanceReqId))
+        .toList();
 
     // ✅ Remove duplicates based on cashAdvanceReqId
     final uniqueSelectedItems = <String, CashAdvanceDropDownModel>{};
@@ -7135,12 +9103,14 @@ class Controller extends GetxController {
     multiSelectedItems.assignAll(uniqueSelectedItems.values.toList());
 
     // Update display text
-    cashAdvanceIds.text =
-        multiSelectedItems.map((item) => item.cashAdvanceReqId).join(', ');
+    cashAdvanceIds.text = multiSelectedItems
+        .map((item) => item.cashAdvanceReqId)
+        .join(', ');
 
     // Maintain backend format
-    preloadedCashAdvReqIds =
-        multiSelectedItems.map((item) => item.cashAdvanceReqId).join(';');
+    preloadedCashAdvReqIds = multiSelectedItems
+        .map((item) => item.cashAdvanceReqId)
+        .join(';');
 
     // Debug
     print('Selected Cash Advance Items: ${multiSelectedItems.length}');
@@ -7159,15 +9129,10 @@ class Controller extends GetxController {
     int receiptDateMillis =
         (selectedDate ?? DateTime.now()).millisecondsSinceEpoch;
     final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${Params.employeeId}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}');
-
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${Params.userToken}',
-      },
+      '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${Params.employeeId}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}',
     );
+
+    final response = await ApiService.get(url);
 
     if (response.statusCode == 200) {
       viewCashAdvanceLoader.value = false;
@@ -7184,7 +9149,10 @@ class Controller extends GetxController {
   }
 
   Future<void> approvalHubreviewGendralExpense(
-      context, bool action, int workitemrecid) async {
+    context,
+    bool action,
+    int workitemrecid,
+  ) async {
     final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
     final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
@@ -7202,7 +9170,7 @@ class Controller extends GetxController {
       "ExpenseId": expenseID,
       "RecId": recID,
       "EmployeeId": Params.employeeId,
-      "EmployeeName": firstNameController.text.trim(),
+      "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -7222,9 +9190,7 @@ class Controller extends GetxController {
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
 
-      "DocumentAttachment": {
-        "File": attachmentPayload,
-      },
+      "DocumentAttachment": {"File": attachmentPayload},
       // if (hasValidUnit && finalItems.isNotEmpty)
       "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
     };
@@ -7234,7 +9200,7 @@ class Controller extends GetxController {
     );
 
     try {
-      final response = await http.put(
+      final response = await ApiService.put(
         url,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7267,7 +9233,7 @@ class Controller extends GetxController {
       }
     } catch (e) {
       Fluttertoast.showToast(
-        msg: 'Error: $e',
+        msg: ' $e',
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
       );
@@ -7279,7 +9245,7 @@ class Controller extends GetxController {
     return _prefs!;
   }
 
-// Load skipped work items from SharedPreferences
+  // Load skipped work items from SharedPreferences
   Future<void> loadSkippedItems() async {
     final storage = await prefs;
     final savedList = storage.getStringList('skippedWorkItems');
@@ -7287,30 +9253,32 @@ class Controller extends GetxController {
     // ✅ Always assign as Set<int>
     skippedWorkItems = savedList != null
         ? savedList
-            .map((e) => int.tryParse(e) ?? 0)
-            .where((e) => e != 0)
-            .toSet()
+              .map((e) => int.tryParse(e) ?? 0)
+              .where((e) => e != 0)
+              .toSet()
         : <int>{};
 
     showSkipButton.value = skippedWorkItems.isNotEmpty;
   }
 
-// Save skipped work items to SharedPreferences
+  // Save skipped work items to SharedPreferences
   Future<void> saveSkippedItems() async {
     final storage = await prefs;
 
     // ✅ Convert Set<int> to List<String> before saving
     await storage.setStringList(
       'skippedWorkItems',
-      skippedWorkItems.map((e) => e.toString()).toList(),
+      skippedWorkItems.map((e) => e.toStringAsFixed(2)).toList(),
     );
   }
 
-// Skip the current item and update storage + UI
+  // Skip the current item and update storage + UI
   Future<void> skipCurrentItem(int workitemrecid, BuildContext context) async {
+    isLoadingGE2.value = true;
     try {
-      final wasAdded =
-          skippedWorkItems.add(workitemrecid); // ✅ Set ensures no duplicates
+      final wasAdded = skippedWorkItems.add(
+        workitemrecid,
+      ); // ✅ Set ensures no duplicates
 
       if (wasAdded) {
         await saveSkippedItems();
@@ -7326,6 +9294,7 @@ class Controller extends GetxController {
             textColor: Colors.green[800],
           );
         }
+        isLoadingGE2.value = false;
       } else {
         if (context.mounted) {
           Fluttertoast.showToast(
@@ -7336,17 +9305,20 @@ class Controller extends GetxController {
             textColor: Colors.orange[800],
           );
         }
+        isLoadingGE2.value = false;
       }
     } catch (e) {
+      isLoadingGE2.value = false;
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error skipping item: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error skipping item: $e')));
       }
     }
   }
 
-// Clear skipped work items from memory and SharedPreferences
+  // Clear skipped work items from memory and SharedPreferences
   Future<void> clearSkippedItems(BuildContext context) async {
     try {
       skippedWorkItems.clear(); // ✅ Clears Set<int>
@@ -7373,7 +9345,7 @@ class Controller extends GetxController {
     }
   }
 
-// Fetch approval data using unique workitemrecids
+  // Fetch approval data using unique workitemrecids
   Future<Map<String, dynamic>> fetchApprovalData(
     List<int> workitemrecids, {
     String? field,
@@ -7389,9 +9361,7 @@ class Controller extends GetxController {
     print("Final workitemrecid param: $idsParam");
 
     // Build query parameters
-    final Map<String, String> queryParams = {
-      'workitemrecid': idsParam,
-    };
+    final Map<String, String> queryParams = {'workitemrecid': idsParam};
 
     // Add filter params if provided
     if (field != null && field.trim().isNotEmpty) {
@@ -7411,7 +9381,7 @@ class Controller extends GetxController {
     print("Request URL: $uri");
 
     try {
-      final response = await http.get(
+      final response = await ApiService.get(
         uri,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7435,9 +9405,11 @@ class Controller extends GetxController {
         }
       } else {
         print(
-            "API Error - Status: ${response.statusCode}, Body: ${response.body}");
+          "API Error - Status: ${response.statusCode}, Body: ${response.body}",
+        );
         throw Exception(
-            'Failed to load approval data: ${response.reasonPhrase}');
+          'Failed to load approval data: ${response.reasonPhrase}',
+        );
       }
     } catch (e) {
       print("Exception during fetchApprovalData: $e");
@@ -7448,12 +9420,15 @@ class Controller extends GetxController {
   Future<Map<String, dynamic>> getEmailHubList({List<String>? statuses}) async {
     try {
       final uniqueStatuses = statuses?.toSet().toList() ?? [];
-      final statusParam =
-          uniqueStatuses.isEmpty ? '' : '?status=${uniqueStatuses.join(',')}';
+      final statusParam = uniqueStatuses.isEmpty
+          ? ''
+          : '?status=${uniqueStatuses.join(',')}';
 
-      final url = Uri.parse('${Urls.emailHubList}$statusParam');
+      final url = Uri.parse(
+        '${Urls.emailHubList}${Params.userId}&page=1&sort_order=asc',
+      );
 
-      final response = await http.get(
+      final response = await ApiService.get(
         url,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7467,8 +9442,9 @@ class Controller extends GetxController {
         return {
           'status': 'success',
           'emails': listData
-              .map((item) =>
-                  EmailHubModel.fromJson(item as Map<String, dynamic>))
+              .map(
+                (item) => EmailHubModel.fromJson(item as Map<String, dynamic>),
+              )
               .toList(),
         };
       } else {
@@ -7483,7 +9459,7 @@ class Controller extends GetxController {
     try {
       final url = Uri.parse('${Urls.emailHubGetSpecific}?emailId=$emailId');
 
-      final response = await http.get(
+      final response = await ApiService.get(
         url,
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7501,7 +9477,8 @@ class Controller extends GetxController {
         }
       } else {
         throw Exception(
-            'Failed to fetch specific email: ${response.statusCode}');
+          'Failed to fetch specific email: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Failed to fetch specific email: $e');
@@ -7510,12 +9487,9 @@ class Controller extends GetxController {
 
   Future<void> processEmails(String emailIds) async {
     try {
-      final payload = jsonEncode({
-        'emailIds': emailIds,
-        'action': 'process',
-      });
+      final payload = jsonEncode({'emailIds': emailIds, 'action': 'process'});
 
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(Urls.emailHubProcess),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7540,7 +9514,7 @@ class Controller extends GetxController {
         'reason': reason,
       });
 
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(Urls.emailHubReject),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -7563,7 +9537,7 @@ class Controller extends GetxController {
       '${Urls.baseURL}/api/v1/forwardemailmanagement/fetch_specific_emails?RecId=$recId&screen_name=STPEmailHub',
     );
 
-    final response = await http.get(
+    final response = await ApiService.get(
       url,
       headers: {
         'Authorization': 'Bearer ${Params.userToken}',
@@ -7580,9 +9554,7 @@ class Controller extends GetxController {
         // ignore: use_build_context_synchronously
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => EmailDetailPage(email: email),
-          ),
+          MaterialPageRoute(builder: (_) => EmailDetailPage(email: email)),
         );
         isLoadingGE2.value = false;
       } else {
@@ -7595,7 +9567,7 @@ class Controller extends GetxController {
 
   Future<void> fetchAndAppendReports() async {
     isLoadingGE1.value = true;
-    final response = await http.get(
+    final response = await ApiService.get(
       Uri.parse(Urls.reportsList),
       headers: {
         'Content-Type': 'application/json',
@@ -7621,7 +9593,7 @@ class Controller extends GetxController {
 
   Future<Map<String, dynamic>?> fetchReportDetails(int recId) async {
     try {
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse(
           '${Urls.baseURL}/api/v1/reports/reports/reports?'
           'filter_query=STPReportsTables.RecId__eq=$recId&'
@@ -7651,7 +9623,10 @@ class Controller extends GetxController {
   }
 
   void navigateToEditReportScreen(
-      BuildContext context, int recId, bool bool) async {
+    BuildContext context,
+    int recId,
+    bool bool,
+  ) async {
     try {
       // Show loading indicator
       showDialog(
@@ -7673,21 +9648,24 @@ class Controller extends GetxController {
           context,
           MaterialPageRoute(
             builder: (context) => ReportCreateScreen(
-                existingReport: reportData, isEdit: bool, isEditable: false),
+              existingReport: reportData,
+              isEdit: bool,
+              isEditable: false,
+            ),
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report not found')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report not found')));
       }
     } catch (e) {
       // Close loading indicator if still showing
       Navigator.of(context).pop();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(' ${e.toString()}')));
     }
   }
 
@@ -7700,14 +9678,8 @@ class Controller extends GetxController {
 
       // API calls in parallel
       final responses = await Future.wait([
-        http.get(
-          Uri.parse(Urls.expenseregistration),
-          headers: headers,
-        ),
-        http.get(
-          Uri.parse(Urls.cashadvanceanalytics),
-          headers: headers,
-        ),
+        ApiService.get(Uri.parse(Urls.expenseregistration), headers: headers),
+        ApiService.get(Uri.parse(Urls.cashadvanceanalytics), headers: headers),
       ]);
 
       final expenseData = json.decode(responses[0].body) as List;
@@ -7745,11 +9717,13 @@ class Controller extends GetxController {
 
       // Chart data (with amount + count)
       expenseChartData.value = manageExpensesCards
-          .map((card) => ExpenseAmountByStatus.fromJson(
-                card.status,
-                card.amount,
-                card.count,
-              ))
+          .map(
+            (card) => ExpenseAmountByStatus.fromJson(
+              card.status,
+              card.amount,
+              card.count,
+            ),
+          )
           .toList();
 
       // Debug print
@@ -7769,7 +9743,8 @@ class Controller extends GetxController {
       final typeFilter = selectedExpenseType.value;
 
       // ✅ Step 1: Match search query
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           item.expenseType.toLowerCase().contains(query) ||
           item.expenseId.toLowerCase().contains(query);
 
@@ -7787,7 +9762,8 @@ class Controller extends GetxController {
       final typeFilter = selectedExpenseType.value;
 
       // ✅ Step 1: Match search query
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           item.expenseType.toLowerCase().contains(query) ||
           item.expenseId.toLowerCase().contains(query);
 
@@ -7800,22 +9776,21 @@ class Controller extends GetxController {
   }
 
   Future<List<Map<String, dynamic>>> fetchDataset(
-      List<ReportMetaData> reportMetaData, BuildContext context) async {
+    List<ReportMetaData> reportMetaData,
+    BuildContext context,
+  ) async {
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${Params.userToken}',
     };
 
     final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/masters/reports/conditions/reportsdata?functionalarea=ExpenseRequisition');
+      '${Urls.baseURL}/api/v1/masters/reports/conditions/reportsdata?functionalarea=ExpenseRequisition',
+    );
 
     final body = json.encode(reportMetaData.map((e) => e.toJson()).toList());
 
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: body,
-    );
+    final response = await ApiService.post(url, headers: headers, body: body);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -7827,7 +9802,130 @@ class Controller extends GetxController {
       return data.map((item) => item as Map<String, dynamic>).toList();
     } else {
       throw Exception(
-          'Failed to load data: ${response.statusCode} - ${response.body}');
+        'Failed to load data: ${response.statusCode} - ${response.body}',
+      );
+    }
+  }
+
+  static const String _baseUrl =
+      'https://api.digixpense.com/api/v1/masters/organizationmgmt/organizations/featureenablement?page=1&sort_order=asc';
+  static const String _prefsKey = 'feature_enablement_data';
+
+  // Fetch features from API and save to local storage
+  Future<void> fetchAndStoreFeatures(String userToken) async {
+    try {
+      final response = await ApiService.get(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Authorization': 'Bearer $userToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        final List<Feature> features = jsonData
+            .map((item) => Feature.fromJson(item))
+            .toList();
+
+        // Save to SharedPreferences as JSON string
+        final prefs = await SharedPreferences.getInstance();
+        final jsonString = json.encode(jsonData);
+        await prefs.setString(_prefsKey, jsonString);
+      } else {
+        throw Exception('Failed to load features: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Load features from local storage
+  Future<List<Feature>> loadFeaturesFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_prefsKey);
+    if (jsonString == null) return [];
+
+    final List<dynamic> jsonData = json.decode(jsonString);
+    return jsonData.map((item) => Feature.fromJson(item)).toList();
+  }
+
+  // Flatten all features (including nested children) into a map for quick lookup
+  Future<Map<String, bool>> getAllFeatureStates() async {
+    final features = await loadFeaturesFromStorage();
+    final Map<String, bool> featureMap = {};
+
+    void addFeatureRecursive(Feature feature) {
+      featureMap[feature.id] = feature.isEnable;
+      for (var child in feature.children) {
+        addFeatureRecursive(child);
+      }
+    }
+
+    for (var feature in features) {
+      addFeatureRecursive(feature);
+    }
+
+    return featureMap;
+  }
+
+  // Check if a specific feature is enabled
+  Future<bool> isFeatureEnabled(String featureId) async {
+    final featureStates = await getAllFeatureStates();
+    return featureStates[featureId] ?? false;
+  }
+
+  Future<void> updateFeatureVisibility() async {
+    print(showMileage.value);
+    showMileage.value = await isFeatureEnabled("EnableMileage");
+    showPerDiem.value = await isFeatureEnabled("EnablePerdiem");
+    showExpense.value = await isFeatureEnabled("EnableGeneralExpense");
+    showCashAdvance.value = await isFeatureEnabled(
+      "EnableCashAdvanceRequisition",
+    );
+  }
+
+  Widget buildCategoryIcon(String iconPath) {
+    if (iconPath.startsWith('data:image')) {
+      try {
+        final base64Data = iconPath.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(bytes, height: 24, width: 24, fit: BoxFit.contain);
+      } catch (e) {
+        return const Icon(Icons.broken_image, color: Colors.redAccent);
+      }
+    } else {
+      return Image.asset(iconPath, height: 24, width: 24, fit: BoxFit.contain);
+    }
+  }
+
+  Future<void> fetchCustomFieldValues(String fieldId) async {
+    final url =
+        "${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/customfieldlistvalues?filter_query=STPCustomFieldListValues.FieldId__eq%3D$fieldId&page=1&sort_order=asc";
+
+    final response = await ApiService.get(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer ${Params.userToken}',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      final options = data.map((e) => CustomDropdownValue.fromJson(e)).toList();
+
+      // ✅ Find index inside customFields (used in UI)
+      final index = customFields.indexWhere(
+        (field) => field['FieldId'] == fieldId,
+      );
+
+      if (index != -1) {
+        customFields[index]['Options'] = options;
+        customFields.refresh(); // ✅ Refresh UI
+      }
+    } else {
+      print('Failed to load dropdown values: ${response.statusCode}');
     }
   }
 }

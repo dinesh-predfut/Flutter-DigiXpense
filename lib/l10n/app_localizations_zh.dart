@@ -268,9 +268,32 @@ String get welcomeBack => '欢迎回来';
 @override String get enterValidAmount => '请输入有效的金额';
 @override String get currency => '货币 *';
 @override String get pleaseSelectCurrency => '请选择货币';
-@override String get rate => '汇率 *';
+@override String get rate => '汇率';
 @override String get rateRequired => '需要填写汇率';
 @override String get enterValidRate => '请输入有效的汇率';
+@override String get lightheme => '浅色主题颜色';
+@override String get darktheme => '深色主题颜色';
+@override String get notifications => '通知';
+@override String get unread => '未读';
+@override
+String get exitWarning => '您将丢失所有未保存的数据。是否要退出？';
+@override
+String get duplicateReceiptWarning => '此收据似乎是重复的。您要继续吗？';
+
+@override
+String get continueText => '继续';
+
+@override
+String get duplicateReceiptDetected => '检测到重复收据';
+
+@override
+String get extractingReceipt => '我们正在提取您的收据';
+@override
+String get pleaseWait => '请稍候...';
+
+@override
+String get exitForm => '退出表单';
+@override String get allNotifications => '所有通知';
 @override String get amountInInr => '金额（印度卢比）';
 @override String get policyViolations => '政策违规';
 @override String get checkPolicies => '检查政策';
@@ -347,9 +370,26 @@ String get welcomeBack => '欢迎回来';
 @override String get unitAmountIsRequired => '单位金额为必填项';
 @override String get cashAdvanceRequisitionId => '现金预支申请编号';
 @override String get totalEstimatedAmountInInr => '预估总金额 (INR)';
+@override String get totalEstimatedAmountIn => '预估总金额';
 @override String get search => '搜索';
 @override String get businessJustification => '业务理由';
 @override String get id => '编号';
+@override
+String get employeeName => '员工姓名';
+@override
+String get justification => '理由';
+@override
+String get justificationRequired => '需要说明理由';
+
+@override
+String get enterJustification => '输入说明理由';
+
+@override
+String get pleaseEnterJustification => '请输入说明理由';
+
+@override
+String get somethingWentWrong => '出现问题：';
+
 @override String get paidAmountExceedsMaxPercentage => '支付金额超过允许的最大百分比';
   @override String get totalRequestedAmount => '申请总金额';
 @override String get pdfViewerNotFound => '未找到 PDF 查看器';
@@ -504,6 +544,20 @@ String get welcomeBack => '欢迎回来';
 
   @override
   String get addSplit => '添加分摊';
+@override
+String get timezoneName => '时区名称';
+
+@override
+String get timezoneCode => '时区代码';
+
+@override
+String get timezoneId => '时区编号';
+
+@override
+String get languageName => '语言名称';
+
+@override
+String get languageId => '语言编号';
 
   @override
   String totalPercentageMustBe100(double current) =>

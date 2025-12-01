@@ -390,9 +390,9 @@ class _ReportScreenState extends State<ReportScreen> {
                         const SizedBox(height: 16),
                       
                       if (rule.selectedCondition.isNotEmpty && 
-                          rule.selectedCondition != "In Between" &&
-                          rule.selectedCondition != "Is Not Empty" &&
-                          rule.selectedCondition != "Is Empty")
+                          rule.selectedCondition != "in_between" &&
+                          rule.selectedCondition != "is_not_empty" &&
+                          rule.selectedCondition != "is_empty")
                         SizedBox(
                           width: double.infinity,
                           child: TextFormField(
@@ -469,6 +469,7 @@ class _ReportScreenState extends State<ReportScreen> {
                    
                       
                       if (isEditableField)
+                        // ignore: dead_code
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(

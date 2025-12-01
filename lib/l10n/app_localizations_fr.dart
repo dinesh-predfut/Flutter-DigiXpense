@@ -105,7 +105,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get seeLess => 'Voir moins ▲';
-// French
+  // French
   @override
   String get myExpenseTrends => 'Tendances de mes dépenses';
 
@@ -328,13 +328,40 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get pleaseSelectCurrency => 'Veuillez sélectionner une devise';
   @override
-  String get rate => 'Taux *';
+  String get rate => 'Taux';
   @override
+  @override
+  String get lightheme => 'Couleurs du thème clair';
   String get rateRequired => 'Le taux est requis';
+  String get darktheme => 'Couleurs du thème sombre';
   @override
   String get enterValidRate => 'Saisir un taux valide';
   @override
   String get amountInInr => 'Montant en INR';
+  @override
+  String get notifications => 'Notifications';
+  @override
+  String get unread => 'Non lus';
+  @override
+  String get allNotifications => 'Toutes les notifications';
+  @override
+String get exitWarning => 'Vous perdrez toutes les données non enregistrées. Voulez-vous quitter ?';
+@override
+String get duplicateReceiptWarning => 'Ce reçu semble être un doublon. Voulez-vous continuer ?';
+
+@override
+String get continueText => 'Continuer';
+
+@override
+String get duplicateReceiptDetected => 'Reçu en double détecté';
+
+@override
+String get extractingReceipt => 'Nous extrayons votre reçu';
+@override
+String get pleaseWait => 'Veuillez patienter...';
+
+@override
+String get exitForm => 'Quitter le formulaire';
   @override
   String get policyViolations => 'Violations de la politique';
   @override
@@ -362,7 +389,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get cropImage => 'Recadrer l’image';
   @override
-  String get referenceId => 'ID de référence';
+  String get referenceId => 'référence';
   @override
   String get pleaseSelectMerchant => 'Veuillez sélectionner un commerçant';
   @override
@@ -457,136 +484,311 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get expenseDetails => 'Détails de la dépense';
-@override String get editExpenseApproval => 'Modifier l’approbation de la dépense';
-@override String get viewExpenseApproval => 'Voir les approbations de dépenses';
+  @override
+  String get editExpenseApproval => 'Modifier l’approbation de la dépense';
+  @override
+  String get viewExpenseApproval => 'Voir les approbations de dépenses';
 
-  @override@override String get deleteConfirmation => 'Are you sure you want to delete?';
-@override String get deleteWarning => 'This action cannot be undone.';
-@override String get unProcessedExpense => 'Dépense non traitée';
-@override String get cashAdvanceRequestForm => 'Formulaire de demande d’avance de trésorerie';
-@override String get requestedPercentage => 'Pourcentage demandé';
-@override String get unitEstimatedAmount => 'Montant estimé par unité';
-@override String get unitAmountIsRequired => 'Le montant par unité est requis';
-@override String get cashAdvanceRequisitionId => 'ID de réquisition d’avance de trésorerie';
-@override String get totalEstimatedAmountInInr => 'Montant estimé total en INR';
-@override String get search => 'Rechercher';
-@override String get businessJustification => 'Justification commerciale';
-@override String get id => 'ID';
-@override String get paidAmountExceedsMaxPercentage => 'Le montant payé dépasse le pourcentage maximum autorisé';
-@override String get totalRequestedAmount => 'Montant total demandé';
-@override String get pdfViewerNotFound => 'Visionneuse PDF introuvable';
-@override String get noAppToViewPdf => 'Aucune application disponible pour afficher les fichiers PDF. Veuillez installer une application de lecture PDF.';
-@override String get ok => 'OK';
-@override String get getPdfReader => 'Obtenir un lecteur PDF';
-@override String get preview => 'Aperçu';
-@override String get processed => 'Traité';
-@override String get from => 'De :';
-@override String get attachments => 'Pièces jointes';
-@override String get noEmailsFound => 'Aucun e-mail trouvé';
-@override String get rejectEmail => 'Rejeter l’e-mail';
-@override String get reasonForRejection => 'Raison du rejet';
-@override String get emailRejectedSuccessfully => 'E-mail rejeté avec succès';
-@override String get errorRejectingEmail => 'Erreur lors du rejet de l’e-mail :';
-@override String get editReport => 'Modifier le rapport';
-@override String get viewReport => 'Voir le rapport';
-@override String get createReport => 'Créer un rapport';
-@override String get reportName => 'Nom du rapport';
-@override String get enterReportTitle => 'Entrez le titre du rapport';
-@override String get functionalArea => 'Domaine fonctionnel';
-@override String get expenseRequisition => 'Demande de dépense';
-@override String get cashAdvanceRequisition => 'Demande d’avance de fonds';
-@override String get dataset => 'Jeu de données';
-@override String get unknownDataset => 'Jeu de données inconnu';
-@override String get selectDataset => 'Sélectionnez un jeu de données';
-@override String get description => 'Description';
-@override String get addShortDescription => 'Ajoutez une brève description (optionnel)';
-@override String get tags => 'Étiquettes';
-@override String get enterTags => 'Entrez des étiquettes';
-@override String get applicableFor => 'Applicable pour';
-@override String get selectAudience => 'Sélectionnez un public';
-@override String get filterRule => 'Règle de filtre';
-@override String get addGroup => 'Ajouter un groupe';
-@override String get group => 'Groupe';
-@override String get removeGroup => 'Supprimer le groupe';
-@override String get addRuleToGroup => 'Ajouter une règle à ce groupe';
-@override String get availableColumnsHeader => 'Colonnes disponibles (En-tête)';
-@override String get availableColumnsLines => 'Colonnes disponibles (Lignes)';
-@override String get noColumnsAvailable => 'Aucune colonne disponible pour la sélection';
-@override String get table => 'Table';
-@override String get column => 'Colonne';
-@override String get condition => 'Condition';
-@override String get enterValueToMatch => 'Entrez une valeur à comparer';
-@override String get enterStartingValue => 'Entrez la valeur de départ';
-@override String get to => 'À';
-@override String get enterEndingValue => 'Entrez la valeur de fin';
-@override String get removeRule => 'Supprimer la règle';
-@override String get or => 'OU';
-@override String get and => 'ET';
-@override String get value => 'Valeur';
-@override String get addReport => 'Ajouter un rapport';
-@override String get noReportFound => 'Aucun rapport trouvé';
-@override String get reportAvailability => 'Disponibilité du rapport';
-@override String get generateReport => 'Générer le rapport';
-@override String get export => 'Exporter';
-@override String get applyFilters => 'Appliquer les filtres';
-@override String get noDataFound => 'Aucune donnée trouvée';
-@override String get totalRejectedAmount => 'Montant total rejeté';
-@override String get lastSettlementDate => 'Dernière date de règlement';
-@override String get basicFiltration => 'Filtration de base';
-@override String get advancedFiltering => 'Filtration avancée';
-@override String get groupIsEmpty => 'Le groupe est vide. Veuillez ajouter des règles ou supprimer le groupe.';
-@override String get pleaseSelectTableForRule => 'Veuillez sélectionner une table pour la règle dans le groupe';
-@override String get pleaseSelectColumnForRule => 'Veuillez sélectionner une colonne pour la règle dans le groupe';
-@override String get pleaseSelectConditionForRule => 'Veuillez sélectionner une condition pour la règle dans le groupe';
-@override String get pleaseEnterValueForRule => 'Veuillez entrer une valeur pour la règle';
-@override String get pleaseEnterFromToValuesForBetween => 'Veuillez entrer les valeurs "De" et "À" pour la condition "Entre" dans la règle';
-@override String get expenseReport => 'Rapport de dépenses';
-@override String get step => 'Étape';
-@override String get previous => 'Précédent';
-@override String get functionalEntity => 'Entité fonctionnelle';
-@override String get selectFunctionalEntity => 'Sélectionnez une entité fonctionnelle';
-@override String get sortBy => 'Trier par';
-@override String get selectSortField => 'Sélectionnez un champ de tri';
-@override String get sortOrder => 'Ordre de tri';
-@override String get selectOrder => 'Sélectionnez l’ordre';
-@override String get advancedFiltration => 'Filtration avancée';
-@override String get addNewGroup => 'Ajouter un nouveau groupe';
-@override String get chooseTablesToViewInReport => 'Choisissez les tables à afficher dans le rapport';
-@override String get transData => 'Données de transaction';
-@override String get documentAttachments => 'Pièces jointes';
-@override String get accountingDistributions => 'Répartitions comptables';
-@override String get expenseCategoryCustomFields => 'Champs personnalisés de catégorie de dépenses';
-@override String get transCustomFieldsValues => 'Valeurs des champs personnalisés de transaction';
-@override String get headerCustomFieldsValues => 'Valeurs des champs personnalisés d’en-tête';
-@override String get activityLog => 'Journal d’activité';
-@override String get workflowHistory => 'Historique du flux de travail';
-@override String get assignUsers => 'Attribuer des utilisateurs';
-@override String get availableUsers => 'Utilisateurs disponibles';
-@override String get moveAll => 'Déplacer tout';
-@override String get moveSelected => 'Déplacer la sélection';
-@override String get saveReport => 'Enregistrer le rapport';
-@override String get pleaseAssignAnyUser => 'Veuillez attribuer un utilisateur';
-@override String get print => 'Imprimer';
-@override String get printAll => 'Tout imprimer';
-@override String get totalAmountTrans => 'Montant total Trans';
-@override String get totalAmountReporting => 'Montant total du rapport';
-@override String get approvalStatus => 'Statut d\'approbation';
-@override String get expenseType => 'Type de dépense';
-@override String get expenseStatus => 'Statut de dépense';
-@override String get currencyCode => 'Code de devise';
-@override String get reportingCurrency => 'Devise du rapport';
-@override String get source => 'Source';
-@override String get totalTransAmount => 'Montant total Trans';
-@override String get noPreviewAvailable => 'Aucun aperçu disponible';
-@override String get filterations => 'Filtrations';
-@override String get generalSettings => 'Paramètres généraux';
-@override String get field => 'Champ';
-@override String get filteredBy => 'Filtré par';
-@override String get pleaseFillAllRequiredFields => 'Veuillez remplir tous les champs obligatoires';
-@override String get generalExpense => 'Dépense Générale';
+  @override
+  @override
+  String get deleteConfirmation => 'Are you sure you want to delete?';
+  @override
+  String get deleteWarning => 'This action cannot be undone.';
+  @override
+  String get unProcessedExpense => 'Dépense non traitée';
+  @override
+  String get cashAdvanceRequestForm =>
+      'Formulaire de demande d’avance de trésorerie';
+  @override
+  String get requestedPercentage => 'Pourcentage demandé';
+  @override
+  String get unitEstimatedAmount => 'Montant estimé par unité';
+  @override
+  String get unitAmountIsRequired => 'Le montant par unité est requis';
+  @override
+  String get cashAdvanceRequisitionId =>
+      'ID de réquisition d’avance de trésorerie';
+  @override
+  String get totalEstimatedAmountInInr => 'Montant estimé total en INR';
+@override
+String get employeeName => 'Nom de l’employé';
+@override
+String get justification => 'Justification';
+@override
+String get justificationRequired => 'Justification requise';
+
+@override
+String get enterJustification => 'Saisir la justification';
+
+@override
+String get pleaseEnterJustification => 'Veuillez saisir une justification';
+
+@override
+String get somethingWentWrong => 'Une erreur s’est produite :';
+@override
+String get timezoneName => 'Nom du fuseau horaire';
+
+@override
+String get timezoneCode => 'Code du fuseau horaire';
+
+@override
+String get timezoneId => 'ID du fuseau horaire';
+
+@override
+String get languageName => 'Nom de la langue';
+
+@override
+String get languageId => 'ID de la langue';
+
+   @override
+  String get totalEstimatedAmountIn => 'Montant estimé total';
+  @override
+  String get search => 'Rechercher';
+  @override
+  String get businessJustification => 'Justification commerciale';
+  @override
+  String get id => 'ID';
+  @override
+  String get paidAmountExceedsMaxPercentage =>
+      'Le montant payé dépasse le pourcentage maximum autorisé';
+  @override
+  String get totalRequestedAmount => 'Montant total demandé';
+  @override
+  String get pdfViewerNotFound => 'Visionneuse PDF introuvable';
+  @override
+  String get noAppToViewPdf =>
+      'Aucune application disponible pour afficher les fichiers PDF. Veuillez installer une application de lecture PDF.';
+  @override
+  String get ok => 'OK';
+  @override
+  String get getPdfReader => 'Obtenir un lecteur PDF';
+  @override
+  String get preview => 'Aperçu';
+  @override
+  String get processed => 'Traité';
+  @override
+  String get from => 'De :';
+  @override
+  String get attachments => 'Pièces jointes';
+  @override
+  String get noEmailsFound => 'Aucun e-mail trouvé';
+  @override
+  String get rejectEmail => 'Rejeter l’e-mail';
+  @override
+  String get reasonForRejection => 'Raison du rejet';
+  @override
+  String get emailRejectedSuccessfully => 'E-mail rejeté avec succès';
+  @override
+  String get errorRejectingEmail => 'Erreur lors du rejet de l’e-mail :';
+  @override
+  String get editReport => 'Modifier le rapport';
+  @override
+  String get viewReport => 'Voir le rapport';
+  @override
+  String get createReport => 'Créer un rapport';
+  @override
+  String get reportName => 'Nom du rapport';
+  @override
+  String get enterReportTitle => 'Entrez le titre du rapport';
+  @override
+  String get functionalArea => 'Domaine fonctionnel';
+  @override
+  String get expenseRequisition => 'Demande de dépense';
+  @override
+  String get cashAdvanceRequisition => 'Demande d’avance de fonds';
+  @override
+  String get dataset => 'Jeu de données';
+  @override
+  String get unknownDataset => 'Jeu de données inconnu';
+  @override
+  String get selectDataset => 'Sélectionnez un jeu de données';
+  @override
+  String get description => 'Description';
+  @override
+  String get addShortDescription => 'Ajoutez une brève description (optionnel)';
+  @override
+  String get tags => 'Étiquettes';
+  @override
+  String get enterTags => 'Entrez des étiquettes';
+  @override
+  String get applicableFor => 'Applicable pour';
+  @override
+  String get selectAudience => 'Sélectionnez un public';
+  @override
+  String get filterRule => 'Règle de filtre';
+  @override
+  String get addGroup => 'Ajouter un groupe';
+  @override
+  String get group => 'Groupe';
+  @override
+  String get removeGroup => 'Supprimer le groupe';
+  @override
+  String get addRuleToGroup => 'Ajouter une règle à ce groupe';
+  @override
+  String get availableColumnsHeader => 'Colonnes disponibles (En-tête)';
+  @override
+  String get availableColumnsLines => 'Colonnes disponibles (Lignes)';
+  @override
+  String get noColumnsAvailable =>
+      'Aucune colonne disponible pour la sélection';
+  @override
+  String get table => 'Table';
+  @override
+  String get column => 'Colonne';
+  @override
+  String get condition => 'Condition';
+  @override
+  String get enterValueToMatch => 'Entrez une valeur à comparer';
+  @override
+  String get enterStartingValue => 'Entrez la valeur de départ';
+  @override
+  String get to => 'À';
+  @override
+  String get enterEndingValue => 'Entrez la valeur de fin';
+  @override
+  String get removeRule => 'Supprimer la règle';
+  @override
+  String get or => 'OU';
+  @override
+  String get and => 'ET';
+  @override
+  String get value => 'Valeur';
+  @override
+  String get addReport => 'Ajouter un rapport';
+  @override
+  String get noReportFound => 'Aucun rapport trouvé';
+  @override
+  String get reportAvailability => 'Disponibilité du rapport';
+  @override
+  String get generateReport => 'Générer le rapport';
+  @override
+  String get export => 'Exporter';
+  @override
+  String get applyFilters => 'Appliquer les filtres';
+  @override
+  String get noDataFound => 'Aucune donnée trouvée';
+  @override
+  String get totalRejectedAmount => 'Montant total rejeté';
+  @override
+  String get lastSettlementDate => 'Dernière date de règlement';
+  @override
+  String get basicFiltration => 'Filtration de base';
+  @override
+  String get advancedFiltering => 'Filtration avancée';
+  @override
+  String get groupIsEmpty =>
+      'Le groupe est vide. Veuillez ajouter des règles ou supprimer le groupe.';
+  @override
+  String get pleaseSelectTableForRule =>
+      'Veuillez sélectionner une table pour la règle dans le groupe';
+  @override
+  String get pleaseSelectColumnForRule =>
+      'Veuillez sélectionner une colonne pour la règle dans le groupe';
+  @override
+  String get pleaseSelectConditionForRule =>
+      'Veuillez sélectionner une condition pour la règle dans le groupe';
+  @override
+  String get pleaseEnterValueForRule =>
+      'Veuillez entrer une valeur pour la règle';
+  @override
+  String get pleaseEnterFromToValuesForBetween =>
+      'Veuillez entrer les valeurs "De" et "À" pour la condition "Entre" dans la règle';
+  @override
+  String get expenseReport => 'Rapport de dépenses';
+  @override
+  String get step => 'Étape';
+  @override
+  String get previous => 'Précédent';
+  @override
+  String get functionalEntity => 'Entité fonctionnelle';
+  @override
+  String get selectFunctionalEntity => 'Sélectionnez une entité fonctionnelle';
+  @override
+  String get sortBy => 'Trier par';
+  @override
+  String get selectSortField => 'Sélectionnez un champ de tri';
+  @override
+  String get sortOrder => 'Ordre de tri';
+  @override
+  String get selectOrder => 'Sélectionnez l’ordre';
+  @override
+  String get advancedFiltration => 'Filtration avancée';
+  @override
+  String get addNewGroup => 'Ajouter un nouveau groupe';
+  @override
+  String get chooseTablesToViewInReport =>
+      'Choisissez les tables à afficher dans le rapport';
+  @override
+  String get transData => 'Données de transaction';
+  @override
+  String get documentAttachments => 'Pièces jointes';
+  @override
+  String get accountingDistributions => 'Répartitions comptables';
+  @override
+  String get expenseCategoryCustomFields =>
+      'Champs personnalisés de catégorie de dépenses';
+  @override
+  String get transCustomFieldsValues =>
+      'Valeurs des champs personnalisés de transaction';
+  @override
+  String get headerCustomFieldsValues =>
+      'Valeurs des champs personnalisés d’en-tête';
+  @override
+  String get activityLog => 'Journal d’activité';
+  @override
+  String get workflowHistory => 'Historique du flux de travail';
+  @override
+  String get assignUsers => 'Attribuer des utilisateurs';
+  @override
+  String get availableUsers => 'Utilisateurs disponibles';
+  @override
+  String get moveAll => 'Déplacer tout';
+  @override
+  String get moveSelected => 'Déplacer la sélection';
+  @override
+  String get saveReport => 'Enregistrer le rapport';
+  @override
+  String get pleaseAssignAnyUser => 'Veuillez attribuer un utilisateur';
+  @override
+  String get print => 'Imprimer';
+  @override
+  String get printAll => 'Tout imprimer';
+  @override
+  String get totalAmountTrans => 'Montant total Trans';
+  @override
+  String get totalAmountReporting => 'Montant total du rapport';
+  @override
+  String get approvalStatus => 'Statut d\'approbation';
+  @override
+  String get expenseType => 'Type de dépense';
+  @override
+  String get expenseStatus => 'Statut de dépense';
+  @override
+  String get currencyCode => 'Code de devise';
+  @override
+  String get reportingCurrency => 'Devise du rapport';
+  @override
+  String get source => 'Source';
+  @override
+  String get totalTransAmount => 'Montant total Trans';
+  @override
+  String get noPreviewAvailable => 'Aucun aperçu disponible';
+  @override
+  String get filterations => 'Filtrations';
+  @override
+  String get generalSettings => 'Paramètres généraux';
+  @override
+  String get field => 'Champ';
+  @override
+  String get filteredBy => 'Filtré par';
+  @override
+  String get pleaseFillAllRequiredFields =>
+      'Veuillez remplir tous les champs obligatoires';
+  @override
+  String get generalExpense => 'Dépense Générale';
   @override
   String get skip => 'Passer';
-  
+
   @override
   String get selectDimensions => 'Sélectionner les dimensions';
 
@@ -595,22 +797,25 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get amount => 'Montant';
- @override
+  @override
   String get askQuestionPrompt => "Posez une question sur vos données...";
   @override
   String get tryAsking => "Essayez de demander :";
   @override
   String get aiAnalytics => "Analyse IA";
   @override
-  String get networkError => "Erreur réseau. Veuillez vérifier votre connexion.";
+  String get networkError =>
+      "Erreur réseau. Veuillez vérifier votre connexion.";
   @override
-  String get requestError => "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
+  String get requestError =>
+      "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.";
   @override
   String get expenseDistribution => "Répartition des dépenses";
   @override
   String get breakdownHeader => "Voici la répartition :";
   @override
-  String get aiAnalyticsWelcome => "Bienvenue dans l'analyse IA ! Je peux vous aider à analyser vos données de dépenses. Demandez-moi n'importe quoi !";
+  String get aiAnalyticsWelcome =>
+      "Bienvenue dans l'analyse IA ! Je peux vous aider à analyser vos données de dépenses. Demandez-moi n'importe quoi !";
   @override
   String get report => 'Rapport';
 
@@ -620,15 +825,24 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String totalPercentageMustBe100(double current) =>
       'Le pourcentage total doit être égal à 100%. Actuel: ${current.toStringAsFixed(2)}%';
-@override String get expenseTrans => 'Transaction de dépense';
-@override String get lineNumber => 'Numéro de ligne';
-@override String get expenseCategoryId => 'ID de catégorie de dépense';
-@override String get unitPriceTrans => 'Prix unitaire Trans';
-@override String get lineAmountTrans => 'Montant de la ligne';
-@override String get type => 'Type';
-@override String get format => 'Format';
-@override String get errorLoadingImage => 'Erreur de chargement de l\'image';
-@override String get pdfDocument => 'Document PDF';
+  @override
+  String get expenseTrans => 'Transaction de dépense';
+  @override
+  String get lineNumber => 'Numéro de ligne';
+  @override
+  String get expenseCategoryId => 'ID de catégorie de dépense';
+  @override
+  String get unitPriceTrans => 'Prix unitaire Trans';
+  @override
+  String get lineAmountTrans => 'Montant de la ligne';
+  @override
+  String get type => 'Type';
+  @override
+  String get format => 'Format';
+  @override
+  String get errorLoadingImage => 'Erreur de chargement de l\'image';
+  @override
+  String get pdfDocument => 'Document PDF';
 
   String get fromDate => 'Date de début';
   @override

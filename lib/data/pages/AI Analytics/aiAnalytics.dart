@@ -80,7 +80,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
     try {
       final response = await http.post(
-        Uri.parse(Urls.aiAnalytics),
+        Uri.parse('${Urls.aiAnalytics}question=${question.trim()}'),
         headers: {
           'accept': 'application/json',
           'Content-Type': 'application/json',
@@ -203,7 +203,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
           appBar: AppBar(
             title: Text(AppLocalizations.of(context)!.aiAnalytics,
                 style: const TextStyle(color: Colors.white)),
-            backgroundColor: const Color(0xFF4A148C),
+            // backgroundColor: const Color(0xFF4A148C),
             iconTheme: const IconThemeData(color: Colors.white),
           ),
           body: Column(
@@ -247,7 +247,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        // color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Column(
@@ -255,7 +255,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
         children: [
           Text(
             AppLocalizations.of(context)!.tryAsking,
-            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -289,8 +289,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
-                    filled: true,
-                    fillColor: Colors.white,
+                    // filled: true,
+                    // fillColor: Colors.white,
                     suffixIcon: _isProcessing
                         ? const Padding(
                             padding: EdgeInsets.all(12),

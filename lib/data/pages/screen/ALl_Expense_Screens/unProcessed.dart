@@ -1,3 +1,6 @@
+import 'dart:io' show File;
+
+import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
@@ -6,6 +9,7 @@ import 'package:digi_xpense/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 
@@ -19,7 +23,8 @@ class UnProcess extends StatefulWidget {
 class _UnProcessState extends State<UnProcess> {
   late final Controller controller;
   bool isLoading = false;
-
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+Rxn<File> profileImage = Rxn<File>();
   @override
   void initState() {
     super.initState();
@@ -27,10 +32,25 @@ class _UnProcessState extends State<UnProcess> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerUnProcess.clear();
+       controller.fetchUnprocessExpense();
     });
-    controller.fetchUnprocessExpense();
+   
+    _loadProfileImage();
   }
-
+    void _loadProfileImage() async {
+    // controller.isImageLoading.value = true;
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profileImagePath');
+    if (path != null && File(path).existsSync()) {
+      profileImage.value = File(path);
+      // controller.isImageLoading.value = false;
+    } else {
+      // await controller.getProfilePicture();
+    }
+  }
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -41,201 +61,132 @@ class _UnProcessState extends State<UnProcess> {
         Navigator.pushReplacementNamed(context, AppRoutes.dashboard_Main);
         return false;
       },
-      child: Scaffold(
+       child: Scaffold(
         // backgroundColor: const Color(0xFFF7F7F7),
-        body: Obx(() {
-          return controller.isLoadingGE1.value
-              ? const SkeletonLoaderPage()
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isSmallScreen = constraints.maxWidth < 600;
-                    final theme = Theme.of(context);
-                    final primaryColor = theme.primaryColor;
-                    return Column(
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        drawer: const MyDrawer(),
+        body: 
+
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 600;
+            final theme = Theme.of(context);
+            final primaryColor = theme.primaryColor;
+            return Column(
+              children: [
+               if (primaryColor != const Color(0xFF1e4db7) )
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor,
+                          primaryColor.withOpacity(
+                            0.7,
+                          ), // Lighter primary color
+                        ],
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                    child: Row(
+                      // mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        if (primaryColor != const Color(0xff1a237e) &&
-                            primaryColor.value != 4282339765)
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  primaryColor,
-                                  primaryColor.withOpacity(
-                                      0.7), // Lighter primary color
+                        IconButton(
+                          onPressed: _openMenu,
+                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
+                          style: IconButton.styleFrom(
+                            // backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.all(5),
+                          ),
+                        ),
+
+                        // Logo
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.asset(
+                            'assets/XpenseWhite.png',
+                            width: isSmallScreen ? 80 : 100,
+                            height: isSmallScreen ? 30 : 40,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                        // Actions
+                        Row(
+                          children: [
+                            const LanguageDropdown(),
+                            _buildNotificationBadge(),
+                            _buildProfileAvatar(),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+               if (primaryColor == const Color(0xFF1e4db7) )
+                Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    // Optional: Add custom background or shape
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(8),
+                                    ),
+                                  ),
+
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
-                            padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Logo
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Image.asset(
-                                    'assets/XpenseWhite.png',
-                                    width: isSmallScreen ? 80 : 100,
-                                    height: isSmallScreen ? 30 : 40,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-
-                                // Actions
-                                Row(
-                                  children: [
-                                    const LanguageDropdown(),
-                                    _buildNotificationBadge(),
-                                    _buildProfileAvatar(),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (primaryColor == const Color(0xff1a237e) ||
-                            primaryColor.value == 4282339765)
-                          Container(
-                            width: double.infinity,
-                            height: 100,
-                            decoration: const BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage('assets/Vector.png'),
-                                fit: BoxFit.cover,
-                              ),
-                              borderRadius: BorderRadius.only(
-                                bottomLeft: Radius.circular(10),
-                                bottomRight: Radius.circular(10),
-                              ),
-                            ),
-                            padding: const EdgeInsets.fromLTRB(10, 40, 20, 20),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: Column(
-                                    children: [
-                                      // const Text(
-                                      //   'Welcome to',
-                                      //   style: TextStyle(
-                                      //       color: Colors.white,
-                                      //       fontSize: 8),
-                                      // ),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: Image.asset(
-                                          'assets/XpenseWhite.png',
-                                          width: 100,
-                                          height: 40,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const LanguageDropdown(),
-                                    Stack(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.notifications,
-                                              color: Colors.white),
-                                          onPressed: () {
-                                            Navigator.pushNamed(context,
-                                                AppRoutes.notification);
-                                          },
-                                        ),
-                                        Obx(() {
-                                          final unreadCount = controller
-                                              .unreadNotifications.length;
-                                          if (unreadCount == 0) {
-                                            return const SizedBox.shrink();
-                                          }
-                                          return Positioned(
-                                            right: 6,
-                                            top: 6,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: const BoxDecoration(
-                                                color: Colors.red,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              constraints: const BoxConstraints(
-                                                minWidth: 15,
-                                                minHeight: 15,
-                                              ),
-                                              child: Text(
-                                                '$unreadCount',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 6,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 10),
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.pushNamed(
-                                            context, AppRoutes.personalInfo);
-                                      },
-                                      child: Obx(() => Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                  color: Colors.white,
-                                                  width: 2),
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              child: controller
-                                                      .isImageLoading.value
-                                                  ? const SizedBox(
-                                                      width: 40,
-                                                      height: 40,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        color: Colors.white,
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    )
-                                                  : controller.profileImage
-                                                              .value !=
-                                                          null
-                                                      ? Image.file(
-                                                          controller
-                                                              .profileImage
-                                                              .value!,
-                                                          width: 40,
-                                                          height: 40,
-                                                          fit: BoxFit.cover,
-                                                        )
-                                                      : const Icon(
-                                                          Icons.person,
-                                                          size: 40,
-                                                          color: Colors.white,
-                                                        ),
-                                            ),
-                                          )),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                  
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerLeft,
@@ -281,6 +232,7 @@ class _UnProcessState extends State<UnProcess> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        
                         Expanded(
                           child: Obx(() {
                             final expenses = controller.getAllListGExpense;
@@ -310,7 +262,11 @@ class _UnProcessState extends State<UnProcess> {
                               );
                             }
 
-                            return ListView.builder(
+                             return controller.isLoadingunprocess.value
+                        ? const SkeletonLoaderPage()
+                        : controller.filteredExpenses.isEmpty
+                        ? Center(child: Text(loc.noExpensesFound))
+                        : ListView.builder(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               itemCount: filteredExpenses.length,
                               itemBuilder: (ctx, idx) {
@@ -395,11 +351,10 @@ class _UnProcessState extends State<UnProcess> {
                       ],
                     );
                   },
-                );
-        }),
-      ),
-    );
-  }
+                )));
+        }
+     
+  
 
   Widget _buildNotificationBadge() {
     return Stack(
@@ -439,31 +394,35 @@ class _UnProcessState extends State<UnProcess> {
   Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
-      child: Obx(() => Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: controller.isImageLoading.value
-                  ? const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : controller.profileImage.value != null
-                      ? Image.file(
-                          controller.profileImage.value!,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.person, size: 40, color: Colors.white),
-            ),
-          )),
+      child: Obx(
+        () => Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: controller.isImageLoading.value
+                ? const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : profileImage.value != null
+                ? Image.file(
+                    profileImage.value!,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  )
+                : const Icon(Icons.person, size: 40, color: Colors.white),
+          ),
+        ),
+      ),
     );
   }
 
@@ -527,7 +486,7 @@ class _UnProcessState extends State<UnProcess> {
         if (!mounted) return;
         if (result.isNotEmpty) {
           navigator.pushNamed(
-            AppRoutes.getSpecificExpense,
+            AppRoutes.unProcessExpense,
             arguments: {'item': result[0], 'readOnly': true},
           );
         }

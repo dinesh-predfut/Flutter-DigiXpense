@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/core/constant/Parames/colors.dart';
@@ -26,11 +27,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
+    final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   bool isLoading = false;
-  final List<String> statusOptionsmyTeam = [
-    "In Process",
-    "All",
-  ];
+  final List<String> statusOptionsmyTeam = ["In Process", "All"];
   // late Future<List<ReportModel>> futureReports;
   @override
   void initState() {
@@ -39,9 +38,10 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
- if (controller.profileImage.value == null) {
+      if (controller.profileImage.value == null) {
         controller.getProfilePicture();
-      }    });
+      }
+    });
     // / Use existing controller
     controller.selectedStatusmyteam = "In Process";
     _scrollController = ScrollController();
@@ -50,7 +50,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
-  
+
     // controller.fetchMileageRates();
     // controller.fetchManageExpensesCards().then((_) {
     //   if (controller.manageExpensesCards.isNotEmpty && mounted) {
@@ -75,7 +75,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
       controller.isLoadingGE1.value = false;
     });
   }
-
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
   @override
   void dispose() {
     _animationController.dispose();
@@ -106,66 +108,162 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
         return true;
       },
       child: Scaffold(
-        // backgroundColor: const Color(0xFFF7F7F7),
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        drawer: const MyDrawer(),
         body: LayoutBuilder(
           builder: (context, constraints) {
-        
- final isSmallScreen = constraints.maxWidth < 600;
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
+            final isSmallScreen = constraints.maxWidth < 600;
+            final theme = Theme.of(context);
+            final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                // 🔹 Responsive Header
-                Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          primaryColor,
-                                          primaryColor.withOpacity(
-                                              0.7), // Lighter primary color
-                                        ],
-                                      ),
-                                    ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                        16, 40, 16, 16),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        // Logo
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                          child: Image.asset(
-                                            'assets/XpenseWhite.png',
-                                            width: isSmallScreen ? 80 : 100,
-                                            height: isSmallScreen ? 30 : 40,
-                                            fit: BoxFit.cover,
+                   Stack(
+                                    children: [
+            if (primaryColor != const Color(0xFF1e4db7) )
+                 Container(
+                                          width: double.infinity,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                primaryColor,
+                                                primaryColor.withOpacity(
+                                                  0.7,
+                                                ), // Lighter primary color
+                                              ],
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.fromLTRB(
+                                            6,
+                                            40,
+                                            6,
+                                            16,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              IconButton(
+                                                onPressed: _openMenu,
+                                                icon: Icon(
+                                                  Icons.menu,
+                                                  color: Colors.black,
+                                                  size: 20,
+                                                ),
+                                                // Optional: Add custom background or shape
+                                                style: IconButton.styleFrom(
+                                                  // backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
+                                                ),
+                                              ),
+
+                                              // Logo
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: Image.asset(
+                                                  'assets/XpenseWhite.png',
+                                                  width: isSmallScreen
+                                                      ? 80
+                                                      : 100,
+                                                  height: isSmallScreen
+                                                      ? 30
+                                                      : 40,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+
+                                              // Actions
+                                              Row(
+                                                children: [
+                                                  const LanguageDropdown(),
+                                                  _buildNotificationBadge(),
+                                                  _buildProfileAvatar(),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
-
-                                        // Actions
-                                        Row(
-                                          children: [
-                                            const LanguageDropdown(),
-                                            _buildNotificationBadge(),
-                                            _buildProfileAvatar(),
-                                          ],
-                                        ),
-                                      ],
+               if (primaryColor == const Color(0xFF1e4db7) )
+                     Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    // Optional: Add custom background or shape
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(8),
                                     ),
                                   ),
+
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+
+                                  // Actions
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+              ]),
                 const SizedBox(height: 12),
-                 Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 16.0), // Like margin-left
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                    ), // Like margin-left
                     child: Text(
-                       AppLocalizations.of(context)!.reports,
+                      AppLocalizations.of(context)!.reports,
                       style: const TextStyle(
                         // color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -180,7 +278,6 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                 const SizedBox(height: 12),
 
                 // 🔹 Auto-Scrolling Cards
-
                 const SizedBox(height: 16),
 
                 // 🔹 Responsive Search Bar
@@ -194,9 +291,11 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                         controller.searchQuery.value = value.toLowerCase();
                       },
                       decoration: InputDecoration(
-                        hintText:  AppLocalizations.of(context)!.search,
-                        prefixIcon:
-                            const Icon(Icons.search, color: Colors.grey),
+                        hintText: AppLocalizations.of(context)!.search,
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -214,21 +313,22 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
 
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       // 🔹 Responsive Dropdown Filter
                       const Expanded(
-                          flex: 3, // Takes 3 parts of available space
-                          child: SizedBox(
-                            width: 1,
-                          )),
+                        flex: 3, // Takes 3 parts of available space
+                        child: SizedBox(width: 1),
+                      ),
 
                       const SizedBox(
-                          width: 12), // Spacing between dropdown and button
-
+                        width: 12,
+                      ), // Spacing between dropdown and button
                       // 🔹 Add Request Button
                       Expanded(
                         flex:
@@ -236,11 +336,16 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.pushNamed(
-                                context, AppRoutes.reportCreateScreen);
+                              context,
+                              AppRoutes.reportCreateScreen,
+                            );
                           },
-                          icon: const Icon(Icons.add_circle,
-                              size: 18, color: Colors.white),
-                          label:  Text(
+                          icon: const Icon(
+                            Icons.add_circle,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          label: Text(
                             AppLocalizations.of(context)!.addReport,
                             style: const TextStyle(
                               fontSize: 14,
@@ -256,7 +361,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                               borderRadius: BorderRadius.circular(12),
                             ),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             textStyle: const TextStyle(fontSize: 14),
                           ),
                         ),
@@ -277,13 +384,18 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                     final filteredExpenses = expenses.where((item) {
                       final query = controller.searchQuery.value;
                       if (query.isEmpty) return true;
-                      return (item.availableFor?.toLowerCase() ?? '')
-                              .contains(query) ||
+                      return (item.availableFor?.toLowerCase() ?? '').contains(
+                            query,
+                          ) ||
                           item.name.toLowerCase().contains(query) ||
                           item.functionalArea.toLowerCase().contains(query);
                     }).toList();
                     if (expenses.isEmpty) {
-                      return  Center(child: Text( AppLocalizations.of(context)!.noReportFound));
+                      return Center(
+                        child: Text(
+                          AppLocalizations.of(context)!.noReportFound,
+                        ),
+                      );
                     }
 
                     return ListView.builder(
@@ -320,13 +432,19 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                               final shouldDelete = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                  title:  Text('${ AppLocalizations.of(context)!.delete}?'),
-                                  content: Text('${ AppLocalizations.of(context)!.delete} "${item.recId}"?'),
+                                  title: Text(
+                                    '${AppLocalizations.of(context)!.delete}?',
+                                  ),
+                                  content: Text(
+                                    '${AppLocalizations.of(context)!.delete} "${item.recId}"?',
+                                  ),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.of(ctx).pop(false),
-                                      child:  Text(AppLocalizations.of(context)!.cancel),
+                                      child: Text(
+                                        AppLocalizations.of(context)!.cancel,
+                                      ),
                                     ),
                                     ElevatedButton(
                                       onPressed: () =>
@@ -334,7 +452,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red,
                                       ),
-                                      child:  Text(AppLocalizations.of(context)!.delete),
+                                      child: Text(
+                                        AppLocalizations.of(context)!.delete,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -355,7 +475,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                       },
                     );
                   }),
-                )
+                ),
                 // 🔹 Expense List (Flexible height)
               ],
             );
@@ -388,9 +508,10 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
               child: Text(
                 '$count',
                 style: const TextStyle(
-                    fontSize: 8,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
+                  fontSize: 8,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -403,31 +524,35 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
   Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
-      child: Obx(() => Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: controller.isImageLoading.value
-                  ? const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : controller.profileImage.value != null
-                      ? Image.file(
-                          controller.profileImage.value!,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.person, size: 40, color: Colors.white),
-            ),
-          )),
+      child: Obx(
+        () => Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: controller.isImageLoading.value
+                ? const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : controller.profileImage.value != null
+                ? Image.file(
+                    controller.profileImage.value!,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  )
+                : const Icon(Icons.person, size: 40, color: Colors.white),
+          ),
+        ),
+      ),
     );
   }
 
@@ -451,7 +576,9 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
             const Icon(Icons.remove_red_eye, color: Colors.blue),
           const SizedBox(width: 8),
           Text(
-            isLoading ? AppLocalizations.of(context)!.loading :AppLocalizations.of(context)!.view,
+            isLoading
+                ? AppLocalizations.of(context)!.loading
+                : AppLocalizations.of(context)!.view,
             style: const TextStyle(
               color: Colors.blue,
               fontWeight: FontWeight.bold,
@@ -467,12 +594,16 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
       alignment: Alignment.centerRight,
       color: const Color.fromARGB(255, 115, 142, 229),
       padding: const EdgeInsets.only(right: 20),
-      child:  Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(AppLocalizations.of(context)!.delete,
-              style:
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(
+            AppLocalizations.of(context)!.delete,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(width: 8),
           const Icon(Icons.delete, color: Colors.white),
         ],
@@ -483,144 +614,145 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
   Widget _buildStyledCard(ReportModels item, BuildContext context) {
     // print("itemxxx ${item.expenseType}");
     final controller = Get.put(Controller());
+    final theme = Theme.of(context);
+    final primaryColor = theme.secondaryHeaderColor;
+    final textColot = theme.primaryColorDark;
     return GestureDetector(
-        onTap: () {
-          // if (item.expenseType == "PerDiem") {
-          controller.navigateToEditReportScreen(context, item.recId, true);
-          //   controller.isEditModePerdiem = false;
-          // } else if (item.expenseType == "General Expenses") {
-          //   print("Expenses${item.recId}");
-          //   controller.fetchSecificExpenseItem(context, item.recId, false);
-          //   controller.fetchExpenseHistory(item.recId);
-          // } else if (item.expenseType == "Mileage") {
-          //   controller.fetchMileageDetails(context, item.recId);
-          // } else if (item.expenseType == "CashAdvanceReturn") {
-          //   controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
-          // } else {
-          //   ScaffoldMessenger.of(context).showSnackBar(
-          //     SnackBar(
-          //         content: Text("Unknown expense type: ${item.expenseType}")),
-          //   );
-          // }
-        },
-        child: Card(
-          // color: const Color.fromARGB(218, 245, 244, 244),
-          shadowColor: const Color.fromARGB(255, 82, 78, 78),
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // HEADER: Name (Bold Label + Value) + Report Icon
-                Row(
-                  children: [
-                    // Name: John Doe (Bold Label)
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                           
-                            fontSize: 16,
-                            height: 1.4,
-                          ),
-                          children: [
-                             TextSpan(
-                              text: "${AppLocalizations.of(context)!.name}: ",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            TextSpan(
-                              text: item.name ?? 'N/A',
-                            ),
-                          ],
+      onTap: () {
+        // if (item.expenseType == "PerDiem") {
+        controller.navigateToEditReportScreen(context, item.recId, true);
+        //   controller.isEditModePerdiem = false;
+        // } else if (item.expenseType == "General Expenses") {
+        //   print("Expenses${item.recId}");
+        //   controller.fetchSecificExpenseItem(context, item.recId, false);
+        //   controller.fetchExpenseHistory(item.recId);
+        // } else if (item.expenseType == "Mileage") {
+        //   controller.fetchMileageDetails(context, item.recId);
+        // } else if (item.expenseType == "CashAdvanceReturn") {
+        //   controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
+        // } else {
+        //   ScaffoldMessenger.of(context).showSnackBar(
+        //     SnackBar(
+        //         content: Text("Unknown expense type: ${item.expenseType}")),
+        //   );
+        // }
+      },
+      child: Card(
+        color: primaryColor,
+        shadowColor: const Color.fromARGB(255, 82, 78, 78),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER: Name (Bold Label + Value) + Report Icon
+              Row(
+                children: [
+                  // Name: John Doe (Bold Label)
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: textColot,
+                          fontSize: 16,
+                          height: 1.4,
                         ),
+                        children: [
+                          TextSpan(
+                            text: "${AppLocalizations.of(context)!.name}: ",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: item.name ?? 'N/A'),
+                        ],
                       ),
                     ),
-                    // Report Icon (Clickable)
-                    IconButton(
-                      icon: const Icon(
-                        Icons.receipt_outlined,
-                        color: Color.fromARGB(255, 0, 110, 255),
-                        size: 24,
-                      ),
-                      onPressed: () async {
+                  ),
+                  // Report Icon (Clickable)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.receipt_outlined,
+                      color: Color.fromARGB(255, 0, 110, 255),
+                      size: 24,
+                    ),
+                    onPressed: () async {
+                      setState(() => controller.isLoadingGE1.value = true);
+                      try {
                         final data = await controller.fetchDataset(
-                            item.reportMetaData, context);
+                          item.reportMetaData,
+                          context,
+                        );
 
                         if (data != null) {
-                          // ignore: use_build_context_synchronously
+                          if (!mounted) return;
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ReportScreen(
-                                  data: data,
-                                  logicalOperator: '',
-                                  rules: item.reportMetaData.isNotEmpty
-                                      ? item.reportMetaData[0].rules
-                                      : <Rule>[]),
+                                data: data,
+                                logicalOperator: '',
+                                rules: item.reportMetaData.isNotEmpty
+                                    ? item.reportMetaData[0].rules
+                                    : <Rule>[],
+                              ),
                             ),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Failed to load report data')),
+                              content: Text('Failed to load report data'),
+                            ),
                           );
                         }
-                      },
-                      splashRadius: 20,
-                      padding: const EdgeInsets.all(6),
+                      } catch (e) {
+                        debugPrint("Error fetching dataset: $e");
+                      } finally {
+                        if (mounted) setState(() => controller.isLoadingGE1.value = false);
+                      }
+                    },
+                    splashRadius: 20,
+                    padding: const EdgeInsets.all(6),
+                  ),
+                ],
+              ),
+
+              // CATEGORY: Finance / HR (Bold Label)
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: textColot, fontSize: 14),
+                  children: [
+                    TextSpan(
+                      text: "${AppLocalizations.of(context)!.functionalArea}: ",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
+                    TextSpan(text: item.functionalArea ?? 'N/A'),
                   ],
                 ),
+              ),
 
-                // CATEGORY: Finance / HR (Bold Label)
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                     
-                      fontSize: 14,
+              const SizedBox(height: 10),
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: textColot, fontSize: 14),
+                  children: [
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(context)!.reportAvailability}: ",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    children: [
-                       TextSpan(
-                        text: AppLocalizations.of(context)!.functionalArea,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextSpan(
-                        text: item.functionalArea ?? 'N/A',
-                      ),
-                    ],
-                  ),
+                    TextSpan(text: item.reportAvailability ?? 'N/A'),
+                  ],
                 ),
-
-                const SizedBox(height: 10),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                     
-                      fontSize: 14,
-                    ),
-                    children: [
-                       TextSpan(
-                        text:AppLocalizations.of(context)!.reportAvailability,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextSpan(
-                        text: item.reportAvailability ?? 'N/A',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+              
+            ],
           ),
-        ));
+        ),
+      ),
+      
+    );
+    
   }
+  
 }

@@ -65,8 +65,9 @@ class ReportModel with ChangeNotifier {
 
   void addFilterRuleToGroup(int groupIndex) {
     if (groupIndex < filterGroups.length) {
-      filterGroups[groupIndex]
-          .add(FilterRule(table: '', column: '', condition: '', value: ''));
+      filterGroups[groupIndex].add(
+        FilterRule(table: '', column: '', condition: '', value: ''),
+      );
       notifyListeners();
     }
   }
@@ -183,9 +184,9 @@ class ReportModel with ChangeNotifier {
       }
     }
 
-// Now tableLabels contains all TableLabel strings
+    // Now tableLabels contains all TableLabel strings
     print("tableLabels$tableLabels");
-// Output: ['Expense Header', 'Expense Trans', 'Accounting Distribution', 'Employees', ...]
+    // Output: ['Expense Header', 'Expense Trans', 'Accounting Distribution', 'Employees', ...]
     print("matchedDatasets$matchedDatasets");
     notifyListeners();
   }
@@ -219,9 +220,9 @@ class ReportModel with ChangeNotifier {
       }
     }
 
-// Now tableLabels contains all TableLabel strings
+    // Now tableLabels contains all TableLabel strings
     print("tableLabelssss$tableLabels");
-// Output: ['Expense Header', 'Expense Trans', 'Accounting Distribution', 'Employees', ...]
+    // Output: ['Expense Header', 'Expense Trans', 'Accounting Distribution', 'Employees', ...]
     print("matchedDatasets$matchedDatasets");
     notifyListeners();
   }
@@ -253,8 +254,9 @@ class ReportModel with ChangeNotifier {
   }
 
   void addFilterRule() {
-    _filterRules
-        .add(FilterRule(table: '', column: '', condition: '', value: ''));
+    _filterRules.add(
+      FilterRule(table: '', column: '', condition: '', value: ''),
+    );
     notifyListeners();
   }
 
@@ -272,7 +274,7 @@ class ReportModel with ChangeNotifier {
       'Starts With',
       'Ends With',
       'Is Empty',
-      'Is Not Empty'
+      'Is Not Empty',
     ],
     'number': [
       'Equals To',
@@ -281,7 +283,7 @@ class ReportModel with ChangeNotifier {
       'Less than',
       'Greater Than Equal To',
       'Less Than Equal To',
-      'In Between'
+      'In Between',
     ],
     'date': [
       'Equals To',
@@ -290,12 +292,16 @@ class ReportModel with ChangeNotifier {
       'Less than',
       'Greater Than Equal To',
       'Less Than Equal To',
-      'In Between'
+      'In Between',
     ],
   };
 
   void updateFilterRule(
-      int groupIndex, int ruleIndex, String field, dynamic value) {
+    int groupIndex,
+    int ruleIndex,
+    String field,
+    dynamic value,
+  ) {
     if (groupIndex < 0 || groupIndex >= filterGroups.length) return;
 
     final group = filterGroups[groupIndex];
@@ -329,11 +335,13 @@ class ReportModel with ChangeNotifier {
         break;
 
       case 'condition':
-        rule.condition = value;
-        if (value.toLowerCase() != 'between') {
-          rule.inBetweenValues = [];
-        }
-        break;
+      rule.condition = value;
+
+      // FIX: Check for correct "In Between" condition
+      if (value.toString().trim().toLowerCase() != 'in between'.toLowerCase()) {
+        rule.inBetweenValues = [];
+      }
+      break;
 
       case 'value':
         rule.value = value;
@@ -358,12 +366,14 @@ class ReportModel with ChangeNotifier {
       final operator = group['matchType'] as String;
 
       final filterRules = rules
-          .map((rule) => FilterRule(
-                table: rule['selectedTable'],
-                column: rule['selectedField'],
-                condition: rule['selectedCondition'],
-                value: rule['singleValue'],
-              ))
+          .map(
+            (rule) => FilterRule(
+              table: rule['selectedTable'],
+              column: rule['selectedField'],
+              condition: rule['selectedCondition'],
+              value: rule['singleValue'],
+            ),
+          )
           .toList();
 
       filterGroups.add(filterRules);
@@ -375,7 +385,8 @@ class ReportModel with ChangeNotifier {
       groupOperators.add('AND');
     }
     print(
-        "filterGroups: ${jsonEncode(filterGroups.map((group) => group.map((rule) => rule.toJson()).toList()).toList())}");
+      "filterGroups: ${jsonEncode(filterGroups.map((group) => group.map((rule) => rule.toJson()).toList()).toList())}",
+    );
 
     notifyListeners();
   }
@@ -543,7 +554,8 @@ class ReportModel with ChangeNotifier {
         }
       } else {
         throw Exception(
-            'Failed to load datasets: ${response.statusCode} - ${response.reasonPhrase}');
+          'Failed to load datasets: ${response.statusCode} - ${response.reasonPhrase}',
+        );
       }
     } catch (e) {
       print('Error fetching datasets: $e');
@@ -580,13 +592,17 @@ class ReportModel with ChangeNotifier {
     }
 
     print(
-        "Column Labels for group $groupIndex, rule $ruleIndex (Table: '$tableLabel'): $labels");
+      "Column Labels for group $groupIndex, rule $ruleIndex (Table: '$tableLabel'): $labels",
+    );
 
     notifyListeners();
   }
 
   void expenseReportselectTableForFilter(
-      int groupIndex, int ruleIndex, String tableName) {
+    int groupIndex,
+    int ruleIndex,
+    String tableName,
+  ) {
     if (groupIndex < 0 || groupIndex >= filterGroups.length) return;
     if (ruleIndex < 0 || ruleIndex >= filterGroups[groupIndex].length) return;
 
@@ -616,7 +632,11 @@ class ReportModel with ChangeNotifier {
   }
 
   void selectTableForFilterAppendData(
-      int groupIndex, int ruleIndex, String tableLabel, String column) {
+    int groupIndex,
+    int ruleIndex,
+    String tableLabel,
+    String column,
+  ) {
     // Validate indices
     if (groupIndex < 0 || groupIndex >= filterGroups.length) return;
     if (ruleIndex < 0 || ruleIndex >= filterGroups[groupIndex].length) return;
@@ -643,7 +663,8 @@ class ReportModel with ChangeNotifier {
     if (!labels.contains(rule.column)) {}
 
     print(
-        "Column Labels for group $groupIndex, rule $ruleIndex (Table: '$tableLabel'): $labels");
+      "Column Labels for group $groupIndex, rule $ruleIndex (Table: '$tableLabel'): $labels",
+    );
 
     notifyListeners();
   }
@@ -677,14 +698,18 @@ class ReportModel with ChangeNotifier {
           if (columns is! List) return [];
 
           return columns
-              .where((col) =>
-                  col is Map<String, dynamic> &&
-                  col.containsKey('Label') &&
-                  col.containsKey('Colname'))
-              .map((col) => {
-                    'colname': col['Colname'].toString(),
-                    'label': col['Label'].toString(),
-                  })
+              .where(
+                (col) =>
+                    col is Map<String, dynamic> &&
+                    col.containsKey('Label') &&
+                    col.containsKey('Colname'),
+              )
+              .map(
+                (col) => {
+                  'colname': col['Colname'].toString(),
+                  'label': col['Label'].toString(),
+                },
+              )
               .toList()
               .cast<Map<String, String>>();
         }
@@ -704,7 +729,8 @@ class ReportModel with ChangeNotifier {
       }
     }
     print(
-        "🔍 TableLabel '$tableLabel' not found. Available TableLabels: $available");
+      "🔍 TableLabel '$tableLabel' not found. Available TableLabels: $available",
+    );
 
     return [];
   }
@@ -729,8 +755,10 @@ class ReportModel with ChangeNotifier {
       for (var table in tables) {
         if (table is! Map<String, dynamic>) continue;
 
-        final tableNameFromData =
-            (table['TableName'] ?? '').toString().trim().toLowerCase();
+        final tableNameFromData = (table['TableName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
 
         if (tableNameFromData == normalizedName) {
           print("Found matching table: $tableNameFromData");
@@ -738,22 +766,21 @@ class ReportModel with ChangeNotifier {
           if (table['Columns'] is! List) return [];
 
           final cols = (table['Columns'] as List)
-              .where((col) =>
-                  col is Map<String, dynamic> && col['Colname'] != null)
+              .where(
+                (col) => col is Map<String, dynamic> && col['Colname'] != null,
+              )
               .map((col) {
-            final colName = col['Colname'].toString();
-            final label = col['Label']?.toString() ?? '';
-            final type = (col['Type'] ?? '').toString().toLowerCase();
+                final colName = col['Colname'].toString();
+                final label = col['Label']?.toString() ?? '';
+                final type = (col['Type'] ?? '').toString().toLowerCase();
 
-            // Store column type in tableColumnTypes
-            tableColumnTypes.putIfAbsent(tableName, () => {});
-            tableColumnTypes[tableName]![colName] = type;
+                // Store column type in tableColumnTypes
+                tableColumnTypes.putIfAbsent(tableName, () => {});
+                tableColumnTypes[tableName]![colName] = type;
 
-            return {
-              'colname': colName,
-              'label': label,
-            };
-          }).toList();
+                return {'colname': colName, 'label': label};
+              })
+              .toList();
 
           return cols;
         }
@@ -885,16 +912,13 @@ class ReportModel with ChangeNotifier {
                 : (rule.value ?? ""),
             "inBetweenValues": rule.condition.toLowerCase() == 'in between'
                 ? (rule.inBetweenValues.isNotEmpty
-                    ? rule.inBetweenValues
-                    : ["", ""])
+                      ? rule.inBetweenValues
+                      : ["", ""])
                 : ["", ""],
           };
         }).toList();
 
-        return {
-          "matchType": groupOperator,
-          "rules": rulesJson,
-        };
+        return {"matchType": groupOperator, "rules": rulesJson};
       }).toList();
 
       // 4️⃣ Build API URL
@@ -928,7 +952,9 @@ class ReportModel with ChangeNotifier {
             // 🔹 Extract & store ExpenseIds
             await _saveExpenseIds(expenseList);
             if (expenseList.isEmpty) {
-              Fluttertoast.showToast(msg: "No expenses found Please Change the Filtrations");
+              Fluttertoast.showToast(
+                msg: "No expenses found Please Change the Filtrations",
+              );
               return;
             }
             // ignore: use_build_context_synchronously
@@ -987,8 +1013,9 @@ class ReportModel with ChangeNotifier {
     final List<Map<String, dynamic>> filterGroupsData = [];
     for (int i = 0; i < filterGroups.length; i++) {
       final group = filterGroups[i];
-      final groupOperator =
-          i < groupOperators.length ? groupOperators[i] : 'AND';
+      final groupOperator = i < groupOperators.length
+          ? groupOperators[i]
+          : 'AND';
 
       final validRules = group
           .where((rule) => rule.table.isNotEmpty && rule.column.isNotEmpty)
@@ -1026,6 +1053,11 @@ class ReportModel with ChangeNotifier {
                 break;
               case 'Greater Than or Equal':
                 apiCondition = 'greater_or_equal';
+              case 'Is Not Empty':
+                apiCondition = 'is_not_empty';
+                break;
+                 case 'Is Empty':
+                apiCondition = 'is_empty';
                 break;
               default:
                 apiCondition = 'equal';
@@ -1051,15 +1083,18 @@ class ReportModel with ChangeNotifier {
           'ProjectId': selectedCheckbox1.contains('ProjectId'),
           'PaymentMethod': selectedCheckbox1.contains('PaymentMethod'),
           'TotalAmountTrans': selectedCheckbox1.contains('TotalAmountTrans'),
-          'TotalAmountReporting':
-              selectedCheckbox1.contains('TotalAmountReporting'),
+          'TotalAmountReporting': selectedCheckbox1.contains(
+            'TotalAmountReporting',
+          ),
           'ExpenseCategoryId': selectedCheckbox1.contains('ExpenseCategoryId'),
           'MerchantName': selectedCheckbox1.contains('MerchantName'),
           'MerchantId': selectedCheckbox1.contains('MerchantId'),
-          'TotalApprovedAmount':
-              selectedCheckbox1.contains('TotalApprovedAmount'),
-          'TotalRejectedAmount':
-              selectedCheckbox1.contains('TotalRejectedAmount'),
+          'TotalApprovedAmount': selectedCheckbox1.contains(
+            'TotalApprovedAmount',
+          ),
+          'TotalRejectedAmount': selectedCheckbox1.contains(
+            'TotalRejectedAmount',
+          ),
           'EmployeeId': selectedCheckbox1.contains('EmployeeId'),
           'ReceiptDate': selectedCheckbox1.contains('ReceiptDate'),
           'ApprovalStatus': selectedCheckbox1.contains('ApprovalStatus'),
@@ -1076,7 +1111,7 @@ class ReportModel with ChangeNotifier {
           'FromDate': selectedCheckbox1.contains('FromDate'),
           'ToDate': selectedCheckbox1.contains('ToDate'),
           'ExpenseType': selectedCheckbox1.contains('ExpenseType'),
-        }
+        },
       },
       {
         'lines': {
@@ -1086,16 +1121,19 @@ class ReportModel with ChangeNotifier {
           'Quantity': selectedCheckbox2.contains('Quantity'),
           'UomId': selectedCheckbox2.contains('UomId'),
           'UnitPriceTrans': selectedCheckbox2.contains('UnitPriceTrans'),
-          'UnitPriceReporting':
-              selectedCheckbox2.contains('UnitPriceReporting'),
+          'UnitPriceReporting': selectedCheckbox2.contains(
+            'UnitPriceReporting',
+          ),
           'LineAmountTrans': selectedCheckbox2.contains('LineAmountTrans'),
-          'LineAmountReporting':
-              selectedCheckbox2.contains('LineAmountReporting'),
+          'LineAmountReporting': selectedCheckbox2.contains(
+            'LineAmountReporting',
+          ),
           'TaxAmount': selectedCheckbox2.contains('TaxAmount'),
           'TaxGroup': selectedCheckbox2.contains('TaxGroup'),
           'AmountSettled': selectedCheckbox2.contains('AmountSettled'),
-          'LastSettlementDate':
-              selectedCheckbox2.contains('LastSettlementDate'),
+          'LastSettlementDate': selectedCheckbox2.contains(
+            'LastSettlementDate',
+          ),
           'ClosedDate': selectedCheckbox2.contains('ClosedDate'),
           'ApprovedAmount': selectedCheckbox2.contains('ApprovedAmount'),
           'RejectedAmount': selectedCheckbox2.contains('RejectedAmount'),
@@ -1108,8 +1146,8 @@ class ReportModel with ChangeNotifier {
           'Location': selectedCheckbox2.contains('Location'),
           'FromDate': selectedCheckbox2.contains('FromDate'),
           'ToDate': selectedCheckbox2.contains('ToDate'),
-        }
-      }
+        },
+      },
     ];
 
     final payload = {
@@ -1139,7 +1177,8 @@ class ReportModel with ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse(
-            'https://api.digixpense.com/api/v1/reports/reports/reportandreportusermapping'),
+          'https://api.digixpense.com/api/v1/reports/reports/reportandreportusermapping',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${Params.userToken}',
@@ -1161,8 +1200,10 @@ class ReportModel with ChangeNotifier {
         );
       } else {
         final errorResponse = jsonDecode(response.body);
-        throw Exception(errorResponse['detail']['message'] ??
-            'Failed to save report (Status: ${response.statusCode})');
+        throw Exception(
+          errorResponse['detail']['message'] ??
+              'Failed to save report (Status: ${response.statusCode})',
+        );
       }
     } catch (e) {
       // ScaffoldMessenger.of(context).showSnackBar(

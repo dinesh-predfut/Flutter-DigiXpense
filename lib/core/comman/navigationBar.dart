@@ -32,6 +32,11 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
   int _currentIndex = 0;
   bool _isFabOpen = false;
   bool _isAddFabOpen = false;
+  bool? showExpense;
+  bool? showPerDiem;
+  bool? showMileage;
+  bool? showCashAdvans;
+  bool? digiScanEnable;
   final controller = Get.put(Controller());
   final PhotoViewController _photoViewController = PhotoViewController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
@@ -46,19 +51,37 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
     try {
       controller.isImageLoading.value = true;
 
+      // 🧩 Pick image safely
       final pickedFile = await picker.pickImage(source: source);
-      if (pickedFile != null) {
-        final croppedFile = await _cropImage(File(pickedFile.path));
-        if (croppedFile != null) {
-          setState(() {
-            controller.imageFiles.add(File(croppedFile.path));
-          });
-        }
+      if (pickedFile == null) {
+        Fluttertoast.showToast(
+          msg: "No image selected",
+          backgroundColor: Colors.orange,
+        );
+        return;
       }
-    } catch (e) {
-      print("Error picking or cropping image: $e");
+
+      // 🧩 Crop image
+      final croppedFile = await _cropImage(File(pickedFile.path));
+
+      if (croppedFile == null) {
+        Fluttertoast.showToast(
+          msg: "Image cropping cancelled",
+          backgroundColor: Colors.orange,
+        );
+        return;
+      }
+
+      // 🧩 Update state only if widget still mounted
+      if (!mounted) return;
+      setState(() {
+        controller.imageFiles.add(croppedFile);
+      });
+    } catch (e, stack) {
+      debugPrint("❌ Error picking or cropping image: $e");
+      debugPrint(stack.toString());
       Fluttertoast.showToast(
-        msg: "Failed to upload image",
+        msg: "Failed to upload image: $e",
         backgroundColor: Colors.red,
       );
     } finally {
@@ -69,10 +92,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.square,
-      ],
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',
@@ -80,22 +100,31 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
           toolbarWidgetColor: Colors.white,
           lockAspectRatio: false,
         ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        )
+        IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
       ],
     );
 
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
-      // ignore: use_build_context_synchronously
-      await controller.sendUploadedFileToServer(context, croppedImage);
 
-      // Navigator.pushNamed(
-      //   context,
-      //   AppRoutes.autoScan,
-      //   arguments: croppedImage,
-      // );
+      // ✅ Check feature states before deciding what to do next
+      final featureStates = await controller.getAllFeatureStates();
+
+      if (digiScanEnable!) {
+        // ✅ AutoScan enabled → upload directly
+        // ignore: use_build_context_synchronously
+        await controller.sendUploadedFileToServer(context, croppedImage);
+      } else {
+        // 🚫 AutoScan disabled → go to AutoScan page manually
+        // ignore: use_build_context_synchronously
+        Navigator.pushNamed(
+          context,
+          AppRoutes.autoScan,
+          arguments: {'imageFile': croppedImage, 'apiResponse': {}},
+        );
+      }
+
+      return croppedImage;
     }
 
     return null;
@@ -115,12 +144,30 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
     });
   }
 
-  
+  Future<void> loadFuture() async {
+    // Remove setState from here and call it after all async operations
+    final expense = await controller.isFeatureEnabled('EnableGeneralExpense');
+    final perDiem = await controller.isFeatureEnabled('EnablePerdiem');
+    final mileage = await controller.isFeatureEnabled('EnableMileage');
+    final digiScan = await controller.isFeatureEnabled('DigiScanning');
+    // Update state once after all async operations complete
+    setState(() {
+      showExpense = expense;
+      showPerDiem = perDiem;
+      showMileage = mileage;
+      digiScanEnable = digiScan;
+    });
+    print("digiScan$digiScan");
+  }
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    print("Initial index set to: $_currentIndex");
+
+    // Call loadFuture without wrapping in setState
+    loadFuture();
   }
 
   void _openMenu() {
@@ -139,6 +186,8 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
       body: Stack(
         children: [
           widget.pages[_currentIndex],
+
+          // Camera / Gallery FAB group
           if (_isFabOpen)
             Positioned(
               bottom: 90,
@@ -151,10 +200,14 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: primaryColor,
                     onPressed: () {
+                      controller.imageFiles.clear();
                       _pickImage(ImageSource.camera);
                     },
-                    child: const Icon(Icons.camera_alt,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   FloatingActionButton(
@@ -162,113 +215,146 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     mini: true,
                     backgroundColor: primaryColor,
                     onPressed: () {
+                      controller.imageFiles.clear();
                       _pickImage(ImageSource.gallery);
                     },
-                    child:
-                        const Icon(Icons.photo, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.photo,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ],
               ),
             ),
-        if (_isAddFabOpen)
-  Positioned(
-    bottom: 90,
-    right: 20,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        const SizedBox(height: 10),
 
-        _fabButton(
-          context,
-          AppRoutes.mileageExpensefirst,
-          "assets/vodometer.png",
-          AppLocalizations.of(context)!.mileage,
-          "addFab4",
-        ),
+          // Add FAB group controlled by backend feature flags
+          if (_isAddFabOpen)
+            FutureBuilder<Map<String, bool>>(
+              future: controller.getAllFeatureStates(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const SizedBox(); // show nothing while loading
+                }
 
-        const SizedBox(height: 10),
-        _fabButton(
-          context,
-          AppRoutes.perDiem,
-          "assets/perDiem.png",
-          AppLocalizations.of(context)!.perDiem,
-          "addFab2",
-        ),
+                final featureStates = snapshot.data!;
 
-        const SizedBox(height: 10),
-        _fabButton(
-          context,
-          AppRoutes.expenseForm,
-          "assets/general.png",
-          AppLocalizations.of(context)!.generalExpense,
-          "addFab1",
-        ),
+                // Only show buttons that are enabled in backend
+                final visibleFabs = [
+                  if (featureStates['EnableMileage'] == true)
+                    {
+                      'route': AppRoutes.mileageExpensefirst,
+                      'asset': 'assets/vodometer.png',
+                      'label': AppLocalizations.of(context)!.mileage,
+                      'tag': 'addFabMileage',
+                    },
+                  if (featureStates['EnablePerdiem'] == true)
+                    {
+                      'route': AppRoutes.perDiem,
+                      'asset': 'assets/perDiem.png',
+                      'label': AppLocalizations.of(context)!.perDiem,
+                      'tag': 'addFabPerDiem',
+                    },
+                  if (featureStates['EnableGeneralExpense'] == true)
+                    {
+                      'route': AppRoutes.expenseForm,
+                      'asset': 'assets/general.png',
+                      'label': AppLocalizations.of(context)!.generalExpense,
+                      'tag': 'addFabExpense',
+                    },
+                  if (featureStates['EnableCashAdvanceRequisition'] == true)
+                    {
+                      'route': AppRoutes.formCashAdvanceRequest,
+                      'asset': 'assets/cashAdvanse.png',
+                      'label': AppLocalizations.of(context)!.cashAdvance,
+                      'tag': 'addFabCashAdvance',
+                    },
+                ];
 
-        const SizedBox(height: 10),
-        _fabButton(
-          context,
-          AppRoutes.formCashAdvanceRequest,
-          "assets/cashAdvanse.png",
-          AppLocalizations.of(context)!.cashAdvance,
-          "addFab5",
-        ),
-      ],
-    ),
-  ),
+                if (visibleFabs.isEmpty) return const SizedBox();
 
+                return Positioned(
+                  bottom: 90,
+                  right: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (var fab in visibleFabs) ...[
+                        const SizedBox(height: 10),
+                        _fabButton(
+                          context,
+                          fab['route'] as String,
+                          fab['asset'] as String,
+                          fab['label'] as String,
+                          fab['tag'] as String,
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
+
       floatingActionButton: !isKeyboardOpen
-        ? FloatingActionButton(
-            backgroundColor: primaryColor,
-            elevation: 0,
-            onPressed: () {
-              setState(() {
-                _isFabOpen = !_isFabOpen;
-                _isAddFabOpen = false; // Close other FAB group
-              });
-            },
-            child: Icon(
-              _isFabOpen ? Icons.close : Icons.document_scanner,
-              color: Colors.white,
-            ),
-          )
-        : null,
-    floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    bottomNavigationBar: _buildBottomAppBar(context),
-  );
+          ? FloatingActionButton(
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              elevation: 0,
+              onPressed: () {
+                setState(() {
+                  _isFabOpen = !_isFabOpen;
+                  _isAddFabOpen = false; 
+                });
+              },
+              child: Icon(
+                _isFabOpen ? Icons.close : Icons.document_scanner,
+                color: Colors.white,
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: _buildBottomAppBar(context),
+    );
   }
-Widget _fabButton(BuildContext context, String route, String asset, String label, String tag) {
-   final theme = Theme.of(context);
+
+  Widget _fabButton(
+    BuildContext context,
+    String route,
+    String asset,
+    String label,
+    String tag,
+  ) {
+    final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
-  return ConstrainedBox(
-    constraints: const BoxConstraints(minWidth: 140), // ✅ equal width
-    child: FloatingActionButton.extended(
-      heroTag: tag,
-      backgroundColor: primaryColor,
-      onPressed: () {
-        Navigator.pushNamed(context, route);
-      },
-      icon: Image.asset(asset, height: 14),
-      label: Text(label, style: const TextStyle(color: Colors.white,fontSize: 10)),
-    ),
-  );
-}
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 140), // ✅ equal width
+      child: FloatingActionButton.extended(
+        heroTag: tag,
+        backgroundColor:  Theme.of(context).colorScheme.secondary,
+        onPressed: () {
+          Navigator.pushNamed(context, route);
+        },
+        icon: Image.asset(asset, height: 14),
+        label: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 10),
+        ),
+      ),
+    );
+  }
 
   Widget _buildBottomAppBar(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
-    final onPrimaryColor = theme.colorScheme.onPrimary;
+    final secondary = theme.colorScheme.secondary;
     return BottomAppBar(
-     
       shape: const CircularNotchedRectangle(),
       notchMargin: 10,
       elevation: 20,
       height: 60,
-      color: primaryColor,
+      color: Theme.of(context).colorScheme.secondary,
       child: Container(
-        
         height: 30,
         decoration: const BoxDecoration(
           borderRadius: BorderRadius.only(
@@ -302,14 +388,32 @@ Widget _fabButton(BuildContext context, String route, String asset, String label
               },
             ),
             const SizedBox(width: 48),
+
             IconButton(
               icon: const Icon(Icons.smart_toy, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  _currentIndex = 2;
-                  _isFabOpen = false;
-                  _isAddFabOpen = false;
-                });
+              onPressed: () async {
+                final featureStates = await controller.getAllFeatureStates();
+                final bool? isEnabled =
+                    featureStates['EnableAIAnalytics']; // use your feature key
+
+                if (isEnabled == true) {
+                  setState(() {
+                    _currentIndex = 2;
+                    _isFabOpen = false;
+                    _isAddFabOpen = false;
+                  });
+                } else {
+                  if (context.mounted) {
+                    Fluttertoast.showToast(
+                      msg: "This feature is disabled",
+                      toastLength: Toast.LENGTH_SHORT,
+                      gravity: ToastGravity.BOTTOM,
+                      backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+                      textColor: const Color.fromARGB(255, 253, 252, 253),
+                      fontSize: 16.0,
+                    );
+                  }
+                }
               },
             ),
             IconButton(

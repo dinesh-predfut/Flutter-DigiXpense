@@ -97,7 +97,7 @@ class MultiColumnDropdownFieldState<T>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        // color: Colors.grey[200],
+                     color: Theme.of(context).primaryColor,
                         padding: const EdgeInsets.symmetric(
                             vertical: 8, horizontal: 16),
                         child: Row(
@@ -105,7 +105,7 @@ class MultiColumnDropdownFieldState<T>
                               .map((h) => Expanded(
                                   child: Text(h,
                                       style: const TextStyle(
-                                          fontWeight: FontWeight.bold))))
+                                          fontWeight: FontWeight.bold, color: Colors.white,))))
                               .toList(),
                         ),
                       ),
@@ -177,8 +177,8 @@ class MultiColumnDropdownFieldState<T>
             ),
             child: Text(
               selected == null ? '' : widget.selectedDisplay(selected),
-              style: TextStyle(
-                  color: selected == null ? Colors.grey : Colors.black),
+              // style: TextStyle(
+              //     color: selected == null ? Colors.grey : null),
             ),
           ),
         ),

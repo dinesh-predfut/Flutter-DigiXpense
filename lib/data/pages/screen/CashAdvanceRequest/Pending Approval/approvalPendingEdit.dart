@@ -321,9 +321,9 @@ class _ApprovalViewEditExpensePageState
                 ? 'Edit Expense Approval'
                 : 'View Expense Approval',
             style: const TextStyle(
-              fontSize: 18, // 👈 smaller font size
-              fontWeight: FontWeight.bold, // optional: make weight normal
-              color: Colors.black, // optional: set color
+              fontSize: 18, 
+              fontWeight: FontWeight.bold, 
+              color: Colors.black,
             ),
           ),
           actions: [
@@ -442,7 +442,10 @@ class _ApprovalViewEditExpensePageState
                                       child: IconButton(
                                         icon: const Icon(Icons.close,
                                             color: Colors.white),
-                                        onPressed: () => Navigator.pop(context),
+                                        onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
                                       ),
                                     ),
                                     Positioned(
@@ -556,39 +559,6 @@ class _ApprovalViewEditExpensePageState
                                 },
                                 controller: controller.paidToController,
                                 rowBuilder: (p, searchQuery) {
-                                  Widget highlight(String text) {
-                                    final lowerQuery =
-                                        searchQuery.toLowerCase();
-                                    final lowerText = text.toLowerCase();
-                                    final start = lowerText.indexOf(lowerQuery);
-
-                                    if (start == -1 || searchQuery.isEmpty) {
-                                      return Text(text);
-                                    }
-
-                                    final end = start + searchQuery.length;
-                                    return RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: text.substring(0, start),
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                          TextSpan(
-                                            text: text.substring(start, end),
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                          TextSpan(
-                                            text: text.substring(end),
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
 
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -596,9 +566,9 @@ class _ApprovalViewEditExpensePageState
                                     child: Row(
                                       children: [
                                         Expanded(
-                                            child: highlight(p.merchantNames)),
+                                            child: Text(p.merchantNames)),
                                         Expanded(
-                                            child: highlight(p.merchantId)),
+                                            child: Text(p.merchantId)),
                                       ],
                                     ),
                                   );
@@ -639,35 +609,6 @@ class _ApprovalViewEditExpensePageState
                         },
                         columnHeaders: const ['Request ID', 'Request Date'],
                         rowBuilder: (proj, searchQuery) {
-                          Widget highlight(String text) {
-                            final lowerQuery = searchQuery.toLowerCase();
-                            final lowerText = text.toLowerCase();
-                            final start = lowerText.indexOf(lowerQuery);
-                            if (start == -1 || searchQuery.isEmpty)
-                              return Text(text);
-
-                            final end = start + searchQuery.length;
-                            return RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: text.substring(0, start),
-                                    
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(start, end),
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(end),
-                                    
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
 
                           return const Padding(
                             padding: EdgeInsets.symmetric(
@@ -708,37 +649,6 @@ class _ApprovalViewEditExpensePageState
                             },
                             controller: controller.paidWithController,
                             rowBuilder: (p, searchQuery) {
-                              Widget highlight(String text) {
-                                final query = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(query);
-
-                                if (start == -1 || query.isEmpty)
-                                  return Text(text);
-
-                                final end = start + query.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
 
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -746,9 +656,9 @@ class _ApprovalViewEditExpensePageState
                                 child: Row(
                                   children: [
                                     Expanded(
-                                        child: highlight(p.paymentMethodName)),
+                                        child: Text(p.paymentMethodName)),
                                     Expanded(
-                                        child: highlight(p.paymentMethodId)),
+                                        child: Text(p.paymentMethodId)),
                                   ],
                                 ),
                               );
@@ -852,55 +762,16 @@ class _ApprovalViewEditExpensePageState
                                     controller:
                                         controller.currencyDropDowncontroller,
                                     rowBuilder: (c, searchQuery) {
-                                      Widget highlight(String text) {
-                                        final query = searchQuery.toLowerCase();
-                                        final lowerText = text.toLowerCase();
-                                        final matchIndex =
-                                            lowerText.indexOf(query);
-
-                                        if (matchIndex == -1 || query.isEmpty) {
-                                          return Text(text,
-                                              style: const TextStyle(
-                                                  color: Colors.white));
-                                        }
-
-                                        final end = matchIndex + query.length;
-                                        return RichText(
-                                          text: TextSpan(
-                                            children: [
-                                              TextSpan(
-                                                text: text.substring(
-                                                    0, matchIndex),
-                                                style: const TextStyle(
-                                                    color: Colors.white),
-                                              ),
-                                              TextSpan(
-                                                text: text.substring(
-                                                    matchIndex, end),
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              TextSpan(
-                                                text: text.substring(end),
-                                                style: const TextStyle(
-                                                    color: Colors.white),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
 
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 12, horizontal: 16),
                                         child: Row(
                                           children: [
-                                            Expanded(child: highlight(c.code)),
-                                            Expanded(child: highlight(c.name)),
+                                            Expanded(child: Text(c.code)),
+                                            Expanded(child: Text(c.name)),
                                             Expanded(
-                                                child: highlight(c.symbol)),
+                                                child: Text(c.symbol)),
                                           ],
                                         ),
                                       );
@@ -1081,50 +952,6 @@ class _ApprovalViewEditExpensePageState
                                             controller: itemController
                                                 .projectDropDowncontroller,
                                             rowBuilder: (p, searchQuery) {
-                                              Widget highlight(String text) {
-                                                final query =
-                                                    searchQuery.toLowerCase();
-                                                final lowerText =
-                                                    text.toLowerCase();
-                                                final matchIndex =
-                                                    lowerText.indexOf(query);
-
-                                                if (matchIndex == -1 ||
-                                                    query.isEmpty)
-                                                  return Text(text);
-
-                                                final end =
-                                                    matchIndex + query.length;
-                                                return RichText(
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            0, matchIndex),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            matchIndex, end),
-                                                        style: const TextStyle(
-                                                          color: Colors.black,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            text.substring(end),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
 
                                               return Padding(
                                                 padding:
@@ -1135,10 +962,10 @@ class _ApprovalViewEditExpensePageState
                                                   children: [
                                                     Expanded(
                                                         child:
-                                                            highlight(p.name)),
+                                                            Text(p.name)),
                                                     Expanded(
                                                         child:
-                                                            highlight(p.code)),
+                                                            Text(p.code)),
                                                   ],
                                                 ),
                                               );
@@ -1179,50 +1006,6 @@ class _ApprovalViewEditExpensePageState
                                             controller: itemController
                                                 .categoryController,
                                             rowBuilder: (p, searchQuery) {
-                                              Widget highlight(String text) {
-                                                final query =
-                                                    searchQuery.toLowerCase();
-                                                final lower =
-                                                    text.toLowerCase();
-                                                final matchIndex =
-                                                    lower.indexOf(query);
-
-                                                if (matchIndex == -1 ||
-                                                    query.isEmpty)
-                                                  return Text(text);
-
-                                                final end =
-                                                    matchIndex + query.length;
-                                                return RichText(
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            0, matchIndex),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            matchIndex, end),
-                                                        style: const TextStyle(
-                                                          color: Colors.black,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            text.substring(end),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
 
                                               return Padding(
                                                 padding:
@@ -1232,10 +1015,10 @@ class _ApprovalViewEditExpensePageState
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             p.categoryName)),
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             p.categoryId)),
                                                   ],
                                                 ),
@@ -1289,51 +1072,6 @@ class _ApprovalViewEditExpensePageState
                                             },
                                             controller: itemController.uomId,
                                             rowBuilder: (tax, searchQuery) {
-                                              Widget highlight(String text) {
-                                                final query =
-                                                    searchQuery.toLowerCase();
-                                                final lower =
-                                                    text.toLowerCase();
-                                                final matchIndex =
-                                                    lower.indexOf(query);
-
-                                                if (matchIndex == -1 ||
-                                                    query.isEmpty) {
-                                                  return Text(text);
-                                                }
-
-                                                final end =
-                                                    matchIndex + query.length;
-                                                return RichText(
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            0, matchIndex),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            matchIndex, end),
-                                                        style: const TextStyle(
-                                                          color: Colors.black,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            text.substring(end),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
 
                                               return Padding(
                                                 padding:
@@ -1343,10 +1081,10 @@ class _ApprovalViewEditExpensePageState
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             tax.code)),
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             tax.name)),
                                                   ],
                                                 ),
@@ -1355,6 +1093,12 @@ class _ApprovalViewEditExpensePageState
                                           ),
                                           const SizedBox(height: 12),
                                           _buildTextField(
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'^\d*\.?\d{0,2}'),
+                                              ), // Allows numbers with up to 2 decimal places
+                                            ],
                                             label: "Quantity *",
                                             controller: itemController.quantity,
                                             isReadOnly:
@@ -1372,6 +1116,12 @@ class _ApprovalViewEditExpensePageState
                                             },
                                           ),
                                           _buildTextField(
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'^\d*\.?\d{0,2}'),
+                                              ), // Allows numbers with up to 2 decimal places
+                                            ],
                                             label: "Unit Amount *",
                                             controller:
                                                 itemController.unitPriceTrans,
@@ -1453,50 +1203,6 @@ class _ApprovalViewEditExpensePageState
                                             controller: itemController
                                                 .taxGroupController,
                                             rowBuilder: (tax, searchQuery) {
-                                              Widget highlight(String text) {
-                                                final query =
-                                                    searchQuery.toLowerCase();
-                                                final lower =
-                                                    text.toLowerCase();
-                                                final matchIndex =
-                                                    lower.indexOf(query);
-
-                                                if (matchIndex == -1 ||
-                                                    query.isEmpty)
-                                                  return Text(text);
-
-                                                final end =
-                                                    matchIndex + query.length;
-                                                return RichText(
-                                                  text: TextSpan(
-                                                    children: [
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            0, matchIndex),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                      TextSpan(
-                                                        text: text.substring(
-                                                            matchIndex, end),
-                                                        style: const TextStyle(
-                                                          color: Colors.black,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      TextSpan(
-                                                        text:
-                                                            text.substring(end),
-                                                        style: const TextStyle(
-                                                            color:
-                                                                Colors.black),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
 
                                               return Container(
                                                 // color: Colors.grey[300],
@@ -1507,10 +1213,10 @@ class _ApprovalViewEditExpensePageState
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             tax.taxGroup)),
                                                     Expanded(
-                                                        child: highlight(
+                                                        child: Text(
                                                             tax.taxGroupId)),
                                                   ],
                                                 ),
@@ -1519,6 +1225,12 @@ class _ApprovalViewEditExpensePageState
                                           ),
                                           const SizedBox(height: 12),
                                           _buildTextField(
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                              FilteringTextInputFormatter.allow(
+                                                RegExp(r'^\d*\.?\d{0,2}'),
+                                              ), // Allows numbers with up to 2 decimal places
+                                            ],
                                             label: "Tax Amount",
                                             controller:
                                                 itemController.taxAmount,
@@ -2298,6 +2010,7 @@ class _ApprovalViewEditExpensePageState
                          
                           ),
                         ),
+                        const SizedBox(height: 30),
                     ],
                   ),
                 );
@@ -2327,7 +2040,7 @@ class _ApprovalViewEditExpensePageState
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat('yyyy-MM-dd') // Adjust your format
+                          DateFormat('dd-MM-yyyy') // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -2343,7 +2056,7 @@ class _ApprovalViewEditExpensePageState
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
+                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
                     controller.selectedDateMileage = picked;
                     controller.fetchMileageRates();
                     controller.selectedDate = picked;
@@ -2358,31 +2071,31 @@ class _ApprovalViewEditExpensePageState
 
   // ... (keep all your existing helper methods below)
   Future<File?> _cropImage(File file) async {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.square,
-      ],
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Colors.deepPurple,
-          toolbarWidgetColor: Colors.white,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        )
-      ],
-    );
+  final croppedFile = await ImageCropper().cropImage(
+    sourcePath: file.path,
+    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Crop Image',
+        toolbarColor: Colors.deepPurple,
+        toolbarWidgetColor: Colors.white,
+        lockAspectRatio: false,
+      ),
+      IOSUiSettings(
+        title: 'Crop Image',
+        aspectRatioLockEnabled: false,
+      ),
+    ],
+  );
 
-    if (croppedFile != null) {
-      return File(croppedFile.path);
-    }
-
-    return null;
+  if (croppedFile != null) {
+    final croppedImage = File(croppedFile.path); return croppedImage;
+    // ignore: use_build_context_synchronously
+    // await controller.sendUploadedFileToServer(context, croppedImage);
   }
+
+  return null;
+}
 
   void _zoomIn() {
     _photoViewController.scale = _photoViewController.scale! * 1.2;
@@ -2398,53 +2111,75 @@ class _ApprovalViewEditExpensePageState
     });
   }
 
-  void _showFullImage(File file, int index) {
+ void _showFullImage(File file, int index) {
   showDialog(
     context: context,
+    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
     builder: (context) {
       return Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent, // remove white box background
+        insetPadding: const EdgeInsets.all(8),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            PhotoView(
-              imageProvider: FileImage(file),
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
+            // Full image view
+            PhotoView.customChild(
               minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 3.0,
+              maxScale: PhotoViewComputedScale.covered * 9.0,
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              child: Image.file(file, fit: BoxFit.contain),
             ),
+
+            // Close button (top-left)
             Positioned(
-              top: 10,
-              right: 10,
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () {
+                            // controller.closeField();
+                            Navigator.pop(context);
+                          },
+              ),
+            ),
+
+            // Floating edit & delete buttons (top-right)
+            Positioned(
+              top: 80,
+              right: 20,
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "edit_$index",
-                    onPressed: () async {
-                      final croppedFile = await _cropImage(file);
-                      if (croppedFile != null) {
+                  if (controller.isEnable.value)
+                    FloatingActionButton.small(
+                      heroTag: "edit_$index",
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(context);
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
+                      backgroundColor: Colors.deepPurple,
+                      child: const Icon(Icons.edit),
+                    ),
+                  const SizedBox(height: 12),
+                  if (controller.isEnable.value)
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      onPressed: () {
+                        Navigator.pop(context);
                         setState(() {
-                          controller.imageFiles[index] = croppedFile;
+                          controller.imageFiles.removeAt(index);
                         });
-                        Navigator.pop(context); // Close dialog and reopen to refresh
-                        _showFullImage(croppedFile, index);
-                      }
-                    },
-                    child: const Icon(Icons.edit),
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "delete_$index",
-                    onPressed: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        controller.imageFiles.removeAt(index);
-                      });
-                    },
-                    child: const Icon(Icons.delete),
-                    backgroundColor: Colors.red,
-                  ),
+                      },
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.delete),
+                    ),
                 ],
               ),
             ),
@@ -2669,6 +2404,7 @@ class _ApprovalViewEditExpensePageState
                         ),
                       ],
                     ),
+                     const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -2679,34 +2415,37 @@ class _ApprovalViewEditExpensePageState
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required bool isReadOnly,
-    void Function(String)? onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 4),
-        TextField(
-          controller: controller,
-          enabled: isReadOnly,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            labelText: label,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
+ Widget _buildTextField({
+  required String label,
+  required TextEditingController controller,
+  required bool isReadOnly,
+  void Function(String)? onChanged,
+  List<TextInputFormatter>? inputFormatters,
+  TextInputType keyboardType = TextInputType.text, // default to text
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 4),
+      TextField(
+        controller: controller,
+        enabled: isReadOnly,
+        onChanged: onChanged,
+        inputFormatters: inputFormatters,
+        keyboardType: keyboardType, // set keyboard type here
+        decoration: InputDecoration(
+          labelText: label,
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
           ),
         ),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
+      ),
+      const SizedBox(height: 12),
+    ],
+  );
+}
   Widget _buildDropdownField({
     required String label,
     required List<String> items,

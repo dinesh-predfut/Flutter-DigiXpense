@@ -28,6 +28,7 @@ class _LandingPageState extends State<Logo_Screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      
       backgroundColor: Color.fromARGB(255, 253, 253, 253),
       body: Stack(
         children: [

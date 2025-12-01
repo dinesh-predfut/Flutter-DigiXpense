@@ -24,11 +24,8 @@ class MileageRegistrationPage extends StatefulWidget {
   final bool? isEditMode;
   final ExpenseModelMileage? mileageId;
 
-  const MileageRegistrationPage({
-    Key? key,
-    this.isEditMode,
-    this.mileageId,
-  }) : super(key: key);
+  const MileageRegistrationPage({Key? key, this.isEditMode, this.mileageId})
+    : super(key: key);
 
   @override
   State<MileageRegistrationPage> createState() =>
@@ -58,7 +55,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   @override
   void initState() {
     super.initState();
-   
+
     if (controller.totalDistanceKm != 0) {
       _calculateAllDistances();
     }
@@ -66,12 +63,12 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
       workitemrecid = widget.mileageId!.workitemRecId!;
       _calculateAllDistances();
     }
-// final shouldShow = (widget.mileageId?.stepType?.isNotEmpty ?? false);
-//     WidgetsBinding.instance.addPostFrameCallback((_) {
-//       controller.isEnable.value = false;
+    // final shouldShow = (widget.mileageId?.stepType?.isNotEmpty ?? false);
+    //     WidgetsBinding.instance.addPostFrameCallback((_) {
+    //       controller.isEnable.value = false;
 
-// // Start in view mode
-//     });
+    // // Start in view mode
+    //     });
 
     //  print("controller.isRoundTrip = true;${controller.isRoundTrip = true}");
   }
@@ -180,110 +177,148 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   //     _adjustCameraBounds();
   //   }
   // }
-  Future<void> _calculateAllDistances() async {
-    print("_calculateAllDistances is Calling");
 
-    if (!mounted) return;
 
-    setState(() => isCalculatingDistance = true); // ✅ Show loader
+Future<Location?> getCoordinatesFromAddress(String address) async {
+  final encoded = Uri.encodeComponent(address);
+  const String apiKey = 'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
+  final url = Uri.parse(
+    'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
+  );
 
-    final int currentToken = ++_calculationToken;
-
-    _polylines.clear();
-    _markers.clear();
-    controller.calculatedAmountINR = 0;
-    controller.totalDistanceKm = 0;
-
-    if (controller.tripControllers.length < 2) {
-      if (mounted) {
-        setState(() => isCalculatingDistance = false); // ✅ Hide loader
+  try {
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['results'] != null && data['results'].isNotEmpty) {
+        final loc = data['results'][0]['geometry']['location'];
+        return Location(
+          latitude: loc['lat'],
+          longitude: loc['lng'],
+          timestamp: DateTime.now(),
+        );
       }
+    }
+  } catch (e) {
+    debugPrint("❌ Geocode failed for $address: $e");
+  }
+  return null;
+}
+
+
+
+Future<void> _calculateAllDistances() async {
+  print("_calculateAllDistances is Calling");
+
+  setState(() => isCalculatingDistance = true);
+
+  final int currentToken = ++_calculationToken;
+
+  _polylines.clear();
+  _markers.clear();
+  controller.calculatedAmountINR = 0;
+  controller.totalDistanceKm = 0;
+
+  if (controller.tripControllers.length < 2) {
+    if (mounted) setState(() => isCalculatingDistance = false);
+    return;
+  }
+
+  for (int i = 0; i < controller.tripControllers.length - 1; i++) {
+    if (currentToken != _calculationToken) {
+      setState(() => isCalculatingDistance = false);
       return;
     }
 
-    for (int i = 0; i < controller.tripControllers.length - 1; i++) {
-      if (currentToken != _calculationToken) {
-        setState(() => isCalculatingDistance = false);
-        return;
+    String startCity = controller.tripControllers[i].text.trim();
+    String endCity = controller.tripControllers[i + 1].text.trim();
+    print("startCity: $startCity");
+    print("endCity: $endCity");
+
+    if (startCity.isEmpty || endCity.isEmpty) continue;
+
+    try {
+      // ✅ Use Google API instead of system geocoder
+      final startLoc = await getCoordinatesFromAddress(startCity);
+      if (!mounted || currentToken != _calculationToken) return;
+      print("startLoc: $startLoc");
+
+      final endLoc = await getCoordinatesFromAddress(endCity);
+      if (!mounted || currentToken != _calculationToken) return;
+      print("endLoc: $endLoc");
+
+      if (startLoc == null || endLoc == null) {
+        print("⚠️ Skipping route due to missing coordinates");
+        continue;
       }
 
-      String startCity = controller.tripControllers[i].text.trim();
-      String endCity = controller.tripControllers[i + 1].text.trim();
+      LatLng startLatLng = LatLng(startLoc.latitude, startLoc.longitude);
+      LatLng endLatLng = LatLng(endLoc.latitude, endLoc.longitude);
 
-      if (startCity.isEmpty || endCity.isEmpty) continue;
+      print("✅ startLatLng: $startLatLng, endLatLng: $endLatLng");
 
-      try {
-        List<Location> startLoc = await locationFromAddress(startCity);
+      String startMarkerLabel = getMarkerLabel(i);
+      String endMarkerLabel = getMarkerLabel(i + 1);
+
+      BitmapDescriptor startMarkerIcon = await createMarkerWithLabel(startMarkerLabel);
+      if (!mounted || currentToken != _calculationToken) return;
+
+      BitmapDescriptor endMarkerIcon = await createMarkerWithLabel(endMarkerLabel);
+      if (!mounted || currentToken != _calculationToken) return;
+
+      _markers.add(
+        Marker(
+          markerId: MarkerId('start_$i'),
+          position: startLatLng,
+          infoWindow: InfoWindow(title: "Point $startMarkerLabel", snippet: startCity),
+          icon: startMarkerIcon,
+        ),
+      );
+
+      _markers.add(
+        Marker(
+          markerId: MarkerId('end_${i + 1}'),
+          position: endLatLng,
+          infoWindow: InfoWindow(title: "Point $endMarkerLabel", snippet: endCity),
+          icon: endMarkerIcon,
+        ),
+      );
+
+      // ✅ Fetch route and distance
+      double routeDistance = await _fetchRoutePolyline(startLatLng, endLatLng, i);
+      if (!mounted || currentToken != _calculationToken) return;
+
+      controller.totalDistanceKm += routeDistance;
+      controller.calculateAmount();
+
+      // ✅ Handle round trip
+      if (controller.isRoundTrip && i == controller.tripControllers.length - 2) {
+        double returnDistance = await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
         if (!mounted || currentToken != _calculationToken) return;
 
-        List<Location> endLoc = await locationFromAddress(endCity);
-        if (!mounted || currentToken != _calculationToken) return;
-
-        if (startLoc.isNotEmpty && endLoc.isNotEmpty) {
-          LatLng startLatLng =
-              LatLng(startLoc.first.latitude, startLoc.first.longitude);
-          LatLng endLatLng =
-              LatLng(endLoc.first.latitude, endLoc.first.longitude);
-
-          String startMarkerLabel = getMarkerLabel(i);
-          String endMarkerLabel = getMarkerLabel(i + 1);
-
-          BitmapDescriptor startMarkerIcon =
-              await createMarkerWithLabel(startMarkerLabel);
-          if (!mounted || currentToken != _calculationToken) return;
-
-          BitmapDescriptor endMarkerIcon =
-              await createMarkerWithLabel(endMarkerLabel);
-          if (!mounted || currentToken != _calculationToken) return;
-
-          _markers.add(Marker(
-            markerId: MarkerId('start_$i'),
-            position: startLatLng,
-            infoWindow: InfoWindow(
-                title: "Point $startMarkerLabel", snippet: startCity),
-            icon: startMarkerIcon,
-          ));
-
-          _markers.add(Marker(
-            markerId: MarkerId('end_${i + 1}'),
-            position: endLatLng,
-            infoWindow:
-                InfoWindow(title: "Point $endMarkerLabel", snippet: endCity),
-            icon: endMarkerIcon,
-          ));
-
-          double routeDistance =
-              await _fetchRoutePolyline(startLatLng, endLatLng, i);
-          if (!mounted || currentToken != _calculationToken) return;
-
-          controller.totalDistanceKm += routeDistance;
-          controller.calculateAmount();
-
-          if (controller.isRoundTrip &&
-              i == controller.tripControllers.length - 2) {
-            double returnDistance =
-                await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
-            if (!mounted || currentToken != _calculationToken) return;
-
-            controller.totalDistanceKm += returnDistance;
-            controller.calculateAmount();
-          }
-        }
-      } catch (e) {
-        print("Error: $e");
+        controller.totalDistanceKm += returnDistance;
+        controller.calculateAmount();
       }
-    }
-
-    if (mounted && currentToken == _calculationToken) {
-      setState(() {
-        isCalculatingDistance = false; // ✅ Hide loader when done
-      });
-      _adjustCameraBounds();
+    } catch (e) {
+      print("❌ Error while calculating distance: $e");
     }
   }
 
+  if (mounted && currentToken == _calculationToken) {
+    setState(() => isCalculatingDistance = false);
+    _adjustCameraBounds();
+  }
+
+  print("✅ Total Distance: ${controller.totalDistanceKm.toStringAsFixed(2)} km");
+  print("✅ Final Amount: ₹${controller.calculatedAmountINR.toStringAsFixed(2)}");
+}
+
+
   Future<double> _fetchRoutePolyline(
-      LatLng start, LatLng end, int index) async {
+    LatLng start,
+    LatLng end,
+    int index,
+  ) async {
     final String url =
         "https://maps.googleapis.com/maps/api/directions/json?origin=${start.latitude},${start.longitude}&destination=${end.latitude},${end.longitude}&key=$googleApiKey";
 
@@ -297,12 +332,14 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
               data['routes'][0]['overview_polyline']['points'];
           List<LatLng> polylineCoords = _decodePolyline(encodedPolyline);
 
-          _polylines.add(Polyline(
-            polylineId: PolylineId('route_$index'),
-            color: Colors.blueAccent,
-            width: 5,
-            points: polylineCoords,
-          ));
+          _polylines.add(
+            Polyline(
+              polylineId: PolylineId('route_$index'),
+              color: Colors.blueAccent,
+              width: 5,
+              points: polylineCoords,
+            ),
+          );
 
           double distanceMeters = 0;
           var legs = data['routes'][0]['legs'];
@@ -355,14 +392,18 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     LatLngBounds bounds;
     var positions = _markers.map((m) => m.position).toList();
 
-    double south =
-        positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    double north =
-        positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    double west =
-        positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    double east =
-        positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+    double south = positions
+        .map((p) => p.latitude)
+        .reduce((a, b) => a < b ? a : b);
+    double north = positions
+        .map((p) => p.latitude)
+        .reduce((a, b) => a > b ? a : b);
+    double west = positions
+        .map((p) => p.longitude)
+        .reduce((a, b) => a < b ? a : b);
+    double east = positions
+        .map((p) => p.longitude)
+        .reduce((a, b) => a > b ? a : b);
 
     bounds = LatLngBounds(
       southwest: LatLng(south, west),
@@ -378,6 +419,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
       _calculateAllDistances();
     });
   }
+
 
   Future<void> _zoomToLocation(String address) async {
     if (_mapController == null || address.isEmpty) return;
@@ -467,11 +509,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     final Paint paint = Paint()..color = Colors.blueAccent;
 
     const double size = 80.0;
-    canvas.drawCircle(
-      const Offset(size / 2, size / 2),
-      size / 2,
-      paint,
-    );
+    canvas.drawCircle(const Offset(size / 2, size / 2), size / 2, paint);
 
     final TextPainter textPainter = TextPainter(
       text: TextSpan(
@@ -490,9 +528,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
       Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
     );
 
-    final img = await pictureRecorder
-        .endRecording()
-        .toImage(size.toInt(), size.toInt());
+    final img = await pictureRecorder.endRecording().toImage(
+      size.toInt(),
+      size.toInt(),
+    );
     final byteData = await img.toByteData(format: ImageByteFormat.png);
     final Uint8List pngBytes = byteData!.buffer.asUint8List();
 
@@ -530,8 +569,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
           actions: [
             if (widget.isEditMode!)
               if (widget.mileageId != null &&
-                  widget.mileageId!.approvalStatus != "Cancelled" &&
-                  widget.mileageId!.approvalStatus != "Approved" && widget.mileageId!.approvalStatus != "Pending" ||  widget.mileageId!.stepType == "Review")
+                      widget.mileageId!.approvalStatus != "Cancelled" &&
+                      widget.mileageId!.approvalStatus != "Approved" &&
+                      widget.mileageId!.approvalStatus != "Pending" ||
+                  widget.mileageId!.stepType == "Review")
                 IconButton(
                   icon: Icon(
                     controller.isEnable.value
@@ -585,225 +626,306 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const SizedBox(height: 10),
+                  // const SizedBox(height: 10),
 
                   // Scrollable Trip Fields
                   Expanded(
-                      child: SingleChildScrollView(
-                          child: Column(children: [
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: controller.tripControllers.length,
-                      itemBuilder: (context, index) {
-                        String fieldName;
-                        if (index == 0) {
-                          fieldName = AppLocalizations.of(context)!.startTrip;
-                        } else if (index ==
-                            controller.tripControllers.length - 1) {
-                          fieldName = AppLocalizations.of(context)!.endTrip;
-                        } else {
-                          fieldName =
-                              "${AppLocalizations.of(context)!.addTrip} $index";
-                        }
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: controller.tripControllers.length,
+                            itemBuilder: (context, index) {
+                              String fieldName;
+                              if (index == 0) {
+                                fieldName = AppLocalizations.of(
+                                  context,
+                                )!.startTrip;
+                              } else if (index ==
+                                  controller.tripControllers.length - 1) {
+                                fieldName = AppLocalizations.of(
+                                  context,
+                                )!.endTrip;
+                              } else {
+                                fieldName =
+                                    "${AppLocalizations.of(context)!.addTrip} $index";
+                              }
 
-                        String stopLetter =
-                            String.fromCharCode(65 + index); // A, B, C
+                              String stopLetter = String.fromCharCode(
+                                65 + index,
+                              ); // A, B, C
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: Colors.blue,
-                                radius: 10,
-                                child: Text(
-                                  stopLetter,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold),
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4.0,
                                 ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Autocomplete<String>(
-                                  optionsBuilder: (TextEditingValue
-                                      textEditingValue) async {
-                                    if (textEditingValue.text.isEmpty) {
-                                      return [];
-                                    }
-                                    return await fetchPlaceSuggestions(
-                                        textEditingValue.text);
-                                  },
-                                  onSelected: (String selection) {
-                                    controller.tripControllers[index].text =
-                                        selection;
-                                    controller
-                                            .tripControllers[index].selection =
-                                        TextSelection.fromPosition(TextPosition(
-                                            offset: selection.length));
-                                    _onTripTextChanged();
-                                    _zoomToLocation(selection);
-                                  },
-                                  fieldViewBuilder: (context,
-                                      textEditingController,
-                                      focusNode,
-                                      onFieldSubmitted) {
-                                    textEditingController.text =
-                                        controller.tripControllers[index].text;
-                                    textEditingController.selection =
-                                        TextSelection.fromPosition(TextPosition(
-                                            offset: textEditingController
-                                                .text.length));
-                                    textEditingController.addListener(() {
-                                      controller.tripControllers[index].text =
-                                          textEditingController.text;
-                                    });
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: Colors.blue,
+                                      radius: 10,
+                                      child: Text(
+                                        stopLetter,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Autocomplete<String>(
+                                        optionsBuilder:
+                                            (
+                                              TextEditingValue textEditingValue,
+                                            ) async {
+                                              if (textEditingValue
+                                                  .text
+                                                  .isEmpty) {
+                                                return [];
+                                              }
+                                              return await fetchPlaceSuggestions(
+                                                textEditingValue.text,
+                                              );
+                                            },
+                                        onSelected: (String selection) {
+                                          controller
+                                                  .tripControllers[index]
+                                                  .text =
+                                              selection;
+                                          controller
+                                                  .tripControllers[index]
+                                                  .selection =
+                                              TextSelection.fromPosition(
+                                                TextPosition(
+                                                  offset: selection.length,
+                                                ),
+                                              );
+                                          _onTripTextChanged();
+                                          _zoomToLocation(selection);
+                                        },
+                                        fieldViewBuilder:
+                                            (
+                                              context,
+                                              textEditingController,
+                                              focusNode,
+                                              onFieldSubmitted,
+                                            ) {
+                                              textEditingController.text =
+                                                  controller
+                                                      .tripControllers[index]
+                                                      .text;
+                                              textEditingController.selection =
+                                                  TextSelection.fromPosition(
+                                                    TextPosition(
+                                                      offset:
+                                                          textEditingController
+                                                              .text
+                                                              .length,
+                                                    ),
+                                                  );
+                                              textEditingController.addListener(
+                                                () {
+                                                  controller
+                                                          .tripControllers[index]
+                                                          .text =
+                                                      textEditingController
+                                                          .text;
+                                                },
+                                              );
 
-                                    return TextField(
-                                      controller: textEditingController,
-                                      focusNode: focusNode,
-                                      enabled: controller.isEnable.value,
-                                      style: const TextStyle(fontSize: 12),
+                                              return TextField(
+                                                controller:
+                                                    textEditingController,
+                                                focusNode: focusNode,
+                                                enabled:
+                                                    controller.isEnable.value,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.black87
+                                                ),
+                                                decoration: InputDecoration(
+                                                  fillColor: Colors.white,
+                                                  hintText: fieldName,
+                                                  hintStyle: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 8,
+                                                        horizontal: 12,
+                                                      ),
+
+                                                  filled: true,
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
+                                                    borderSide: BorderSide.none,
+                                                  ),
+                                                  // ✅ Show inline error if submit attempted
+                                                  errorText:
+                                                      isSubmitAttempted &&
+                                                          controller
+                                                              .tripControllers[index]
+                                                              .text
+                                                              .trim()
+                                                              .isEmpty
+                                                      ? AppLocalizations.of(
+                                                          context,
+                                                        )!.fieldRequired
+                                                      : null,
+                                                ),
+                                                onChanged: (value) {
+                                                  _onTripTextChanged();
+                                                  setState(
+                                                    () {},
+                                                  ); // Refresh validation
+                                                },
+                                                onSubmitted: (_) =>
+                                                    onFieldSubmitted(),
+                                              );
+                                            },
+                                      ),
+                                    ),
+                                    if (controller.isEnable.value)
+                                      if (index > 0 &&
+                                          index <
+                                              controller
+                                                      .tripControllers
+                                                      .length -
+                                                  1)
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.redAccent,
+                                            size: 18,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              controller.tripControllers
+                                                  .removeAt(index);
+                                            });
+                                            _calculateAllDistances();
+                                          },
+                                        ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Round trip end trip field
+                          if (controller.isRoundTrip &&
+                              controller.tripControllers.length < 3)
+                            // const SizedBox(height: 7),
+                          if (controller.isRoundTrip &&
+                              controller.tripControllers.length < 3)
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_on,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 50,
+                                    child: TextField(
+                                      controller:
+                                          controller.tripControllers.first,
+                                      readOnly: controller.isRoundTrip,
+                                      style: const TextStyle(fontSize: 12,color: Colors.black),
                                       decoration: InputDecoration(
-                                        hintText: fieldName,
-                                        hintStyle:
-                                            const TextStyle(fontSize: 12),
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        )!.endTrip,
+                                        hintStyle: const TextStyle(
+                                          fontSize: 13,
+                                        ),
                                         contentPadding:
                                             const EdgeInsets.symmetric(
-                                                vertical: 8, horizontal: 12),
-
+                                              vertical: 13,
+                                              horizontal: 14,
+                                            ),
+                                        fillColor: controller.isRoundTrip
+                                            ? Colors.grey.shade300
+                                            : Colors.white,
                                         filled: true,
                                         border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            25,
+                                          ),
                                           borderSide: BorderSide.none,
                                         ),
                                         // ✅ Show inline error if submit attempted
-                                        errorText: isSubmitAttempted &&
+                                        errorText:
+                                            isSubmitAttempted &&
                                                 controller
-                                                    .tripControllers[index].text
+                                                    .tripControllers
+                                                    .first
+                                                    .text
                                                     .trim()
                                                     .isEmpty
-                                            ? AppLocalizations.of(context)!
-                                                .fieldRequired
+                                            ? AppLocalizations.of(
+                                                context,
+                                              )!.fieldRequired
                                             : null,
                                       ),
                                       onChanged: (value) {
-                                        _onTripTextChanged();
-                                        setState(() {}); // Refresh validation
+                                        if (!controller.isRoundTrip) {
+                                          _onTripTextChanged();
+                                          setState(() {}); // Refresh validation
+                                        }
                                       },
-                                      onSubmitted: (_) => onFieldSubmitted(),
-                                    );
-                                  },
-                                ),
-                              ),
-                              if (controller.isEnable.value)
-                                if (index > 0 &&
-                                    index <
-                                        controller.tripControllers.length - 1)
-                                  IconButton(
-                                    icon: const Icon(Icons.delete,
-                                        color: Colors.redAccent, size: 18),
-                                    onPressed: () {
-                                      setState(() {
-                                        controller.tripControllers
-                                            .removeAt(index);
-                                      });
-                                      _calculateAllDistances();
-                                    },
+                                    ),
                                   ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-
-                    // Round trip end trip field
-                    if (controller.isRoundTrip &&
-                        controller.tripControllers.length < 3)
-                      const SizedBox(height: 7),
-                    if (controller.isRoundTrip &&
-                        controller.tripControllers.length < 3)
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, color: Colors.white),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: SizedBox(
-                              height: 50,
-                              child: TextField(
-                                controller: controller.tripControllers.first,
-                                readOnly: controller.isRoundTrip,
-                                style: const TextStyle(fontSize: 12),
-                                decoration: InputDecoration(
-                                  hintText:
-                                      AppLocalizations.of(context)!.endTrip,
-                                  hintStyle: const TextStyle(fontSize: 13),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 13,
-                                    horizontal: 14,
-                                  ),
-                                  fillColor: controller.isRoundTrip
-                                      ? Colors.grey.shade300
-                                      : Colors.white,
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  // ✅ Show inline error if submit attempted
-                                  errorText: isSubmitAttempted &&
-                                          controller.tripControllers.first.text
-                                              .trim()
-                                              .isEmpty
-                                      ? AppLocalizations.of(context)!
-                                          .fieldRequired
-                                      : null,
                                 ),
-                                onChanged: (value) {
-                                  if (!controller.isRoundTrip) {
-                                    _onTripTextChanged();
-                                    setState(() {}); // Refresh validation
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    // Add Stoqp + Round Trip Switch
-                    if (controller.isEnable.value)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (controller.tripControllers.length < 3)
-                            Row(
-                              children: [
-                                Switch(
-                                  value: controller.isRoundTrip,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      controller.isRoundTrip = value;
-                                      _calculateAllDistances();
-                                    });
-                                  },
-                                  activeColor: Colors.white,
-                                ),
-                                Text(AppLocalizations.of(context)!.roundTrip,
-                                    style: TextStyle(color: Colors.white)),
                               ],
                             ),
-                          if (!controller.isRoundTrip)
-                            IconButton(
-                              icon: const Icon(Icons.add_circle,
-                                  color: Colors.white, size: 28),
-                              onPressed: _addStopField,
+                          // Add Stoqp + Round Trip Switch
+                          if (controller.isEnable.value)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (controller.tripControllers.length < 3)
+                                  Row(
+                                    children: [
+                                      Switch(
+                                        value: controller.isRoundTrip,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            controller.isRoundTrip = value;
+                                            _calculateAllDistances();
+                                          });
+                                        },
+                                        activeColor: Colors.white,
+                                      ),
+                                      Text(
+                                        AppLocalizations.of(context)!.roundTrip,
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                if (!controller.isRoundTrip)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.add_circle,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                    onPressed: _addStopField,
+                                  ),
+                              ],
                             ),
                         ],
                       ),
-                  ]))),
+                    ),
+                  ),
 
                   // Info Cards pinned at bottom of header
                   const SizedBox(height: 12),
@@ -814,7 +936,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             child: SizedBox(
                               width: 40,
                               height: 40,
-                              child: CircularProgressIndicator(strokeWidth: 3,color: Colors.white10,),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white10,
+                              ),
                             ),
                           ),
                         )
@@ -822,24 +947,27 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             _infoCardButton(
-                              title:
-                                  AppLocalizations.of(context)!.totalDistance,
+                              title: AppLocalizations.of(
+                                context,
+                              )!.totalDistance,
                               value:
                                   "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
                               onTap: () => print("Total Distance tapped"),
                             ),
                             const SizedBox(width: 5),
                             _infoCardButton(
-                              title: AppLocalizations.of(context)!
-                                  .totalAmountInInr,
+                              title: AppLocalizations.of(
+                                context,
+                              )!.totalAmountInInr,
                               value:
                                   "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
                               onTap: () => print("Total Amount tapped"),
                             ),
                             const SizedBox(width: 5),
                             _infoCardButton(
-                              title: AppLocalizations.of(context)!
-                                  .totalAmountInInr,
+                              title: AppLocalizations.of(
+                                context,
+                              )!.totalAmountInInr,
                               value:
                                   "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
                               onTap: () => print("Third card tapped"),
@@ -853,436 +981,527 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
 
             // Map Section (Takes Remaining Space)
             Expanded(
-                child: Stack(
-              children: [
-                GoogleMap(
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(20.5937, 78.9629), // Center on India
-                    zoom: 4,
-                  ),
-                  markers: _markers,
-                  polylines: _polylines,
-                  mapType: _currentMapType,
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                    _adjustCameraBounds();
-                  },
-                  zoomControlsEnabled: false,
-                  myLocationEnabled: true,
-                ),
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: FloatingActionButton(
-                    heroTag: "toggleMapType",
-                    backgroundColor: Colors.white,
-                    onPressed: () {
-                      setState(() {
-                        _currentMapType = _currentMapType == MapType.normal
-                            ? MapType.hybrid
-                            : MapType.normal;
-                      });
+              child: Stack(
+                
+                children: [
+                  GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: LatLng(20.5937, 78.9629), // Center on India
+                      zoom: 4,
+                    ),
+                    markers: _markers,
+                    polylines: _polylines,
+                    mapType: _currentMapType,
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                      _adjustCameraBounds();
                     },
-                    child: Icon(
-                      _currentMapType == MapType.normal
-                          ? Icons.satellite
-                          : Icons.map,
-                      color: Colors.black,
+                    zoomControlsEnabled: false,
+                    myLocationEnabled: true,
+                  ),
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: FloatingActionButton(
+                      heroTag: "toggleMapType",
+                      backgroundColor: Colors.white,
+                      onPressed: () {
+                        setState(() {
+                          _currentMapType = _currentMapType == MapType.normal
+                              ? MapType.hybrid
+                              : MapType.normal;
+                        });
+                      },
+                      child: Icon(
+                        _currentMapType == MapType.normal
+                            ? Icons.satellite
+                            : Icons.map,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
-                ),
-                if (widget.mileageId != null) ...[
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Submit Button
-                        if (controller.isEnable.value &&
-                            widget.mileageId!.approvalStatus != "Pending" &&
-                            widget.mileageId!.approvalStatus != "Rejected")
-                          Obx(() {
-                            final isSubmitLoading =
-                                controller.buttonLoaders['submit'] ?? false;
-                            final isAnyLoading = controller.buttonLoaders.values
-                                .any((loading) => loading);
+                  if (widget.mileageId != null) ...[
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Submit Button
+                          if (controller.isEnable.value &&
+                              widget.mileageId!.approvalStatus != "Pending" &&
+                              widget.mileageId!.approvalStatus != "Rejected")
+                            Obx(() {
+                              final isSubmitLoading =
+                                  controller.buttonLoaders['submit'] ?? false;
+                              final isAnyLoading = controller
+                                  .buttonLoaders
+                                  .values
+                                  .any((loading) => loading);
 
-                            return ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
+                              return ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  backgroundColor: AppColors.gradientEnd,
                                 ),
-                                backgroundColor: AppColors.gradientEnd,
-                              ),
-                              onPressed: (isSubmitLoading || isAnyLoading)
-                                  ? null
-                                  : () async {
-                                      controller.setButtonLoading(
-                                          'submit', true);
-                                      try {
-                                        await controller.submitMileageExpense(
-                                          context,
-                                          true,
-                                          false,
-                                          widget.mileageId!.recId,
-                                          widget.mileageId!.expenseId,
-                                        );
-                                      } finally {
+                                onPressed: (isSubmitLoading || isAnyLoading)
+                                    ? null
+                                    : () async {
                                         controller.setButtonLoading(
-                                            'submit', false);
-                                      }
-                                    },
-                              child: isSubmitLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    )
-                                  : Text(
-                                      AppLocalizations.of(context)!.submit,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
+                                          'submit',
+                                          true,
+                                        );
+                                        try {
+                                          await controller.submitMileageExpense(
+                                            context,
+                                            true,
+                                            false,
+                                            widget.mileageId!.recId,
+                                            widget.mileageId!.expenseId,
+                                          );
+                                        } finally {
+                                          controller.setButtonLoading(
+                                            'submit',
+                                            false,
+                                          );
+                                        }
+                                      },
+                                child: isSubmitLoading
+                                    ? const CircularProgressIndicator(
                                         color: Colors.white,
+                                        strokeWidth: 2,
+                                      )
+                                    : Text(
+                                        AppLocalizations.of(context)!.submit,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ),
-                            );
-                          }),
+                              );
+                            }),
 
-                        if (controller.isEnable.value &&
-                            widget.mileageId!.approvalStatus == "Rejected")
-                          Obx(() {
-                            final isResubmitLoading =
-                                controller.buttonLoaders['resubmit'] ?? false;
-                            final isAnyLoading = controller.buttonLoaders.values
-                                .any((loading) => loading);
+                          if (controller.isEnable.value &&
+                              widget.mileageId!.approvalStatus == "Rejected")
+                            Obx(() {
+                              final isResubmitLoading =
+                                  controller.buttonLoaders['resubmit'] ?? false;
+                              final isAnyLoading = controller
+                                  .buttonLoaders
+                                  .values
+                                  .any((loading) => loading);
 
-                            return ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
+                              return ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  backgroundColor: AppColors.gradientEnd,
                                 ),
-                                backgroundColor: AppColors.gradientEnd,
-                              ),
-                              onPressed: (isResubmitLoading || isAnyLoading)
-                                  ? null
-                                  : () async {
-                                      controller.setButtonLoading(
-                                          'resubmit', true);
-                                      try {
-                                        await controller.submitMileageExpense(
+                                onPressed: (isResubmitLoading || isAnyLoading)
+                                    ? null
+                                    : () async {
+                                        controller.setButtonLoading(
+                                          'resubmit',
+                                          true,
+                                        );
+                                        try {
+                                          await controller.submitMileageExpense(
                                             context,
                                             true,
                                             true,
                                             widget.mileageId!.recId,
-                                            widget.mileageId!.expenseId);
-                                      } finally {
-                                        controller.setButtonLoading(
-                                            'resubmit', false);
-                                      }
-                                    },
-                              child: isResubmitLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    )
-                                  : Text(
-                                      AppLocalizations.of(context)!.resubmit,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
+                                            widget.mileageId!.expenseId,
+                                          );
+                                        } finally {
+                                          controller.setButtonLoading(
+                                            'resubmit',
+                                            false,
+                                          );
+                                        }
+                                      },
+                                child: isResubmitLoading
+                                    ? const CircularProgressIndicator(
                                         color: Colors.white,
+                                        strokeWidth: 2,
+                                      )
+                                    : Text(
+                                        AppLocalizations.of(context)!.resubmit,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ),
-                            );
-                          }),
+                              );
+                            }),
 
-                        // Save, Update & Cancel Buttons
-                        Row(
-                          children: [
-                            if (controller.isEnable.value &&
-                                widget.mileageId!.approvalStatus == "Created")
-                              Expanded(
-                                child: Obx(() {
-                                  final isSaveLoading =
-                                      controller.buttonLoaders['save'] ?? false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading);
+                          // Save, Update & Cancel Buttons
+                          Row(
+                            children: [
+                              if (controller.isEnable.value &&
+                                  widget.mileageId!.approvalStatus == "Created")
+                                Expanded(
+                                  child: Obx(() {
+                                    final isSaveLoading =
+                                        controller.buttonLoaders['save'] ??
+                                        false;
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading);
 
-                                  return ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[100],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    onPressed: (isSaveLoading || isAnyLoading)
-                                        ? null
-                                        : () {
-                                            isSubmitAttempted = true;
-                                            if (_validateTrips()) {
-                                              controller.setButtonLoading(
-                                                  'save', true);
-                                              controller
-                                                  .submitMileageExpense(
-                                                context,
-                                                false,
-                                                false,
-                                                widget.mileageId!.recId,
-                                                widget.mileageId!.expenseId,
-                                              )
-                                                  .whenComplete(() {
-                                                controller.setButtonLoading(
-                                                    'save',
-                                                    false); // ✅ Correct loader key
-                                              });
-                                            } else {
-                                              isSubmitAttempted = true;
-                                              // Show error if validation fails
-                                              Get.snackbar(
-                                                "Validation",
-                                                "Please fill all trip fields",
-                                                backgroundColor: Colors.red,
-                                                colorText: Colors.white,
-                                              );
-                                            }
-                                          },
-                                    child: isSaveLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.green,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!.save,
-                                            style: const TextStyle(
-                                                color: Colors.green),
+                                    return ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green[100],
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
-                                  );
-                                }),
-                              ),
-                            if (controller.isEnable.value &&
-                                widget.mileageId!.approvalStatus == "Rejected")
-                              Expanded(
-                                child: Obx(() {
-                                  final isUpdatedLoading = controller
-                                          .buttonLoaders['update_rejected'] ??
-                                      false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading);
-
-                                  return ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[100],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                        ),
                                       ),
-                                    ),
-                                    onPressed: (isUpdatedLoading ||
-                                            isAnyLoading)
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'update_rejected', true);
-                                            try {
-                                              await controller
-                                                  .submitMileageExpense(
+                                      onPressed: (isSaveLoading || isAnyLoading)
+                                          ? null
+                                          : () {
+                                              isSubmitAttempted = true;
+                                              if (_validateTrips()) {
+                                                controller.setButtonLoading(
+                                                  'save',
+                                                  true,
+                                                );
+                                                controller
+                                                    .submitMileageExpense(
                                                       context,
                                                       false,
                                                       false,
                                                       widget.mileageId!.recId,
-                                                      widget.mileageId!
-                                                          .expenseId);
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'update_rejected', false);
-                                            }
-                                          },
-                                    child: isUpdatedLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.green,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .update,
-                                            style: const TextStyle(
-                                                color: Colors.green),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            if (!controller.isEnable.value && widget.mileageId!.stepType!.isEmpty &&
-                                widget.mileageId!.approvalStatus == "Pending")
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoading = controller
-                                          .buttonLoaders['cancel_pending'] ??
-                                      false;
-                                  return ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(
-                                          255, 243, 172, 187),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    onPressed: isLoading
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'cancel_pending', true);
-                                            try {
-                                              await controller.cancelExpense(
+                                                      widget
+                                                          .mileageId!
+                                                          .expenseId,
+                                                    )
+                                                    .whenComplete(() {
+                                                      controller.setButtonLoading(
+                                                        'save',
+                                                        false,
+                                                      ); // ✅ Correct loader key
+                                                    });
+                                              } else {
+                                                isSubmitAttempted = true;
+                                                // Show error if validation fails
+                                                Get.snackbar(
+                                                  "Validation",
+                                                  "Please fill all trip fields",
+                                                  backgroundColor: Colors.red,
+                                                  colorText: Colors.white,
+                                                );
+                                              }
+                                            },
+                                      child: isSaveLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.green,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
                                                 context,
-                                                widget.mileageId!.recId
-                                                    .toString(),
-                                              );
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'cancel_pending', false);
-                                            }
-                                          },
-                                    child: isLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.red,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .cancel,
-                                            style: const TextStyle(
-                                                color: Colors.red),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            const SizedBox(width: 10),
-                            // if(!controller.isEnable.value)
-                            if(  widget.mileageId!.stepType!.isEmpty ||  widget.mileageId!.stepType == "Review" && !controller.isEnable.value)
-                            Expanded(
-                              child: Obx(() {
-                                final isLoading =
-                                    controller.buttonLoaders['cancel_main'] ??
+                                              )!.save,
+                                              style: const TextStyle(
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              if (controller.isEnable.value &&
+                                  widget.mileageId!.approvalStatus ==
+                                      "Rejected")
+                                Expanded(
+                                  child: Obx(() {
+                                    final isUpdatedLoading =
+                                        controller
+                                            .buttonLoaders['update_rejected'] ??
                                         false;
-                                return ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey.shade400,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                  onPressed: isLoading
-                                      ? null
-                                      : () async {
-                                          controller.setButtonLoading(
-                                              'cancel_main', true);
-                                          try {
-                                            Navigator.pushNamed(context,
-                                                AppRoutes.generalExpense);
-                                          } finally {
-                                            controller.setButtonLoading(
-                                                'cancel_main', false);
-                                          }
-                                        },
-                                  child: isLoading
-                                      ? const CircularProgressIndicator(
-                                          color: Colors.black,
-                                          strokeWidth: 2,
-                                        )
-                                      : Text(
-                                          AppLocalizations.of(context)!.close),
-                                );
-                              }),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading);
 
-                  // REVIEW SECTION
-                  if (controller.isEnable.value &&
-                      widget.mileageId!.stepType == "Review")
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // 🔵 Row 1: Update & Accept + Update
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoadingAccept = controller
-                                          .buttonLoaders['update_accept'] ??
-                                      false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading == true);
-
-                                  return ElevatedButton(
-                                    onPressed: (isLoadingAccept || isAnyLoading)
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'update_accept', true);
-                                            try {
-                                              await controller
-                                                  .reviewMileageRegistration(
-                                                      context,
-                                                      true,
-                                                      workitemrecid);
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'update_accept', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          const Color.fromARGB(255, 3, 20, 117),
-                                    ),
-                                    child: isLoadingAccept
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .updateAndAccept,
-                                            style: const TextStyle(
-                                                color: Colors.white),
+                                    return ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green[100],
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoadingUpdate = controller
-                                          .buttonLoaders['update_review'] ??
-                                      false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading == true);
+                                        ),
+                                      ),
+                                      onPressed:
+                                          (isUpdatedLoading || isAnyLoading)
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'update_rejected',
+                                                true,
+                                              );
+                                              try {
+                                                await controller
+                                                    .submitMileageExpense(
+                                                      context,
+                                                      false,
+                                                      false,
+                                                      widget.mileageId!.recId,
+                                                      widget
+                                                          .mileageId!
+                                                          .expenseId,
+                                                    );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'update_rejected',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      child: isUpdatedLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.green,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.update,
+                                              style: const TextStyle(
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              if (!controller.isEnable.value &&
+                                  widget.mileageId!.stepType!.isEmpty &&
+                                  widget.mileageId!.approvalStatus == "Pending")
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller
+                                            .buttonLoaders['cancel_pending'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          243,
+                                          172,
+                                          187,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'cancel_pending',
+                                                true,
+                                              );
+                                              try {
+                                                await controller.cancelExpense(
+                                                  context,
+                                                  widget.mileageId!.recId
+                                                      .toString(),
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'cancel_pending',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.red,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.cancel,
+                                              style: const TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              const SizedBox(width: 10),
+                              // if(!controller.isEnable.value)
+                              if (widget.mileageId!.stepType!.isEmpty ||
+                                  widget.mileageId!.stepType == "Review" &&
+                                      !controller.isEnable.value)
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller
+                                            .buttonLoaders['cancel_main'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.grey.shade400,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'cancel_main',
+                                                true,
+                                              );
+                                              try {
+                                                controller.closeField();
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  AppRoutes.generalExpense,
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'cancel_main',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.black,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.close,
+                                            ),
+                                    );
+                                  }),
+                                ),
+                                  
+                            ],
+                          ),
+                         const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
 
-                                  return ElevatedButton(
-                                    onPressed: (isLoadingUpdate || isAnyLoading)
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'update_review', true);
-                                            try {
-                                              await controller
-                                                  .reviewMileageRegistration(
+                    // REVIEW SECTION
+                    if (controller.isEnable.value &&
+                        widget.mileageId!.stepType == "Review")
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                           
+                            Row(
+                              children: [
+                                Expanded(
+  child: Obx(() {
+    final isLoadingAccept =
+        controller.buttonLoaders['update_accept'] ?? false;
+    final isAnyLoading =
+        controller.buttonLoaders.values.any((loading) => loading == true);
+
+    return SizedBox(
+      height: 40, // fixes button height consistently
+      child: ElevatedButton(
+        onPressed: (isLoadingAccept || isAnyLoading)
+            ? null
+            : () async {
+                controller.setButtonLoading('update_accept', true);
+                try {
+                  await controller.reviewMileageRegistration(
+                    context,
+                    true,
+                    workitemrecid,
+                  );
+                } finally {
+                  controller.setButtonLoading('update_accept', false);
+                }
+              },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: isLoadingAccept
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  AppLocalizations.of(context)!.updateAndAccept,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }),
+),
+
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoadingUpdate =
+                                        controller
+                                            .buttonLoaders['update_review'] ??
+                                        false;
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading == true);
+
+                                    return ElevatedButton(
+                                      onPressed:
+                                          (isLoadingUpdate || isAnyLoading)
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'update_review',
+                                                true,
+                                              );
+                                              try {
+                                                await controller
+                                                    .reviewMileageRegistration(
                                                       context,
                                                       false,
                                                       workitemrecid);
@@ -1313,396 +1532,508 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // 🔴 Row 2: Reject + Close
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoadingReject = controller
-                                          .buttonLoaders['reject_review'] ??
-                                      false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading == true);
+                            // 🔴 Row 2: Reject + Close
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoadingReject =
+                                        controller
+                                            .buttonLoaders['reject_review'] ??
+                                        false;
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading == true);
 
-                                  return ElevatedButton(
-                                    onPressed: (isLoadingReject || isAnyLoading)
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'reject_review', true);
-                                            try {
-                                              showActionPopup(
-                                                  context, "Reject");
-                                            } finally {
+                                    return ElevatedButton(
+                                      onPressed:
+                                          (isLoadingReject || isAnyLoading)
+                                          ? null
+                                          : () async {
                                               controller.setButtonLoading(
-                                                  'reject_review', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(
-                                          255, 238, 20, 20),
-                                    ),
-                                    child: isLoadingReject
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .reject,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoadingClose = controller
-                                          .buttonLoaders['close_review'] ??
-                                      false;
-                                  final isAnyLoading = controller
-                                      .buttonLoaders.values
-                                      .any((loading) => loading == true);
+                                                'reject_review',
+                                                true,
+                                              );
+                                              try {
+                                                showActionPopup(
+                                                  context,
+                                                  "Reject",
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'reject_review',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          238,
+                                          20,
+                                          20,
+                                        ),
+                                      ),
+                                      child: isLoadingReject
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.reject,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoadingClose =
+                                        controller
+                                            .buttonLoaders['close_review'] ??
+                                        false;
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading == true);
 
-                                  return ElevatedButton(
-                                    onPressed: (isLoadingClose || isAnyLoading)
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'close_review', true);
-                                            try {
-                                              controller.chancelButton(context);
-                                            } finally {
+                                    return ElevatedButton(
+                                      onPressed:
+                                          (isLoadingClose || isAnyLoading)
+                                          ? null
+                                          : () async {
                                               controller.setButtonLoading(
-                                                  'close_review', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey,
-                                    ),
-                                    child: isLoadingClose
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.black,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!.close,
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                        ],
+                                                'close_review',
+                                                true,
+                                              );
+                                              try {
+                                                controller.closeField();
+                                                controller.chancelButton(
+                                                  context,
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'close_review',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.grey,
+                                      ),
+                                      child: isLoadingClose
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.black,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.close,
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 12
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                  // APPROVAL SECTION
-                  if (!controller.isEnable.value &&
-                      widget.mileageId!.stepType == "Approval")
+                    // APPROVAL SECTION
+                    if (!controller.isEnable.value &&
+                        widget.mileageId!.stepType == "Approval")
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller.buttonLoaders['approve'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'approve',
+                                                true,
+                                              );
+                                              try {
+                                                showActionPopup(
+                                                  context,
+                                                  "Approve",
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'approve',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          30,
+                                          117,
+                                          3,
+                                        ),
+                                      ),
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.approvals,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller
+                                            .buttonLoaders['reject_approval'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'reject_approval',
+                                                true,
+                                              );
+                                              try {
+                                                showActionPopup(
+                                                  context,
+                                                  "Reject",
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'reject_approval',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          238,
+                                          20,
+                                          20,
+                                        ),
+                                      ),
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.reject,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller.buttonLoaders['escalate'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'escalate',
+                                                true,
+                                              );
+                                              try {
+                                                showActionPopup(
+                                                  context,
+                                                  "Escalate",
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'escalate',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          3,
+                                          20,
+                                          117,
+                                        ),
+                                      ),
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.escalate,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Obx(() {
+                                    final isLoading =
+                                        controller
+                                            .buttonLoaders['close_approval'] ??
+                                        false;
+                                    return ElevatedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : () async {
+                                              controller.setButtonLoading(
+                                                'close_approval',
+                                                true,
+                                              );
+                                              try {
+                                                controller.closeField();
+                                                controller.chancelButton(
+                                                  context,
+                                                );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'close_approval',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.grey,
+                                      ),
+                                      child: isLoading
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.black,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.close,
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                  ] else ...[
+                    // 🚨 ELSE: When mileageId is NULL
                     Positioned(
                       left: 16,
                       right: 16,
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 40,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoading =
-                                      controller.buttonLoaders['approve'] ??
-                                          false;
-                                  return ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'approve', true);
-                                            try {
-                                              showActionPopup(
-                                                  context, "Approve");
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'approve', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          const Color.fromARGB(255, 30, 117, 3),
-                                    ),
-                                    child: isLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .approvals,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoading = controller
-                                          .buttonLoaders['reject_approval'] ??
-                                      false;
-                                  return ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'reject_approval', true);
-                                            try {
-                                              showActionPopup(
-                                                  context, "Reject");
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'reject_approval', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(
-                                          255, 238, 20, 20),
-                                    ),
-                                    child: isLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .reject,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoading =
-                                      controller.buttonLoaders['escalate'] ??
-                                          false;
-                                  return ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'escalate', true);
-                                            try {
-                                              showActionPopup(
-                                                  context, "Escalate");
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'escalate', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          const Color.fromARGB(255, 3, 20, 117),
-                                    ),
-                                    child: isLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .escalate,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                  );
-                                }),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Obx(() {
-                                  final isLoading = controller
-                                          .buttonLoaders['close_approval'] ??
-                                      false;
-                                  return ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () async {
-                                            controller.setButtonLoading(
-                                                'close_approval', true);
-                                            try {
-                                              controller.chancelButton(context);
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'close_approval', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey,
-                                    ),
-                                    child: isLoading
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.black,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!.close,
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                ] else ...[
-                  // 🚨 ELSE: When mileageId is NULL
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 🔵 Submit Button with Loader
-                        Obx(() {
-                          final isSubmitLoading =
-                              controller.buttonLoaders['submit'] ?? false;
-                          final isAnyLoading = controller.buttonLoaders.values
-                              .any((loading) => loading);
+                          // 🔵 Submit Button with Loader
+                          Obx(() {
+                            final isSubmitLoading =
+                                controller.buttonLoaders['submit'] ?? false;
+                            final isAnyLoading = controller.buttonLoaders.values
+                                .any((loading) => loading);
 
-                          return ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
+                            return ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                backgroundColor: AppColors.gradientEnd,
                               ),
-                              backgroundColor: AppColors.gradientEnd,
-                            ),
-                            onPressed: (isSubmitLoading || isAnyLoading)
-                                ? null
-                                : () {
-                                    isSubmitAttempted = true;
-                                    if (_validateTrips()) {
-                                      controller.setButtonLoading(
-                                          'submit', true);
-                                      controller
-                                          .submitMileageExpense(
-                                              context, true, false, null, null)
-                                          .whenComplete(() {
+                              onPressed: (isSubmitLoading || isAnyLoading)
+                                  ? null
+                                  : () {
+                                      isSubmitAttempted = true;
+                                      if (_validateTrips()) {
                                         controller.setButtonLoading(
-                                            'submit', false);
-                                      });
-                                    }
-                                  },
-                            child: isSubmitLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2)
-                                : Text(
-                                    AppLocalizations.of(context)!.submit,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                                          'submit',
+                                          true,
+                                        );
+                                        controller
+                                            .submitMileageExpense(
+                                              context,
+                                              true,
+                                              false,
+                                              null,
+                                              null,
+                                            )
+                                            .whenComplete(() {
+                                              controller.setButtonLoading(
+                                                'submit',
+                                                false,
+                                              );
+                                            });
+                                      }
+                                    },
+                              child: isSubmitLoading
+                                  ? const CircularProgressIndicator(
                                       color: Colors.white,
+                                      strokeWidth: 2,
+                                    )
+                                  : Text(
+                                      AppLocalizations.of(context)!.submit,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                          );
-                        }),
-                        const SizedBox(height: 10),
+                            );
+                          }),
+                          const SizedBox(height: 10),
 
-                        // 🟢 Save and Cancel Buttons
-                        Row(
-                          children: [
-                            // 🟢 Save Button with Loader
-                            Expanded(
-                              child: Obx(() {
-                                final isSaveLoading =
-                                    controller.buttonLoaders['save'] ?? false;
-                                final isAnyLoading = controller
-                                    .buttonLoaders.values
-                                    .any((loading) => loading);
+                          // 🟢 Save and Cancel Buttons
+                          Row(
+                            children: [
+                              // 🟢 Save Button with Loader
+                              Expanded(
+                                child: Obx(() {
+                                  final isSaveLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders
+                                      .values
+                                      .any((loading) => loading);
 
-                                return ElevatedButton(
+                                  return ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green[100],
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                    ),
+                                    onPressed: (isSaveLoading || isAnyLoading)
+                                        ? null
+                                        : () {
+                                            isSubmitAttempted = true;
+                                            if (_validateTrips()) {
+                                              controller.setButtonLoading(
+                                                'save',
+                                                true,
+                                              );
+                                              controller
+                                                  .submitMileageExpense(
+                                                    context,
+                                                    false,
+                                                    false,
+                                                    null,
+                                                    null,
+                                                  )
+                                                  .whenComplete(() {
+                                                    controller.setButtonLoading(
+                                                      'save',
+                                                      false,
+                                                    );
+                                                  });
+                                            }
+                                          },
+                                    child: isSaveLoading
+                                        ? const CircularProgressIndicator(
+                                            color: Colors.green,
+                                            strokeWidth: 2,
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(context)!.save,
+                                            style: const TextStyle(
+                                              color: Colors.green,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(
+                                width: 12,
+                              ), // Space between buttons
+                              // ⚪ Cancel Button (No loader needed)
+                              Expanded(
+                                child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green[100],
+                                    backgroundColor: Colors.grey.shade400,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                   ),
-                                  onPressed: (isSaveLoading || isAnyLoading)
-                                      ? null
-                                      : () {
-                                          isSubmitAttempted = true;
-                                          if (_validateTrips()) {
-                                            controller.setButtonLoading(
-                                                'save', true);
-                                            controller
-                                                .submitMileageExpense(context,
-                                                    false, false, null, null)
-                                                .whenComplete(() {
-                                              controller.setButtonLoading(
-                                                  'save', false);
-                                            });
-                                          }
-                                        },
-                                  child: isSaveLoading
-                                      ? const CircularProgressIndicator(
-                                          color: Colors.green, strokeWidth: 2)
-                                      : Text(
-                                          AppLocalizations.of(context)!.save,
-                                          style: const TextStyle(
-                                              color: Colors.green),
-                                        ),
-                                );
-                              }),
-                            ),
-                            const SizedBox(width: 12), // Space between buttons
-
-                            // ⚪ Cancel Button (No loader needed)
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade400,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
+                                  onPressed: () {
+                                    if (controller.isEnable.value) {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.dashboard_Main,
+                                      );
+                                    } else {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.generalExpense,
+                                      );
+                                    }
+                                  },
+                                  child: Text(
+                                    AppLocalizations.of(context)!.cancel,
                                   ),
                                 ),
-                                onPressed: () {
-                                  if (controller.isEnable.value) {
-                                    Navigator.pushNamed(
-                                        context, AppRoutes.dashboard_Main);
-                                  } else {
-                                    Navigator.pushNamed(
-                                        context, AppRoutes.generalExpense);
-                                  }
-                                },
-                                child:
-                                    Text(AppLocalizations.of(context)!.cancel),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  )
+                  ],
                 ],
-              ],
-            )),
+              ),
+            ),
+                // const SizedBox(height: 26),
           ],
         ),
       ),
@@ -1775,7 +2106,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                           rowBuilder: (user, searchQuery) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
                               child: Row(
                                 children: [
                                   Expanded(child: Text(user.userName)),
@@ -1798,8 +2131,9 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                       controller: commentController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText:
-                            AppLocalizations.of(context)!.enterCommentHere,
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
@@ -1847,9 +2181,8 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(
-                                child: SkeletonLoaderPage(),
-                              ),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
                             final success = await controller.postApprovalAction(
@@ -1860,8 +2193,10 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             );
 
                             // Hide the loading indicator
-                            if (Navigator.of(context, rootNavigator: true)
-                                .canPop()) {
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
@@ -1869,12 +2204,15 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
 
                             if (success) {
                               Navigator.pushNamed(
-                                  context, AppRoutes.approvalDashboard);
+                                context,
+                                AppRoutes.approvalDashboard,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Failed to submit action')),
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -1886,6 +2224,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                         ),
                       ],
                     ),
+                     const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -1936,10 +2275,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                 const SizedBox(height: 4),
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
                   softWrap: true,
                   textAlign: TextAlign.center,
                 ),

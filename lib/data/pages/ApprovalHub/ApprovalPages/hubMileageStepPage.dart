@@ -8,12 +8,11 @@ import '../../screen/widget/router/router.dart';
 import 'hubMileage/hubMileage_1.dart';
 import 'hubMileage/hubMileage_2.dart';
 
-
 class HubMileageStepForm extends StatefulWidget {
   final ExpenseModelMileage mileageId;
 
   const HubMileageStepForm({Key? key, required this.mileageId})
-      : super(key: key);
+    : super(key: key);
 
   /// ✅ Static method to build any individual step globally
   static Widget buildStep(int step, ExpenseModelMileage mileageId) {
@@ -55,7 +54,7 @@ class _HubMileageStepFormState extends State<HubMileageStepForm> {
 
   @override
   Widget build(BuildContext context) {
-   return WillPopScope(
+    return WillPopScope(
       onWillPop: () async {
         controller.clearFormFields();
         controller.isEnable.value = false;
@@ -63,34 +62,37 @@ class _HubMileageStepFormState extends State<HubMileageStepForm> {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         return true;
       },
-      child:  Scaffold(
-  
-      body: Column(
-        children: [
-          Expanded(
-            child: HubMileageStepForm.buildStep(currentStep, widget.mileageId),
+      child: Scaffold(
+        extendBody: true,
+        body: HubMileageStepForm.buildStep(currentStep, widget.mileageId),
+        bottomNavigationBar: BottomAppBar(
+    color: Colors.transparent,        // remove background
+  elevation: 0,                     // remove shadow
+  surfaceTintColor: Colors.transparent,// 👈 For Material3 transparency
+  child: Padding(
+    padding: const EdgeInsets.all(0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // if (currentStep > 0)
+        //   ElevatedButton(
+        //     onPressed: _goToPreviousStep,
+        //     child: Text(AppLocalizations.of(context)!.back),
+        //   )
+        // else
+        //   const SizedBox(width: 80), // Placeholder for spacing
+
+        if (currentStep < 1)
+          ElevatedButton(
+            onPressed: _goToNextStep,
+            child: Text(AppLocalizations.of(context)!.next),
           ),
-          Padding(
-            padding: const EdgeInsets.all(0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [ 
-                if (currentStep > 0)
-                  ElevatedButton(
-                    onPressed: _goToPreviousStep,
-                    child:  Text(AppLocalizations.of(context)!.back),
-                  ),
-                  if(currentStep == 0 )
-                  
-                ElevatedButton(
-                  onPressed: _goToNextStep,
-                  child: Text(AppLocalizations.of(context)!.next),
-                ),
-              ],
-            ),
-          ),
-        ],
+      ],
+    ),
+  ),
+),
+
       ),
-   ));
+    );
   }
 }

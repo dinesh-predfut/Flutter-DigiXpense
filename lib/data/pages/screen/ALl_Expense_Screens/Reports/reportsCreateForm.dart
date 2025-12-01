@@ -176,28 +176,31 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
 
    return WillPopScope(
   onWillPop: () async {
+        if (!isEditableField) {
+      reportModel.resetForm();
+      return true;
+    }
+
     final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Form'),
-        content: const Text(
-          'You will lose any unsaved data. Do you want to exit?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // Stay here
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Confirm exit
-            child: const Text(
-              'Yes',
-              style: TextStyle(color: Colors.red),
+          context: context,
+          builder: (context) => AlertDialog(
+            title:  Text(AppLocalizations.of(context)!.exitForm),
+            content:  Text(
+              AppLocalizations.of(context)!.exitWarning ,
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child:  Text(AppLocalizations.of(context)!.cancel),
+              ),
+               TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(true), // Confirm exit
+                child:  Text(AppLocalizations.of(context)!.ok, style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
 
     if (shouldExit ?? false) {
       reportModel.resetForm();
@@ -315,12 +318,12 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                   _buildTextField(
                     label:  AppLocalizations.of(context)!.tags,
                     hint:  AppLocalizations.of(context)!.enterTags,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return  AppLocalizations.of(context)!.fieldRequired;
-                      }
-                      return null;
-                    },
+                    // validator: (value) {
+                    //   if (value == null || value.isEmpty) {
+                    //     return  AppLocalizations.of(context)!.fieldRequired;
+                    //   }
+                    //   return null;
+                    // },
                     onChanged: (value) => reportModel.updateTags(value),
                     controller: reportModel.tags,
                     isEditable: isEditableField,
@@ -533,6 +536,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 100,)
                 ],
               ),
             ),
@@ -616,24 +620,43 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                         const SizedBox(height: 16),
                         if (rule.availableColumns.isNotEmpty ||
                             widget.existingReport != null)
-                          CustomDropdown(
-                            labelText: 'Column',
-                            items: rule.availableColumns,
-                            value: rule.column,
-                            onChanged: isEditableField
-                                ? (value) {
-                                    // if (widget.existingReport != null) {
-                                    //   reportModel.selectTableForFilter(
-                                    //       groupIndex, ruleIndex, rule.table);
-                                    // }
-                                    if (value != null) {
-                                      reportModel.updateFilterRule(groupIndex,
-                                          ruleIndex, 'column', value);
-                                    }
-                                  }
-                                : null,
-                            isEditable: isEditableField,
-                          ),
+const SizedBox(height: 16),
+
+Builder(
+  builder: (context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Ensure any model updates happen after build
+      if (rule.availableColumns.isEmpty &&
+          widget.existingReport == null) {
+        // Do nothing
+      }
+    });
+
+    if (rule.availableColumns.isNotEmpty ||
+        widget.existingReport != null) {
+      return CustomDropdown(
+        labelText: 'Column',
+        items: rule.availableColumns,
+        value: rule.column,
+        onChanged: isEditableField
+            ? (value) {
+                if (widget.existingReport != null) {
+                  reportModel.selectTableForFilter(
+                      groupIndex, ruleIndex, rule.table);
+                }
+                if (value != null) {
+                  reportModel.updateFilterRule(
+                      groupIndex, ruleIndex, 'column', value);
+                }
+              }
+            : null,
+        isEditable: isEditableField,
+      );
+    }
+
+    return SizedBox.shrink();
+  },
+),
                         if (rule.column.isNotEmpty) const SizedBox(height: 16),
                         if (rule.column.isNotEmpty)
                           CustomDropdown(
@@ -644,6 +667,9 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                             onChanged: isEditableField
                                 ? (value) {
                                     if (value != null) {
+                                       print("Selected condition: $value");
+            print("Available conditions: ${rule.conditionItems}");
+            print("Current rule.condition: ${rule.condition}");
                                       reportModel.updateFilterRule(groupIndex,
                                           ruleIndex, 'condition', value);
                                     }

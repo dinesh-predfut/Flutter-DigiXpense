@@ -24,7 +24,8 @@ class MileageFirstFrom extends StatefulWidget {
 class _MileageFirstFromState extends State<MileageFirstFrom>
     with SingleTickerProviderStateMixin {
   final controller = Get.put(Controller());
-  late Future<List<ExpenseHistory>> historyFuture;
+  Future<List<ExpenseHistory>>? historyFuture;
+  String? statusApproval;
   bool _showProjectError = false;
   bool allowMultSelect = false;
   String selectedProject = '';
@@ -39,11 +40,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
     final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
-
+    controller.fetchMileageRates();
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await controller.fetchProjectName();
-      await controller.fetchMileageRates();
+
       await controller.configuration();
       _loadSettings();
       loadAndAppendCashAdvanceList();
@@ -73,13 +74,16 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       final formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
+      controller.employeeName.text = expense.employeeName;
+
       controller.expenseID = expense.expenseId;
       controller.cashAdvReqIds = expense.cashAdvReqId;
+      statusApproval = expense.approvalStatus;
       controller.recID = expense.recId ?? 0; // Use 0 as fallback if null
       // controller.workitemrecid = expense.workitemRecId!;
       // controller.mileageVehicleName.text = expense.vehicalType ?? '';
       controller.projectIdController.text = expense.projectId;
-      // controller.mileageVehicleID.text = expense.mileageRateId;
+      controller.mileageVehicleID.text = expense.mileageRateId;
       controller.mileagDateController.text = formattedDate;
       controller.calculatedAmountINR = expense.totalAmountReporting;
       // final matchingVehicle = controller.vehicleTypes.firstWhere(
@@ -121,8 +125,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
             );
             controller.tripControllers.add(
               TextEditingController(
-                  text: travelPoints
-                      .first.toLocation), // Destination of first trip
+                text: travelPoints.first.toLocation,
+              ), // Destination of first trip
             );
             print("✅ Round trip detected. Only one Start-End pair created.");
           } else {
@@ -162,7 +166,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
         controller.cashAdvReqIds; // Replace with actual backend response
     print("preloadCashAdvanceSelections$backendSelectedIds");
     controller.preloadCashAdvanceSelections(
-        controller.cashAdvanceListDropDown, backendSelectedIds);
+      controller.cashAdvanceListDropDown,
+      backendSelectedIds,
+    );
   }
 
   Future<void> loadAndAppendCashAdvanceList() async {
@@ -231,12 +237,16 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       // controller.submitMileage();
       // debugPrint("✅ mileageId received: ${widget.mileageId.toString()}");
 
-      Navigator.pushNamed(context, AppRoutes.mileageExpense, arguments: {
-        'isEditMode': widget.isReadOnly,
-        'mileageId': widget.mileageId,
-      });
+      Navigator.pushNamed(
+        context,
+        AppRoutes.mileageExpense,
+        arguments: {
+          'isEditMode': widget.isReadOnly,
+          'mileageId': widget.mileageId,
+        },
+      );
       // Navigator.pushNamed(context, AppRoutes.mileageExpense);
-    } 
+    }
   }
   // @override
   // void dispose() {
@@ -261,167 +271,247 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
     print("themeCOlor$primaryColor");
- return WillPopScope(
-  onWillPop: () async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Form'),
-        content: const Text(
-          'You will lose any unsaved data. Do you want to exit?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // Stay on page
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Confirm exit
-            child: const Text(
-              'Yes',
-              style: TextStyle(color: Colors.red), // Make it look like a warning
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldExit ?? false) {
-      controller.resetFieldsMileage();
-      controller.clearFormFieldsPerdiem();
-      // ignore: use_build_context_synchronously
-      Navigator.pop(context); // ✅ Pop only if user confirmed
-      return true;
+    Color buttonColor;
+    switch (statusApproval) {
+      case 'Approved':
+        buttonColor = Colors.green;
+        break;
+      case 'Rejected':
+        buttonColor = Colors.red;
+        break;
+      case 'Pending':
+        buttonColor = Colors.orange;
+        break;
+      case "Created":
+        buttonColor = Colors.blue;
+        break;
+      default:
+        buttonColor = Colors.grey;
     }
+    return WillPopScope(
+      onWillPop: () async {
+        if (!controller.isEnable.value) {
+          // 🚀 If not enabled, just allow back navigation directly
+          controller.resetFieldsMileage();
+          controller.clearFormFieldsPerdiem();
+          return true;
+        }
 
-    return false; // stay on page
-  },
-        child: Scaffold(
-            appBar: AppBar(
-              backgroundColor: primaryColor, // Deep blue
-
-              elevation: 0,
-              leading: const BackButton(color: Colors.white),
-              centerTitle: true,
-              title:  Text(
-                AppLocalizations.of(context)!.mileageRegistration,
-                style:
-                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.exitForm),
+            content: Text(AppLocalizations.of(context)!.exitWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
-              // actions: [
-              //   if (widget.mileageId != null &&
-              //       widget.mileageId!.approvalStatus != "Cancelled" &&
-              //       widget.mileageId!.approvalStatus != "Approved")
-              //     IconButton(
-              //       icon: Icon(
-              //         controller.isEnable.value
-              //             ? Icons.remove_red_eye
-              //             : Icons.edit_document,
-              //         color: Colors.white,
-              //       ),
-              //       onPressed: () {
-              //         setState(() {
-              //           controller.isEnable.value = !controller.isEnable.value;
-              //         });
-              //       },
-              //     ),
-              // ],
-            ),
-            body: Obx(() {
-              return controller.isLoadingGE2.value
-                  ? const SkeletonLoaderPage()
-                  : Column(
-                      children: [
-                        const SizedBox(height: 40),
-                        Expanded(
-                          child: Container(
-                            height: 300,
-                            width: double.infinity,
-                            decoration: const BoxDecoration(
-                              // color: Colors.white,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(30),
-                                topRight: Radius.circular(30),
-                              ),
-                            ),
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                   Text(
-                                    AppLocalizations.of(context)!.mileageDetails,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  if (widget.mileageId != null)
-                                    buildTextField(
-                                        "${AppLocalizations.of(context)!.expenseId}*",
-                                        controller.expenseIdController,
-                                        false),
-                                  if (widget.mileageId != null)
-                                    buildTextField(
-                                        "${AppLocalizations.of(context)!.employeeId} *",
-                                        controller.employeeIdController,
-                                        false),
-                                  buildDateField("${AppLocalizations.of(context)!.mileageDate} *",
-                                      controller.mileagDateController),
-                                  // Project Dropdown
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(true), // Confirm exit
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
 
-                                  // SearchableMultiColumnDropdownField<Project>(
-                                  //   labelText: 'Project *',
-                                  //   enabled: controller.isEnable.value,
-                                  //   columnHeaders: const [
-                                  //     'Project Name',
-                                  //     'Project Id'
-                                  //   ],
-                                  //   items: controller.project,
-                                  //   selectedValue: controller.selectedProject,
-                                  //   searchValue: (proj) =>
-                                  //       '${proj.name} ${proj.code}',
-                                  //   displayText: (proj) => proj.code,
-                                  //   onChanged: (proj) {
-                                  //     setState(() {
-                                  //       controller.selectedProject = proj;
-                                  //       controller.projectIdController.text =
-                                  //           proj!.code;
-                                  //       projectError =
-                                  //           null; // Clear error when user selects
-                                  //     });
-                                  //     controller.fetchExpenseCategory();
-                                  //   },
-                                  //   controller: controller.projectIdController,
-                                  //   rowBuilder: (proj, searchQuery) {
-                                  //     return Padding(
-                                  //       padding: const EdgeInsets.symmetric(
-                                  //           vertical: 12, horizontal: 16),
-                                  //       child: Row(
-                                  //         children: [
-                                  //           Expanded(child: Text(proj.name)),
-                                  //           Expanded(child: Text(proj.code)),
-                                  //         ],
-                                  //       ),
-                                  //     );
-                                  //   },
-                                  // ),
-                                  // if (projectError != null)
-                                  //   Padding(
-                                  //     padding: const EdgeInsets.only(
-                                  //         top: 4, left: 12),
-                                  //     child: Text(
-                                  //       projectError!,
-                                  //       style: const TextStyle(
-                                  //           color: Colors.red, fontSize: 12),
-                                  //     ),
-                                  //   ),
-                                  ...controller.configList
-                                      .where((field) =>
-                                          field['FieldName'] == 'Project Id' &&
-                                          field['FieldName'] !=
-                                              'Location') // 👈 filter only Project Id
-                                      .map((field) {
+        if (shouldExit ?? false) {
+          controller.resetFieldsMileage();
+          controller.clearFormFieldsPerdiem();
+          // ignore: use_build_context_synchronously
+          Navigator.pop(context); // ✅ Pop only if user confirmed
+          return true;
+        }
+
+        return false; // stay on page
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: primaryColor, // Deep blue
+
+          elevation: 0,
+          leading: const BackButton(color: Colors.white),
+          centerTitle: true,
+          title: Text(
+            AppLocalizations.of(context)!.mileageRegistration,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          // actions: [
+          //   if (widget.mileageId != null &&
+          //       widget.mileageId!.approvalStatus != "Cancelled" &&
+          //       widget.mileageId!.approvalStatus != "Approved")
+          //     IconButton(
+          //       icon: Icon(
+          //         controller.isEnable.value
+          //             ? Icons.remove_red_eye
+          //             : Icons.edit_document,
+          //         color: Colors.white,
+          //       ),
+          //       onPressed: () {
+          //         setState(() {
+          //           controller.isEnable.value = !controller.isEnable.value;
+          //         });
+          //       },
+          //     ),
+          // ],
+        ),
+        body: Obx(() {
+          return controller.isLoadingGE2.value
+              ? const SkeletonLoaderPage()
+              : Column(
+                  children: [
+                    // const SizedBox(height: 40),
+                    Expanded(
+                      child: Container(
+                        // height: 300,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          // color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.mileageId != null)
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        debugPrint("Status: $statusApproval");
+                                      },
+                                      icon: const Icon(
+                                        Icons.donut_large,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                      label: Text(
+                                        statusApproval!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: buttonColor,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        minimumSize: const Size(
+                                          0,
+                                          32,
+                                        ), // small height
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              Text(
+                                AppLocalizations.of(context)!.mileageDetails,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (widget.mileageId != null)
+                                buildTextField(
+                                  AppLocalizations.of(context)!.expenseId,
+                                  controller.expenseIdController,
+                                  false,
+                                ),
+
+                              if (widget.mileageId != null)
+                                buildTextField(
+                                  "${AppLocalizations.of(context)!.employeeId} *",
+                                  controller.employeeIdController,
+                                  false,
+                                ),
+                              if (widget.mileageId != null)
+                                buildTextField(
+                                  "${AppLocalizations.of(context)!.employeeName} *",
+                                  controller.employeeName,
+                                  false,
+                                ),
+                              buildDateField(
+                                "${AppLocalizations.of(context)!.mileageDate} *",
+                                controller.mileagDateController,
+                              ),
+                              // Project Dropdown
+
+                              // SearchableMultiColumnDropdownField<Project>(
+                              //   labelText: 'Project *',
+                              //   enabled: controller.isEnable.value,
+                              //   columnHeaders: const [
+                              //     'Project Name',
+                              //     'Project Id'
+                              //   ],
+                              //   items: controller.project,
+                              //   selectedValue: controller.selectedProject,
+                              //   searchValue: (proj) =>
+                              //       '${proj.name} ${proj.code}',
+                              //   displayText: (proj) => proj.code,
+                              //   onChanged: (proj) {
+                              //     setState(() {
+                              //       controller.selectedProject = proj;
+                              //       controller.projectIdController.text =
+                              //           proj!.code;
+                              //       projectError =
+                              //           null; // Clear error when user selects
+                              //     });
+                              //     controller.fetchExpenseCategory();
+                              //   },
+                              //   controller: controller.projectIdController,
+                              //   rowBuilder: (proj, searchQuery) {
+                              //     return Padding(
+                              //       padding: const EdgeInsets.symmetric(
+                              //           vertical: 12, horizontal: 16),
+                              //       child: Row(
+                              //         children: [
+                              //           Expanded(child: Text(proj.name)),
+                              //           Expanded(child: Text(proj.code)),
+                              //         ],
+                              //       ),
+                              //     );
+                              //   },
+                              // ),
+                              // if (projectError != null)
+                              //   Padding(
+                              //     padding: const EdgeInsets.only(
+                              //         top: 4, left: 12),
+                              //     child: Text(
+                              //       projectError!,
+                              //       style: const TextStyle(
+                              //           color: Colors.red, fontSize: 12),
+                              //     ),
+                              //   ),
+                              ...controller.configList
+                                  .where(
+                                    (field) =>
+                                        field['FieldName'] == 'Project Id' &&
+                                        field['IsEnabled'] == true,
+                                  ) // 👈 filter only Project Id
+                                  .map((field) {
                                     final String label = field['FieldName'];
                                     final bool isMandatory =
                                         field['IsMandatory'] ?? false;
@@ -434,14 +524,17 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                           CrossAxisAlignment.start,
                                       children: [
                                         SearchableMultiColumnDropdownField<
-                                            Project>(
+                                          Project
+                                        >(
                                           labelText:
                                               '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
                                           columnHeaders: [
-                                            AppLocalizations.of(context)!
-                                                .projectName,
-                                            AppLocalizations.of(context)!
-                                                .projectId
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.projectName,
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.projectId,
                                           ],
                                           enabled: controller.isEnable.value,
                                           controller:
@@ -455,8 +548,10 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                           onChanged: (proj) {
                                             setState(() {
                                               controller.selectedProject = proj;
-                                              controller.projectIdController
-                                                  .text = proj!.code;
+                                              controller
+                                                      .projectIdController
+                                                      .text =
+                                                  proj!.code;
                                               if (proj != null) {
                                                 _showProjectError = false;
                                               }
@@ -464,71 +559,38 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                             // controller.fetchExpenseCategory();
                                           },
                                           rowBuilder: (proj, searchQuery) {
-                                            Widget highlight(String text) {
-                                              final lowerQuery =
-                                                  searchQuery.toLowerCase();
-                                              final lowerText =
-                                                  text.toLowerCase();
-                                              final start =
-                                                  lowerText.indexOf(lowerQuery);
-                                              if (start == -1 ||
-                                                  searchQuery.isEmpty)
-                                                return Text(text);
-
-                                              final end =
-                                                  start + searchQuery.length;
-                                              return RichText(
-                                                text: TextSpan(
-                                                  children: [
-                                                    TextSpan(
-                                                      text: text.substring(
-                                                          0, start),
-                                                     
-                                                    ),
-                                                    TextSpan(
-                                                      text: text.substring(
-                                                          start, end),
-                                                      style: const TextStyle(
-                                                        color: Colors.blue,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text: text.substring(end),
-                                                     
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }
-
                                             return Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 16),
+                                                    vertical: 12,
+                                                    horizontal: 16,
+                                                  ),
                                               child: Row(
                                                 children: [
                                                   Expanded(
-                                                      child:
-                                                          highlight(proj.name)),
+                                                    child: Text(proj.name),
+                                                  ),
                                                   Expanded(
-                                                      child:
-                                                          highlight(proj.code)),
+                                                    child: Text(proj.code),
+                                                  ),
                                                 ],
                                               ),
                                             );
                                           },
                                         ),
                                         if (_showProjectError)
-                                           Padding(
-                                            padding: const EdgeInsets.only(top: 4),
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
                                             child: Text(
-                                              AppLocalizations.of(context)!.pleaseSelectProject,
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.pleaseSelectProject,
                                               style: const TextStyle(
-                                                  color: Colors.red,
-                                                  fontSize: 12),
+                                                color: Colors.red,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           ),
                                       ],
@@ -543,201 +605,224 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                         const SizedBox(height: 16),
                                       ],
                                     );
-                                  }).toList(),
-                                  // const SizedBox(height: 10),
-                                  Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        MultiSelectMultiColumnDropdownField<
-                                            CashAdvanceDropDownModel>(
-                                          labelText: AppLocalizations.of(context)!.cashAdvanceRequest,
-                                          items: controller
-                                              .cashAdvanceListDropDown,
-                                          isMultiSelect:
-                                              allowMultSelect ?? false,
-                                          selectedValue:
-                                              controller.singleSelectedItem,
-                                          selectedValues:
-                                              controller.multiSelectedItems,
-                                          enabled: controller.isEnable.value,
-                                          searchValue: (proj) =>
-                                              proj.cashAdvanceReqId,
-                                          displayText: (proj) =>
-                                              proj.cashAdvanceReqId,
-                                          validator: (proj) => proj == null
-                                              ? AppLocalizations.of(context)!.pleaseSelectCashAdvanceField
-                                              : null,
-                                          onChanged: (item) {
-                                            controller.singleSelectedItem =
-                                                item; // ✅ update selected item
-                                          },
-                                          onMultiChanged: (items) {
-                                            controller.multiSelectedItems
-                                                .assignAll(
-                                                    items); // ✅ update list
-                                          },
-                                          columnHeaders:  [
-                                            AppLocalizations.of(context)!.requestId,
-                                            AppLocalizations.of(context)!.requestDate
-                                          ],
-                                          rowBuilder: (proj, searchQuery) {
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 16),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                      child: Text(proj
-                                                          .cashAdvanceReqId)),
-                                                  Expanded(
-                                                      child: Text(proj
-                                                          .requestDate
-                                                          .toString())),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ]),
-                                  const SizedBox(height: 14),
-                                  // Vehicle Type Dropdown
-                                  SearchableMultiColumnDropdownField<
-                                      VehicleType>(
-                                    labelText: '${AppLocalizations.of(context)!.mileageType} *',
-                                    enabled: controller.isEnable.value,
-                                    columnHeaders: const [
-                                      'ID',
-                                    ],
-                                    items: controller.vehicleTypes,
+                                  })
+                                  .toList(),
+                              // const SizedBox(height: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  MultiSelectMultiColumnDropdownField<
+                                    CashAdvanceDropDownModel
+                                  >(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.cashAdvanceRequest,
+                                    items: controller.cashAdvanceListDropDown,
+                                    isMultiSelect: allowMultSelect ?? false,
                                     selectedValue:
-                                        controller.selectedVehicleType,
-                                    searchValue: (vehicle) =>
-                                        '${vehicle.name} ${vehicle.mileageRateLines.first.mileageRate}',
-                                    displayText: (vehicle) => vehicle.id,
-                                    onChanged: (vehicle) {
-                                      setState(() {
-                                        controller.selectedVehicleType =
-                                            vehicle!;
-                                        controller.mileageVehicleName.text =
-                                            vehicle.name;
-                                        controller.mileageVehicleID.text =
-                                            vehicle.id;
-                                        vehicleError = null; // Clear error
-                                      });
-                                      controller.calculateAmount();
+                                        controller.singleSelectedItem,
+                                    selectedValues:
+                                        controller.multiSelectedItems,
+                                    enabled: controller.isEnable.value,
+                                    searchValue: (proj) =>
+                                        proj.cashAdvanceReqId,
+                                    displayText: (proj) =>
+                                        proj.cashAdvanceReqId,
+                                    validator: (proj) => proj == null
+                                        ? AppLocalizations.of(
+                                            context,
+                                          )!.pleaseSelectCashAdvanceField
+                                        : null,
+                                    onChanged: (item) {
+                                      controller.singleSelectedItem =
+                                          item; // ✅ update selected item
                                     },
-                                    controller: controller.mileageVehicleID,
-                                    rowBuilder: (vehicle, searchQuery) {
+                                    onMultiChanged: (items) {
+                                      controller.multiSelectedItems.assignAll(
+                                        items,
+                                      ); // ✅ update list
+                                    },
+                                    columnHeaders: [
+                                      AppLocalizations.of(context)!.requestId,
+                                      AppLocalizations.of(context)!.requestDate,
+                                    ],
+                                    rowBuilder: (proj, searchQuery) {
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 12, horizontal: 16),
+                                          vertical: 12,
+                                          horizontal: 16,
+                                        ),
                                         child: Row(
                                           children: [
-                                            Expanded(child: Text(vehicle.id)),
+                                            Expanded(
+                                              child: Text(
+                                                proj.cashAdvanceReqId,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                proj.requestDate.toString(),
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       );
                                     },
                                   ),
-                                  if (vehicleError != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                          top: 4, left: 12),
-                                      child: Text(
-                                        vehicleError!,
-                                        style: const TextStyle(
-                                            color: Colors.red, fontSize: 12),
-                                      ),
-                                    ),
-                                  const SizedBox(height: 14),
-                                  // if (widget.mileageId != null)
-                                  buildTextField("Vehicle ",
-                                      controller.mileageVehicleName, false),
-                                  const SizedBox(height: 24),
-                                  if (widget.mileageId != null)
-                                    _buildSection(
-                                      title: AppLocalizations.of(context)!.trackingHistory,
-                                      children: [
-                                        const SizedBox(height: 12),
-                                        FutureBuilder<List<ExpenseHistory>>(
-                                          future: historyFuture,
-                                          builder: (context, snapshot) {
-                                            if (snapshot.connectionState ==
-                                                ConnectionState.waiting) {
-                                              return const Center(
-                                                  child:
-                                                      CircularProgressIndicator());
-                                            }
-
-                                            if (snapshot.hasError) {
-                                              return Center(
-                                                  child: Text(
-                                                      'Error: ${snapshot.error}'));
-                                            }
-
-                                            final historyList = snapshot.data!;
-                                            if (historyList.isEmpty) {
-                                              return  Center(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(16),
-                                                  child: Text(
-                                                  AppLocalizations.of(context)!.noHistoryMessage,
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                        color: Colors.grey),
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                            return ListView.builder(
-                                              shrinkWrap: true,
-                                              physics:
-                                                  const NeverScrollableScrollPhysics(),
-                                              itemCount: historyList.length,
-                                              itemBuilder: (context, index) {
-                                                final item = historyList[index];
-                                                print("Trackingitem: $item");
-                                                return _buildTimelineItem(
-                                                  item,
-                                                  index ==
-                                                      historyList.length - 1,
-                                                );
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ElevatedButton(
-                                    onPressed: handleSubmit,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.gradientEnd,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 14),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(30)),
-                                      minimumSize:
-                                          const Size(double.infinity, 50),
-                                    ),
-                                    child:  Text(
-                                     AppLocalizations.of(context)!.next,
-                                      style: const TextStyle(
-                                          fontSize: 16, color: Colors.white),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
                                 ],
                               ),
-                            ),
+                              const SizedBox(height: 14),
+                              // Vehicle Type Dropdown
+                              SearchableMultiColumnDropdownField<VehicleType>(
+                                labelText:
+                                    '${AppLocalizations.of(context)!.mileageType} *',
+                                enabled: controller.isEnable.value,
+                                columnHeaders: const ['ID'],
+                                items: controller.vehicleTypes,
+                                selectedValue: controller.selectedVehicleType,
+                                searchValue: (vehicle) =>
+                                    '${vehicle.name} ${vehicle.mileageRateLines.first.mileageRate}',
+                                displayText: (vehicle) => vehicle.id,
+                                onChanged: (vehicle) {
+                                  setState(() {
+                                    controller.selectedVehicleType = vehicle!;
+                                    controller.mileageVehicleName.text =
+                                        vehicle.name;
+                                    controller.mileageVehicleID.text =
+                                        vehicle.id;
+                                    vehicleError = null; // Clear error
+                                  });
+                                  controller.calculateAmount();
+                                },
+                                controller: controller.mileageVehicleID,
+                                rowBuilder: (vehicle, searchQuery) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: Text(vehicle.id)),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              if (vehicleError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 4,
+                                    left: 12,
+                                  ),
+                                  child: Text(
+                                    vehicleError!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 14),
+                              // if (widget.mileageId != null)
+                              buildTextField(
+                                "Vehicle ",
+                                controller.mileageVehicleName,
+                                false,
+                              ),
+                              const SizedBox(height: 24),
+                              if (widget.mileageId != null)
+                                _buildSection(
+                                  title: AppLocalizations.of(
+                                    context,
+                                  )!.trackingHistory,
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    FutureBuilder<List<ExpenseHistory>>(
+                                      future: historyFuture,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
+                                          );
+                                        }
+
+                                        if (snapshot.hasError) {
+                                          return Center(
+                                            child: Text(
+                                              'Error: ${snapshot.error}',
+                                            ),
+                                          );
+                                        }
+
+                                        final historyList = snapshot.data!;
+                                        if (historyList.isEmpty) {
+                                          return Center(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Text(
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.noHistoryMessage,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return ListView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: historyList.length,
+                                          itemBuilder: (context, index) {
+                                            final item = historyList[index];
+                                            print("Trackingitem: $item");
+                                            return _buildTimelineItem(
+                                              item,
+                                              index == historyList.length - 1,
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: handleSubmit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.gradientEnd,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  minimumSize: const Size(double.infinity, 50),
+                                ),
+                                child: Text(
+                                  AppLocalizations.of(context)!.next,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                           ),
                         ),
-                      ],
-                    );
-            })));
+                      ),
+                    ),
+                  ],
+                );
+        }),
+      ),
+    );
   }
 
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
@@ -760,8 +845,10 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -773,7 +860,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -788,8 +875,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
             title: Text(
               title,
@@ -804,10 +892,13 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),
@@ -816,8 +907,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   }
 
   Widget buildTextField(
-      String label, TextEditingController controller, bool? bool,
-      {int maxLines = 1, Widget? suffix}) {
+    String label,
+    TextEditingController controller,
+    bool? bool, {
+    int maxLines = 1,
+    Widget? suffix,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
@@ -850,7 +945,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           if (controllers.text.isNotEmpty) {
             try {
               initialDate =
-                  DateFormat('yyyy-MM-dd') // <-- Match your text format
+                  DateFormat('dd-MM-yyyy') // <-- Match your text format
                       .parseStrict(controllers.text.trim());
             } catch (e) {
               print("Invalid date in controllers.text: ${controllers.text}");
@@ -867,7 +962,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = DateFormat('dd-MMM-yyyy').format(picked);
+            controllers.text = DateFormat('dd-MM-yyyy').format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();
@@ -896,8 +991,10 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
         ),
       ),
     );

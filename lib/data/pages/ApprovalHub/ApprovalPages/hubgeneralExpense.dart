@@ -24,9 +24,11 @@ import '../../../../l10n/app_localizations.dart';
 class HubApprovalViewEditExpensePage extends StatefulWidget {
   final bool isReadOnly;
   final GESpeficExpense? items;
-  const HubApprovalViewEditExpensePage(
-      {Key? key, this.items, required this.isReadOnly})
-      : super(key: key);
+  const HubApprovalViewEditExpensePage({
+    Key? key,
+    this.items,
+    required this.isReadOnly,
+  }) : super(key: key);
 
   @override
   State<HubApprovalViewEditExpensePage> createState() =>
@@ -49,7 +51,7 @@ class _HubApprovalViewEditExpensePageState
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
   final controller = Get.put(Controller());
-  late Future<List<ExpenseHistory>> historyFuture;
+  Future<List<ExpenseHistory>>? historyFuture;
   String? selectedPaidTo;
   String? selectedPaidWith;
   bool _showHistory = false;
@@ -58,7 +60,13 @@ class _HubApprovalViewEditExpensePageState
   bool isEditable = false;
   // New state variables for itemize management
   int _itemizeCount = 1;
-
+  late final projectConfig;
+  late final taxGroupConfig;
+  late final taxAmountConfig;
+  late final isReimbursibleConfig;
+  late final isRefrenceIDConfig;
+  late final isBillableConfig;
+  late final isLocationConfig;
   late PageController _pageController;
   int _selectedItemizeIndex = 0;
   bool showItemizeDetails = true;
@@ -81,13 +89,17 @@ class _HubApprovalViewEditExpensePageState
     controller.currencyDropDown();
     controller.fetchExchangeRate();
     controller.fetchUsers();
-    _pageController = PageController(initialPage: controller.currentIndex.value);
+    controller.configuration();
+    controller.fetchExpenseDocImage(widget.items!.recId);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      controller.fetchExpenseDocImage(widget.items!.recId);
+      _pageController = PageController(
+        initialPage: controller.currentIndex.value,
+      );
     });
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
-    final formatted =
-        DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
+    final formatted = DateFormat(
+      'dd/MM/yyyy',
+    ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
     employeeName.text = widget.items!.employeeName!;
@@ -106,22 +118,33 @@ class _HubApprovalViewEditExpensePageState
     controller.amountINR.text = widget.items!.totalAmountReporting.toString();
     controller.expenseID = widget.items!.expenseId;
     controller.recID = widget.items!.recId;
-    if (widget.items!.stepType == "Approval") {
-      setState(() {
-        isEditable = false;
-      });
-    } else {
-      setState(() {
-        isEditable = true;
-      });
-    }
-    workitemrecid = widget.items!.workitemrecid!;
-    controller.currencyDropDowncontroller.text =
-        widget.items!.currency.toString();
 
-    // Initialize itemize controllers
-    _initializeItemizeControllers();
-    _loadSettings();
+    workitemrecid = widget.items!.workitemrecid!;
+    controller.currencyDropDowncontroller.text = widget.items!.currency
+        .toString();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Initialize itemize controllers
+      if (widget.items!.stepType == "Approval") {
+        setState(() {
+          isEditable = false;
+          controller.isEnable.value = false;
+        });
+      } else {
+        setState(() {
+          isEditable = true;
+          controller.isEnable.value = true;
+        });
+      }
+      _initializeItemizeControllers();
+      _loadSettings();
+          projectConfig = controller.getFieldConfig("Project Id");
+    taxGroupConfig = controller.getFieldConfig("Tax Group");
+    taxAmountConfig = controller.getFieldConfig("Tax Amount");
+    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
+    isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
+    isBillableConfig = controller.getFieldConfig("Is Billable");
+    isLocationConfig = controller.getFieldConfig("Location");
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -136,7 +159,7 @@ class _HubApprovalViewEditExpensePageState
       // setState(() => isLoading = false);
     }
   }
-
+  
   Future<void> _updateAllLineItems() async {
     final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
 
@@ -191,7 +214,7 @@ class _HubApprovalViewEditExpensePageState
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
       controller.quantity.text = item.quantity.toString();
-      controller.unitAmountView.text = item.unitPriceTrans.toString();
+      controller.unitPriceTrans.text = item.unitPriceTrans.toString();
       controller.lineAmount.text = item.lineAmountTrans.toString();
       controller.lineAmountINR.text = item.lineAmountReporting.toString();
       controller.taxAmount.text = item.taxAmount.toString();
@@ -275,10 +298,10 @@ class _HubApprovalViewEditExpensePageState
         // Initialize controller with default values
         newController.descriptionController.text = newItem.description ?? '';
         newController.quantity.text = newItem.quantity.toString();
-        newController.unitAmountView.text = newItem.unitPriceTrans.toString();
+        newController.unitPriceTrans.text = newItem.unitPriceTrans.toString();
         newController.lineAmount.text = newItem.lineAmountTrans.toString();
-        newController.lineAmountINR.text =
-            newItem.lineAmountReporting.toString();
+        newController.lineAmountINR.text = newItem.lineAmountReporting
+            .toString();
         newController.taxAmount.text = newItem.taxAmount.toString();
         newController.projectDropDowncontroller.text = newItem.projectId ?? '';
         newController.categoryController.text = newItem.expenseCategoryId;
@@ -296,11 +319,11 @@ class _HubApprovalViewEditExpensePageState
         }
 
         if (controller.expenseCategory.isNotEmpty) {
-          newController.selectedCategory =
-              controller.expenseCategory.firstWhere(
-            (c) => c.categoryId == newItem.expenseCategoryId,
-            orElse: () => controller.expenseCategory.first,
-          );
+          newController.selectedCategory = controller.expenseCategory
+              .firstWhere(
+                (c) => c.categoryId == newItem.expenseCategoryId,
+                orElse: () => controller.expenseCategory.first,
+              );
         }
 
         if (controller.unit.isNotEmpty) {
@@ -318,7 +341,8 @@ class _HubApprovalViewEditExpensePageState
         }
 
         debugPrint(
-            "Controller added with unit: ${newController.selectedunit?.name}");
+          "Controller added with unit: ${newController.selectedunit?.name}",
+        );
 
         // Add to controllers list (new reference for rebuild)
         itemizeControllers = List.from(itemizeControllers)..add(newController);
@@ -373,19 +397,65 @@ class _HubApprovalViewEditExpensePageState
       controller.isImageLoading.value = false;
     }
   }
+  String? _validateRequiredField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
+    if (isMandatory && (value.isEmpty || value.trim().isEmpty)) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    return null;
+  }
+   String? _validateNumericField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
+    if (isMandatory && value.isEmpty) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    if (value.isNotEmpty) {
+      final numericValue = double.tryParse(value);
+      if (numericValue == null) {
+        return '$fieldName ${AppLocalizations.of(context)!.requestError}';
+      }
+      if (numericValue < 0) {
+        return '$fieldName ${AppLocalizations.of(context)!.requestError}';
+      }
+    }
+    return null;
+  }
+
+  String? _validateDateField(String value, String fieldName, bool isMandatory) {
+    if (isMandatory && value.isEmpty) {
+      return '$fieldName ${AppLocalizations.of(context)!.fieldRequired}';
+    }
+    if (value.isNotEmpty) {
+      try {
+        DateFormat('dd/MM/yyyy').parseStrict(value);
+      } catch (e) {
+        return '$fieldName ${AppLocalizations.of(context)!.requestError}';
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-        onWillPop: () async {
-          controller.isEnable.value = false;
-          controller.isLoadingGE1.value = false;
-          controller.isApprovalEnable.value = false;
-          Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-          return true;
-        },
-        child: Scaffold(
-          body: Form(
+      onWillPop: () async {
+        controller.isEnable.value = false;
+        controller.isLoadingGE1.value = false;
+        controller.isApprovalEnable.value = false;
+        controller.clearFormFields();
+        controller.clearFormFieldsPerdiem();
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+        return true;
+      },
+      child: Scaffold(
+        body: Obx(() {
+          return Form(
             key: _formKey,
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(12),
@@ -398,119 +468,132 @@ class _HubApprovalViewEditExpensePageState
                         ? null
                         : () => _pickImage(ImageSource.gallery),
                     child: Container(
-                        width: MediaQuery.of(context).size.width *
-                            0.9, // 90% of screen width
-                        height: MediaQuery.of(context).size.height *
-                            0.3, // 30% of screen height
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.grey, // border color
-                            width: 2, // border thickness
-                          ),
-                          borderRadius: BorderRadius.circular(
-                              12), // optional rounded corners
+                      width:
+                          MediaQuery.of(context).size.width *
+                          0.9, // 90% of screen width
+                      height:
+                          MediaQuery.of(context).size.height *
+                          0.3, // 30% of screen height
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.grey, // border color
+                          width: 2, // border thickness
                         ),
-                        child: Obx(() {
-                          if (controller.imageFiles.isEmpty) {
-                            return Center(
-                              child: Text(AppLocalizations.of(context)!
-                                  .tapToUploadDocs),
-                            );
-                          } else {
-                            return Stack(
-                              children: [
-                                PageView.builder(
-                                  controller: _pageController,
-                                  itemCount: controller.imageFiles.length,
-                                  onPageChanged: (index) {
-                                    controller.currentIndex.value = index;
-                                  },
-                                  itemBuilder: (_, index) {
-                                    final file = controller.imageFiles[index];
-                                    return GestureDetector(
-                                      onTap: !controller.isEnable.value
-                                          ? null
-                                          : () => _showFullImage(file, index),
-                                      child: Container(
-                                        alignment: Alignment.center,
-                                        margin: const EdgeInsets.all(8),
-                                        width: 100,
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: Colors.deepPurple),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          image: DecorationImage(
-                                            image: FileImage(file),
-                                            fit: BoxFit.cover,
-                                          ),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ), // optional rounded corners
+                      ),
+                      child: Obx(() {
+                        if (controller.imageFiles.isEmpty) {
+                          return Center(
+                            child: Text(
+                              AppLocalizations.of(context)!.tapToUploadDocs,
+                            ),
+                          );
+                        } else {
+                          return Stack(
+                            children: [
+                              PageView.builder(
+                                controller: _pageController,
+                                itemCount: controller.imageFiles.length,
+                                onPageChanged: (index) {
+                                  controller.currentIndex.value = index;
+                                },
+                                itemBuilder: (_, index) {
+                                  final file = controller.imageFiles[index];
+                                  return GestureDetector(
+                                    onTap: () => _showFullImage(file, index),
+                                    child: Container(
+                                      alignment: Alignment.center,
+                                      margin: const EdgeInsets.all(8),
+                                      width: 100,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Colors.deepPurple,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        image: DecorationImage(
+                                          image: FileImage(file),
+                                          fit: BoxFit.cover,
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  );
+                                },
+                              ),
 
-                                Positioned(
-                        bottom: 40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Obx(() => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 18),
-                                ),
-                              )),
-                        ),
-                      ),
-                                // Positioned(
-                                //   top: 40,
-                                //   right: 20,
-                                //   child: IconButton(
-                                //     icon: const Icon(Icons.close,
-                                //         color: Colors.white),
-                                //     onPressed: () =>
-                                //         Navigator.pop(context),
-                                //   ),
-                                // ),
-                                if (controller.isEnable.value)
-                                  Positioned(
-                                    bottom: 16,
-                                    right: 16,
-                                    child: GestureDetector(
-                                      onTap: () =>
-                                          _pickImage(ImageSource.gallery),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.deepPurple,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: Colors.white, width: 2),
-                                        ),
-                                        padding: const EdgeInsets.all(8),
-                                        child: const Icon(
-                                          Icons.add,
+                              Positioned(
+                                bottom: 40,
+                                left: 0,
+                                right: 0,
+                                child: Center(
+                                  child: Obx(
+                                    () => Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.5),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                        style: const TextStyle(
                                           color: Colors.white,
-                                          size: 28,
+                                          fontSize: 18,
                                         ),
                                       ),
                                     ),
                                   ),
-                              ],
-                            );
-                          }
-                        })),
+                                ),
+                              ),
+                              // Positioned(
+                              //   top: 40,
+                              //   right: 20,
+                              //   child: IconButton(
+                              //     icon: const Icon(Icons.close,
+                              //         color: Colors.white),
+                              //     onPressed: () =>
+                              //         Navigator.pop(context),
+                              //   ),
+                              // ),
+                              if (controller.isEnable.value)
+                                Positioned(
+                                  bottom: 16,
+                                  right: 16,
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        _pickImage(ImageSource.gallery),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.deepPurple,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.all(8),
+                                      child: const Icon(
+                                        Icons.add,
+                                        color: Colors.white,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        }
+                      }),
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  Text(AppLocalizations.of(context)!.receiptDetails,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    AppLocalizations.of(context)!.receiptDetails,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 10),
                   _buildTextField(
                     label: "${AppLocalizations.of(context)!.expenseId} *",
@@ -546,10 +629,12 @@ class _HubApprovalViewEditExpensePageState
                                 : null, // 🔥 disables the toggle button if not enabled
                             child: Text(
                               controller.isManualEntryMerchant
-                                  ? AppLocalizations.of(context)!
-                                      .selectFromMerchantList
-                                  : AppLocalizations.of(context)!
-                                      .enterMerchantManually,
+                                  ? AppLocalizations.of(
+                                      context,
+                                    )!.selectFromMerchantList
+                                  : AppLocalizations.of(
+                                      context,
+                                    )!.enterMerchantManually,
                             ),
                           ),
                         ),
@@ -557,14 +642,13 @@ class _HubApprovalViewEditExpensePageState
                       if (!controller.isManualEntryMerchant)
                         AbsorbPointer(
                           absorbing: !controller.isEnable.value,
-                          child:
-                              SearchableMultiColumnDropdownField<MerchantModel>(
+                          child: SearchableMultiColumnDropdownField<MerchantModel>(
                             enabled: controller.isEnable.value,
                             labelText:
-                                AppLocalizations.of(context)!.selectMerchant,
+                                '${AppLocalizations.of(context)!.selectMerchant} *',
                             columnHeaders: [
                               AppLocalizations.of(context)!.merchantName,
-                              AppLocalizations.of(context)!.merchantId
+                              AppLocalizations.of(context)!.merchantId,
                             ],
                             items: controller.paidTo,
                             selectedValue: controller.selectedPaidto,
@@ -581,40 +665,15 @@ class _HubApprovalViewEditExpensePageState
                             },
                             controller: controller.paidToController,
                             rowBuilder: (p, searchQuery) {
-                              Widget highlight(String text) {
-                                final lowerQuery = searchQuery.toLowerCase();
-                                final lowerText = text.toLowerCase();
-                                final start = lowerText.indexOf(lowerQuery);
-
-                                if (start == -1 || searchQuery.isEmpty) {
-                                  return Text(text);
-                                }
-
-                                final end = start + searchQuery.length;
-                                return RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: text.substring(0, start),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(start, end),
-                                      ),
-                                      TextSpan(
-                                        text: text.substring(end),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }
-
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
                                 child: Row(
                                   children: [
-                                    Expanded(child: highlight(p.merchantNames)),
-                                    Expanded(child: highlight(p.merchantId)),
+                                    Expanded(child: Text(p.merchantNames)),
+                                    Expanded(child: Text(p.merchantId)),
                                   ],
                                 ),
                               );
@@ -625,10 +684,12 @@ class _HubApprovalViewEditExpensePageState
                         TextFormField(
                           controller: controller.manualPaidToController,
                           enabled: controller
-                              .isEnable.value, // 🔥 disables text field
+                              .isEnable
+                              .value, // 🔥 disables text field
                           decoration: InputDecoration(
-                            labelText:
-                                AppLocalizations.of(context)!.enterMerchantName,
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.enterMerchantName,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -662,52 +723,62 @@ class _HubApprovalViewEditExpensePageState
                           //     ),
                           //   ],
                           // ),
-                          child: MultiSelectMultiColumnDropdownField<
-                              CashAdvanceDropDownModel>(
-                            labelText: AppLocalizations.of(context)!
-                                .cashAdvanceRequest,
-                            items: controller.cashAdvanceListDropDown,
-                            isMultiSelect: allowMultSelect ?? false,
-                            selectedValue: controller.singleSelectedItem,
-                            selectedValues: controller.multiSelectedItems,
-                             controller: controller
-                                              .cashAdvanceIds,
-                            enabled: controller.isEnable.value,
-                            searchValue: (proj) => proj.cashAdvanceReqId,
-                            displayText: (proj) => proj.cashAdvanceReqId,
-                            validator: (proj) => proj == null
-                                ? AppLocalizations.of(context)!
-                                    .pleaseSelectCashAdvanceField
-                                : null,
-                            onChanged: (item) {
-                              controller.singleSelectedItem =
-                                  item; // ✅ update selected item
-                            },
-                            onMultiChanged: (items) {
-                              controller.multiSelectedItems
-                                  .assignAll(items); // ✅ update list
-                            },
-                            columnHeaders: [
-                              AppLocalizations.of(context)!.requestId,
-                              AppLocalizations.of(context)!.requestId
-                            ],
-                            rowBuilder: (proj, searchQuery) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                        child: Text(proj.cashAdvanceReqId)),
-                                    Expanded(
-                                      child: Text(controller
-                                          .formattedDate(proj.requestDate)),
+                          child:
+                              MultiSelectMultiColumnDropdownField<
+                                CashAdvanceDropDownModel
+                              >(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                )!.cashAdvanceRequest,
+                                items: controller.cashAdvanceListDropDown,
+                                isMultiSelect: allowMultSelect ?? false,
+                                selectedValue: controller.singleSelectedItem,
+                                selectedValues: controller.multiSelectedItems,
+                                controller: controller.cashAdvanceIds,
+                                enabled: controller.isEnable.value,
+                                searchValue: (proj) => proj.cashAdvanceReqId,
+                                displayText: (proj) => proj.cashAdvanceReqId,
+                                validator: (proj) => proj == null
+                                    ? AppLocalizations.of(
+                                        context,
+                                      )!.pleaseSelectCashAdvanceField
+                                    : null,
+                                onChanged: (item) {
+                                  controller.singleSelectedItem =
+                                      item; // ✅ update selected item
+                                },
+                                onMultiChanged: (items) {
+                                  controller.multiSelectedItems.assignAll(
+                                    items,
+                                  ); // ✅ update list
+                                },
+                                columnHeaders: [
+                                  AppLocalizations.of(context)!.requestId,
+                                  AppLocalizations.of(context)!.requestId,
+                                ],
+                                rowBuilder: (proj, searchQuery) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(proj.cashAdvanceReqId),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            controller.formattedDate(
+                                              proj.requestDate,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                         ),
                       ),
                     ],
@@ -723,7 +794,7 @@ class _HubApprovalViewEditExpensePageState
                         labelText: AppLocalizations.of(context)!.paidWith,
                         columnHeaders: [
                           AppLocalizations.of(context)!.paymentName,
-                          AppLocalizations.of(context)!.paymentId
+                          AppLocalizations.of(context)!.paymentId,
                         ],
                         items: controller.paymentMethods,
                         selectedValue: controller.selectedPaidWith,
@@ -742,43 +813,15 @@ class _HubApprovalViewEditExpensePageState
                         },
                         controller: controller.paidWithController,
                         rowBuilder: (p, searchQuery) {
-                          Widget highlight(String text) {
-                            final query = searchQuery.toLowerCase();
-                            final lowerText = text.toLowerCase();
-                            final start = lowerText.indexOf(query);
-
-                            if (start == -1 || query.isEmpty) return Text(text);
-
-                            final end = start + query.length;
-                            return RichText(
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: text.substring(0, start),
-                                    style: const TextStyle(color: Colors.black),
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(start, end),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: text.substring(end),
-                                    style: const TextStyle(),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
                           return Padding(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                             child: Row(
                               children: [
-                                Expanded(child: highlight(p.paymentMethodName)),
-                                Expanded(child: highlight(p.paymentMethodId)),
+                                Expanded(child: Text(p.paymentMethodName)),
+                                Expanded(child: Text(p.paymentMethodId)),
                               ],
                             ),
                           );
@@ -787,11 +830,57 @@ class _HubApprovalViewEditExpensePageState
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildTextField(
-                    label: AppLocalizations.of(context)!.referenceId,
-                    controller: controller.referenceID,
-                    isReadOnly: controller.isEnable.value,
-                  ),
+                  ...controller.configList
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Refrence Id',
+                            )
+                            .map((field) {
+                              final String label = field['FieldName'];
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
+
+                              late Widget inputFields;
+
+                              if (label == 'Refrence Id') {
+                                inputFields = _buildTextField(
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.referenceId,
+                                  controller: controller.referenceID,
+                                  isReadOnly: controller.isEnable.value,
+                                  validator: (value) =>
+                                      isRefrenceIDConfig.isMandatory
+                                      ? _validateRequiredField(
+                                          controller.referenceID.text,
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.referenceId,
+                                          true,
+                                        )
+                                      : null,
+                                );
+                              } else {
+                                inputFields = TextField(
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        '$label${isMandatory ? " *" : ""}',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  inputFields,
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            })
+                            .toList(),
                   Row(
                     children: [
                       Expanded(
@@ -803,140 +892,111 @@ class _HubApprovalViewEditExpensePageState
 
                             final paid =
                                 double.tryParse(controller.paidAmount.text) ??
-                                    0.0;
+                                0.0;
                             final rate =
                                 double.tryParse(controller.unitRate.text) ??
-                                    1.0;
+                                1.0;
 
                             final result = paid * rate;
 
-                            controller.amountINR.text =
-                                result.toStringAsFixed(2);
+                            controller.amountINR.text = result.toStringAsFixed(
+                              2,
+                            );
                           },
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(
-                                r'^\d*\.?\d*')), // Only digits and dots allowed
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'),
+                            ), // Only digits and dots allowed
                           ],
                           decoration: InputDecoration(
                             labelText:
                                 '${AppLocalizations.of(context)!.paidAmount} *',
                             border: const OutlineInputBorder(
                               borderRadius: BorderRadius.only(
-                                  topRight: Radius.circular(0),
-                                  bottomRight: Radius.circular(0),
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10)),
+                                topRight: Radius.circular(0),
+                                bottomRight: Radius.circular(0),
+                                topLeft: Radius.circular(10),
+                                bottomLeft: Radius.circular(10),
+                              ),
                             ),
                           ),
                           onEditingComplete: () {
                             String text = controller.paidAmount.text;
                             double? value = double.tryParse(text);
                             if (value != null) {
-                              controller.paidAmount.text =
-                                  value.toStringAsFixed(2);
+                              controller.paidAmount.text = value
+                                  .toStringAsFixed(2);
                             }
                           },
                         ),
                       ),
                       Expanded(
-                          child: Obx(() =>
-                              SearchableMultiColumnDropdownField<Currency>(
-                                enabled: controller.isEnable.value,
-                                alignLeft: -90,
-                                dropdownWidth: 280,
-                                labelText: "",
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.code,
-                                  AppLocalizations.of(context)!.name,
-                                  AppLocalizations.of(context)!.symbol
-                                ],
-                                items: controller.currencies,
-                                selectedValue:
-                                    controller.selectedCurrency.value,
-                                backgroundColor:
-                                    const Color.fromARGB(255, 22, 2, 92),
-                                searchValue: (c) =>
-                                    '${c.code} ${c.name} ${c.symbol}',
-                                displayText: (c) => c.code,
-                                inputDecoration: const InputDecoration(
-                                  suffixIcon:
-                                      Icon(Icons.arrow_drop_down_outlined),
-                                  filled: true,
-                                  fillColor: Color.fromARGB(55, 5, 23, 128),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(0),
-                                      bottomLeft: Radius.circular(0),
-                                      topRight: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
-                                    ),
-                                  ),
+                        child: Obx(
+                          () => SearchableMultiColumnDropdownField<Currency>(
+                            enabled: controller.isEnable.value,
+                            alignLeft: -90,
+                            dropdownWidth: 280,
+                            labelText: "",
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.code,
+                              AppLocalizations.of(context)!.name,
+                              AppLocalizations.of(context)!.symbol,
+                            ],
+                            items: controller.currencies,
+                            selectedValue: controller.selectedCurrency.value,
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              22,
+                              2,
+                              92,
+                            ),
+                            searchValue: (c) =>
+                                '${c.code} ${c.name} ${c.symbol}',
+                            displayText: (c) => c.code,
+                            inputDecoration: const InputDecoration(
+                              suffixIcon: Icon(Icons.arrow_drop_down_outlined),
+                              filled: true,
+                              fillColor: Color.fromARGB(55, 5, 23, 128),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(0),
+                                  bottomLeft: Radius.circular(0),
+                                  topRight: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
                                 ),
-                                validator: (c) => c == null
-                                    ? AppLocalizations.of(context)!
-                                        .pleaseSelectCurrency
-                                    : null,
-                                onChanged: (c) async {
-                                  controller.selectedCurrency.value = c;
-                                  controller.fetchExchangeRate().then((_) {
-                                    _updateAllLineItems();
-                                  });
-                                },
-                                controller:
-                                    controller.currencyDropDowncontroller,
-                                rowBuilder: (c, searchQuery) {
-                                  Widget highlight(String text) {
-                                    final query = searchQuery.toLowerCase();
-                                    final lowerText = text.toLowerCase();
-                                    final matchIndex = lowerText.indexOf(query);
-
-                                    if (matchIndex == -1 || query.isEmpty) {
-                                      return Text(text,
-                                          style: const TextStyle(
-                                              color: Colors.black));
-                                    }
-
-                                    final end = matchIndex + query.length;
-                                    return RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: text.substring(0, matchIndex),
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                          TextSpan(
-                                            text:
-                                                text.substring(matchIndex, end),
-                                            style: const TextStyle(
-                                              color: Colors.black,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          TextSpan(
-                                            text: text.substring(end),
-                                            style: const TextStyle(
-                                                color: Colors.black),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: highlight(c.code)),
-                                        Expanded(child: highlight(c.name)),
-                                        Expanded(child: highlight(c.symbol)),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ))),
+                              ),
+                            ),
+                            validator: (c) => c == null
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.pleaseSelectCurrency
+                                : null,
+                            onChanged: (c) async {
+                              controller.selectedCurrency.value = c;
+                              controller.fetchExchangeRate().then((_) {
+                                _updateAllLineItems();
+                              });
+                            },
+                            controller: controller.currencyDropDowncontroller,
+                            rowBuilder: (c, searchQuery) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(c.code)),
+                                    Expanded(child: Text(c.name)),
+                                    Expanded(child: Text(c.symbol)),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextFormField(
@@ -954,23 +1014,28 @@ class _HubApprovalViewEditExpensePageState
 
                             final paid =
                                 double.tryParse(controller.paidAmount.text) ??
-                                    0.0;
+                                0.0;
                             final rate = double.tryParse(val) ?? 1.0;
 
                             // ✅ Perform calculation
                             final result = paid * rate;
 
-                            controller.amountINR.text =
-                                result.toStringAsFixed(2);
+                            controller.amountINR.text = result.toStringAsFixed(
+                              2,
+                            );
                             controller.isVisible.value = true;
-                            for (int i = 0;
-                                i < itemizeControllers.length;
-                                i++) {
+                            for (
+                              int i = 0;
+                              i < itemizeControllers.length;
+                              i++
+                            ) {
                               final itemController = itemizeControllers[i];
                               // controller
                               // .calculateLineAmounts(itemController);
-                              final unitPrice = double.tryParse(
-                                      itemController.unitPriceTrans.text) ??
+                              final unitPrice =
+                                  double.tryParse(
+                                    itemController.unitPriceTrans.text,
+                                  ) ??
                                   0.0;
 
                               final lineAmountInINR = unitPrice * rate;
@@ -978,8 +1043,8 @@ class _HubApprovalViewEditExpensePageState
                                   lineAmountInINR.toStringAsFixed(2);
 
                               // Sync with the model
-                              widget.items!.expenseTrans[i] =
-                                  itemController.toExpenseItemUpdateModel();
+                              widget.items!.expenseTrans[i] = itemController
+                                  .toExpenseItemUpdateModel();
                             }
 
                             // ✅ Trigger UI update
@@ -987,7 +1052,8 @@ class _HubApprovalViewEditExpensePageState
                             print("Paid Amount: $paid");
                             print("Rate: $rate");
                             print(
-                                "Calculated INR Amount: ${controller.amountINR.text}");
+                              "Calculated INR Amount: ${controller.amountINR.text}",
+                            );
                           },
                         ),
                       ),
@@ -1017,7 +1083,9 @@ class _HubApprovalViewEditExpensePageState
                           Text(
                             "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.expense}",
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                         ],
                       ),
@@ -1064,132 +1132,336 @@ class _HubApprovalViewEditExpensePageState
                                             MainAxisAlignment.end,
                                         children: [
                                           if (controller.isEnable.value &&
-                                              widget.items!.expenseTrans
+                                              widget
+                                                      .items!
+                                                      .expenseTrans
                                                       .length >
                                                   1)
                                             IconButton(
-                                              icon: const Icon(Icons.delete,
-                                                  color: Colors.red),
+                                              icon: const Icon(
+                                                Icons.delete,
+                                                color: Colors.red,
+                                              ),
                                               onPressed: () =>
                                                   _removeItemize(index),
                                               tooltip: 'Remove this item',
                                             ),
                                           if (controller.isEnable.value)
-                                            IconButton(
-                                              icon: const Icon(Icons.add,
-                                                  color: Colors.green),
-                                              onPressed: _addItemize,
-                                              tooltip: 'Add new item',
+                                            FutureBuilder<Map<String, bool>>(
+                                              future: controller
+                                                  .getAllFeatureStates(),
+                                              builder: (context, snapshot) {
+                                                if (snapshot.connectionState ==
+                                                    ConnectionState.waiting) {
+                                                  return const SizedBox.shrink(); // nothing while loading
+                                                }
+
+                                                if (!snapshot.hasData) {
+                                                  return const SizedBox.shrink(); // hide if API fails
+                                                }
+
+                                                final featureStates =
+                                                    snapshot.data!;
+                                                final isEnabled =
+                                                    featureStates['EnableItemization'] ??
+                                                    false;
+
+                                                // ❌ hide button completely if feature disabled
+                                                if (!isEnabled)
+                                                  return const SizedBox.shrink();
+
+                                                // ✅ show button if enabled
+                                                return IconButton(
+                                                  icon: const Icon(
+                                                    Icons.add,
+                                                    color: Colors.green,
+                                                  ),
+                                                  onPressed: _addItemize,
+                                                  tooltip: 'Add new item',
+                                                );
+                                              },
                                             ),
                                         ],
-                                      )
+                                      ),
                                     ],
                                   ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
+                                    horizontal: 12,
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      SearchableMultiColumnDropdownField<
-                                          Project>(
-                                        enabled: controller.isEnable.value,
-                                        labelText: AppLocalizations.of(context)!
-                                            .projectId,
-                                        columnHeaders: const [
-                                          'Project Name',
-                                          'Project ID'
-                                        ],
-                                        items: controller.project,
-                                        selectedValue:
-                                            itemController.selectedProject,
-                                        searchValue: (p) =>
-                                            '${p.name} ${p.code}',
-                                        displayText: (p) => p.code,
-                                        validator: (_) => null,
-                                        onChanged: (p) {
-                                          setState(() {
-                                            controller.selectedProject = p;
-                                            itemController.selectedProject =
-                                                p; // update controller state
-                                            controller.projectDropDowncontroller
-                                                .text = p!.code;
-                                            widget.items!.expenseTrans[index] =
-                                                itemController
-                                                    .toExpenseItemUpdateModel(); // sync with parent list
-                                          });
-                                          controller.fetchExpenseCategory();
-                                        },
-                                        controller: itemController
-                                            .projectDropDowncontroller,
-                                        rowBuilder: (p, searchQuery) {
-                                          Widget highlight(String text) {
-                                            final query =
-                                                searchQuery.toLowerCase();
-                                            final lowerText =
-                                                text.toLowerCase();
-                                            final matchIndex =
-                                                lowerText.indexOf(query);
+                                     ...controller.configList
+                                                .where(
+                                                  (field) =>
+                                                      field['IsEnabled'] ==
+                                                          true &&
+                                                      field['FieldName'] !=
+                                                          'Location' &&
+                                                      field['FieldName'] !=
+                                                          'Refrence Id' &&
+                                                      field['FieldName'] !=
+                                                          'Is Billable' &&
+                                                      field['FieldName'] !=
+                                                          'is Reimbursible',
+                                                )
+                                                .map((field) {
+                                                  final String label =
+                                                      field['FieldName'];
+                                                  final bool isMandatory =
+                                                      field['IsMandatory'] ??
+                                                      false;
 
-                                            if (matchIndex == -1 ||
-                                                query.isEmpty)
-                                              return Text(text);
+                                                  Widget inputField;
 
-                                            final end =
-                                                matchIndex + query.length;
-                                            return RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        0, matchIndex),
-                                                    style: const TextStyle(
-                                                        color: Colors.black),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        matchIndex, end),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(end),
-                                                    style: const TextStyle(),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }
+                                                  if (label == 'Project Id') {
+                                                    inputField = SearchableMultiColumnDropdownField<Project>(
+                                                      enabled: controller
+                                                          .isEnable
+                                                          .value,
+                                                      labelText:
+                                                          "${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}",
+                                                      columnHeaders: const [
+                                                        'Project Name',
+                                                        'Project ID',
+                                                      ],
+                                                      items: controller.project,
+                                                      selectedValue:
+                                                          itemController
+                                                              .selectedProject,
+                                                      searchValue: (p) =>
+                                                          '${p.name} ${p.code}',
+                                                      displayText: (p) =>
+                                                          p.code,
+                                                      validator: (value) =>
+                                                          projectConfig
+                                                                  .isEnabled &&
+                                                              projectConfig
+                                                                  .isMandatory
+                                                          ? _validateRequiredField(
+                                                              itemController
+                                                                  .taxGroupController
+                                                                  .text,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.projectId,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (p) {
+                                                        setState(() {
+                                                          controller
+                                                                  .selectedProject =
+                                                              p;
+                                                          itemController
+                                                                  .selectedProject =
+                                                              p;
+                                                          controller
+                                                              .projectDropDowncontroller
+                                                              .text = p!
+                                                              .code;
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                        });
+                                                        controller
+                                                            .fetchExpenseCategory();
+                                                      },
+                                                      controller: itemController
+                                                          .projectDropDowncontroller,
+                                                      rowBuilder: (p, searchQuery) {
+                                                        return Padding(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 12,
+                                                                horizontal: 16,
+                                                              ),
+                                                          child: Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  p.name,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  p.code,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    );
+                                                  } else if (label ==
+                                                      'Tax Group') {
+                                                    inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
+                                                      enabled: controller
+                                                          .isEnable
+                                                          .value,
+                                                      labelText:
+                                                          "${AppLocalizations.of(context)!.taxGroup}${isMandatory ? "*" : ""}",
+                                                      columnHeaders: [
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.taxGroup,
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.taxId,
+                                                      ],
+                                                      items:
+                                                          controller.taxGroup,
+                                                      selectedValue:
+                                                          itemController
+                                                              .selectedTax,
+                                                      searchValue: (tax) =>
+                                                          '${tax.taxGroup} ${tax.taxGroupId}',
+                                                      displayText: (tax) =>
+                                                          tax.taxGroupId,
+                                                      validator: (value) =>
+                                                          taxGroupConfig
+                                                                  .isEnabled &&
+                                                              taxGroupConfig
+                                                                  .isMandatory
+                                                          ? _validateRequiredField(
+                                                              itemController
+                                                                  .taxGroupController
+                                                                  .text,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.taxGroup,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (tax) {
+                                                        setState(() {
+                                                          itemController
+                                                                  .selectedTax =
+                                                              tax;
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                          itemController
+                                                              .taxGroupController
+                                                              .text = tax!
+                                                              .taxGroupId;
+                                                        });
+                                                      },
+                                                      controller: itemController
+                                                          .taxGroupController,
+                                                      rowBuilder: (tax, searchQuery) {
+                                                        return Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 12,
+                                                                horizontal: 16,
+                                                              ),
+                                                          child: Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Text(
+                                                                  tax.taxGroup,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  tax.taxGroupId,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        );
+                                                      },
+                                                    );
+                                                  } else if (label ==
+                                                      'Tax Amount') {
+                                                    inputField = _buildTextField(
+                                                      keyboardType:
+                                                          TextInputType.number,
+                                                      inputFormatters: [
+                                                        FilteringTextInputFormatter.allow(
+                                                          RegExp(
+                                                            r'^\d*\.?\d{0,2}',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                      label:
+                                                          "${AppLocalizations.of(context)!.taxAmount}${isMandatory ? "*" : ""}",
+                                                      controller: itemController
+                                                          .taxAmount,
+                                                      isReadOnly: controller
+                                                          .isEnable
+                                                          .value,
+                                                      validator: (value) =>
+                                                          taxAmountConfig
+                                                                  .isEnabled &&
+                                                              taxAmountConfig
+                                                                  .isMandatory
+                                                          ? _validateNumericField(
+                                                              value!,
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.taxAmount,
+                                                              true,
+                                                            )
+                                                          : null,
+                                                      onChanged: (value) {
+                                                        setState(() {
+                                                          widget
+                                                                  .items
+                                                                  ?.expenseTrans[index] =
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                        });
+                                                      },
+                                                    );
+                                                  } else {
+                                                    inputField = TextField(
+                                                      decoration: InputDecoration(
+                                                        labelText:
+                                                            '$label${isMandatory ? " *" : ""}',
+                                                        border:
+                                                            const OutlineInputBorder(),
+                                                      ),
+                                                    );
+                                                  }
 
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 12, horizontal: 16),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                    child: highlight(p.name)),
-                                                Expanded(
-                                                    child: highlight(p.code)),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      const SizedBox(height: 8),
+                                                      inputField,
+                                                      const SizedBox(
+                                                        height: 16,
+                                                      ),
+                                                    ],
+                                                  );
+                                                })
+                                                .toList(),
                                       const SizedBox(height: 12),
                                       SearchableMultiColumnDropdownField<
-                                          ExpenseCategory>(
-                                        labelText: AppLocalizations.of(context)!
-                                            .paidFor,
+                                        ExpenseCategory
+                                      >(
+                                        labelText: AppLocalizations.of(
+                                          context,
+                                        )!.paidFor,
                                         enabled: controller.isEnable.value,
                                         columnHeaders: [
-                                          AppLocalizations.of(context)!
-                                              .categoryName,
-                                          AppLocalizations.of(context)!
-                                              .categoryId
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.categoryName,
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.categoryId,
                                         ],
                                         items: controller.expenseCategory,
                                         selectedValue:
@@ -1206,63 +1478,28 @@ class _HubApprovalViewEditExpensePageState
                                             widget.items!.expenseTrans[index] =
                                                 itemController
                                                     .toExpenseItemUpdateModel();
-                                            itemController.categoryController
-                                                .text = p.categoryId;
+                                            itemController
+                                                    .categoryController
+                                                    .text =
+                                                p.categoryId;
                                           });
                                         },
                                         controller:
                                             itemController.categoryController,
                                         rowBuilder: (p, searchQuery) {
-                                          Widget highlight(String text) {
-                                            final query =
-                                                searchQuery.toLowerCase();
-                                            final lower = text.toLowerCase();
-                                            final matchIndex =
-                                                lower.indexOf(query);
-
-                                            if (matchIndex == -1 ||
-                                                query.isEmpty)
-                                              return Text(text);
-
-                                            final end =
-                                                matchIndex + query.length;
-                                            return RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        0, matchIndex),
-                                                    style: const TextStyle(
-                                                        color: Colors.black),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        matchIndex, end),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(end),
-                                                    style: const TextStyle(),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }
-
                                           return Padding(
                                             padding: const EdgeInsets.symmetric(
-                                                vertical: 12, horizontal: 16),
+                                              vertical: 12,
+                                              horizontal: 16,
+                                            ),
                                             child: Row(
                                               children: [
                                                 Expanded(
-                                                    child: highlight(
-                                                        p.categoryName)),
+                                                  child: Text(p.categoryName),
+                                                ),
                                                 Expanded(
-                                                    child: highlight(
-                                                        p.categoryId)),
+                                                  child: Text(p.categoryId),
+                                                ),
                                               ],
                                             ),
                                           );
@@ -1270,8 +1507,9 @@ class _HubApprovalViewEditExpensePageState
                                       ),
                                       const SizedBox(height: 12),
                                       _buildTextField(
-                                        label: AppLocalizations.of(context)!
-                                            .comments,
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.comments,
                                         controller: itemController
                                             .descriptionController,
                                         isReadOnly: controller.isEnable.value,
@@ -1289,7 +1527,7 @@ class _HubApprovalViewEditExpensePageState
                                         enabled: controller.isEnable.value,
                                         columnHeaders: [
                                           AppLocalizations.of(context)!.uomId,
-                                          AppLocalizations.of(context)!.uomName
+                                          AppLocalizations.of(context)!.uomName,
                                         ],
                                         items: controller.unit,
                                         selectedValue:
@@ -1298,8 +1536,9 @@ class _HubApprovalViewEditExpensePageState
                                             '${tax.code} ${tax.name}',
                                         displayText: (tax) => tax.name,
                                         validator: (tax) => tax == null
-                                            ? AppLocalizations.of(context)!
-                                                .pleaseSelectUnit
+                                            ? AppLocalizations.of(
+                                                context,
+                                              )!.pleaseSelectUnit
                                             : null,
                                         onChanged: (tax) {
                                           setState(() {
@@ -1313,54 +1552,15 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                         controller: itemController.uomId,
                                         rowBuilder: (tax, searchQuery) {
-                                          Widget highlight(String text) {
-                                            final query =
-                                                searchQuery.toLowerCase();
-                                            final lower = text.toLowerCase();
-                                            final matchIndex =
-                                                lower.indexOf(query);
-
-                                            if (matchIndex == -1 ||
-                                                query.isEmpty) {
-                                              return Text(text);
-                                            }
-
-                                            final end =
-                                                matchIndex + query.length;
-                                            return RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        0, matchIndex),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        matchIndex, end),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(end),
-                                                    style: const TextStyle(
-                                                        color: Colors.black),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }
-
                                           return Padding(
                                             padding: const EdgeInsets.symmetric(
-                                                vertical: 12, horizontal: 16),
+                                              vertical: 12,
+                                              horizontal: 16,
+                                            ),
                                             child: Row(
                                               children: [
-                                                Expanded(
-                                                    child: highlight(tax.code)),
-                                                Expanded(
-                                                    child: highlight(tax.name)),
+                                                Expanded(child: Text(tax.code)),
+                                                Expanded(child: Text(tax.name)),
                                               ],
                                             ),
                                           );
@@ -1368,23 +1568,29 @@ class _HubApprovalViewEditExpensePageState
                                       ),
                                       const SizedBox(height: 12),
                                       _buildTextField(
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d{0,2}'),
+                                          ), // Allows numbers with up to 2 decimal places
+                                        ],
                                         label:
                                             "${AppLocalizations.of(context)!.quantity} *",
                                         controller: itemController.quantity,
                                         isReadOnly: controller.isEnable.value,
                                         onChanged: (value) {
-                                          controller
-                                              .fetchExchangeRate()
-                                              .then((_) {
+                                          controller.fetchExchangeRate().then((
+                                            _,
+                                          ) {
                                             _updateAllLineItems();
                                           });
                                           itemController.calculateLineAmounts(
-                                              itemController,
-                                              widget
-                                                  .items!.expenseTrans[index]);
+                                            itemController,
+                                            widget.items!.expenseTrans[index],
+                                          );
                                           _calculateTotalLineAmount(
-                                                  itemController)
-                                              .toStringAsFixed(2);
+                                            itemController,
+                                          ).toStringAsFixed(2);
                                           setState(() {
                                             widget.items!.expenseTrans[index] =
                                                 itemController
@@ -1393,25 +1599,27 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                       ),
                                       _buildTextField(
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d{0,2}'),
+                                          ), // Allows numbers with up to 2 decimal places
+                                        ],
                                         label:
                                             "${AppLocalizations.of(context)!.unitAmount} *",
                                         controller:
                                             itemController.unitPriceTrans,
                                         isReadOnly: controller.isEnable.value,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter
-                                              .digitsOnly,
-                                          LengthLimitingTextInputFormatter(
-                                              10), // Max 10 digits
-                                        ],
+
                                         onChanged: (value) async {
-                                          controller
-                                              .fetchExchangeRate()
-                                              .then((_) {
+                                          controller.fetchExchangeRate().then((
+                                            _,
+                                          ) {
                                             _updateAllLineItems();
                                           });
                                           itemController.calculateLineAmounts(
-                                              itemController);
+                                            itemController,
+                                          );
                                           setState(() {
                                             widget.items!.expenseTrans[index] =
                                                 itemController
@@ -1420,15 +1628,22 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                       ),
                                       _buildTextField(
-                                        label: AppLocalizations.of(context)!
-                                            .lineAmount,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d*\.?\d{0,2}'),
+                                          ), // Allows numbers with up to 2 decimal places
+                                        ],
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.lineAmount,
                                         controller: itemController.lineAmount,
                                         isReadOnly: false,
                                         onChanged: (value) {
                                           itemController.calculateLineAmounts(
-                                              itemController,
-                                              widget
-                                                  .items!.expenseTrans[index]);
+                                            itemController,
+                                            widget.items!.expenseTrans[index],
+                                          );
                                           // setState(() {
                                           //   itemController
                                           //       .lineAmount.text = value;
@@ -1440,8 +1655,9 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                       ),
                                       _buildTextField(
-                                        label: AppLocalizations.of(context)!
-                                            .lineAmountInInr,
+                                        label: AppLocalizations.of(
+                                          context,
+                                        )!.lineAmountInInr,
                                         controller:
                                             itemController.lineAmountINR,
                                         isReadOnly: false,
@@ -1453,264 +1669,371 @@ class _HubApprovalViewEditExpensePageState
                                           });
                                         },
                                       ),
-                                      SearchableMultiColumnDropdownField<
-                                          TaxGroupModel>(
-                                        enabled: controller.isEnable.value,
-                                        labelText: AppLocalizations.of(context)!
-                                            .taxGroup,
-                                        columnHeaders: [
-                                          AppLocalizations.of(context)!
-                                              .taxGroup,
-                                          AppLocalizations.of(context)!.taxId
-                                        ],
-                                        items: controller.taxGroup,
-                                        selectedValue:
-                                            itemController.selectedTax,
-                                        searchValue: (tax) =>
-                                            '${tax.taxGroup} ${tax.taxGroupId}',
-                                        displayText: (tax) => tax.taxGroupId,
-                                        onChanged: (tax) {
-                                          setState(() {
-                                            itemController.selectedTax = tax;
-                                            widget.items!.expenseTrans[index] =
-                                                itemController
-                                                    .toExpenseItemUpdateModel();
-                                            itemController.taxGroupController
-                                                .text = tax!.taxGroupId;
-                                          });
-                                        },
-                                        controller:
-                                            itemController.taxGroupController,
-                                        rowBuilder: (tax, searchQuery) {
-                                          Widget highlight(String text) {
-                                            final query =
-                                                searchQuery.toLowerCase();
-                                            final lower = text.toLowerCase();
-                                            final matchIndex =
-                                                lower.indexOf(query);
+                                      ...controller.configList
+    .where((field) =>
+        field['IsEnabled'] == true &&
+        field['FieldName'] == 'is Reimbursible')
+    .map((field) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
 
-                                            if (matchIndex == -1 ||
-                                                query.isEmpty)
-                                              return Text(text);
+          Theme(
+            data: Theme.of(context).copyWith(
+              switchTheme: SwitchThemeData(
+                thumbColor: WidgetStateProperty.resolveWith<Color?>(
+                  (states) {
+                    final selected = states.contains(WidgetState.selected);
+                    if (states.contains(WidgetState.disabled)) {
+                      return selected ? Colors.green : null;
+                    }
+                    return selected ? Colors.green : null;
+                  },
+                ),
+                trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                  final selected = states.contains(WidgetState.selected);
+                  if (states.contains(WidgetState.disabled)) {
+                    return selected ? Colors.green.withOpacity(0.5) : null;
+                  }
+                  return selected ? Colors.green.withOpacity(0.5) : null;
+                }),
+              ),
+            ),
+            child: SwitchListTile(
+              title: Text(
+                AppLocalizations.of(context)!.isReimbursable,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              value: itemController.isReimbursable,
+              onChanged: controller.isEnable.value
+                  ? (val) {
+                      setState(() {
+                        itemController.isReimbursable = val;
+                        controller.isReimbursite = val;
+                        widget.items!.expenseTrans[index] =
+                            itemController.toExpenseItemUpdateModel();
+                      });
+                    }
+                  : null,
+            ),
+          ),
 
-                                            final end =
-                                                matchIndex + query.length;
-                                            return RichText(
-                                              text: TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        0, matchIndex),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(
-                                                        matchIndex, end),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: text.substring(end),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }
+          const SizedBox(height: 16),
+        ],
+      );
+    }).toList(),
+      
+                                          ...controller.configList
+    .where((field) =>
+        field['IsEnabled'] == true &&
+        field['FieldName'] == 'Is Billable')
+    .map((field) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
 
-                                          return Container(
-                                            // color: Colors.grey[300],
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 12, horizontal: 16),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                    child: highlight(
-                                                        tax.taxGroup)),
-                                                Expanded(
-                                                    child: highlight(
-                                                        tax.taxGroupId)),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
-                                      _buildTextField(
-                                        label: AppLocalizations.of(context)!
-                                            .taxAmount,
-                                        controller: itemController.taxAmount,
-                                        isReadOnly: controller.isEnable.value,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            widget.items!.expenseTrans[index] =
-                                                itemController
-                                                    .toExpenseItemUpdateModel();
-                                          });
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
-                                      const SizedBox(height: 12),
-                                            Theme(
-                                              data: Theme.of(context).copyWith(
-                                                switchTheme: SwitchThemeData(
-                                                  thumbColor:
-                                                      MaterialStateProperty
-                                                          .resolveWith<Color?>(
-                                                              (states) {
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .disabled)) {
-                                                      // ✅ Keep same thumb color even when disabled
-                                                      return Colors.green;
-                                                    }
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .selected)) {
-                                                      return Colors.green;
-                                                    }
-                                                    return Colors.grey.shade400;
-                                                  }),
-                                                  trackColor:
-                                                      MaterialStateProperty
-                                                          .resolveWith<Color?>(
-                                                              (states) {
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .disabled)) {
-                                                      // ✅ Keep same track color even when disabled
-                                                      return Colors.green
-                                                          .withOpacity(0.5);
-                                                    }
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .selected)) {
-                                                      return Colors.green
-                                                          .withOpacity(0.5);
-                                                    }
-                                                    return Colors.grey.shade300;
-                                                  }),
-                                                ),
-                                              ),
-                                              child: SwitchListTile(
-                                                title: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .isReimbursable,
-                                                  style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w500),
-                                                ),
-                                                value: itemController
-                                                    .isReimbursable,
-                                                onChanged: controller
-                                                        .isEnable.value
-                                                    ? (val) {
-                                                        setState(() {
-                                                          itemController
-                                                                  .isReimbursable =
-                                                              val;
-                                                          controller
-                                                                  .isReimbursite =
-                                                              val;
-                                                          widget.items!
-                                                                      .expenseTrans[
-                                                                  index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                        });
-                                                      }
-                                                    : null, // disabled but keeps color
-                                              ),
-                                            ),
-                                            Obx(() => Theme(
-                                                  data: Theme.of(context)
-                                                      .copyWith(
-                                                    switchTheme:
-                                                        SwitchThemeData(
-                                                      thumbColor:
-                                                          MaterialStateProperty
-                                                              .resolveWith<
-                                                                      Color?>(
-                                                                  (states) {
-                                                        if (states.contains(
-                                                            MaterialState
-                                                                .disabled)) {
-                                                          return controller
-                                                                  .isBillableCreate
-                                                              ? Colors.blue
-                                                              : Colors.grey
-                                                                  .shade400;
-                                                        }
-                                                        if (states.contains(
-                                                            MaterialState
-                                                                .selected)) {
-                                                          return Colors.blue;
-                                                        }
-                                                        return Colors
-                                                            .grey.shade400;
-                                                      }),
-                                                      trackColor:
-                                                          MaterialStateProperty
-                                                              .resolveWith<
-                                                                      Color?>(
-                                                                  (states) {
-                                                        if (states.contains(
-                                                            MaterialState
-                                                                .disabled)) {
-                                                          return controller
-                                                                  .isBillableCreate
-                                                              ? Colors.blue
-                                                                  .withOpacity(
-                                                                      0.5)
-                                                              : Colors.grey
-                                                                  .shade300;
-                                                        }
-                                                        if (states.contains(
-                                                            MaterialState
-                                                                .selected)) {
-                                                          return Colors.blue
-                                                              .withOpacity(0.5);
-                                                        }
-                                                        return Colors
-                                                            .grey.shade300;
-                                                      }),
-                                                    ),
-                                                  ),
-                                                  child: SwitchListTile(
-                                                    title: Text(
-                                                      AppLocalizations.of(
-                                                              context)!
-                                                          .isBillable,
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: Colors.black87,
-                                                      ),
-                                                    ),
-                                                    value: controller
-                                                        .isBillableCreate,
-                                                    onChanged: controller
-                                                            .isEnable.value
-                                                        ? (val) {
-                                                            setState(() {
-                                                              widget.items!
-                                                                          .expenseTrans[
-                                                                      index] =
-                                                                  itemController
-                                                                      .toExpenseItemUpdateModel();
-                                                              controller
-                                                                      .isBillableCreate =
-                                                                  val;
-                                                              itemController
-                                                                      .isBillableCreate =
-                                                                  val;
-                                                            });
-                                                          }
-                                                        : null, // disabled but still keeps color
-                                                  ),
-                                                )),
+          Obx(
+            () => Theme(
+              data: Theme.of(context).copyWith(
+                switchTheme: SwitchThemeData(
+                  thumbColor:
+                      MaterialStateProperty.resolveWith<Color?>((states) {
+                    if (states.contains(MaterialState.disabled)) {
+                      return controller.isBillableCreate
+                          ? Colors.blue
+                          : Colors.grey.shade400;
+                    }
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.blue;
+                    }
+                    return Colors.grey.shade400;
+                  }),
+                  trackColor:
+                      MaterialStateProperty.resolveWith<Color?>((states) {
+                    if (states.contains(MaterialState.disabled)) {
+                      return controller.isBillableCreate
+                          ? Colors.blue.withOpacity(0.5)
+                          : Colors.grey.shade300;
+                    }
+                    if (states.contains(MaterialState.selected)) {
+                      return Colors.blue.withOpacity(0.5);
+                    }
+                    return Colors.grey.shade300;
+                  }),
+                ),
+              ),
+              child: SwitchListTile(
+                title: Text(
+                  AppLocalizations.of(context)!.isBillable,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                value: controller.isBillableCreate,
+                onChanged: controller.isEnable.value
+                    ? (val) {
+                        setState(() {
+                          controller.isBillableCreate = val;
+                          itemController.isBillableCreate = val;
+                          widget.items!.expenseTrans[index] =
+                              itemController.toExpenseItemUpdateModel();
+                        });
+                      }
+                    : null,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      );
+    }).toList(),
+                                      // SearchableMultiColumnDropdownField<
+                                      //   TaxGroupModel
+                                      // >(
+                                      //   enabled: controller.isEnable.value,
+                                      //   labelText: AppLocalizations.of(
+                                      //     context,
+                                      //   )!.taxGroup,
+                                      //   columnHeaders: [
+                                      //     AppLocalizations.of(
+                                      //       context,
+                                      //     )!.taxGroup,
+                                      //     AppLocalizations.of(context)!.taxId,
+                                      //   ],
+                                      //   items: controller.taxGroup,
+                                      //   selectedValue:
+                                      //       itemController.selectedTax,
+                                      //   searchValue: (tax) =>
+                                      //       '${tax.taxGroup} ${tax.taxGroupId}',
+                                      //   displayText: (tax) => tax.taxGroupId,
+                                      //   onChanged: (tax) {
+                                      //     setState(() {
+                                      //       itemController.selectedTax = tax;
+                                      //       widget.items!.expenseTrans[index] =
+                                      //           itemController
+                                      //               .toExpenseItemUpdateModel();
+                                      //       itemController
+                                      //               .taxGroupController
+                                      //               .text =
+                                      //           tax!.taxGroupId;
+                                      //     });
+                                      //   },
+                                      //   controller:
+                                      //       itemController.taxGroupController,
+                                      //   rowBuilder: (tax, searchQuery) {
+                                      //     return Container(
+                                      //       // color: Colors.grey[300],
+                                      //       padding: const EdgeInsets.symmetric(
+                                      //         vertical: 12,
+                                      //         horizontal: 16,
+                                      //       ),
+                                      //       child: Row(
+                                      //         children: [
+                                      //           Expanded(
+                                      //             child: Text(tax.taxGroup),
+                                      //           ),
+                                      //           Expanded(
+                                      //             child: Text(tax.taxGroupId),
+                                      //           ),
+                                      //         ],
+                                      //       ),
+                                      //     );
+                                      //   },
+                                      // ),
+                                      // const SizedBox(height: 12),
+                                      // _buildTextField(
+                                      //   keyboardType: TextInputType.number,
+                                      //   inputFormatters: [
+                                      //     FilteringTextInputFormatter.allow(
+                                      //       RegExp(r'^\d*\.?\d{0,2}'),
+                                      //     ), // Allows numbers with up to 2 decimal places
+                                      //   ],
+                                      //   label: AppLocalizations.of(
+                                      //     context,
+                                      //   )!.taxAmount,
+                                      //   controller: itemController.taxAmount,
+                                      //   isReadOnly: controller.isEnable.value,
+                                      //   onChanged: (value) {
+                                      //     setState(() {
+                                      //       widget.items!.expenseTrans[index] =
+                                      //           itemController
+                                      //               .toExpenseItemUpdateModel();
+                                      //     });
+                                      //   },
+                                      // ),
+                                      // const SizedBox(height: 12),
+                                      // const SizedBox(height: 12),
+                                      // Theme(
+                                      //   data: Theme.of(context).copyWith(
+                                      //     switchTheme: SwitchThemeData(
+                                      //       thumbColor:
+                                      //           WidgetStateProperty.resolveWith<
+                                      //             Color?
+                                      //           >((states) {
+                                      //             final isSelected = states
+                                      //                 .contains(
+                                      //                   WidgetState.selected,
+                                      //                 );
+                                      //             if (states.contains(
+                                      //               WidgetState.disabled,
+                                      //             )) {
+                                      //               // Keep same thumb color only if selected (true)
+                                      //               return isSelected
+                                      //                   ? Colors.green
+                                      //                   : null;
+                                      //             }
+                                      //             // Highlight thumb only if true (selected)
+                                      //             return isSelected
+                                      //                 ? Colors.green
+                                      //                 : null;
+                                      //           }),
+                                      //       trackColor:
+                                      //           WidgetStateProperty.resolveWith<
+                                      //             Color?
+                                      //           >((states) {
+                                      //             final isSelected = states
+                                      //                 .contains(
+                                      //                   WidgetState.selected,
+                                      //                 );
+                                      //             if (states.contains(
+                                      //               WidgetState.disabled,
+                                      //             )) {
+                                      //               // Keep same track color with opacity only if selected (true)
+                                      //               return isSelected
+                                      //                   ? Colors.green
+                                      //                     // ignore: deprecated_member_use
+                                      //                     .withOpacity(0.5)
+                                      //                   : null;
+                                      //             }
+                                      //             // Highlight track only if true (selected)
+                                      //             return isSelected
+                                      //                 ? Colors.green
+                                      //                   // ignore: deprecated_member_use
+                                      //                   .withOpacity(0.5)
+                                      //                 : null;
+                                      //           }),
+                                      //     ),
+                                      //   ),
+                                      //   child: SwitchListTile(
+                                      //     title: Text(
+                                      //       AppLocalizations.of(
+                                      //         context,
+                                      //       )!.isReimbursable,
+                                      //       style: const TextStyle(
+                                      //         fontSize: 16,
+                                      //         fontWeight: FontWeight.w500,
+                                      //       ),
+                                      //     ),
+                                      //     value: itemController.isReimbursable,
+                                      //     onChanged: controller.isEnable.value
+                                      //         ? (val) {
+                                      //             setState(() {
+                                      //               itemController
+                                      //                       .isReimbursable =
+                                      //                   val;
+                                      //               controller.isReimbursite =
+                                      //                   val;
+                                      //               widget
+                                      //                       .items!
+                                      //                       .expenseTrans[index] =
+                                      //                   itemController
+                                      //                       .toExpenseItemUpdateModel();
+                                      //             });
+                                      //           }
+                                      //         : null, // disabled but keeps color
+                                      //   ),
+                                      // ),
+                                      // Obx(
+                                      //   () => Theme(
+                                      //     data: Theme.of(context).copyWith(
+                                      //       switchTheme: SwitchThemeData(
+                                      //         thumbColor:
+                                      //             MaterialStateProperty.resolveWith<
+                                      //               Color?
+                                      //             >((states) {
+                                      //               if (states.contains(
+                                      //                 MaterialState.disabled,
+                                      //               )) {
+                                      //                 return controller
+                                      //                         .isBillableCreate
+                                      //                     ? Colors.blue
+                                      //                     : Colors
+                                      //                           .grey
+                                      //                           .shade400;
+                                      //               }
+                                      //               if (states.contains(
+                                      //                 MaterialState.selected,
+                                      //               )) {
+                                      //                 return Colors.blue;
+                                      //               }
+                                      //               return Colors.grey.shade400;
+                                      //             }),
+                                      //         trackColor:
+                                      //             MaterialStateProperty.resolveWith<
+                                      //               Color?
+                                      //             >((states) {
+                                      //               if (states.contains(
+                                      //                 MaterialState.disabled,
+                                      //               )) {
+                                      //                 return controller
+                                      //                         .isBillableCreate
+                                      //                     ? Colors.blue
+                                      //                           .withOpacity(
+                                      //                             0.5,
+                                      //                           )
+                                      //                     : Colors
+                                      //                           .grey
+                                      //                           .shade300;
+                                      //               }
+                                      //               if (states.contains(
+                                      //                 MaterialState.selected,
+                                      //               )) {
+                                      //                 return Colors.blue
+                                      //                     .withOpacity(0.5);
+                                      //               }
+                                      //               return Colors.grey.shade300;
+                                      //             }),
+                                      //       ),
+                                      //     ),
+                                      //     child: SwitchListTile(
+                                      //       title: Text(
+                                      //         AppLocalizations.of(
+                                      //           context,
+                                      //         )!.isBillable,
+                                      //         style: const TextStyle(
+                                      //           fontSize: 16,
+                                      //           fontWeight: FontWeight.w500,
+                                      //           color: Colors.black87,
+                                      //         ),
+                                      //       ),
+                                      //       value: controller.isBillableCreate,
+                                      //       onChanged: controller.isEnable.value
+                                      //           ? (val) {
+                                      //               setState(() {
+                                      //                 widget
+                                      //                         .items!
+                                      //                         .expenseTrans[index] =
+                                      //                     itemController
+                                      //                         .toExpenseItemUpdateModel();
+                                      //                 controller
+                                      //                         .isBillableCreate =
+                                      //                     val;
+                                      //                 itemController
+                                      //                         .isBillableCreate =
+                                      //                     val;
+                                      //               });
+                                      //             }
+                                      //           : null, // disabled but still keeps color
+                                      //     ),
+                                      //   ),
+                                      // ),
                                       if (controller.isEnable.value)
                                         Row(
                                           mainAxisAlignment:
@@ -1720,72 +2043,75 @@ class _HubApprovalViewEditExpensePageState
                                               onPressed: () {
                                                 final double lineAmount =
                                                     double.tryParse(
-                                                            itemController
-                                                                .lineAmount
-                                                                .text) ??
-                                                        0.0;
+                                                      itemController
+                                                          .lineAmount
+                                                          .text,
+                                                    ) ??
+                                                    0.0;
                                                 if (itemController
-                                                        .split.isEmpty &&
-                                                    item.accountingDistributions
+                                                        .split
+                                                        .isEmpty &&
+                                                    item
+                                                        .accountingDistributions
                                                         .isNotEmpty) {
-                                                  itemController.split
-                                                      .assignAll(
-                                                    item.accountingDistributions
-                                                        .map((e) {
-                                                      return AccountingSplit(
-                                                        paidFor:
-                                                            e.dimensionValueId,
-                                                        percentage:
-                                                            e.allocationFactor,
-                                                        amount: e.transAmount,
-                                                      );
-                                                    }).toList(),
+                                                  itemController.split.assignAll(
+                                                    item.accountingDistributions.map(
+                                                      (e) {
+                                                        return AccountingSplit(
+                                                          paidFor: e
+                                                              .dimensionValueId,
+                                                          percentage: e
+                                                              .allocationFactor,
+                                                          amount: e.transAmount,
+                                                        );
+                                                      },
+                                                    ).toList(),
                                                   );
                                                 } else if (itemController
-                                                    .split.isEmpty) {
+                                                    .split
+                                                    .isEmpty) {
                                                   itemController.split.add(
-                                                      AccountingSplit(
-                                                          percentage: 100.0));
+                                                    AccountingSplit(
+                                                      percentage: 100.0,
+                                                    ),
+                                                  );
                                                 }
 
                                                 showModalBottomSheet(
                                                   context: context,
                                                   isScrollControlled: true,
-                                                  shape:
-                                                      const RoundedRectangleBorder(
+                                                  shape: const RoundedRectangleBorder(
                                                     borderRadius:
                                                         BorderRadius.vertical(
-                                                            top:
-                                                                Radius.circular(
-                                                                    16)),
+                                                          top: Radius.circular(
+                                                            16,
+                                                          ),
+                                                        ),
                                                   ),
                                                   builder: (context) => Padding(
                                                     padding: EdgeInsets.only(
-                                                      bottom:
-                                                          MediaQuery.of(context)
-                                                              .viewInsets
-                                                              .bottom,
+                                                      bottom: MediaQuery.of(
+                                                        context,
+                                                      ).viewInsets.bottom,
                                                       left: 16,
                                                       right: 16,
                                                       top: 24,
                                                     ),
-                                                    child:
-                                                        SingleChildScrollView(
-                                                      child:
-                                                          AccountingDistributionWidget(
+                                                    child: SingleChildScrollView(
+                                                      child: AccountingDistributionWidget(
                                                         splits: itemController
                                                             .split,
                                                         lineAmount: lineAmount,
                                                         onChanged:
                                                             (i, updatedSplit) {
-                                                          if (!mounted) return;
+                                                              if (!mounted)
+                                                                return;
 
-                                                          itemController
-                                                                  .split[i] =
-                                                              updatedSplit;
-                                                        },
-                                                        onDistributionChanged:
-                                                            (newList) {
+                                                              itemController
+                                                                      .split[i] =
+                                                                  updatedSplit;
+                                                            },
+                                                        onDistributionChanged: (newList) {
                                                           if (!mounted) return;
                                                           item.accountingDistributions
                                                               .clear();
@@ -1800,8 +2126,9 @@ class _HubApprovalViewEditExpensePageState
                                                 );
                                               },
                                               child: Text(
-                                                AppLocalizations.of(context)!
-                                                    .accountDistribution,
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.accountDistribution,
                                                 style: const TextStyle(
                                                   color: Colors.blue,
                                                   decoration:
@@ -1835,12 +2162,14 @@ class _HubApprovalViewEditExpensePageState
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Center(
-                                child: CircularProgressIndicator());
+                              child: CircularProgressIndicator(),
+                            );
                           }
 
                           if (snapshot.hasError) {
                             return Center(
-                                child: Text('Error: ${snapshot.error}'));
+                              child: Text('Error: ${snapshot.error}'),
+                            );
                           }
 
                           final historyList = snapshot.data!;
@@ -1849,8 +2178,9 @@ class _HubApprovalViewEditExpensePageState
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
                                 child: Text(
-                                  AppLocalizations.of(context)!
-                                      .noHistoryMessage,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.noHistoryMessage,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(color: Colors.grey),
                                 ),
@@ -1885,7 +2215,7 @@ class _HubApprovalViewEditExpensePageState
                               controller.buttonLoaders['update'] ?? false;
                           final isUpdateAcceptLoading =
                               controller.buttonLoaders['update_accept'] ??
-                                  false;
+                              false;
                           final isRejectLoading =
                               controller.buttonLoaders['reject'] ?? false;
                           final isAnyLoading = controller.buttonLoaders.values
@@ -1893,31 +2223,38 @@ class _HubApprovalViewEditExpensePageState
 
                           return Expanded(
                             child: ElevatedButton(
-                              onPressed: (isUpdateLoading ||
+                              onPressed:
+                                  (isUpdateLoading ||
                                       isUpdateAcceptLoading ||
                                       isRejectLoading ||
                                       isAnyLoading)
                                   ? null
                                   : () {
-                                      if (_formKey.currentState!.validate()) {
-                                        controller.setButtonLoading(
-                                            'update', true);
-                                        controller
-                                            .addToFinalItems(widget.items!);
-                                        controller
-                                            .approvalHubreviewGendralExpense(
-                                                context,
-                                                false,
-                                                widget.items!.workitemrecid!)
-                                            .whenComplete(() {
-                                          controller.setButtonLoading(
-                                              'update', false);
-                                        });
-                                      }
+                                      controller.setButtonLoading(
+                                        'update',
+                                        true,
+                                      );
+                                      controller.addToFinalItems(widget.items!);
+                                      controller
+                                          .hubreviewGendralExpense(
+                                            context,
+                                            false,
+                                            widget.items!.workitemrecid!,
+                                          )
+                                          .whenComplete(() {
+                                            controller.setButtonLoading(
+                                              'update',
+                                              false,
+                                            );
+                                          });
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 3, 20, 117),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  3,
+                                  20,
+                                  117,
+                                ),
                               ),
                               child: isUpdateLoading
                                   ? const SizedBox(
@@ -1928,9 +2265,11 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
+                                  : Text(
                                       AppLocalizations.of(context)!.update,
-                                      style: TextStyle(color: Colors.white),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                             ),
                           );
@@ -1944,7 +2283,7 @@ class _HubApprovalViewEditExpensePageState
                               controller.buttonLoaders['update'] ?? false;
                           final isUpdateAcceptLoading =
                               controller.buttonLoaders['update_accept'] ??
-                                  false;
+                              false;
                           final isRejectLoading =
                               controller.buttonLoaders['reject'] ?? false;
                           final isAnyLoading = controller.buttonLoaders.values
@@ -1952,31 +2291,38 @@ class _HubApprovalViewEditExpensePageState
 
                           return Expanded(
                             child: ElevatedButton(
-                              onPressed: (isUpdateAcceptLoading ||
+                              onPressed:
+                                  (isUpdateAcceptLoading ||
                                       isUpdateLoading ||
                                       isRejectLoading ||
                                       isAnyLoading)
                                   ? null
                                   : () {
-                                      if (_formKey.currentState!.validate()) {
-                                        controller.setButtonLoading(
-                                            'update_accept', true);
-                                        controller
-                                            .addToFinalItems(widget.items!);
-                                        controller
-                                            .approvalHubreviewGendralExpense(
-                                                context,
-                                                true,
-                                                widget.items!.workitemrecid!)
-                                            .whenComplete(() {
-                                          controller.setButtonLoading(
-                                              'update_accept', false);
-                                        });
-                                      }
+                                      controller.setButtonLoading(
+                                        'update_accept',
+                                        true,
+                                      );
+                                      controller.addToFinalItems(widget.items!);
+                                      controller
+                                          .hubreviewGendralExpense(
+                                            context,
+                                            true,
+                                            widget.items!.workitemrecid!,
+                                          )
+                                          .whenComplete(() {
+                                            controller.setButtonLoading(
+                                              'update_accept',
+                                              false,
+                                            );
+                                          });
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 3, 20, 117),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  3,
+                                  20,
+                                  117,
+                                ),
                               ),
                               child: isUpdateAcceptLoading
                                   ? const SizedBox(
@@ -1987,9 +2333,13 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
-                                     AppLocalizations.of(context)!.updateAndAccept,
-                                      style: TextStyle(color: Colors.white),
+                                  : Text(
+                                      AppLocalizations.of(
+                                        context,
+                                      )!.updateAndAccept,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
                                     ),
                             ),
                           );
@@ -1998,7 +2348,6 @@ class _HubApprovalViewEditExpensePageState
                     ),
                   if (widget.items!.stepType == "Review")
                     const SizedBox(height: 12), // space between rows
-
                   //  if (controller.isEnable.value &&
                   //       widget.items!.stepType == "Review")
                   if (widget.items!.stepType == "Review")
@@ -2009,7 +2358,7 @@ class _HubApprovalViewEditExpensePageState
                               controller.buttonLoaders['update'] ?? false;
                           final isUpdateAcceptLoading =
                               controller.buttonLoaders['update_accept'] ??
-                                  false;
+                              false;
                           final isRejectLoading =
                               controller.buttonLoaders['reject'] ?? false;
                           final isAnyLoading = controller.buttonLoaders.values
@@ -2017,20 +2366,27 @@ class _HubApprovalViewEditExpensePageState
 
                           return Expanded(
                             child: ElevatedButton(
-                              onPressed: (isRejectLoading ||
+                              onPressed:
+                                  (isRejectLoading ||
                                       isUpdateLoading ||
                                       isUpdateAcceptLoading ||
                                       isAnyLoading)
                                   ? null
                                   : () {
                                       controller.setButtonLoading(
-                                          'reject', true);
+                                        'reject',
+                                        true,
+                                      );
                                       controller.addToFinalItems(widget.items!);
                                       showActionPopup(context, "Reject");
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 238, 20, 20),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  238,
+                                  20,
+                                  20,
+                                ),
                               ),
                               child: isRejectLoading
                                   ? const SizedBox(
@@ -2041,8 +2397,8 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
-                                     AppLocalizations.of(context)!.reject,
+                                  : Text(
+                                      AppLocalizations.of(context)!.reject,
                                       style: TextStyle(color: Colors.white),
                                     ),
                             ),
@@ -2053,13 +2409,14 @@ class _HubApprovalViewEditExpensePageState
                           child: ElevatedButton(
                             onPressed: () {
                               controller.skipCurrentItem(
-                                  widget.items!.workitemrecid!, context);
+                                widget.items!.workitemrecid!,
+                                context,
+                              );
                             },
                             style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey),
-                            child:  Text(
-                              AppLocalizations.of(context)!.skip,
+                              backgroundColor: Colors.grey,
                             ),
+                            child: Text(AppLocalizations.of(context)!.skip),
                           ),
                         ),
                       ],
@@ -2078,15 +2435,23 @@ class _HubApprovalViewEditExpensePageState
                                   ? null
                                   : () {
                                       controller.setButtonLoading(
-                                          'approve', true);
+                                        'approve',
+                                        true,
+                                      );
                                       showActionPopup(context, "Approve");
 
                                       controller.setButtonLoading(
-                                          'approve', false);
+                                        'approve',
+                                        false,
+                                      );
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 30, 117, 3),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  30,
+                                  117,
+                                  3,
+                                ),
                               ),
                               child: isLoading
                                   ? const SizedBox(
@@ -2097,7 +2462,7 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
+                                  : Text(
                                       AppLocalizations.of(context)!.approve,
                                       style: TextStyle(color: Colors.white),
                                     ),
@@ -2111,22 +2476,30 @@ class _HubApprovalViewEditExpensePageState
                         Obx(() {
                           final isLoading =
                               controller.buttonLoaders['reject_approval'] ??
-                                  false;
+                              false;
                           return Expanded(
                             child: ElevatedButton(
                               onPressed: isLoading
                                   ? null
                                   : () {
                                       controller.setButtonLoading(
-                                          'reject_approval', true);
+                                        'reject_approval',
+                                        true,
+                                      );
                                       showActionPopup(context, "Reject");
 
                                       controller.setButtonLoading(
-                                          'reject_approval', false);
+                                        'reject_approval',
+                                        false,
+                                      );
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 238, 20, 20),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  238,
+                                  20,
+                                  20,
+                                ),
                               ),
                               child: isLoading
                                   ? const SizedBox(
@@ -2137,7 +2510,7 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
+                                  : Text(
                                       AppLocalizations.of(context)!.reject,
                                       style: TextStyle(color: Colors.white),
                                     ),
@@ -2160,15 +2533,23 @@ class _HubApprovalViewEditExpensePageState
                                   ? null
                                   : () {
                                       controller.setButtonLoading(
-                                          'escalate', true);
+                                        'escalate',
+                                        true,
+                                      );
                                       showActionPopup(context, "Escalate");
 
                                       controller.setButtonLoading(
-                                          'escalate', false);
+                                        'escalate',
+                                        false,
+                                      );
                                     },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 3, 20, 117),
+                                backgroundColor: const Color.fromARGB(
+                                  255,
+                                  3,
+                                  20,
+                                  117,
+                                ),
                               ),
                               child: isLoading
                                   ? const SizedBox(
@@ -2179,7 +2560,7 @@ class _HubApprovalViewEditExpensePageState
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  :  Text(
+                                  : Text(
                                       AppLocalizations.of(context)!.escalate,
                                       style: TextStyle(color: Colors.white),
                                     ),
@@ -2194,22 +2575,26 @@ class _HubApprovalViewEditExpensePageState
                           child: ElevatedButton(
                             onPressed: () {
                               controller.skipCurrentItem(
-                                  widget.items!.workitemrecid!, context);
+                                widget.items!.workitemrecid!,
+                                context,
+                              );
                             },
                             style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey),
-                            child:  Text(
-                             AppLocalizations.of(context)!.skip,
+                              backgroundColor: Colors.grey,
                             ),
+                            child: Text(AppLocalizations.of(context)!.skip),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 30),
                 ],
               ),
             ),
-          ),
-        ));
+          );
+        }),
+      ),
+    );
   }
 
   Widget buildDateField(
@@ -2266,10 +2651,7 @@ class _HubApprovalViewEditExpensePageState
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.square,
-      ],
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',
@@ -2277,14 +2659,15 @@ class _HubApprovalViewEditExpensePageState
           toolbarWidgetColor: Colors.white,
           lockAspectRatio: false,
         ),
-        IOSUiSettings(
-          title: 'Crop Image',
-        )
+        IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
       ],
     );
 
     if (croppedFile != null) {
-      return File(croppedFile.path);
+      final croppedImage = File(croppedFile.path);
+      return croppedImage;
+      // ignore: use_build_context_synchronously
+      // await controller.sendUploadedFileToServer(context, croppedImage);
     }
 
     return null;
@@ -2304,53 +2687,75 @@ class _HubApprovalViewEditExpensePageState
     });
   }
 
-void _showFullImage(File file, int index) {
+ void _showFullImage(File file, int index) {
   showDialog(
     context: context,
+    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
     builder: (context) {
       return Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent, // remove white box background
+        insetPadding: const EdgeInsets.all(8),
         child: Stack(
+          alignment: Alignment.center,
           children: [
-            PhotoView(
-              imageProvider: FileImage(file),
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
+            // Full image view
+            PhotoView.customChild(
               minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 3.0,
+              maxScale: PhotoViewComputedScale.covered * 9.0,
+              backgroundDecoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              child: Image.file(file, fit: BoxFit.contain),
             ),
+
+            // Close button (top-left)
             Positioned(
-              top: 10,
-              right: 10,
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
+              ),
+            ),
+
+            // Floating edit & delete buttons (top-right)
+            Positioned(
+              top: 80,
+              right: 20,
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "edit_$index",
-                    onPressed: () async {
-                      final croppedFile = await _cropImage(file);
-                      if (croppedFile != null) {
+                  if (controller.isEnable.value)
+                    FloatingActionButton.small(
+                      heroTag: "edit_$index",
+                      onPressed: () async {
+                        final croppedFile = await _cropImage(file);
+                        if (croppedFile != null) {
+                          setState(() {
+                            controller.imageFiles[index] = croppedFile;
+                          });
+                          Navigator.pop(context);
+                          _showFullImage(croppedFile, index);
+                        }
+                      },
+                      backgroundColor: Colors.deepPurple,
+                      child: const Icon(Icons.edit),
+                    ),
+                  const SizedBox(height: 12),
+                  if (controller.isEnable.value)
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      onPressed: () {
+                        Navigator.pop(context);
                         setState(() {
-                          controller.imageFiles[index] = croppedFile;
+                          controller.imageFiles.removeAt(index);
                         });
-                        Navigator.pop(context); // Close dialog and reopen to refresh
-                        _showFullImage(croppedFile, index);
-                      }
-                    },
-                    child: const Icon(Icons.edit),
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: "delete_$index",
-                    onPressed: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        controller.imageFiles.removeAt(index);
-                      });
-                    },
-                    child: const Icon(Icons.delete),
-                    backgroundColor: Colors.red,
-                  ),
+                      },
+                      backgroundColor: Colors.red,
+                      child: const Icon(Icons.delete),
+                    ),
                 ],
               ),
             ),
@@ -2360,7 +2765,6 @@ void _showFullImage(File file, int index) {
     },
   );
 }
-
 
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
@@ -2382,8 +2786,10 @@ void _showFullImage(File file, int index) {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -2395,7 +2801,7 @@ void _showFullImage(File file, int index) {
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -2466,7 +2872,9 @@ void _showFullImage(File file, int index) {
                           rowBuilder: (user, searchQuery) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
                               child: Row(
                                 children: [
                                   Expanded(child: Text(user.userName)),
@@ -2489,8 +2897,9 @@ void _showFullImage(File file, int index) {
                       controller: commentController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText:
-                            AppLocalizations.of(context)!.enterCommentHere,
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
@@ -2505,8 +2914,9 @@ void _showFullImage(File file, int index) {
                             width: 2,
                           ),
                         ),
-                        errorText:
-                            isCommentError ? 'Comment is required.' : null,
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
                       ),
                       onChanged: (value) {
                         if (isCommentError && value.trim().isNotEmpty) {
@@ -2537,22 +2947,23 @@ void _showFullImage(File file, int index) {
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(
-                                child: SkeletonLoaderPage(),
-                              ),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
-                            final success =
-                                await controller.approvalHubpostApprovalAction(
-                              context,
-                              workitemrecid: [workitemrecid!],
-                              decision: status,
-                              comment: commentController.text,
-                            );
+                            final success = await controller
+                                .approvalHubpostApprovalAction(
+                                  context,
+                                  workitemrecid: [workitemrecid!],
+                                  decision: status,
+                                  comment: commentController.text,
+                                );
 
                             // Hide the loading indicator
-                            if (Navigator.of(context, rootNavigator: true)
-                                .canPop()) {
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
@@ -2560,12 +2971,15 @@ void _showFullImage(File file, int index) {
 
                             if (success) {
                               Navigator.pushNamed(
-                                  context, AppRoutes.approvalHubMain);
+                                context,
+                                AppRoutes.approvalHubMain,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Failed to submit action')),
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -2577,6 +2991,7 @@ void _showFullImage(File file, int index) {
                         ),
                       ],
                     ),
+                     const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -2587,37 +3002,41 @@ void _showFullImage(File file, int index) {
     );
   }
 
- 
-
-    Widget _buildTextField({
+ Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required bool isReadOnly,
     void Function(String)? onChanged,
-    List<TextInputFormatter>? inputFormatters, // ✅ optional inputFormatters
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 4),
-        TextField(
+        TextFormField(
           controller: controller,
           enabled: isReadOnly,
           onChanged: onChanged,
-          inputFormatters: inputFormatters, // ✅ apply if not null
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
           decoration: InputDecoration(
             labelText: label,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
         ),
         const SizedBox(height: 12),
       ],
     );
   }
+
+
   Widget _buildDropdownField({
     required String label,
     required List<String> items,
@@ -2628,24 +3047,23 @@ void _showFullImage(File file, int index) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
           value: selectedValue,
           decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onChanged: isReadOnly ? null : onChanged,
           items: items
-              .map((e) => DropdownMenuItem<String>(
-                    value: e,
-                    child: Text(e),
-                  ))
+              .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
               .toList(),
         ),
         const SizedBox(height: 12),
@@ -2679,10 +3097,7 @@ void _showFullImage(File file, int index) {
           ),
         ),
         if (expanded)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: child,
-          )
+          Padding(padding: const EdgeInsets.only(top: 10), child: child),
       ],
     );
   }
@@ -2697,8 +3112,9 @@ void _showFullImage(File file, int index) {
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
             title: Text(
               title,
@@ -2713,10 +3129,13 @@ void _showFullImage(File file, int index) {
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),
