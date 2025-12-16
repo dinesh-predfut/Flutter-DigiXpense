@@ -15,6 +15,8 @@ class Urls {
       "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const geconfigureField =
       "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
+      static const geconfigureFieldLeave =
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/leavefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DLeaveRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId";
   static const geconfigureFieldCashAdvance =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cashfieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DCashAdvanceRequisition&page=1&sort_order=asc&choosen_fields=FieldId,FieldName,IsEnabled,IsMandatory,FunctionalArea,RecId";
   static const defalutPayment =
@@ -131,7 +133,7 @@ class Urls {
   static const reviewexpenseregistration =
       "$baseURL/api/v1/expenseregistration/expenseregistration/reviewexpenseregistration?";
   static const cashAdvanceChart =
-      "$baseURL/api/v1/dashboard/widgets/ExpenseTrends?role=Spender&end_date=";
+      "$baseURL/api/v1/dashboard/widgets/ExpenseTrends";
         static const cashadvanceregistrationApi =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/reviewcashadvancereturn?";
   static const expenseChart =

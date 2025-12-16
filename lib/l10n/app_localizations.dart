@@ -536,6 +536,23 @@ abstract class AppLocalizations {
   String get duplicateReceiptDetected;
   String get item;
   String get pleaseWait;
+  String get leaveCode;
+    String get reliever;
+  String get department;
+  String get dates;
+  String get notifyingUsers;
+  String get contactNumber;
+  String get availabilityDuringLeave;
+  String get availability;
+  String get outOfOfficeMessage;
+  String get notifyHR;
+  String get notifyTeamMembers;
+  String get paidLeave;
+  String get totalDays;
+  String get saveAsDraft;
+  String get editLeaveRequest;
+  String get newLeaveRequest;
+String get days;
 }
 
 class _AppLocalizationsDelegate

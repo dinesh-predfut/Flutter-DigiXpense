@@ -433,11 +433,30 @@ String get exitForm => 'Exit Form';
   String get cropImage => 'Crop Image';
   @override
   String get referenceId => 'Reference';
+  @override String get reliever => 'Reliever';
+@override String get department => 'Department';
+@override String get dates => 'Dates';
+@override String get notifyingUsers => 'Notifying Users';
+@override String get contactNumber => 'Contact Number';
+@override String get availabilityDuringLeave => 'Availability During Leave';
+@override String get availability => 'Availability';
+@override String get outOfOfficeMessage => 'Out of Office Message';
+@override String get notifyHR => 'Notify HR';
+@override String get notifyTeamMembers => 'Notify Team Members';
+@override String get paidLeave => 'Paid Leave';
+@override String get totalDays => 'Total Days';
+@override String get saveAsDraft => 'Save as Draft';
+@override String get editLeaveRequest => 'Edit Leave Request';
+@override String get newLeaveRequest => 'New Leave Request';
+@override
+String get days => 'Days';
+
   @override
   String get pleaseSelectMerchant => 'Please select a merchant';
   @override
   String get pleaseEnterMerchantName => 'Please enter a merchant name';
-
+@override
+  String get leaveCode => 'Leave Code';
   @override
   String get createPerDiem => 'Create Per Diem';
   @override

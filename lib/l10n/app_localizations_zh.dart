@@ -315,7 +315,26 @@ String get exitForm => '退出表单';
 @override String get perDiemDetails => '每日津贴详情';
 @override String get expenseId => '费用编号';
 @override String get employeeId => '员工编号';
+@override String get reliever => '代理人';
+@override String get department => '部门';
+@override String get dates => '日期';
+@override String get notifyingUsers => '通知用户';
+@override String get contactNumber => '联系电话';
+@override String get availabilityDuringLeave => '休假期间可用性';
+@override String get availability => '可用性';
+@override String get outOfOfficeMessage => '外出自动回复';
+@override String get notifyHR => '通知人力资源';
+@override String get notifyTeamMembers => '通知团队成员';
+@override String get paidLeave => '带薪休假';
+@override String get totalDays => '总天数';
+@override String get saveAsDraft => '保存为草稿';
+@override String get editLeaveRequest => '编辑请假申请';
+@override String get newLeaveRequest => '新建请假申请';
+@override
+String get days => '天数';
 
+  @override
+  String get leaveCode => '请假代码';
 @override String get location => '地点';
 @override String get country => '国家';
 @override String get pleaseSelectLocation => '请选择地点';

@@ -264,6 +264,26 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get perDiemDetails => 'تفاصيل البدل اليومي';
 @override String get expenseId => 'معرّف المصروف';
 @override String get employeeId => 'معرّف الموظف';
+@override String get reliever => 'البديل';
+@override String get department => 'القسم';
+@override String get dates => 'التواريخ';
+@override String get notifyingUsers => 'المستخدمون المُخطرون';
+@override String get contactNumber => 'رقم الاتصال';
+@override String get availabilityDuringLeave => 'التوفر أثناء الإجازة';
+@override String get availability => 'التوفر';
+@override String get outOfOfficeMessage => 'رسالة خارج المكتب';
+@override String get notifyHR => 'إخطار الموارد البشرية';
+@override String get notifyTeamMembers => 'إخطار أعضاء الفريق';
+@override String get paidLeave => 'إجازة مدفوعة الأجر';
+@override String get totalDays => 'إجمالي الأيام';
+@override String get saveAsDraft => 'حفظ كمسودة';
+@override String get editLeaveRequest => 'تعديل طلب الإجازة';
+@override String get newLeaveRequest => 'طلب إجازة جديد';
+@override
+String get days => 'الأيام';
+
+  @override
+  String get leaveCode => 'رمز الإجازة';
 @override
 String get exitWarning => 'ستفقد أي بيانات غير محفوظة. هل تريد الخروج؟';
 @override

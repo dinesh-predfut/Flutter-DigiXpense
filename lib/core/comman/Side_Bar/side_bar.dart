@@ -397,7 +397,45 @@ class _MyDrawerState extends State<MyDrawer>
               ),
             ],
           ),
+          ExpansionTile(
+            initiallyExpanded: isReportsExpanded,
+            leading: Icon(Icons.leave_bags_at_home),
+            title: Text("Leave Requisition"),
+            children: [
+              _buildDrawerItem(
+                title: "My Leave",
+                icon: Icons.arrow_right,
+                menuKey: "My Leave",
+                onTap: () =>{
+                                      Navigator.pushNamed(context, AppRoutes.leaveDashboard),
 
+                }
+              ),
+                _buildDrawerItem(
+                title: "My Team Leave",
+                icon: Icons.arrow_right,
+                menuKey: "My Team Leave",
+                onTap: () =>{}
+                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+              ),
+               _buildDrawerItem(
+                title: loc.pendingApprovals,
+                icon: Icons.arrow_right,
+                menuKey: loc.pendingApprovals,
+                onTap: () =>
+                    // Navigator.pushNamed(context, AppRoutes.approvalDashboard),
+                    {}
+              ),
+                  _buildDrawerItem(
+                title: "Cancellation Leave",
+                icon: Icons.arrow_right,
+                menuKey: "Cancellation Leave",
+                onTap: () =>
+                    // Navigator.pushNamed(context, AppRoutes.approvalDashboard),
+                    {}
+              ),
+            ],
+          ),
           const Divider(),
 
           // -------------------- SETTINGS -------------------- //
@@ -420,6 +458,7 @@ class _MyDrawerState extends State<MyDrawer>
             title: loc.help,
             icon: Icons.help_outline,
             menuKey: loc.help,
+             onTap: () => Navigator.pushNamed(context, AppRoutes.calendarView),
           ),
 
           // -------------------- LOGOUT -------------------- //
@@ -435,7 +474,7 @@ class _MyDrawerState extends State<MyDrawer>
                 await prefs.remove('userId');
                 await prefs.remove('refresh_token');
                 await prefs.remove('userName');
-                prefs.setString('refresh_token', 'Login');
+                prefs.setString('last_route', 'Login');
 
                
                 final themeNotifier = Provider.of<ThemeNotifier>(

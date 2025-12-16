@@ -11,6 +11,7 @@ import 'package:digi_xpense/data/models.dart';
 import 'package:digi_xpense/data/pages/API_Service/apiService.dart'
     show ApiService;
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsCreateForm.dart';
+import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
 import 'package:digi_xpense/main.dart';
 import 'package:digi_xpense/theme/theme.dart';
@@ -29,6 +30,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syncfusion_flutter_charts/charts.dart'
+    show ColumnSeries, DataLabelSettings, CartesianSeries;
+import 'package:table_calendar/table_calendar.dart'
+    show CalendarFormat, isSameDay;
 import 'package:url_launcher/url_launcher.dart';
 import 'pages/EmailHub/emailDetailsPage.dart';
 import 'pages/screen/widget/router/router.dart';
@@ -143,6 +148,28 @@ class Controller extends GetxController {
     TextEditingController(), // Start Trip
     TextEditingController(), // End Trip
   ];
+  RxList<LeaveRequisition> leaveRequisitionList = <LeaveRequisition>[].obs;
+
+  RxBool isLoadingLeaves = false.obs;
+String? mapLeaveStatusToApi(String selectedStatus) {
+  switch (selectedStatus) {
+    case 'Un Reported':
+      return 'Created';
+    case 'In Process':
+      return 'Pending';
+    case 'Approved':
+      return 'Approved';
+    case 'Cancelled':
+      return 'Cancelled';
+    case 'Rejected':
+      return 'Rejected';
+    case 'All':
+      return null;
+    default:
+      return null;
+  }
+}
+
   // Per Diem
   RxString selectedIcon = ''.obs;
   final TextEditingController fromDateController = TextEditingController();
@@ -178,6 +205,23 @@ class Controller extends GetxController {
   var showMileage = false.obs;
   var showPerDiem = false.obs;
   var showExpense = false.obs;
+  Rx<Dashboard?> selectedDashboard = Rx<Dashboard?>(null);
+  Rx<DashboardByRole?> selectedDashboardByrole = Rx<DashboardByRole?>(null);
+
+  RxList<String> availableRoles = <String>[].obs;
+  final Map<String, GlobalKey> widgetRenderKeys = {};
+
+  RxString currentRole = "".obs;
+
+  RxBool isLoadingWidgets = false.obs;
+  RxBool isExporting = false.obs;
+  RxList<WidgetDataResponse> currentDashboardWidgets =
+      <WidgetDataResponse>[].obs;
+
+  final wizardConfigs = <WizardConfig>[].obs;
+  final widgetDataCache = <String, WidgetDataResponse>{}.obs;
+  // final isLoadingWidgets = false.obs;
+  // var currentRole = 'Spender'.obs;
   var showCashAdvance = false.obs;
   List<VehicleType> vehicleTypes = []; // Dropdown values from API
   VehicleType? selectedVehicleType; // Currently selected type
@@ -188,6 +232,8 @@ class Controller extends GetxController {
   var manageExpensesCards = <ManageExpensesCard>[].obs;
   var managecashAdvanceCards = <ManageExpensesCard>[].obs;
   var customFieldsDropDownvalue = <Map<String, dynamic>>[].obs;
+  // var cashAdvanceTrends = <CashAdvanceTrendData>[].obs;
+  var isLoadingCashAdvanceTrends = false.obs;
   var isFetchingStates = false.obs;
   var isFetchingStatesSecond = false.obs;
   final List<ExpenseItem> itemizeControllers = <ExpenseItem>[];
@@ -199,8 +245,13 @@ class Controller extends GetxController {
   RxBool showUnitAmountError = false.obs;
   RxBool showUnitError = false.obs;
   RxBool showTaxAmountError = false.obs;
-    RxBool showTaxGroupError = false.obs;
+  RxBool showTaxGroupError = false.obs;
+  // var isLoading = false.obs;
+  var dashboards = <Dashboard>[].obs;
+  var dashboardByRole = <DashboardByRole>[].obs;
 
+  // var selectedDashboard = Rxn<Dashboard>();
+  var selectedDashboardIndex = 0.obs;
   RxBool showPaidForError = false.obs;
   RxBool showProjectError = false.obs;
   RxBool enableNextBtn = true.obs;
@@ -240,6 +291,7 @@ class Controller extends GetxController {
   //
   //
   // CashAdvanceRequest@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    // final Rx<LocationModel?> selectedLocation = Rx<LocationModel?>(null);
   final TextEditingController justificationController = TextEditingController();
   final TextEditingController totalunitEstimatedAmount =
       TextEditingController();
@@ -261,6 +313,301 @@ class Controller extends GetxController {
       TextEditingController(); // ✅ one-liner
 
   // var selectedStatus = 'All'.obs;
+  // Leave@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  final RxList<EmployeeModel> employees = <EmployeeModel>[].obs;
+  final RxList<LocationModel> locations = <LocationModel>[].obs;
+  final RxList<EmployeeModel> notifyingUsers = <EmployeeModel>[].obs;
+  final RxList<String> availabilityOptions = <String>[].obs;
+  final RxList<LeaveCodeModel> leaveCodes = <LeaveCodeModel>[].obs;
+  
+  // Field configurations
+  final RxList<LeaveFieldConfig> fieldConfigsLeave = <LeaveFieldConfig>[].obs;
+  
+  // Selected values
+  final Rx<LeaveCodeModel?> selectedLeaveCode = Rx<LeaveCodeModel?>(null);
+  final Rx<EmployeeModel?> selectedReliever = Rx<EmployeeModel?>(null);
+  final RxList<EmployeeModel> selectedNotifyingUsers = <EmployeeModel>[].obs;
+  final RxString selectedAvailability = ''.obs;
+  
+  // Form state
+  final Rx<DateTime?> startDate = Rx<DateTime?>(null);
+  final Rx<DateTime?> endDate = Rx<DateTime?>(null);
+  final RxString contactNumber = ''.obs;
+  final RxString comments = ''.obs;
+  final RxString outOfOfficeMessage = ''.obs;
+  final RxBool notifyHR = false.obs;
+  final RxBool notifyTeam = false.obs;
+  final RxBool isPaidLeave = true.obs;
+  final RxInt totalDays = 0.obs;
+  
+  // Controllers for text fields
+  final TextEditingController leaveCodeController = TextEditingController();
+  final TextEditingController projectController = TextEditingController();
+  final TextEditingController relieverController = TextEditingController();
+  final TextEditingController datesController = TextEditingController();
+  final TextEditingController contactNumberController = TextEditingController();
+  final TextEditingController commentsController = TextEditingController();
+  final TextEditingController availabilityController = TextEditingController();
+  final TextEditingController outOfOfficeMessageController = TextEditingController();
+  
+  // Loading states
+  final RxBool isLoadingLeave = false.obs;
+  //  Future<void> fetchLeaveCodes() async {
+  //   try {
+  //     final response = await ApiService().getLeaveCodes();
+  //     leaveCodes.assignAll(response);
+  //   } catch (e) {
+  //     rethrow;
+  //   }
+  // }
+  
+ 
+  
+
+
+  
+  // Future<void> fetchNotifyingUsers() async {
+  //   try {
+  //     final response = await ApiService().getNotifyingUsers();
+  //     notifyingUsers.assignAll(response);
+  //   } catch (e) {
+  //     rethrow;
+  //   }
+  // }
+  
+  // Future<void> fetchAvailabilityOptions() async {
+  //   try {
+  //     final response = await ApiService().getAvailabilityOptions();
+  //     availabilityOptions.assignAll(response);
+  //   } catch (e) {
+  //     rethrow;
+  //   }
+  // }
+  
+  // Future<List<LeaveFieldConfig>> fetchLeaveFieldConfigurations() async {
+  //   try {
+  //     final response = await ApiService().getLeaveFieldConfigurations();
+  //     fieldConfigs.assignAll(response);
+  //     return response;
+  //   } catch (e) {
+  //     rethrow;
+  //   }
+  // }
+  
+  void setButtonLoading(String buttonId, bool loading) {
+    buttonLoaders[buttonId] = loading;
+    buttonLoaders.refresh();
+  }
+  
+  bool isButtonLoading(String buttonId) {
+    return buttonLoaders[buttonId] ?? false;
+  }
+  
+  void calculateTotalDays() {
+    if (startDate.value != null && endDate.value != null) {
+      totalDays.value = endDate.value!.difference(startDate.value!).inDays + 1;
+    } else {
+      totalDays.value = 0;
+    }
+  }
+  
+  void updateDatesController() {
+    if (startDate.value != null && endDate.value != null) {
+      final start = DateFormat('dd/MM/yyyy').format(startDate.value!);
+      final end = DateFormat('dd/MM/yyyy').format(endDate.value!);
+      datesController.text = '$start - $end';
+    }
+  }
+  
+  void resetForm() {
+    selectedLeaveCode.value = null;
+    selectedProject = null;
+    selectedReliever.value = null;
+    selectedLocation = null;
+    selectedNotifyingUsers.clear();
+    selectedAvailability.value = '';
+    
+    startDate.value = null;
+    endDate.value = null;
+    contactNumber.value = '';
+    comments.value = '';
+    outOfOfficeMessage.value = '';
+    notifyHR.value = false;
+    notifyTeam.value = false;
+    isPaidLeave.value = true;
+    totalDays.value = 0;
+    
+    leaveCodeController.clear();
+    projectController.clear();
+    relieverController.clear();
+    datesController.clear();
+    locationController.clear();
+    contactNumberController.clear();
+    commentsController.clear();
+    availabilityController.clear();
+    outOfOfficeMessageController.clear();
+  }
+  
+  Future<void> submitLeaveRequest(BuildContext context, bool isDraft) async {
+    if (!_validateForm() && !isDraft) {
+      Get.snackbar('Error', 'Please fill all required fields');
+      return;
+    }
+    
+    final leaveRequest = LeaveRequest(
+      leaveCode: selectedLeaveCode.value?.code,
+      projectId: selectedProject!.code,
+      relieverId: selectedReliever.value?.employeeId,
+      startDate: startDate.value,
+      endDate: endDate.value,
+      location: selectedLocation!.location,
+      notifyingUsers: selectedNotifyingUsers.map((e) => e.employeeId).toList(),
+      contactNumber: contactNumber.value,
+      comments: comments.value,
+      availabilityDuringLeave: selectedAvailability.value,
+      outOfOfficeMessage: outOfOfficeMessage.value,
+      notifyHR: notifyHR.value,
+      notifyTeam: notifyTeam.value,
+      isPaidLeave: isPaidLeave.value,
+      totalDays: totalDays.value,
+      status: isDraft ? 'Draft' : 'Submitted',
+    );
+    
+    try {
+      setButtonLoading('submit', true);
+      // await ApiService().submitLeaveRequest(leaveRequest, isDraft);
+      Get.snackbar('Success', 
+        isDraft ? 'Leave saved as draft' : 'Leave request submitted successfully');
+      resetForm();
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to submit leave request: $e');
+    } finally {
+      setButtonLoading('submit', false);
+    }
+  }
+  
+  bool _validateForm() {
+    // Get field configurations
+    final leaveCodeConfig = getFieldConfig('Leave Code');
+    final projectConfig = getFieldConfig('Project Id');
+    final relieverConfig = getFieldConfig('Delegated authority/Reliever');
+    final datesConfig = getFieldConfig('Dates'); // Assuming this exists
+    final locationConfig = getFieldConfig('Location during leave');
+    final contactConfig = getFieldConfig('Contact number');
+    
+    if (leaveCodeConfig.isEnabled && leaveCodeConfig.isMandatory) {
+      if (selectedLeaveCode.value == null) return false;
+    }
+    
+    if (projectConfig.isEnabled && projectConfig.isMandatory) {
+      if (selectedProject == null) return false;
+    }
+    
+    if (relieverConfig.isEnabled && relieverConfig.isMandatory) {
+      if (selectedReliever.value == null) return false;
+    }
+    
+    // Dates are always required
+    if (startDate.value == null || endDate.value == null) return false;
+    
+    if (locationConfig.isEnabled && locationConfig.isMandatory) {
+      if (selectedLocation == null) return false;
+    }
+    
+    if (contactConfig.isEnabled && contactConfig.isMandatory) {
+      if (contactNumber.value.isEmpty) return false;
+    }
+    
+    return true;
+  }
+  
+  FieldConfiguration getFieldConfigLeav(String fieldName) {
+    return fieldConfigs.firstWhere(
+      (config) => config.fieldName == fieldName,
+      // orElse: () => LeaveFieldConfig(
+      //   fieldName: fieldName,
+      //   isEnabled: true,
+      //   isMandatory: false, fieldId: '', functionalArea: '', recId: '',
+      // ),
+    );
+  }
+  
+  void loadExistingLeaveRequest(LeaveRequest leaveRequest) {
+    // Find and set leave code
+    if (leaveRequest.leaveCode != null) {
+      selectedLeaveCode.value = leaveCodes.firstWhere(
+        (code) => code.code == leaveRequest.leaveCode,
+        orElse: () => leaveCodes.first,
+      );
+      leaveCodeController.text = selectedLeaveCode.value?.name ?? '';
+    }
+    
+    // Find and set project
+    // if (leaveRequest.projectId != null) {
+    //   selectedProject = projects.firstWhere(
+    //     (project) => project.code == leaveRequest.projectId,
+    //     orElse: () => projects.first,
+    //   );
+    //   projectController.text = selectedProject.value?.name ?? '';
+    // }
+    
+    // Find and set reliever
+    if (leaveRequest.relieverId != null) {
+      selectedReliever.value = employees.firstWhere(
+        (employee) => employee.employeeId == leaveRequest.relieverId,
+        orElse: () => employees.first,
+      );
+      relieverController.text = selectedReliever.value?.name ?? '';
+    }
+    
+    // Set dates
+    startDate.value = leaveRequest.startDate;
+    endDate.value = leaveRequest.endDate;
+    calculateTotalDays();
+    updateDatesController();
+    
+    // Find and set location
+    if (leaveRequest.location != null) {
+      selectedLocation = locations.firstWhere(
+        (location) => location.location == leaveRequest.location,
+        orElse: () => locations.first,
+      );
+      locationController.text = selectedLocation?.location ?? '';
+    }
+    
+    // Set notifying users
+    if (leaveRequest.notifyingUsers != null) {
+      for (var userId in leaveRequest.notifyingUsers!) {
+        final user = employees.firstWhere(
+          (employee) => employee.employeeId == userId,
+          orElse: () => employees.firstWhere(
+            (employee) => employee.employeeId == userId,
+          ),
+        );
+        selectedNotifyingUsers.add(user);
+      }
+    }
+    
+    // Set other fields
+    contactNumber.value = leaveRequest.contactNumber ?? '';
+    contactNumberController.text = contactNumber.value;
+    
+    comments.value = leaveRequest.comments ?? '';
+    commentsController.text = comments.value;
+    
+    selectedAvailability.value = leaveRequest.availabilityDuringLeave ?? '';
+    availabilityController.text = selectedAvailability.value;
+    
+    outOfOfficeMessage.value = leaveRequest.outOfOfficeMessage ?? '';
+    outOfOfficeMessageController.text = outOfOfficeMessage.value;
+    
+    notifyHR.value = leaveRequest.notifyHR ?? false;
+    notifyTeam.value = leaveRequest.notifyTeam ?? false;
+    isPaidLeave.value = leaveRequest.isPaidLeave ?? true;
+  }
   @override
   void onInit() {
     super.onInit();
@@ -356,12 +703,11 @@ class Controller extends GetxController {
 
   RxMap<String, bool> buttonLoaders = <String, bool>{}.obs;
 
-  void setButtonLoading(String buttonName, bool isLoading) {
-    buttonLoaders[buttonName] = isLoading;
-  }
+  
 
   String selectedStatus = "Un Reported";
   var selectedStatusDropDown = "Un Reported".obs;
+  var selectedLeaveStatusDropDown = "Un Reported".obs;
   var selectedExpenseType = "All Expenses".obs;
   String selectedStatusmyteam = "In Process";
   final selectedStatusDropDownmyteam = "In Process".obs;
@@ -386,6 +732,8 @@ class Controller extends GetxController {
   List<CashAdvanceRequestItemizeFornew> finalItemsCashAdvanceNew = [];
   List<AccountingDistribution?> accountingDistributions = [];
   RxList<GExpense> getAllListGExpense = <GExpense>[].obs;
+  RxList<GExpenseMap> tableListChart = <GExpenseMap>[].obs;
+
   RxList<ReportModels> getAllListReport = <ReportModels>[].obs;
   RxList<CashAdvanceRequestHeader> getAllListCashAdvanseMyteams =
       <CashAdvanceRequestHeader>[].obs;
@@ -691,6 +1039,36 @@ class Controller extends GetxController {
     }
   }
 
+  Future<List<LeaveAnalytics>> fetchLeaveAnalytics(
+    String employeeId,
+    String token,
+  ) async {
+    final url = Uri.parse(
+      'https://api.digixpense.com/api/v1/leaverequisition/leavemanagement/leavecodeanalytics?employee_id=$employeeId',
+    );
+
+    final response = await ApiService.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 && response.body.isNotEmpty) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is List) {
+        return decoded
+            .map<LeaveAnalytics>((e) => LeaveAnalytics.fromJson(e))
+            .toList();
+      }
+    }
+
+    // ✅ Always return something
+    return <LeaveAnalytics>[];
+  }
+
   Future<Map<String, dynamic>> getDeviceDetails() async {
     print("tokens");
     final token = await getDeviceToken();
@@ -983,6 +1361,37 @@ class Controller extends GetxController {
       return data.map((item) => PaidForModel.fromJson(item)).toList();
     } else {
       throw Exception('Failed to fetch Paid For list: ${response.statusCode}');
+    }
+  }
+
+  Future<void> changeDashboard(Dashboard dashboard) async {
+    selectedDashboard(dashboard);
+    // await loadDashboardData(dashboard);
+  }
+
+  Future<List<Dashboard>> fetchDashboardWidgets() async {
+    final url = Uri.parse(
+      "https://api.digixpense.com/api/v1/dashboard/dashboard/dashboardandusermappingjoins",
+    );
+
+    final response = await ApiService.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        'DigiSessionID': digiSessionId.toString(),
+      },
+    );
+
+    print("Status Code: ${response.statusCode}");
+    print("API Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final List decoded = jsonDecode(response.body);
+
+      return decoded.map((item) => Dashboard.fromJson(item)).toList();
+    } else {
+      throw Exception("Failed to load widgets: ${response.statusCode}");
     }
   }
 
@@ -1658,7 +2067,35 @@ class Controller extends GetxController {
       isLoadingGE1.value = false;
     }
   }
+Future<void> leaveconfiguration() async {
+    // isLoadingGE2.value = true;
+    isLoadingGE1.value = true;
+    final url = Uri.parse(Urls.geconfigureFieldLeave);
+    try {
+      final response = await ApiService.get(url);
 
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        configList.value = [];
+        if (data is List) {
+          configList.addAll(data.cast<Map<String, dynamic>>());
+
+          print('Appended configList: $configList');
+          // isLoadingGE2.value = false;
+          isLoadingGE1.value = false;
+          print('currencies to load countries$currencies');
+        }
+      } else {
+        print('Failed to load countries');
+        // isLoadingGE2.value = false;
+        isLoadingGE1.value = false;
+      }
+    } catch (e) {
+      print('Error fetching countries: $e');
+      // isLoadingGE2.value = false;
+      isLoadingGE1.value = false;
+    }
+  }
   // MOVE THIS TO GLOBAL SCOPE
   T findOrFallback<T>(List<T> list, bool Function(T) test, T fallback) {
     return list.firstWhere(test, orElse: () => fallback);
@@ -6175,6 +6612,64 @@ Expense Item Added:
     }
   }
 
+  Future<void> fetchLeaveRequisitions() async {
+    isLoadingLeaves.value = true;
+
+    const String baseUrl =
+        'https://api.digixpense.com/api/v1/leaverequisition/leavemanagement/leaverequisitions';
+
+    String? apiStatus;
+    switch (selectedStatus) {
+      case 'Un Reported':
+        apiStatus = 'Created';
+        break;
+      case 'In Process':
+        apiStatus = 'Pending';
+        break;
+      case 'Approved':
+        apiStatus = 'Approved';
+        break;
+      case 'Cancelled':
+      case 'Rejected':
+        apiStatus = selectedStatus;
+        break;
+      case 'All':
+        apiStatus = null;
+        break;
+    }
+
+    final filterQuery =
+        'LVRLeaveHeader.CreatedBy__eq%3D${Params.userId}'
+        '${apiStatus != null ? '%26LVRLeaveHeader.ApprovalStatus__eq%3D$apiStatus' : ''}';
+
+    final url = Uri.parse(
+      '$baseUrl?filter_query=$filterQuery&page=1&sort_order=asc',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+
+        if (decoded is List) {
+          leaveRequisitionList.assignAll(
+            decoded.map((e) => LeaveRequisition.fromJson(e)).toList(),
+          );
+        } else {
+          leaveRequisitionList.clear();
+        }
+      } else {
+        leaveRequisitionList.clear();
+      }
+    } catch (e) {
+      print('❌ Error fetching leave requisitions: $e');
+      leaveRequisitionList.clear();
+    } finally {
+      isLoadingLeaves.value = false;
+    }
+  }
+
   Future<List<GExpense>> fetchUnprocessExpense() async {
     isLoadingunprocess.value = true;
     final url = Uri.parse(
@@ -8022,12 +8517,23 @@ Expense Item Added:
     }
   }
 
-  Future<void> fetchChartData() async {
+  String lastLoadedRole = "";
+  Future<void> fetchChartDataOnce(String role) async {
+    print("lastLoadedRole$lastLoadedRole");
+    if (lastLoadedRole == role) return; // already loaded
+    lastLoadedRole = role;
+
+    await fetchChartData(role);
+  }
+
+  Future<void> fetchChartData(String currentRole) async {
+    // if (lastLoadedRole == currentRole) return; // already loaded
+    // lastLoadedRole = currentRole;
     final int endDate = DateTime.now().millisecondsSinceEpoch;
     isUploadingCards.value = true;
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.cashAdvanceChart}$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+        '${Urls.cashAdvanceChart}?role=$currentRole&end_date=$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc',
       ),
       headers: {
         'Content-Type': 'application/json',
@@ -8109,7 +8615,7 @@ Expense Item Added:
 
       const String apiUrl =
           '${Urls.projectExpenseChart}'
-          '?role=Spender&page=1&limit=10&sort_by=y&sort_order=asc';
+          '';
 
       final response = await ApiService.get(
         Uri.parse(apiUrl),
@@ -8146,7 +8652,7 @@ Expense Item Added:
 
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpensesByCategories?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpensesByCategories?',
         ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -8197,7 +8703,7 @@ Expense Item Added:
       isUploadingCards.value = true;
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?role=Spender&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+          '${Urls.baseURL}/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus?',
         ),
         headers: {
           'Authorization': 'Bearer ${Params.userToken}',
@@ -9371,13 +9877,15 @@ Expense Item Added:
       queryParams['value'] = value.trim();
     }
 
-    // Construct URL with proper encoding
-    final uri = Uri.https(
-      Uri.parse(Urls.baseURL).host,
-      '/api/v1/masters/approvalmanagement/workflowapproval/userapproval',
-      queryParams,
-    );
-
+    // // Construct URL with proper encoding
+    // final uri = Uri.https(
+    //   Uri.parse(Urls.baseURL).host,
+    //   '/api/v1/masters/approvalmanagement/workflowapproval/userapproval',
+    //   queryParams,
+    // );
+    final uri = Uri.parse(
+      "${Urls.baseURL}/api/v1/masters/approvalmanagement/workflowapproval/userapproval",
+    ).replace(queryParameters: queryParams);
     print("Request URL: $uri");
 
     try {
@@ -9756,6 +10264,26 @@ Expense Item Added:
     }).toList();
   }
 
+List<LeaveRequisition> get filteredLeaves {
+  final query = searchQuery.value.toLowerCase();
+  final statusFilter = selectedLeaveStatusDropDown.value;
+
+  return leaveRequisitionList.where((item) {
+    final matchesQuery =
+        query.isEmpty ||
+        item.leaveCode.toLowerCase().contains(query) ||
+        item.leaveId.toLowerCase().contains(query);
+
+    final apiStatus = mapLeaveStatusToApi(statusFilter);
+
+    final matchesStatus =
+        apiStatus == null || item.approvalStatus == apiStatus;
+
+    return matchesQuery && matchesStatus;
+  }).toList();
+}
+
+
   List<ExpenseModel> get filteredpendingApprovals {
     return pendingApprovals.where((item) {
       final query = searchQuery.value.toLowerCase();
@@ -9928,4 +10456,1503 @@ Expense Item Added:
       print('Failed to load dropdown values: ${response.statusCode}');
     }
   }
+
+  String updateRole(String url, String role) {
+    // Remove all role=XYZ params
+    url = url.replaceAll(RegExp(r'([&?])role=[^&]*'), '');
+
+    // Remove trailing ? or &
+    url = url.replaceAll(RegExp(r'[?&]$'), '');
+
+    // Add correct role param
+    return url.contains('?') ? "$url&role=$role" : "$url?role=$role";
+  }
+
+  // void initializeWizardConfigs() {
+  // Spender wizards from the document
+  void initializeWizardConfigs() {
+    final roles = [
+      'Spender',
+      'Line Manager',
+      'Financial Manager',
+      'Admin',
+      'Department Admin',
+      'Branch Admin',
+      'Product Manager',
+    ];
+
+    final baseWidgets = [
+      // ----- LEAVE & HR -----
+      WizardConfig(
+        widgetName: 'LeaveHistoryOverview',
+        displayName: 'My Leave History Overview',
+        wizardType: 'Line Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/leavehistory',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'TotalLeaveMonth',
+        displayName: 'My Total Leave Month',
+        wizardType: 'Summary Box Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/totleavemonth',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'Top5LeaveCodeVsLeaves',
+        displayName: 'My Team Top 5 Leavecode vs Leaves',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/top5leavecodevsleaves',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'LeaveTypeVsLeaves',
+        displayName: 'My Leave Type vs Leaves',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/leavetypevsleaves',
+        role: 'Spender',
+      ),
+
+      // ----- CASH ADVANCE -----
+      WizardConfig(
+        widgetName: 'CashAdvanceTrends',
+        displayName: 'My Cash Advance Trends',
+        wizardType: 'Line Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvanceTrends',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'PolicyViolationsCashAdvances',
+        displayName: 'My Repeated Policy Violations (Cash Advances)',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/RepeatedPolicyViolationsByEmployeesForCashAdvances',
+        role: 'Spender',
+      ),
+
+      // ----- EXPENSES -----
+      WizardConfig(
+        widgetName: 'ExpensesThisMonth',
+        displayName: 'My Expenses This Month',
+        wizardType: 'Summary Box Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesThisMonth',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'ExpenseAmountByExpenseStatus',
+        displayName: 'My Expense Amount by Expense Status',
+        wizardType: 'Pie Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'ExpensesByCategories',
+        displayName: 'My Expenses by Category',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCategories',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'ExpensesByProjects',
+        displayName: 'My Expenses by Projects',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByProjects',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'TotalCashAdvances',
+        displayName: 'My Total Cash Advances',
+        wizardType: 'Summary Box Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/TotalCashAdvances',
+        role: 'Spender',
+      ),
+      WizardConfig(
+        widgetName: 'TotalExpenses',
+        displayName: 'My Total Expenses',
+        wizardType: 'Summary Box Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/TotalExpenses',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'SumCashAdvancesByApprovalStatus',
+        displayName: 'My Sum Cash Advances By Approval Status',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/SumOfCashAdvancesByApprovalStatus',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpenseAmountByApprovalStatus',
+        displayName: 'My Expense Amount by Approval Status',
+        wizardType: 'Pie Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/SumOfCashAdvancesByApprovalStatus',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpensesByPaymentMethod',
+        displayName: 'My Expenses by Payment Methods',
+        wizardType: 'Donut Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByPaymentMethods',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpensesByCountries',
+        displayName: 'My Expenses by Countries',
+        wizardType: 'Grid/Tile View Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCountries',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'Top10ExpenseCategoriesLocations',
+        displayName: 'My Top 10 Expense Categories by Locations',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/Top10ExpenseCategoriesByLocations',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'PolicyComplianceCashAdvances',
+        displayName: 'My Policy Compliance Rate (Cash Advances)',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/PolicyComplianceRateForCashAdvances',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpenseTrends',
+        displayName: 'My Expense Trends',
+        wizardType: 'Line Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseTrends',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'CashAdvanceReturnTrends',
+        displayName: 'My Cash Advance Return Trends',
+        wizardType: 'Line Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvanceReturnTrends',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpensesByStatus',
+        displayName: 'My Expenses by Status',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfExpensesByStatus',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'TotalPendingApprovals',
+        displayName: 'My Total Pending Approvals',
+        wizardType: 'Summary Box Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfMyPendingApprovalsCard',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'DraftExpenses',
+        displayName: 'My Draft Expenses',
+        wizardType: 'Table/Grid Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=Created',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'CashAdvancesByApprovalStatus',
+        displayName: 'My No Of Cash Advances By Approval Status',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfCashAdvancesByApprovalStatus?',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'CashAdvancesByBusinessJustification',
+        displayName: 'My Cash Advances by Business Justification',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvancesByBusinessJustification?',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'PendingApprovals',
+        displayName: 'My Pending Approvals',
+        wizardType: 'Table/Grid Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/masters/approvalmanagement/workflowapproval/pendingapprovals',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'ExpenseBySource',
+        displayName: 'My Expenses by Source',
+        wizardType: 'Bar Chart Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseBySource?',
+        role: 'Spender',
+      ),
+
+      WizardConfig(
+        widgetName: 'LeaveBalanceOverview',
+        displayName: 'My Leave Balance Overview',
+        wizardType: 'Grid/Tile Wizard',
+        apiEndpoint:
+            'https://api.digixpense.com/api/v1/dashboard/widgets/leavebalanceoverview',
+        role: 'Spender',
+      ),
+    ];
+
+    final List<WizardConfig> finalList = [];
+
+    for (var role in roles) {
+      print("role");
+      for (var widget in baseWidgets) {
+        // final finalApi = updateRole(widget.apiEndpoint, role);
+
+        finalList.add(
+          WizardConfig(
+            widgetName: widget.widgetName,
+            wizardType: widget.wizardType,
+            displayName: widget.displayName,
+            apiEndpoint: widget.apiEndpoint,
+            role: role,
+          ),
+        );
+      }
+    }
+
+    wizardConfigs.value = finalList;
+  }
+
+  final baseWidgets = [
+    // ----- LEAVE & HR -----
+    WizardConfig(
+      widgetName: 'LeaveHistoryOverview',
+      displayName: 'My Leave History Overview',
+      wizardType: 'Line Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/leavehistory',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'TotalLeaveMonth',
+      displayName: 'My Total Leave Month',
+      wizardType: 'Summary Box Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/totleavemonth',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'Top5LeaveCodeVsLeaves',
+      displayName: 'My Team Top 5 Leavecode vs Leaves',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/top5leavecodevsleaves',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'LeaveTypeVsLeaves',
+      displayName: 'My Leave Type vs Leaves',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/leavetypevsleaves',
+      role: 'Spender',
+    ),
+
+    // ----- CASH ADVANCE -----
+    WizardConfig(
+      widgetName: 'CashAdvanceTrends',
+      displayName: 'My Cash Advance Trends',
+      wizardType: 'Line Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvanceTrends',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'PolicyViolationsCashAdvances',
+      displayName: 'My Repeated Policy Violations (Cash Advances)',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/RepeatedPolicyViolationsByEmployeesForCashAdvances',
+      role: 'Spender',
+    ),
+
+    // ----- EXPENSES -----
+    WizardConfig(
+      widgetName: 'ExpensesThisMonth',
+      displayName: 'My Expenses This Month',
+      wizardType: 'Summary Box Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesThisMonth',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'ExpenseAmountByExpenseStatus',
+      displayName: 'My Expense Amount by Expense Status',
+      wizardType: 'Pie Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseAmountByExpenseStatus',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'ExpensesByCategories',
+      displayName: 'My Expenses by Category',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCategories',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'ExpensesByProjects',
+      displayName: 'My Expenses by Projects',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByProjects',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'TotalCashAdvances',
+      displayName: 'My Total Cash Advances',
+      wizardType: 'Summary Box Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/TotalCashAdvances',
+      role: 'Spender',
+    ),
+    WizardConfig(
+      widgetName: 'TotalExpenses',
+      displayName: 'My Total Expenses',
+      wizardType: 'Summary Box Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/TotalExpenses',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'SumCashAdvancesByApprovalStatus',
+      displayName: 'My Sum Cash Advances By Approval Status',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/SumOfCashAdvancesByApprovalStatus',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpenseAmountByApprovalStatus',
+      displayName: 'My Expense Amount by Approval Status',
+      wizardType: 'Pie Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/SumOfCashAdvancesByApprovalStatus',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpensesByPaymentMethod',
+      displayName: 'My Expenses by Payment Methods',
+      wizardType: 'Donut Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByPaymentMethods',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpensesByCountries',
+      displayName: 'My Expenses by Countries',
+      wizardType: 'Grid/Tile View Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpensesByCountries',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'Top10ExpenseCategoriesLocations',
+      displayName: 'My Top 10 Expense Categories by Locations',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/Top10ExpenseCategoriesByLocations',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'PolicyComplianceCashAdvances',
+      displayName: 'My Policy Compliance Rate (Cash Advances)',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/PolicyComplianceRateForCashAdvances',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpenseTrends',
+      displayName: 'My Expense Trends',
+      wizardType: 'Line Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseTrends',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'CashAdvanceReturnTrends',
+      displayName: 'My Cash Advance Return Trends',
+      wizardType: 'Line Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvanceReturnTrends',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpensesByStatus',
+      displayName: 'My Expenses by Status',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfExpensesByStatus',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'TotalPendingApprovals',
+      displayName: 'My Total Pending Approvals',
+      wizardType: 'Summary Box Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfMyPendingApprovalsCard',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'DraftExpenses',
+      displayName: 'My Draft Expenses',
+      wizardType: 'Table/Grid Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/expenseregistration/expenseregistration/expenseheader?filter_query=Created',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'CashAdvancesByApprovalStatus',
+      displayName: 'My No Of Cash Advances By Approval Status',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/NoOfCashAdvancesByApprovalStatus?',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'CashAdvancesByBusinessJustification',
+      displayName: 'My Cash Advances by Business Justification',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/CashAdvancesByBusinessJustification?',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'PendingApprovals',
+      displayName: 'My Pending Approvals',
+      wizardType: 'Table/Grid Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/masters/approvalmanagement/workflowapproval/pendingapprovals',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'ExpenseBySource',
+      displayName: 'My Expenses by Source',
+      wizardType: 'Bar Chart Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/ExpenseBySource?',
+      role: 'Spender',
+    ),
+
+    WizardConfig(
+      widgetName: 'LeaveBalanceOverview',
+      displayName: 'My Leave Balance Overview',
+      wizardType: 'Grid/Tile Wizard',
+      apiEndpoint:
+          'https://api.digixpense.com/api/v1/dashboard/widgets/leavebalanceoverview',
+      role: 'Spender',
+    ),
+  ];
+  Dashboard? currentDashboard;
+
+  // Cache of responses per widget name
+  // final Map<String, WidgetDataResponse> widgetDataCache = {};
+
+  // bool isLoading = false;
+  Future<void> loadDashboards() async {
+    try {
+      final list = await fetchDashboardWidgets(); // your existing API function
+      dashboards.assignAll(list);
+      if (dashboards.isNotEmpty) {
+        // Pick first dashboard by default
+        selectedDashboard.value = dashboards.first;
+        await onDashboardChanged(dashboards.first);
+      }
+    } catch (e) {
+      debugPrint('Failed to load dashboards: $e');
+      rethrow;
+    }
+  }
+
+  //  final Map<String, WidgetDataResponse> widgetDataCache = {};
+  // --- Called when user picks a dashboard from the dropdown ---
+  Future<void> onDashboardChanged(Dashboard dashboard) async {
+    selectedDashboard.value = dashboard;
+
+    // extract roles from dashboardData items
+    final extracted = dashboard.dashboardData
+        .map((d) => d.currentRole?.trim() ?? '')
+        .where((r) => r.isNotEmpty)
+        .toSet()
+        .toList();
+
+    availableRoles.assignAll(extracted);
+
+    // default role
+    if (availableRoles.isNotEmpty) {
+      currentRole.value = availableRoles.first;
+    } else {
+      currentRole.value = '';
+    }
+
+    // fetch widgets for the default role
+    await changeRole(currentRole.value, dashboardToUse: dashboard);
+  }
+
+  // --- Change role (and optionally use dashboard to filter) ---
+  Future<void> changeRole(String newRole, {Dashboard? dashboardToUse}) async {
+    if (newRole == currentRole.value && dashboardToUse == null) return;
+
+    currentRole.value = newRole;
+
+    if (dashboardToUse != null) {
+      // build a filtered Dashboard that only contains dashboardData items for the role
+      final filtered = Dashboard(
+        dashBoardType: dashboardToUse.dashBoardType,
+        dashBoardName: dashboardToUse.dashBoardName,
+        dashBoardTitle: dashboardToUse.dashBoardTitle,
+        description: dashboardToUse.description,
+        userId: dashboardToUse.userId,
+        dashBoardRecId: dashboardToUse.dashBoardRecId,
+        recId: dashboardToUse.recId,
+        isDefault: dashboardToUse.isDefault,
+        dashboardData: dashboardToUse.dashboardData
+            .where(
+              (d) =>
+                  (d.currentRole ?? '').toLowerCase() == newRole.toLowerCase(),
+            )
+            .toList(),
+      );
+
+      await fetchWidgetsFromDashboard(filtered);
+    } else {
+      // If no dashboard provided, use currently selected dashboard
+      final dash = selectedDashboard.value;
+      if (dash != null) {
+        final filtered = Dashboard(
+          dashBoardType: dash.dashBoardType,
+          dashBoardName: dash.dashBoardName,
+          dashBoardTitle: dash.dashBoardTitle,
+          description: dash.description,
+          userId: dash.userId,
+          dashBoardRecId: dash.dashBoardRecId,
+          recId: dash.recId,
+          isDefault: dash.isDefault,
+          dashboardData: dash.dashboardData
+              .where(
+                (d) =>
+                    (d.currentRole ?? '').toLowerCase() ==
+                    newRole.toLowerCase(),
+              )
+              .toList(),
+        );
+        await fetchWidgetsFromDashboard(filtered);
+      }
+    }
+  }
+
+  // --- Use Dashboard.dashboardData items as your "wizard" configs ---
+  List<DashboardDataItem> getWizardsForCurrentRole() {
+    final dash = selectedDashboard.value;
+    if (dash == null) return [];
+    for (var item in dash.dashboardData) {
+      print("""
+ID: ${item.filterProps?.widgetName}
+Title: ${item.filterProps?.roleId}
+currentRole: ${item.currentRole}
+-------------------------------
+""");
+    }
+    final role = currentRole.value.toLowerCase();
+    print("rolerole${currentRole.value.toLowerCase()}");
+    // Use dashboardData (the list of widgets), not dashBoardType
+    return dash.dashboardData;
+  }
+
+  // --- Fetch each widget's data (keeps your existing implementation, but uses dashboardData items) ---
+Future<void> fetchWidgetsFromDashboard(Dashboard dashboard) async {
+  isLoadingWidgets.value = true;
+  widgetDataCache.clear();
+
+  try {
+    final widgetsToCall = dashboard.dashboardData;
+
+    // 1️⃣ Create futures (no await here)
+    final List<Future<void>> futures = widgetsToCall.map((item) {
+      return fetchWidgetDataFromEndpoint(item);
+    }).toList();
+
+    // 2️⃣ Wait for ALL widget APIs together
+    await Future.wait(futures);
+  } finally {
+    isLoadingWidgets.value = false;
+  }
 }
+
+
+  /// Fetch a widget's data using DashboardDataItem (dashboard.dashboardData element)
+  Future<void> fetchWidgetDataFromEndpoint(DashboardDataItem item) async {
+    try {
+      final endpoint = item.filterProps!.widgetName;
+      final widgetName = item.filterProps?.widgetName ?? '';
+      String sortBy = "y";
+      String extraParams = "";
+
+      if (widgetName == "ExpensesThisMonth" ||
+          widgetName == "TotalCashAdvances") {
+        sortBy = "Value";
+        extraParams = "&start_date=1764527400000&end_date=1767205799998";
+      } else if (widgetName == "ExpensesByProjects" ||
+          widgetName == "ExpensesByCountries") {
+        sortBy = "y";
+      } else if (widgetName == "TotalExpenses" ||
+          widgetName == "NoOfMyPendingApprovalsCard" ||
+          widgetName == "NoOfEscalations" ||
+          widgetName == "MyPendingApprovals") {
+        sortBy = "Value";
+      } else {
+        sortBy = "YAxis";
+      }
+      if (widgetName == "DraftExpenses") {
+        await _fetchDraftExpenses();
+        return;
+      }
+      final url = Uri.parse(
+        "${Urls.baseURL}/api/v1/dashboard/widgets/$widgetName"
+        "?role=${item.filterProps?.roleId}$extraParams&page=1&limit=10&sort_by=$sortBy&sort_order=asc",
+      );
+
+      final response = await ApiService.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken ?? ''}",
+          "DigiSessionID": digiSessionId.toString(),
+        },
+      );
+
+      debugPrint(
+        "➡️ Fetching widget: ${item.filterProps?.widgetName} | $endpoint",
+      );
+
+      // debugPrint("⬅️ Response ${item.widgetName}: ${response.statusCode}");
+
+      // 2️⃣ Validate success
+      if (response.statusCode != 200) {
+        // debugPrint("❌ Failed to load widget ${item.widgetName} | HTTP ${response.statusCode}");
+        return;
+      }
+
+      final decoded = jsonDecode(response.body);
+
+      // 3️⃣ Parse data
+      final widgetResponse = WidgetDataResponse.fromJson(decoded);
+
+      // 4️⃣ Select proper cache key
+      final cacheKey = item.filterProps!.widgetName.isNotEmpty
+          ? item.filterProps!.widgetName
+          : endpoint;
+
+      widgetDataCache[cacheKey] = widgetResponse;
+       update(); 
+    } catch (e, stack) {
+      // 5️⃣ Improved error logging
+      debugPrint(
+        "❌ Exception while fetching widget ${item.filterProps!.widgetName}: $e",
+      );
+      debugPrint("📌 Stacktrace: $stack");
+    }
+  }
+
+  String getWidgetType(String widgetName) {
+    const lineCharts = [
+      'CashAdvanceTrends',
+      'ExpenseTrends',
+      'CashAdvanceReturnTrends',
+      'leavehistory',
+      'EmployeesLeaveConnectedWithWeekends',
+      "PolicyComplianceRateForCashAdvances",
+    ];
+    const MultibarCharts = ['ExpensesByCategories', "ExpenseBySource"];
+    const barCharts = [
+      'ExpensesByProjects',
+      'RepeatedPolicyViolationsByEmployeesForCashAdvances',
+      'SumOfCashAdvancesByApprovalStatus',
+      'NoOfCashAdvancesByApprovalStatus',
+      'CashAdvancesByBusinessJustification',
+      'Top5CashAdvanceRequesters',
+      'NoOfExpensesByStatus',
+      'Top10ExpenseCategoriesByLocations',
+      'top5leavecodevsleaves',
+      'leavetypevsleaves',
+    ];
+
+    const pieCharts = [
+      'ExpenseAmountByExpenseStatus',
+      'SumOfCashAdvancesByApprovalStatus',
+      'ExpensesAmountByApprovalStatus',
+    ];
+
+    const donutCharts = ['ExpensesByPaymentMethods'];
+
+    const summaryBoxes = [
+      'TotalCashAdvances',
+      'TotalExpenses',
+      'ExpensesThisMonth',
+      'NoOfMyPendingApprovalsCard',
+      'TotalLeaveMonth',
+      'NoOfEscalations',
+      "NoOfAutoRejectedApprovals",
+      "NoOfAutoApprovedExpenses",
+      "NoOfApprovalDelegations",
+      "AverageExpenseByEmployees",
+      "totleavemonth",
+    ];
+
+    const tableWidgets = [
+      'ExpensesByCountries',
+      'LeaveBalanceOverview',
+      'PendingApprovals',
+    ];
+    const tableWidgetsExpense = ['DraftExpenses'];
+
+    if (lineCharts.contains(widgetName)) return 'LineChart';
+    if (barCharts.contains(widgetName)) return 'BarChart';
+    if (MultibarCharts.contains(widgetName)) return 'MultiBarChart';
+    if (pieCharts.contains(widgetName)) return 'PieChart';
+    if (donutCharts.contains(widgetName)) return 'DonutChart';
+    if (summaryBoxes.contains(widgetName)) return 'SummaryBox';
+    if (tableWidgets.contains(widgetName)) return 'Table';
+    if (tableWidgetsExpense.contains(widgetName)) return 'ExpenseTable';
+
+    return 'Generic';
+  }
+
+  // Example helper to get cached widget data
+  WidgetDataResponse? getWidgetData(String widgetName) =>
+      widgetDataCache[widgetName];
+
+  // Unique method names as requested
+  Future<List<DashboardByRole>> fetchDashboardWidgetsForSpenders() async {
+    final url = Uri.parse(
+      "${Urls.baseURL}/api/v1/dashboard/dashboard/widgets?filter_query=SYSWidgets.RoleIdSpender&page=1&sort_order=asc",
+    );
+    final response = await ApiService.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${Params.userToken ?? ''}",
+        "DigiSessionID": digiSessionId.toString(),
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return decoded.map((item) => DashboardByRole.fromJson(item)).toList();
+      } else {
+        print("decodedCall");
+        return [];
+      }
+    } else {
+      throw Exception("Failed to load dashboards: ${response.statusCode}");
+    }
+  }
+
+ Future<void> loadSpendersDashboards(String role) async {
+  try {
+    isLoading.value = true;
+
+    // 1️⃣ Fetch dashboard config
+    final list = await fetchDashboardWidgetsForSpenders();
+    dashboardByRole.assignAll(list);
+
+    // 2️⃣ Get widgets for current role
+    final widgets = getSpendersWidgetsForCurrentRole(role);
+
+    // 3️⃣ Fire ALL widget APIs in parallel
+    final futures = widgets.map((item) {
+      return fetchSpendersWidgetData(item, role);
+    }).toList();
+
+    await Future.wait(futures);
+
+    update();
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+
+  // Future<void> onSpendersDashboardChanged(DashboardByRole dashboard) async {
+  //   selectedDashboardByrole.value = dashboard;
+  //   final roles = dashboard.widgetName
+  //       .map((d) => d.currentRole.trim())
+  //       .where((r) => r.isNotEmpty)
+  //       .toSet()
+  //       .toList();
+  //   availableRoles.assignAll(roles);
+  //   currentRole.value = availableRoles.isNotEmpty ? availableRoles.first : '';
+  //   await changeSpendersRole(currentRole.value, dashboardToUse: dashboard);
+  // }
+
+  // Future<void> changeSpendersRole(String role, {Dashboard? dashboardToUse}) async {
+  //   // if (role == currentRole.value && dashboardToUse == null) return;
+  //   // currentRole.value = role;
+
+  //   // Dashboard effective = dashboardToUse ??
+  //   //     (selectedDashboard.value ??
+  //   //         Dashboard(dashBoardName: 'none', dashBoardTitle: '', dashboardData: []));
+
+  //   // final filtered = Dashboard(
+  //   //   dashBoardName: effective.dashBoardName,
+  //   //   dashBoardTitle: effective.dashBoardTitle,
+  //   //   dashboardData: effective.dashboardData
+  //   //       .where((d) => (d.currentRole ?? '').toLowerCase() == role.toLowerCase())
+  //   //       .toList(),
+  //   // );
+
+  //   // await fetchSpendersWidgets(filtered);
+
+  //    if (role == currentRole.value && dashboardToUse == null) return;
+
+  //   currentRole.value = role;
+
+  //   if (dashboardToUse != null) {
+  //     // build a filtered Dashboard that only contains dashboardData items for the role
+  //     final filtered = Dashboard(
+  //       dashBoardType: dashboardToUse.dashBoardType,
+  //       dashBoardName: dashboardToUse.dashBoardName,
+  //       dashBoardTitle: dashboardToUse.dashBoardTitle,
+  //       description: dashboardToUse.description,
+  //       userId: dashboardToUse.userId,
+  //       dashBoardRecId: dashboardToUse.dashBoardRecId,
+  //       recId: dashboardToUse.recId,
+  //       isDefault: dashboardToUse.isDefault,
+  //       dashboardData: dashboardToUse.dashboardData
+  //           .where((d) => (d.currentRole ?? '').toLowerCase() == role.toLowerCase())
+  //           .toList(),
+  //     );
+
+  //     await fetchSpendersWidgets(filtered);
+  //   } else {
+  //     // If no dashboard provided, use currently selected dashboard
+  //     final dash = selectedDashboard.value;
+  //     if (dash != null) {
+  //       final filtered = Dashboard(
+  //         dashBoardType: dash.dashBoardType,
+  //         dashBoardName: dash.dashBoardName,
+  //         dashBoardTitle: dash.dashBoardTitle,
+  //         description: dash.description,
+  //         userId: dash.userId,
+  //         dashBoardRecId: dash.dashBoardRecId,
+  //         recId: dash.recId,
+  //         isDefault: dash.isDefault,
+  //         dashboardData: dash.dashboardData
+  //             .where((d) => (d.currentRole ?? '').toLowerCase() == role.toLowerCase())
+  //             .toList(),
+  //       );
+  //       await fetchSpendersWidgets(filtered);
+  //     }
+  //   }
+  // }
+
+  // // Use this to get the current widgets list for UI
+  Future<void> openExportSelection(BuildContext context, String role) async {
+    final widgets = getSpendersWidgetsForCurrentRole(role);
+
+    if (widgets.isEmpty) {
+      Get.snackbar('No widgets', 'Nothing to export for the selected role');
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) {
+        return SpendersExportSelector(
+          widgets: widgets,
+          onExportSelected: (selected) async {
+            await _exportSelectedWidgets(selected);
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _exportSelectedWidgets(
+    List<DashboardByRole> selectedWidgets,
+  ) async {
+    isExporting.value = true;
+
+    try {
+      final itemsWithKeys = <MapEntry<DashboardByRole, GlobalKey>>[];
+
+      // Get keys for selected widgets
+      for (final widgetItem in selectedWidgets) {
+        final widgetName = widgetItem.widgetName ?? '';
+        final key = widgetRenderKeys[widgetName] ?? GlobalKey();
+
+        // Store the key if it doesn't exist
+        if (!widgetRenderKeys.containsKey(widgetName)) {
+          widgetRenderKeys[widgetName] = key;
+        }
+
+        itemsWithKeys.add(MapEntry(widgetItem, key));
+      }
+
+      // Export to PDF
+      await SpendersExportService.exportWidgetsToPdfDynamic(itemsWithKeys);
+    } catch (e) {
+      Get.snackbar('Export Error', 'Failed to export: $e');
+    } finally {
+      isExporting.value = false;
+    }
+  }
+
+  List<DashboardByRole> getSpendersWidgetsForCurrentRole(String roleId) {
+    return dashboardByRole
+        .where(
+          (w) => w.roleId?.trim().toLowerCase() == roleId.trim().toLowerCase(),
+        )
+        .toList();
+  }
+
+ Future<void> fetchSpendersWidgets(
+  List<DashboardByRole> widgetsList,
+) async {
+  isLoadingWidgets.value = true;
+  widgetDataCache.clear();
+  widgetRenderKeys.clear();
+
+  try {
+    // 1️⃣ Create keys first (no await here)
+    for (final item in widgetsList) {
+      final keyName =
+          item.widgetName ?? DateTime.now().toIso8601String();
+      widgetRenderKeys[keyName] = GlobalKey();
+    }
+
+    // 2️⃣ Create API futures
+    final List<Future<void>> futures = widgetsList
+        .where((item) => item.roleId != null)
+        .map((item) {
+          return fetchSpendersWidgetData(
+            item,
+            item.roleId!,
+          );
+        })
+        .toList();
+
+    // 3️⃣ Await ALL APIs at the same time
+    await Future.wait(futures);
+  } finally {
+    isLoadingWidgets.value = false;
+  }
+}
+
+  // Future<void> _fetchDraftExpenses() async {
+  //   try {
+  //     final email = Params.userId ?? "";
+
+  //     final url = Uri.parse(
+  //       "${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader"
+  //       "?filter_query=EXPExpenseHeader.CreatedBy__eq%3D$email"
+  //       "%26EXPExpenseHeader.ApprovalStatus__eq%3DCreated"
+  //       "&page=1&sort_order=asc",
+  //     );
+
+  //     final response = await ApiService.get(
+  //       url,
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "Authorization": "Bearer ${Params.userToken ?? ''}",
+  //         "DigiSessionID": digiSessionId.toString(),
+  //       },
+  //     );
+
+  //     if (response.statusCode != 200) return;
+
+  //     final decoded = jsonDecode(response.body);
+  //  getAllListGExpense.value = (data as List)
+  //             .map((item) => GExpense.fromJson(item))
+  //             .toList();
+
+  //         isLoadingGE1.value = false;
+  //         print("Fetched Expenses: $getAllListGExpense");
+
+  //         return getAllListGExpense;
+  //     if (decoded is! List) {
+  //       debugPrint("DraftExpenses API did not return a List");
+  //       return;
+  //     }
+
+  //     widgetDataCache["DraftExpenses"] = WidgetDataResponse.fromJson({
+  //       "list": decoded,       // store list directly
+  //       "count": decoded.length,
+  //     });
+
+  //   } catch (e, s) {
+  //     debugPrint("Error fetching DraftExpenses: $e\n$s");
+  //   }
+  // }
+  Future<List<GExpense>> _fetchDraftExpenses() async {
+    isLoadingGE1.value = true;
+    final email = Params.userId ?? "";
+
+    final url = Uri.parse(
+      "${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader"
+      "?filter_query=EXPExpenseHeader.CreatedBy__eq%3D$email"
+      "%26EXPExpenseHeader.ApprovalStatus__eq%3DCreated"
+      "&page=1&sort_order=asc",
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        getAllListGExpense.value = (data as List)
+            .map((item) => GExpense.fromJson(item))
+            .toList();
+
+        print("✅ Fetched Expenses: $getAllListGExpense");
+        isLoadingGE1.value = false;
+        return [];
+      } else {
+        print('❌ Failed to load expenses. Status code: ${response.statusCode}');
+        isLoadingGE1.value = false;
+        return [];
+      }
+    } catch (e) {
+      print('❌ Error fetching expenses: $e');
+      isLoadingGE1.value = false;
+      return [];
+    }
+  }
+
+  Future<void> fetchSpendersWidgetData(
+    DashboardByRole item,
+    String role,
+  ) async {
+    try {
+      final widgetName = item.widgetName ?? '';
+      if (widgetName.isEmpty) return;
+
+      // SPECIAL CASE: DraftExpenses → different API
+      if (widgetName == "DraftExpenses") {
+        await _fetchDraftExpenses();
+        return;
+      }
+
+      // DEFAULT BEHAVIOR for all other widgets
+      String sortBy = "y";
+      String extraParams = "";
+
+      if (widgetName == "ExpensesThisMonth" ||
+          widgetName == "TotalCashAdvances") {
+        sortBy = "Value";
+        extraParams = "&start_date=1764527400000&end_date=1767205799998";
+      } else if (widgetName == "ExpensesByProjects" ||
+          widgetName == "ExpensesByCountries") {
+        sortBy = "y";
+      } else if (widgetName == "TotalExpenses" ||
+          widgetName == "NoOfMyPendingApprovalsCard" ||
+          widgetName == "NoOfEscalations") {
+        sortBy = "Value";
+      } else {
+        sortBy = "YAxis";
+      }
+
+      final url = Uri.parse(
+        "${Urls.baseURL}/api/v1/dashboard/widgets/$widgetName"
+        "?role=$role$extraParams&page=1&limit=10&sort_by=$sortBy&sort_order=asc",
+      );
+
+      final response = await ApiService.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${Params.userToken ?? ''}",
+          "DigiSessionID": digiSessionId.toString(),
+        },
+      );
+
+      if (response.statusCode != 200) return;
+
+      final decoded = jsonDecode(response.body);
+
+      widgetDataCache[widgetName] = WidgetDataResponse.fromJson(decoded);
+    } catch (e, s) {
+      // debugPrint("Error fetching widget $widgetName: $e\n$s");
+    }
+  }
+
+  WidgetDataResponse? getSpendersWidgetData(String widgetName) =>
+      widgetDataCache[widgetName];
+
+  // String getSpendersWidgetType(String widgetName) {
+  //   const lineCharts = [
+  //     'CashAdvanceTrends',
+  //     'ExpenseTrends',
+  //     'CashAdvanceReturnTrends',
+  //     'leavehistory',
+  //     'EmployeesLeaveConnectedWithWeekends',
+  //   ];
+
+  //   const barCharts = [
+  //     'ExpensesByCategories',
+  //     'ExpensesByProjects',
+  //     'RepeatedPolicyViolationsByEmployeesForCashAdvances',
+  //     'SumOfCashAdvancesByApprovalStatus',
+  //     'NoOfCashAdvancesByApprovalStatus',
+  //     'CashAdvancesByBusinessJustification',
+  //     'Top5CashAdvanceRequesters',
+  //     'ExpenseBySource',
+  //     'NoOfExpensesByStatus',
+  //     'Top10ExpenseCategoriesByLocations',
+  //     'Top5Leavecodevsleaves',
+  //     'LeaveTypeVsLeaves',
+  //   ];
+
+  //   const pieCharts = [
+  //     'ExpenseAmountByExpenseStatus',
+  //     'SumOfCashAdvancesByApprovalStatus',
+  //     "ExpensesAmountByApprovalStatus"
+  //   ];
+
+  //   const donutCharts = ['ExpensesByPaymentMethods'];
+
+  //   const summaryBoxes = [
+  //     'TotalCashAdvances',
+  //     'TotalExpenses',
+  //     'ExpensesThisMonth',
+  //     'NoOfMyPendingApprovalsCard',
+  //     'TotalLeaveMonth',
+  //     'NoOfEscalations'
+  //   ];
+
+  //   const tableWidgets = [
+  //     'DraftExpenses',
+  //     'ExpensesByCountries',
+  //     'LeaveBalanceOverview',
+  //     'PendingApprovals',
+  //   ];
+
+  //   if (lineCharts.contains(widgetName)) return 'LineChart';
+  //   if (barCharts.contains(widgetName)) return 'BarChart';
+  //   if (pieCharts.contains(widgetName)) return 'PieChart';
+  //   if (donutCharts.contains(widgetName)) return 'DonutChart';
+  //   if (summaryBoxes.contains(widgetName)) return 'SummaryBox';
+  //   if (tableWidgets.contains(widgetName)) return 'Table';
+  //   return 'Generic';
+  // }
+  List<CartesianSeries<ProjectExpensebycategory, String>>
+  convertMultiSeriesChart(Map<String, dynamic> data) {
+    if (data.isEmpty) return [];
+
+    final xAxisRaw = data['XAxis'];
+    final yAxisRaw = data['YAxis'];
+
+    // Safety checks
+    if (xAxisRaw == null || yAxisRaw == null) return [];
+    if (xAxisRaw is! List || yAxisRaw is! List) return [];
+
+    final xAxis = List<String>.from(xAxisRaw);
+    final yAxisGroups = List<Map<String, dynamic>>.from(yAxisRaw);
+
+    final List<CartesianSeries<ProjectExpensebycategory, String>> seriesList =
+        [];
+
+    int seriesIndex = 0;
+
+    for (var group in yAxisGroups) {
+      final String name = group['name'] ?? 'Series $seriesIndex';
+      final List<dynamic>? values = group['data'] as List<dynamic>?;
+
+      if (values == null) continue;
+
+      final List<ProjectExpensebycategory> chartPoints = [];
+
+      for (int i = 0; i < xAxis.length; i++) {
+        final yVal = (i < values.length && values[i] != null)
+            ? (values[i] as num).toDouble()
+            : 0.0;
+
+        chartPoints.add(
+          ProjectExpensebycategory(
+            x: xAxis[i],
+            y: yVal,
+            color: Colors
+                .primaries[seriesIndex % Colors.primaries.length]
+                .shade300,
+          ),
+        );
+      }
+
+      seriesList.add(
+        ColumnSeries<ProjectExpensebycategory, String>(
+          name: name,
+          dataSource: chartPoints,
+          xValueMapper: (dp, _) => dp.x,
+          yValueMapper: (dp, _) => dp.y,
+          pointColorMapper: (dp, _) => dp.color,
+          dataLabelSettings: const DataLabelSettings(
+            isVisible: true,
+            textStyle: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          borderRadius: BorderRadius.circular(5),
+        ),
+      );
+
+      seriesIndex++;
+    }
+
+    return seriesList;
+  }
+
+  List<ChartDataPoint> convertSpendersChartPoints(WidgetDataResponse data) {
+    final points = <ChartDataPoint>[];
+    final raw = data.raw;
+
+    // -----------------------------------
+    // Case 1: XAxis + YAxis (Simple Charts)
+    // -----------------------------------
+    if (raw is Map && raw.containsKey('XAxis') && raw.containsKey('YAxis')) {
+      final xAxis = List<String>.from(raw['XAxis'] ?? []);
+      final yAxis = List<dynamic>.from(raw['YAxis'] ?? []);
+
+      for (var i = 0; i < xAxis.length; i++) {
+        final yVal = i < yAxis.length ? yAxis[i] : 0;
+        points.add(
+          ChartDataPoint(x: xAxis[i], y: (yVal is num) ? yVal.toDouble() : 0.0),
+        );
+      }
+      return points;
+    }
+
+    // -----------------------------------
+    // Case 2: raw['data'] is a List
+    // -----------------------------------
+    if (raw is Map && raw['data'] is List) {
+      final List list = raw['data'];
+
+      for (final element in list) {
+        if (element is Map) {
+          final x =
+              element['period'] ??
+              element['category'] ??
+              element['label'] ??
+              element['x'] ??
+              '';
+          final y =
+              element['amount'] ??
+              element['value'] ??
+              element['y'] ??
+              element['count'] ??
+              0;
+
+          final yDouble = (y is num)
+              ? y.toDouble()
+              : double.tryParse(y.toString()) ?? 0.0;
+
+          if (x.toString().isNotEmpty) {
+            points.add(ChartDataPoint(x: x.toString(), y: yDouble));
+          }
+        }
+      }
+
+      return points;
+    }
+
+    // -----------------------------------
+    // Case 3: raw IS a List (your new format)
+    // MUST check raw is List before iterating!
+    // -----------------------------------
+    if (raw is List) {
+      final list = raw as List<dynamic>;
+      for (final element in list) {
+        if (element is Map &&
+            element.containsKey('x') &&
+            element.containsKey('y')) {
+          final x = element['x'];
+          final y = element['y'];
+
+          final yDouble = (y is num)
+              ? y.toDouble()
+              : double.tryParse(y.toString()) ?? 0.0;
+
+          points.add(ChartDataPoint(x: x.toString(), y: yDouble));
+        }
+      }
+
+      return points;
+    }
+
+    return points;
+  }
+
+  List<LeaveModel> leaves = [];
+
+  // Map by local date (Y,M,D) to list of transactions
+  final Map<DateTime, List<LeaveTransaction>> events = {};
+
+  // Currently selected day and events
+  DateTime selectedDay = DateTime.now();
+  DateTime focusedDay = DateTime.now();
+  CalendarFormat calendarFormat = CalendarFormat.month;
+
+  List<LeaveTransaction> get selectedEvents =>
+      events[_dayKey(selectedDay)] ?? [];
+
+  Future<void> loadCalendarLeaves() async {
+    leaves = await fetchCalendarLeaves();
+
+    buildEventMap(leaves); // <-- REQUIRED
+
+    // notifyListeners(); // <-- REQUIRED
+  }
+
+  static DateTime _dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
+  Future<List<LeaveModel>> fetchCalendarLeaves() async {
+    final url = Uri.parse(
+      "https://api.digixpense.com/api/v1/leaverequisition/leavemanagement/fetchcalendarleaves",
+    );
+
+    final payload = {
+      "scope": "my_leaves",
+      "scope_filters": null,
+      "from_date": 1763231400000,
+      "to_date": 1768501799998,
+    };
+
+    final response = await ApiService.post(
+      url,
+      body: jsonEncode(payload),
+      headers: {
+        "Content-Type": "application/json",
+        'Authorization': 'Bearer ${Params.userToken ?? ''}',
+        'DigiSessionID': digiSessionId.toString(),
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List raw = jsonDecode(response.body);
+
+      return raw.map((e) => LeaveModel.fromJson(e)).toList();
+      // _buildEventMap();
+    } else {
+      throw Exception(
+        'Failed to fetch calendar leaves: ${response.statusCode}',
+      );
+    }
+  }
+
+  Future<void> loadFromApi(String url) async {
+    // implement your API GET and parse JSON then call _buildEventMap
+    // after parsing set leaves and call _buildEventMap(); then notifyListeners();
+  }
+
+  void buildEventMap(List<LeaveModel> leaves) {
+    events.clear();
+
+    for (final leave in leaves) {
+      final start = DateTime.fromMillisecondsSinceEpoch(leave.fromDate);
+      final end = DateTime.fromMillisecondsSinceEpoch(leave.toDate);
+
+      DateTime day = start;
+      while (day.isBefore(end) || isSameDay(day, end)) {
+        final key = DateTime(day.year, day.month, day.day);
+        events.putIfAbsent(key, () => []);
+
+        // For multi-day leave, we want the same leave info on each day.
+        // We attach leaveColor, employeeName and leaveId to each transaction copy.
+        final txsWithMeta = leave.transactions
+            .map(
+              (tx) => tx.copyWith(
+                leaveColor: leave.leaveColor,
+                employeeName: leave.employeeName,
+                leaveId: leave.leaveId,
+              ),
+            )
+            .toList();
+
+        events[key]!.addAll(txsWithMeta);
+
+        day = day.add(const Duration(days: 1));
+      }
+    }
+
+    // notifyListeners();
+  }
+
+  void onDaySelected(DateTime day, DateTime focused) {
+    selectedDay = day;
+    focusedDay = focused;
+    // notifyListeners();
+  }
+
+  void changeFormat(CalendarFormat format) {
+    calendarFormat = format;
+    // notifyListeners();
+  }
+}
+
+  // EXPORT
+ 
+

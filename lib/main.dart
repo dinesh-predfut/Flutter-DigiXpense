@@ -89,20 +89,28 @@ class AppInitializer {
   static Future<AppInitData> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize Firebase (non-blocking)
-    final firebaseFuture = Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Initialize Firebase
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      print("Firebase initialization error (continuing anyway): $e");
+    }
 
-    // Load SharedPreferences and other data in parallel
+    // Load SharedPreferences and other data
     final prefs = await SharedPreferences.getInstance();
     final themeKey = prefs.getString("ThemeColor");
     final langId = prefs.getString("LanguageID") ?? "LUG-01";
     final refreshToken = prefs.getString('refresh_token');
-     final initialRoute = await _getInitialRoute(refreshToken);
-    // Wait for Firebase initialization to complete
-    await firebaseFuture;
-    await SetSharedPref().getData();
+    final initialRoute = await _getInitialRoute(refreshToken);
+print("initialRoute$initialRoute");
+    // Initialize SetSharedPref
+    try {
+      await SetSharedPref().getData();
+    } catch (e) {
+      print("SetSharedPref.getData error: $e");
+    }
 
     // Initialize theme
     final Color initialColor = themeColorMap[themeKey] ?? const Color(0xFF1A237E);
@@ -123,9 +131,6 @@ class AppInitializer {
       Locale(getLocaleCodeFromId(langId)),
     );
 
-    // Determine initial route
-   
-
     return AppInitData(
       themeNotifier: themeNotifier,
       localeNotifier: localeNotifier,
@@ -135,8 +140,8 @@ class AppInitializer {
 
   static Future<String> _getInitialRoute(String? refreshToken) async {
     final prefs = await SharedPreferences.getInstance();
-    final lastRoute = prefs.getString('refresh_token');
-    
+    final lastRoute = prefs.getString('last_route'); // Changed from refresh_token
+    print("lastRoute$lastRoute");
     if (lastRoute == "Login") {
       return AppRoutes.signin;
     } else if (refreshToken == null || refreshToken.isEmpty || refreshToken == "null") {
@@ -160,6 +165,8 @@ class AppInitData {
 }
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   runApp(
     FutureBuilder<AppInitData>(
       future: AppInitializer.initialize(),
@@ -184,13 +191,25 @@ void main() {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset(
-                        'assets/images/logo.png', // Update with your logo path
-                        width: 200,
-                        height: 200,
-                      ),
+                      FlutterLogo(size: 100),
                       const SizedBox(height: 20),
-                      const Text('Initialization failed'),
+                      const Text('Digi Xpense', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      const Text('Initialization failed, please restart'),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
+                          runApp(
+                            MaterialApp(
+                              debugShowCheckedModeBanner: false,
+                              home: Scaffold(
+                                body: Center(child: Text('Retry failed')),
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Retry'),
+                      ),
                     ],
                   ),
                 ),
@@ -201,7 +220,6 @@ void main() {
           // Show loading screen while initializing
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-
             home: Logo_ScreenLanding(),
           );
         }
@@ -210,10 +228,58 @@ void main() {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final String initialRoute;
   const MyApp({super.key, required this.initialRoute});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late Widget _homeScreen;
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // Create a temporary home screen that will navigate to the initial route
+    _homeScreen = _buildTempHomeScreen();
+    
+    // Delay navigation to ensure MaterialApp is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigateToInitialRoute();
+    });
+  }
+  
+  Widget _buildTempHomeScreen() {
+    return Scaffold(
+      body: Container(
+        color: Colors.white,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              const Text('Loading Digi Xpense...'),
+              const SizedBox(height: 10),
+              Text('Route: ${widget.initialRoute}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _navigateToInitialRoute() {
+    if (mounted) {
+      Future.delayed(Duration.zero, () {
+        Navigator.pushNamed(context, widget.initialRoute);
+      });
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
@@ -223,8 +289,43 @@ class MyApp extends StatelessWidget {
       title: 'Digi Xpense',
       debugShowCheckedModeBanner: false,
       
-      initialRoute: initialRoute,
-      onGenerateRoute: AppRoutes.generateRoute,
+      // Provide a home to prevent white screen
+      home: _homeScreen,
+      
+      initialRoute: widget.initialRoute,
+      onGenerateRoute: (settings) {
+        print("Navigating to: ${settings.name}");
+        try {
+          return AppRoutes.generateRoute(settings);
+        } catch (e) {
+          print("Route generation error: $e");
+          // Fallback route
+          return MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('Error')),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 64, color: Colors.red),
+                    const SizedBox(height: 20),
+                    const Text('Navigation Error'),
+                    const SizedBox(height: 10),
+                    Text('Route: ${settings.name}'),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushReplacementNamed(context, AppRoutes.entryScreen);
+                      },
+                      child: const Text('Go to Home'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      },
       theme: themeNotifier.theme,
       locale: localeNotifier.locale,
       supportedLocales: const [
@@ -239,6 +340,61 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      
+      // Add a builder to catch errors
+      builder: (context, child) {
+        return child ?? Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.warning, size: 64, color: Colors.orange),
+                const SizedBox(height: 20),
+                const Text('App Error'),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    runApp(MyApp(initialRoute: AppRoutes.entryScreen));
+                  },
+                  child: const Text('Restart App'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Add this fallback widget
+class SimpleLoadingScreen extends StatelessWidget {
+  const SimpleLoadingScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const FlutterLogo(size: 100),
+            const SizedBox(height: 30),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text(
+              'Digi Xpense',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Loading your financial experience...',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

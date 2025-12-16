@@ -7,134 +7,45 @@ import '../../../core/constant/Parames/params.dart';
 import '../../../core/constant/url.dart';
 
 class ApiService {
+  // ----------------------------------------------
+  // DEFAULT HEADERS
+  // ----------------------------------------------
   static Future<Map<String, String>> getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('access_token') ?? '';
+
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }
 
-  static Future<http.Response> get(
-    Uri url, {
-    Map<String, String>? headers,
-    bool retry = true,
-  }) async {
-    final reqHeaders = headers ?? await getHeaders();
+  // ----------------------------------------------
+  // SINGLE-FLIGHT REFRESH LOGIC
+  // Ensures only ONE refresh happens at a time
+  // ----------------------------------------------
+  static Future<bool>? _refreshTokenFuture;
 
-    final response = await http.get(url, headers: reqHeaders);
-
-    if (response.statusCode == 481 && retry) {
-      final refreshed = await _refreshToken();
-      if (refreshed) {
-        reqHeaders['Authorization'] = 'Bearer ${Params.userToken ?? ''}';
-        return await get(url, headers: reqHeaders, retry: false);
-      } else {
-        Fluttertoast.showToast(msg: "Session expired. Please login again.");
-        throw Exception("Token refresh failed");
-      }
-    }
-    return response;
+ static Future<bool> _refreshTokenSingle() async {
+  // If a refresh is already in progress → await the same Future
+  if (_refreshTokenFuture != null) {
+    final result = await _refreshTokenFuture!;
+    return result == true; // ensure non-null bool
   }
 
-  static Future<http.Response> post(
-    Uri url, {
-    Map<String, String>? headers,
-    dynamic body,
-    bool retry = true,
-  }) async {
-    final reqHeaders = headers ?? await getHeaders();
+  // Start a new refresh
+  _refreshTokenFuture = _refreshToken();
 
-    final response = await http.post(url, headers: reqHeaders, body: body);
+  final result = await _refreshTokenFuture!;
 
-    if (response.statusCode == 481 && retry) {
-      final refreshed = await _refreshToken();
-      if (refreshed) {
-        reqHeaders['Authorization'] = 'Bearer ${Params.userToken ?? ''}';
-        return await post(url, headers: reqHeaders, body: body, retry: false);
-      } else {
-        Fluttertoast.showToast(msg: "Session expired. Please login again.");
-        throw Exception("Token refresh failed");
-      }
-    }
-    return response;
-  }
+  // Reset after completion
+  _refreshTokenFuture = null;
 
-  static Future<http.Response> put(
-    Uri url, {
-    Map<String, String>? headers,
-    dynamic body,
-    bool retry = true,
-  }) async {
-    final reqHeaders = headers ?? await getHeaders();
+  return result == true; // ensure non-null bool
+}
 
-    final response = await http.put(url, headers: reqHeaders, body: body);
 
-    if (response.statusCode == 481 && retry) {
-      final refreshed = await _refreshToken();
-      if (refreshed) {
-        reqHeaders['Authorization'] = 'Bearer ${Params.userToken ?? ''}';
-        return await put(url, headers: reqHeaders, body: body, retry: false);
-      } else {
-        Fluttertoast.showToast(msg: "Session expired. Please login again.");
-        throw Exception("Token refresh failed");
-      }
-    }
-    return response;
-  }
-
-  static Future<http.Response> delete(
-    Uri url, {
-    Map<String, String>? headers,
-    dynamic body,
-    bool retry = true,
-  }) async {
-    final reqHeaders = headers ?? await getHeaders();
-
-    final request = http.Request('DELETE', url);
-    request.headers.addAll(reqHeaders);
-    if (body != null) request.body = body;
-
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode == 481 && retry) {
-      final refreshed = await _refreshToken();
-      if (refreshed) {
-        reqHeaders['Authorization'] = 'Bearer ${Params.userToken ?? ''}';
-        return await delete(url, headers: reqHeaders, body: body, retry: false);
-      } else {
-        Fluttertoast.showToast(msg: "Session expired. Please login again.");
-        throw Exception("Token refresh failed");
-      }
-    }
-    return response;
-  }
-
-  static Future<http.Response> patch(
-    Uri url, {
-    Map<String, String>? headers,
-    dynamic body,
-    bool retry = true,
-  }) async {
-    final reqHeaders = headers ?? await getHeaders();
-
-    final response = await http.patch(url, headers: reqHeaders, body: body);
-
-    if (response.statusCode == 481 && retry) {
-      final refreshed = await _refreshToken();
-      if (refreshed) {
-        reqHeaders['Authorization'] = 'Bearer ${Params.userToken ?? ''}';
-        return await patch(url, headers: reqHeaders, body: body, retry: false);
-      } else {
-        Fluttertoast.showToast(msg: "Session expired. Please login again.");
-        throw Exception("Token refresh failed");
-      }
-    }
-    return response;
-  }
-
+  // Actual refresh request (only executed ONCE)
   static Future<bool> _refreshToken() async {
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = prefs.getString('refresh_token');
@@ -144,7 +55,10 @@ class ApiService {
 
       final response = await http.post(
         uri,
-        headers: {"Content-Type": "application/json","Authorization": "Bearer $refreshToken"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $refreshToken"
+        },
         body: jsonEncode({"refresh_token": refreshToken}),
       );
 
@@ -160,10 +74,109 @@ class ApiService {
         Params.userToken = newAccessToken;
 
         return true;
-      }
+      } 
+
       return false;
     } catch (e) {
       return false;
     }
+  }
+
+  // ----------------------------------------------
+  // UNIFIED HANDLER FOR ALL REQUEST TYPES
+  // ----------------------------------------------
+  static Future<http.Response> _sendRequest(
+    Future<http.Response> Function(Map<String, String> headers) requestFn, {
+    bool retry = true,
+  }) async {
+    final reqHeaders = await getHeaders();
+    http.Response response = await requestFn(reqHeaders);
+
+    if (response.statusCode == 481 && retry) {
+      // wait for refresh (single-flight)
+      final refreshed = await _refreshTokenSingle();
+
+      if (refreshed) {
+        final newHeaders = await getHeaders();
+        return await _sendRequest(requestFn, retry: false);
+      } else {
+        Fluttertoast.showToast(msg: "Session expired. Please login again.");
+        throw Exception("Token refresh failed");
+      }
+    }
+
+    return response;
+  }
+
+  // ----------------------------------------------
+  // GET REQUEST
+  // ----------------------------------------------
+  static Future<http.Response> get(
+    Uri url, {
+    Map<String, String>? headers,
+  }) async {
+    return _sendRequest((reqHeaders) {
+      return http.get(url, headers: headers ?? reqHeaders);
+    });
+  }
+
+  // ----------------------------------------------
+  // POST REQUEST
+  // ----------------------------------------------
+  static Future<http.Response> post(
+    Uri url, {
+    Map<String, String>? headers,
+    dynamic body,
+  }) async {
+    return _sendRequest((reqHeaders) {
+      return http.post(url,
+          headers: headers ?? reqHeaders, body: body);
+    });
+  }
+
+  // ----------------------------------------------
+  // PUT REQUEST
+  // ----------------------------------------------
+  static Future<http.Response> put(
+    Uri url, {
+    Map<String, String>? headers,
+    dynamic body,
+  }) async {
+    return _sendRequest((reqHeaders) {
+      return http.put(url,
+          headers: headers ?? reqHeaders, body: body);
+    });
+  }
+
+  // ----------------------------------------------
+  // PATCH REQUEST
+  // ----------------------------------------------
+  static Future<http.Response> patch(
+    Uri url, {
+    Map<String, String>? headers,
+    dynamic body,
+  }) async {
+    return _sendRequest((reqHeaders) {
+      return http.patch(url,
+          headers: headers ?? reqHeaders, body: body);
+    });
+  }
+
+  // ----------------------------------------------
+  // DELETE REQUEST
+  // ----------------------------------------------
+  static Future<http.Response> delete(
+    Uri url, {
+    Map<String, String>? headers,
+    dynamic body,
+  }) async {
+    return _sendRequest((reqHeaders) async {
+      final request = http.Request("DELETE", url);
+      request.headers.addAll(headers ?? reqHeaders);
+      if (body != null) request.body = body;
+
+      final streamed = await request.send();
+      return await http.Response.fromStream(streamed);
+    });
   }
 }

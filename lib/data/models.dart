@@ -1,6 +1,10 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:get/get_connect/http/src/response/response.dart' as http show Response;
+import 'package:http/http.dart';
+import 'package:http/http.dart' as http hide Response;
+
 class Country {
   final String code;
   final String name;
@@ -970,7 +974,21 @@ class GExpense {
       location: json['Location'] ?? '',
     );
   }
-
+ Map<String, dynamic> toMap() {
+    return {
+      "ExpenseId": expenseId,
+      "EmployeeName": employeeName,
+      "ExpenseStatus": expenseStatus,
+      "ApprovalStatus": approvalStatus,
+      "TotalAmountTrans": totalAmountTrans,
+      "Currency": currency,
+      "MerchantName": merchantName,
+      "ExpenseCategoryId": expenseCategoryId,
+      "PaymentMethod": paymentMethod,
+      "ReceiptDate": receiptDate,
+      "CreatedDatetime": createdDatetime,
+    };
+  }
   static DateTime? _toDateTime(dynamic value) {
     if (value == null) return null;
     try {
@@ -978,6 +996,51 @@ class GExpense {
       if (value is String) return DateTime.tryParse(value);
     } catch (_) {}
     return null;
+  }
+
+  operator [](String other) {}
+}
+class GExpenseMap {
+  final String expenseId;
+  final String employeeName;
+  final String expenseStatus;
+  final String approvalStatus;
+  final double totalAmountTrans;
+  final String currency;
+  final String merchantName;
+  final String expenseCategoryId;
+  final String paymentMethod;
+  final int receiptDate;
+  final int createdDatetime;
+
+  GExpenseMap({
+    required this.expenseId,
+    required this.employeeName,
+    required this.expenseStatus,
+    required this.approvalStatus,
+    required this.totalAmountTrans,
+    required this.currency,
+    required this.merchantName,
+    required this.expenseCategoryId,
+    required this.paymentMethod,
+    required this.receiptDate,
+    required this.createdDatetime,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      "ExpenseId": expenseId,
+      "EmployeeName": employeeName,
+      "ExpenseStatus": expenseStatus,
+      "ApprovalStatus": approvalStatus,
+      "TotalAmountTrans": totalAmountTrans,
+      "Currency": currency,
+      "MerchantName": merchantName,
+      "ExpenseCategoryId": expenseCategoryId,
+      "PaymentMethod": paymentMethod,
+      "ReceiptDate": receiptDate,
+      "CreatedDatetime": createdDatetime,
+    };
   }
 }
 
@@ -1942,6 +2005,7 @@ class ExpenseItemUpdate {
   };
 }
 
+
 class FilterItem {
   final String id;
   final String label;
@@ -1965,7 +2029,17 @@ class FilterItem {
   @override
   int get hashCode => id.hashCode;
 }
+class RoleItem {
+  final String title;
+  final String imagePath;
+  final VoidCallback onTap;
 
+  RoleItem({
+    required this.title,
+    required this.imagePath,
+    required this.onTap,
+  });
+}
 class ItemizedExpense {
   String? expenseCategoryId;
   String? uomId;
@@ -1989,6 +2063,586 @@ class ItemizedExpense {
     this.isReimbursable = false,
   });
 }
+class LeaveAnalytics {
+  final double totalLeaves; // 🔥 change to double
+  final String leaveCode;
+  final double leaveBalance;
+  final String leaveType;
+  final String leaveCodeColor;
+
+  LeaveAnalytics({
+    required this.totalLeaves,
+    required this.leaveCode,
+    required this.leaveBalance,
+    required this.leaveType,
+    required this.leaveCodeColor,
+  });
+
+  factory LeaveAnalytics.fromJson(Map<String, dynamic> json) {
+    return LeaveAnalytics(
+      totalLeaves: (json['TotalLeaves'] as num?)?.toDouble() ?? 0.0,
+      leaveCode: json['LeaveCode'] ?? '',
+      leaveBalance: (json['LeaveBalance'] as num?)?.toDouble() ?? 0.0,
+      leaveType: json['LeaveType'] ?? '',
+      leaveCodeColor: json['LeaveCodeColor'] ?? '#000000',
+    );
+  }
+}
+class LeaveCodeModel {
+  final String code;
+  final String name;
+  final String type;
+  
+  LeaveCodeModel({
+    required this.code,
+    required this.name,
+    required this.type,
+  });
+}
+
+class EmployeeModel {
+  final String employeeId;
+  final String name;
+  final String email;
+  final String department;
+  
+  EmployeeModel({
+    required this.employeeId,
+    required this.name,
+    required this.email,
+    required this.department,
+  });
+}
+
+
+class LeaveFieldConfig {
+  final String fieldId;
+  final String fieldName;
+  final bool isEnabled;
+  final bool isMandatory;
+  final String functionalArea;
+  final String recId;
+  
+  LeaveFieldConfig({
+    required this.fieldId,
+    required this.fieldName,
+    required this.isEnabled,
+    required this.isMandatory,
+    required this.functionalArea,
+    required this.recId,
+  });
+}
+
+class LeaveRequest {
+  final String? leaveCode;
+  final String? projectId;
+  final String? relieverId;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? location;
+  final List<String>? notifyingUsers;
+  final String? contactNumber;
+  final String? comments;
+  final String? availabilityDuringLeave;
+  final String? outOfOfficeMessage;
+  final bool? notifyHR;
+  final bool? notifyTeam;
+  final bool? isPaidLeave;
+  final int totalDays;
+  final String status;
+  final String? recId;
+  final String? approvalStatus;
+  
+  LeaveRequest({
+    this.leaveCode,
+    this.projectId,
+    this.relieverId,
+    this.startDate,
+    this.endDate,
+    this.location,
+    this.notifyingUsers,
+    this.contactNumber,
+    this.comments,
+    this.availabilityDuringLeave,
+    this.outOfOfficeMessage,
+    this.notifyHR,
+    this.notifyTeam,
+    this.isPaidLeave,
+    required this.totalDays,
+    required this.status,
+    this.recId,
+    this.approvalStatus,
+  });
+}
+  
+class LeaveRequisition {
+  final String leaveId;
+  final int applicationDate;
+  final String employeeId;
+  final int fromDate;
+  final int toDate;
+  final String leaveCode;
+  final String approvalStatus;
+  final String employeeName;
+  final double duration;
+  final int leaveBalance;
+  final String? reasonForLeave;
+
+  LeaveRequisition({
+    required this.leaveId,
+    required this.applicationDate,
+    required this.employeeId,
+    required this.fromDate,
+    required this.toDate,
+    required this.leaveCode,
+    required this.approvalStatus,
+    required this.employeeName,
+    required this.duration,
+    required this.leaveBalance,
+    this.reasonForLeave,
+  });
+
+  factory LeaveRequisition.fromJson(Map<String, dynamic> json) {
+    return LeaveRequisition(
+      leaveId: json['LeaveId'] ?? '',
+      applicationDate: json['ApplicationDate'] ?? 0,
+      employeeId: json['EmployeeId'] ?? '',
+      fromDate: json['FromDate'] ?? 0,
+      toDate: json['ToDate'] ?? 0,
+      leaveCode: json['LeaveCode'] ?? '',
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
+      leaveBalance: (json['LeaveBalance'] as num?)?.toInt() ?? 0,
+      reasonForLeave: json['ReasonForLeave'],
+    );
+  }
+}
+
+
+
+class DashboardDataItem {
+  final int x;
+  final int y;
+  final int w;
+  final int h;
+  final String id;
+  final String currentRole;
+  final FilterProps? filterProps;
+  final int refRecId;
+
+  DashboardDataItem({
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
+    required this.id,
+    required this.currentRole,
+    required this.filterProps,
+    required this.refRecId,
+  });
+
+  factory DashboardDataItem.fromJson(Map<String, dynamic> json) {
+    return DashboardDataItem(
+      x: json['x'] ?? 0,
+      y: json['y'] ?? 0,
+      w: json['w'] ?? 0,
+      h: json['h'] ?? 0,
+      id: json['id'] ?? '',
+      currentRole: json['currentRole'] ?? '',
+      filterProps: json['filterProps'] != null
+          ? FilterProps.fromJson(json['filterProps'])
+          : null,
+      refRecId: json['RefRecId'] is int
+          ? json['RefRecId']
+          : int.tryParse('${json['RefRecId']}') ?? 0,
+    );
+  }
+}
+class AdvanceFilteration {
+  final String matchType;
+  final List<Rule> rules;
+
+  AdvanceFilteration({
+    required this.matchType,
+    required this.rules,
+  });
+
+  factory AdvanceFilteration.fromJson(Map<String, dynamic> json) {
+    return AdvanceFilteration(
+      matchType: json['matchType'] ?? '',
+      rules: (json['rules'] as List)
+          .map((e) => Rule.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class FilterProps {
+  final String roleId;
+  final String widgetLabel;
+  final String widgetName;
+  final String functionalArea;
+  final List<AdvanceFilteration>? advanceFilterations;
+
+  FilterProps({
+    required this.roleId,
+    required this.widgetLabel,
+    required this.widgetName,
+    required this.functionalArea,
+    required this.advanceFilterations,
+  });
+
+  factory FilterProps.fromJson(Map<String, dynamic> json) {
+    return FilterProps(
+      roleId: json['RoleId'] ?? '',
+      widgetLabel: json['WidgetLabel'] ?? '',
+      widgetName: json['WidgetName'] ?? '',
+      functionalArea: json['FunctionalArea'] ?? '',
+      advanceFilterations: json['AdvanceFilterations'] != null
+          ? (json['AdvanceFilterations'] as List)
+              .map((e) => AdvanceFilteration.fromJson(e))
+              .toList()
+          : null,
+    );
+  }
+}
+
+
+// Add these models to your models.dart file
+class WizardConfig {
+  final String widgetName;
+  final String displayName;
+  final String wizardType;
+  final String apiEndpoint;
+  final String role;
+
+  const WizardConfig({
+    required this.widgetName,
+    required this.displayName,
+    required this.wizardType,
+    required this.apiEndpoint,
+    required this.role,
+  });
+
+  // Empty sentinel
+  factory WizardConfig.empty() => const WizardConfig(widgetName: '', displayName: '', wizardType: '', apiEndpoint: '', role: '');
+
+  bool get isEmpty => widgetName.isEmpty;
+}
+
+/// Minimal representation of widget API response
+class WidgetDataResponse {
+  final dynamic raw; // Can be Map or List
+
+  WidgetDataResponse(this.raw);
+
+  factory WidgetDataResponse.fromJson(dynamic json) {
+    return WidgetDataResponse(json);
+  }
+
+  bool get isMap => raw is Map<String, dynamic>;
+  bool get isList => raw is List;
+
+  Map<String, dynamic> get asMap => isMap ? raw as Map<String, dynamic> : {};
+  List<dynamic> get asList => isList ? raw as List : [];
+
+  /// Safely extract a single numeric value from widget data
+  double getSingleValue() {
+    // CASE 1: raw is a number
+    if (raw is num) return raw.toDouble();
+
+    // CASE 2: raw is a Map
+    if (raw is Map<String, dynamic>) {
+      final map = raw;
+
+      // Helper to safely parse a value
+      double parseValue(dynamic v) {
+        if (v is num) return v.toDouble();
+        if (v is String) return double.tryParse(v) ?? 0.0;
+        return 0.0;
+      }
+
+      // Direct keys
+      if (map['value'] != null) {
+        final v = map['value'];
+        if (v is num || v is String) return parseValue(v);
+
+        // value might be a Map with 'data'
+        if (v is Map && v['data'] is List && (v['data'] as List).isNotEmpty) {
+          final first = (v['data'] as List).first;
+          if (first is Map) {
+            return parseValue(first['value'] ?? first['Value'] ?? first['y']);
+          }
+        }
+      }
+
+      if (map['Value'] != null) return parseValue(map['Value']);
+
+      // 'data' list
+      if (map['data'] is List && (map['data'] as List).isNotEmpty) {
+        final first = (map['data'] as List).first;
+        if (first is Map) {
+          return parseValue(first['value'] ?? first['Value'] ?? first['y']);
+        }
+      }
+    }
+
+    // CASE 3: raw is a List
+    if (raw is List && (raw as List).isNotEmpty) {
+      final first = (raw as List).first;
+      if (first is Map) {
+        return double.tryParse((first['value'] ?? first['Value'] ?? first['y']).toString()) ?? 0.0;
+      }
+    }
+
+    return 0.0;
+  }
+
+  /// Safely return series as a List
+List<dynamic> getSeries() {
+  if (isMap) {
+    final map = asMap;
+    if (map['data'] is List) return map['data'] as List;
+    if (map['value'] is List) return map['value'] as List;
+  }
+  if (isList) return asList;
+  return [];
+}
+}
+
+
+
+
+class DashboardByRole {
+  final int? recId;
+  final String? widgetName;
+  final String? functionalArea;
+  final String? roleId;
+  final String? widgetLabel;
+  final String? description;
+  final List<WidgetMetadata>? metadata;
+
+  DashboardByRole({
+    this.recId,
+    this.widgetName,
+    this.functionalArea,
+    this.roleId,
+    this.widgetLabel,
+    this.description,
+    this.metadata,
+  });
+
+  factory DashboardByRole.fromJson(Map<String, dynamic> json) {
+    return DashboardByRole(
+      recId: json['RecId'] as int?,
+      widgetName: json['WidgetName'] as String?,
+      functionalArea: json['FunctionalArea'] as String?,
+      roleId: json['RoleId'] as String?,
+      widgetLabel: json['WidgetLabel'] as String?,
+      description: json['Description'] as String?,
+      metadata: json['MetaData'] != null
+          ? List<WidgetMetadata>.from(
+              (json['MetaData'] as List).map(
+                (x) => WidgetMetadata.fromJson(x),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'RecId': recId,
+        'WidgetName': widgetName,
+        'FunctionalArea': functionalArea,
+        'RoleId': roleId,
+        'WidgetLabel': widgetLabel,
+        'Description': description,
+        'MetaData': metadata?.map((x) => x.toJson()).toList(),
+      };
+}
+class WidgetMetadata {
+  final String? tableName;
+  final String? tableLabel;
+  final List<TableColumn>? columns;
+  final List<TableRelationship>? relationships;
+
+  WidgetMetadata({
+    this.tableName,
+    this.tableLabel,
+    this.columns,
+    this.relationships,
+  });
+
+  factory WidgetMetadata.fromJson(Map<String, dynamic> json) {
+    return WidgetMetadata(
+      tableName: json['TableName'] as String?,
+      tableLabel: json['TableLabel'] as String?,
+      columns: json['Columns'] != null
+          ? List<TableColumn>.from(
+              (json['Columns'] as List).map(
+                (x) => TableColumn.fromJson(x),
+              ),
+            )
+          : null,
+      relationships: json['relationships'] != null
+          ? List<TableRelationship>.from(
+              (json['relationships'] as List).map(
+                (x) => TableRelationship.fromJson(x),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'TableName': tableName,
+        'TableLabel': tableLabel,
+        'Columns': columns?.map((x) => x.toJson()).toList(),
+        'relationships': relationships?.map((x) => x.toJson()).toList(),
+      };
+}
+class TableColumn {
+  final String? colname;
+  final String? type;
+  final String? label;
+  final String? enumName;
+
+  TableColumn({
+    this.colname,
+    this.type,
+    this.label,
+    this.enumName,
+  });
+
+  factory TableColumn.fromJson(Map<String, dynamic> json) {
+    return TableColumn(
+      colname: json['Colname'] as String?,
+      type: json['Type'] as String?,
+      label: json['Label'] as String?,
+      enumName: json['EnumName'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'Colname': colname,
+        'Type': type,
+        'Label': label,
+        'EnumName': enumName,
+      };
+}
+
+class TableRelationship {
+  final String? relation;
+  final String? description;
+
+  TableRelationship({
+    this.relation,
+    this.description,
+  });
+
+  factory TableRelationship.fromJson(Map<String, dynamic> json) {
+    return TableRelationship(
+      relation: json['Relation'] as String?,
+      description: json['Description'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'Relation': relation,
+        'Description': description,
+      };
+}
+class ChartDataPoint {
+  final String x;
+  final double y;
+  
+  ChartDataPoint({
+    required this.x,
+    required this.y,
+  });
+}
+  
+class Dashboard {
+  final String dashBoardType;
+  final String dashBoardName;
+  final List<DashboardDataItem> dashboardData;
+  final String description;
+  final String userId;
+  final int dashBoardRecId;
+  final String dashBoardTitle;
+  final bool? isDefault;
+  final int recId;
+
+  Dashboard({
+    required this.dashBoardType,
+    required this.dashBoardName,
+    required this.dashboardData,
+    required this.description,
+    required this.userId,
+    required this.dashBoardRecId,
+    required this.dashBoardTitle,
+    required this.isDefault,
+    required this.recId,
+  });
+
+  factory Dashboard.fromJson(Map<String, dynamic> json) {
+    final List items = json['DashBoardData'] ?? [];
+
+    return Dashboard(
+      dashBoardType: json['DashBoardType'] ?? '',
+      dashBoardName: json['DashBoardName'] ?? '',
+      dashboardData: items.map((e) => DashboardDataItem.fromJson(e)).toList(),
+      description: json['Description'] ?? '',
+      userId: json['UserId'] ?? '',
+      dashBoardRecId: json['DashBoardRecId'] is int
+          ? json['DashBoardRecId']
+          : int.tryParse('${json['DashBoardRecId']}') ?? 0,
+      dashBoardTitle: json['DashBoardTitle'] ?? '',
+      isDefault: json['IsDefault'],
+      recId: json['RecId'] is int
+          ? json['RecId']
+          : int.tryParse('${json['RecId']}') ?? 0,
+    );
+  }
+}
+
+
+class DashboardItem {
+  final int x;
+  final int y;
+  final int w;
+  final int h;
+  final String id;
+  final String currentRole;
+  final Map<String, dynamic> filterProps;
+  final int refRecId;
+
+  DashboardItem({
+    required this.x,
+    required this.y,
+    required this.w,
+    required this.h,
+    required this.id,
+    required this.currentRole,
+    required this.filterProps,
+    required this.refRecId,
+  });
+
+  factory DashboardItem.fromJson(Map<String, dynamic> json) {
+    return DashboardItem(
+      x: json['x'] ?? 0,
+      y: json['y'] ?? 0,
+      w: json['w'] ?? 0,
+      h: json['h'] ?? 0,
+      id: json['id'] ?? '',
+      currentRole: json['currentRole'] ?? '',
+      filterProps: (json['filterProps'] is Map) ? Map<String, dynamic>.from(json['filterProps']) : {},
+      refRecId: (json['RefRecId'] is int) ? json['RefRecId'] : int.tryParse('${json['RefRecId']}') ?? 0,
+    );
+  }
+}
+
 
 class GESpeficExpense {
   final String expenseId;
@@ -2797,6 +3451,345 @@ class ProjectExpense {
   factory ProjectExpense.fromJson(Map<String, dynamic> json) {
     return ProjectExpense(x: json['x'] ?? '', y: (json['y'] as num).toDouble());
   }
+}
+class MultiSeriesDataPoint {
+  final String x;
+  final double y;
+  final Color color;
+
+  MultiSeriesDataPoint({
+    required this.x,
+    required this.y,
+    required this.color,
+  });
+}
+class ExpenseHeader {
+  final String? expenseId;
+  final String? expenseStatus;
+  final double? totalAmountTrans;
+  final String? employeeId;
+  final int? receiptDate;
+  final String? approvalStatus;
+  final String? currency;
+  final String? source;
+  final double? exchRate;
+  final String? createdBy;
+  final String? modifiedBy;
+  final int? organizationId;
+  final int? recId;
+  final double? totalAmountReporting;
+  final String? projectId;
+  final int? fromDate;
+  final int? toDate;
+  final String? paymentMethod;
+  final String? expenseCategoryId;
+  final String? merchantName;
+  final String? merchantId;
+  final double? totalApprovedAmount;
+  final double? totalRejectedAmount;
+  final double? userExchRate;
+  final String? country;
+  final String? taxGroup;
+  final double? taxAmount;
+  final String? expenseType;
+  final bool? isReimbursable;
+  final bool? isBillable;
+  final bool? isPreauthorised;
+  final int? createdDatetime;
+  final int? modifiedDatetime;
+  final int? subOrganizationId;
+  final String? employeeName;
+  final int? closedDate;
+  final int? lastSettlementDate;
+  final double? amountSettled;
+  final String? referenceNumber;
+  final String? description;
+  final String? cashAdvReqId;
+  final bool? isDuplicated;
+  final bool? isForged;
+  final bool? isTobacco;
+  final bool? isAlcohol;
+  final String? location;
+
+  ExpenseHeader({
+    this.expenseId,
+    this.expenseStatus,
+    this.totalAmountTrans,
+    this.employeeId,
+    this.receiptDate,
+    this.approvalStatus,
+    this.currency,
+    this.source,
+    this.exchRate,
+    this.createdBy,
+    this.modifiedBy,
+    this.organizationId,
+    this.recId,
+    this.totalAmountReporting,
+    this.projectId,
+    this.fromDate,
+    this.toDate,
+    this.paymentMethod,
+    this.expenseCategoryId,
+    this.merchantName,
+    this.merchantId,
+    this.totalApprovedAmount,
+    this.totalRejectedAmount,
+    this.userExchRate,
+    this.country,
+    this.taxGroup,
+    this.taxAmount,
+    this.expenseType,
+    this.isReimbursable,
+    this.isBillable,
+    this.isPreauthorised,
+    this.createdDatetime,
+    this.modifiedDatetime,
+    this.subOrganizationId,
+    this.employeeName,
+    this.closedDate,
+    this.lastSettlementDate,
+    this.amountSettled,
+    this.referenceNumber,
+    this.description,
+    this.cashAdvReqId,
+    this.isDuplicated,
+    this.isForged,
+    this.isTobacco,
+    this.isAlcohol,
+    this.location,
+  });
+
+  factory ExpenseHeader.fromJson(Map<String, dynamic> json) {
+    return ExpenseHeader(
+      expenseId: json["ExpenseId"],
+      expenseStatus: json["ExpenseStatus"],
+      totalAmountTrans: (json["TotalAmountTrans"] ?? 0).toDouble(),
+      employeeId: json["EmployeeId"],
+      receiptDate: json["ReceiptDate"],
+      approvalStatus: json["ApprovalStatus"],
+      currency: json["Currency"],
+      source: json["Source"],
+      exchRate: (json["ExchRate"] ?? 0).toDouble(),
+      createdBy: json["CreatedBy"],
+      modifiedBy: json["ModifiedBy"],
+      organizationId: json["OrganizationId"],
+      recId: json["RecId"],
+      totalAmountReporting: (json["TotalAmountReporting"] ?? 0).toDouble(),
+      projectId: json["ProjectId"],
+      fromDate: json["FromDate"],
+      toDate: json["ToDate"],
+      paymentMethod: json["PaymentMethod"],
+      expenseCategoryId: json["ExpenseCategoryId"],
+      merchantName: json["MerchantName"],
+      merchantId: json["MerchantId"],
+      totalApprovedAmount: json["TotalApprovedAmount"] == null
+          ? null
+          : (json["TotalApprovedAmount"]).toDouble(),
+      totalRejectedAmount:
+          (json["TotalRejectedAmount"] ?? 0).toDouble(),
+      userExchRate: (json["UserExchRate"] ?? 0).toDouble(),
+      country: json["Country"],
+      taxGroup: json["TaxGroup"],
+      taxAmount: (json["TaxAmount"] ?? 0).toDouble(),
+      expenseType: json["ExpenseType"],
+      isReimbursable: json["IsReimbursable"],
+      isBillable: json["IsBillable"],
+      isPreauthorised: json["IsPreauthorised"],
+      createdDatetime: json["CreatedDatetime"],
+      modifiedDatetime: json["ModifiedDatetime"],
+      subOrganizationId: json["SubOrganizationId"],
+      employeeName: json["EmployeeName"],
+      closedDate: json["ClosedDate"],
+      lastSettlementDate: json["LastSettlementDate"],
+      amountSettled: (json["AmountSettled"] ?? 0).toDouble(),
+      referenceNumber: json["ReferenceNumber"],
+      description: json["Description"],
+      cashAdvReqId: json["CashAdvReqId"],
+      isDuplicated: json["IsDuplicated"],
+      isForged: json["IsForged"],
+      isTobacco: json["IsTobacco"],
+      isAlcohol: json["IsAlcohol"],
+      location: json["Location"],
+    );
+  }
+}
+class LeaveTransaction {
+  final DateTime transDate;
+  final double noOfDays;
+  final String leaveCode;
+  final String approvalStatus;
+  final bool leaveFirstHalf;
+  final bool leaveSecondHalf;
+  final int recId;
+
+  // metadata coming from parent LeaveModel (nullable)
+  final String? leaveColor;
+  final String? employeeName;
+  final String? leaveId;
+
+  LeaveTransaction({
+    required this.transDate,
+    required this.noOfDays,
+    required this.leaveCode,
+    required this.approvalStatus,
+    required this.leaveFirstHalf,
+    required this.leaveSecondHalf,
+    required this.recId,
+    this.leaveColor,
+    this.employeeName,
+    this.leaveId,
+  });
+
+  factory LeaveTransaction.fromJson(Map<String, dynamic> json, {String? color, String? empName, String? leaveId}) {
+    return LeaveTransaction(
+      transDate: DateTime.fromMillisecondsSinceEpoch(json['TransDate']),
+      noOfDays: (json['NoOfDays'] as num?)?.toDouble() ?? 0.0,
+      leaveCode: json['LeaveCode']?.toString() ?? '',
+      approvalStatus: json['ApprovalStatus']?.toString() ?? '',
+      leaveFirstHalf: json['LeaveFirstHalf'] ?? false,
+      leaveSecondHalf: json['LeaveSecondHalf'] ?? false,
+      recId: json['RecId'] ?? 0,
+      leaveColor: color,
+      employeeName: empName,
+      leaveId: leaveId,
+    );
+  }
+
+  LeaveTransaction copyWith({
+    DateTime? transDate,
+    double? noOfDays,
+    String? leaveCode,
+    String? approvalStatus,
+    bool? leaveFirstHalf,
+    bool? leaveSecondHalf,
+    int? recId,
+    String? leaveColor,
+    String? employeeName,
+    String? leaveId,
+  }) {
+    return LeaveTransaction(
+      transDate: transDate ?? this.transDate,
+      noOfDays: noOfDays ?? this.noOfDays,
+      leaveCode: leaveCode ?? this.leaveCode,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      leaveFirstHalf: leaveFirstHalf ?? this.leaveFirstHalf,
+      leaveSecondHalf: leaveSecondHalf ?? this.leaveSecondHalf,
+      recId: recId ?? this.recId,
+      leaveColor: leaveColor ?? this.leaveColor,
+      employeeName: employeeName ?? this.employeeName,
+      leaveId: leaveId ?? this.leaveId,
+    );
+  }
+}
+
+
+
+
+class LeaveModel {
+  final String leaveId;
+  final int applicationDate;
+  final String reasonForLeave;
+  final String employeeId;
+  final int fromDate;
+  final bool fromDateHalfDay;
+  final String? fromDateHalfDayValue;
+  final String leaveCode;
+  final String reliever;
+  final int toDate;
+  final bool toDateHalfDay;
+  final String? toDateHalfDayValue;
+  final int recId;
+  final String projectId;
+  final bool notifyHR;
+  final bool notifyTeamMembers;
+  final String notifyingUserIds;
+  final String outOfOfficeMessage;
+  final String emergencyContactNumber;
+  final String availabilityDuringLeave;
+  final String leaveLocation;
+  final double duration;
+  final double leaveBalance;
+  final String approvalStatus;
+  final String leaveDateType;
+  final String employeeName;
+  final String leaveColor;
+  final List<LeaveTransaction> transactions;
+
+  LeaveModel({
+    required this.leaveId,
+    required this.applicationDate,
+    required this.reasonForLeave,
+    required this.employeeId,
+    required this.fromDate,
+    required this.fromDateHalfDay,
+    required this.fromDateHalfDayValue,
+    required this.leaveCode,
+    required this.reliever,
+    required this.toDate,
+    required this.toDateHalfDay,
+    required this.toDateHalfDayValue,
+    required this.recId,
+    required this.projectId,
+    required this.notifyHR,
+    required this.notifyTeamMembers,
+    required this.notifyingUserIds,
+    required this.outOfOfficeMessage,
+    required this.emergencyContactNumber,
+    required this.availabilityDuringLeave,
+    required this.leaveLocation,
+    required this.duration,
+    required this.leaveBalance,
+    required this.approvalStatus,
+    required this.leaveDateType,
+    required this.employeeName,
+    required this.leaveColor,
+    required this.transactions,
+  });
+
+  factory LeaveModel.fromJson(Map<String, dynamic> json) {
+    return LeaveModel(
+      leaveId: json["LeaveId"]?.toString() ?? "",
+      applicationDate: json["ApplicationDate"] ?? 0,
+      reasonForLeave: json["ReasonForLeave"]?.toString() ?? "",
+      employeeId: json["EmployeeId"]?.toString() ?? "",
+      fromDate: json["FromDate"] ?? 0,
+      fromDateHalfDay: json["FromDateHalfDay"] ?? false,
+      fromDateHalfDayValue: json["FromDateHalfDayValue"]?.toString(),
+      leaveCode: json["LeaveCode"]?.toString() ?? "",
+      reliever: json["Reliever"]?.toString() ?? "",
+      toDate: json["ToDate"] ?? 0,
+      toDateHalfDay: json["ToDateHalfDay"] ?? false,
+      toDateHalfDayValue: json["ToDateHalfDayValue"]?.toString(),
+      recId: json["RecId"] ?? 0,
+      projectId: json["ProjectId"]?.toString() ?? "",
+      notifyHR: json["NotifyHR"] ?? false,
+      notifyTeamMembers: json["NotifyTeamMembers"] ?? false,
+      notifyingUserIds: json["NotifyingUserIds"]?.toString() ?? "",
+      outOfOfficeMessage: json["OutOfOfficeMessage"]?.toString() ?? "",
+      emergencyContactNumber: json["EmergencyContactNumber"]?.toString() ?? "",
+      availabilityDuringLeave: json["AvailabilityDuringLeave"]?.toString() ?? "",
+      leaveLocation: json["LeaveLocation"]?.toString() ?? "",
+      duration: (json["Duration"] ?? 0).toDouble(),
+      leaveBalance: (json["LeaveBalance"] ?? 0).toDouble(),
+      approvalStatus: json["ApprovalStatus"]?.toString() ?? "",
+      leaveDateType: json["LeaveDateType"]?.toString() ?? "",
+      employeeName: json["EmployeeName"]?.toString() ?? "",
+      leaveColor: json["LeaveColor"]?.toString() ?? "#000000",
+
+      /// ⛔ SAFEST FIX → if list is null, return an empty list
+      transactions: (json["LeaveTransactions"] as List? ?? [])
+          .map((e) => LeaveTransaction.fromJson(e))
+          .toList(),  
+    );
+  }
+}
+
+
+List<ExpenseHeader> expenseHeaderListFromJson(dynamic data) {
+  return (data as List<dynamic>)
+      .map((e) => ExpenseHeader.fromJson(e as Map<String, dynamic>))
+      .toList();
 }
 
 class ProjectExpensebycategory {

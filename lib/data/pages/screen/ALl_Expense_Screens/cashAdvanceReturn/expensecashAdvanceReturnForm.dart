@@ -1294,102 +1294,223 @@ currentController.enableNextBtn.value = isValid;
                         const Spacer(),
                         ElevatedButton(
                           onPressed: () {
-                            // Reset error states
-                            if(_validateCurrentItemizeForm()){
+                            if(showItemizeDetails){
+                              if (_validateCurrentItemizeForm()) {
+                              setState(() {
+                                controller.showQuantityError.value = false;
+                                controller.showUnitAmountError.value = false;
+                                _showUnitError = false;
+                                controller.showTaxAmountError.value = false;
+                              });
 
-                             setState(() {
-                              controller.showQuantityError.value = false;
-                              controller.showUnitAmountError.value = false;
-                              _showUnitError = false;
-                              controller.showTaxAmountError.value = false;
-                            });
+                              bool isValid = true;
 
-                            bool isValid = true;
-
-                            if (controller.selectedCategoryId.isEmpty) {
-                              setState(
-                                () => controller.showPaidForError.value = true,
-                              );
-                              isValid = false;
-                            }
-
-                            if (_itemizeCount  >= 1) {
-                              print("controller.unitAmount.text${_itemizeCount}");
-
-                              if (controller.quantity.text.isEmpty) {
+                              if (controller.selectedCategoryId.isEmpty) {
                                 setState(
                                   () =>
-                                      controller.showQuantityError.value = true,
+                                      controller.showPaidForError.value = true,
                                 );
                                 isValid = false;
                               }
-                              if (controller.unitAmount.text.isEmpty) {
+
+                              if (_itemizeCount >= 1) {
+                                print(
+                                  "controller.unitAmount.text${_itemizeCount}",
+                                );
+
+                                if (controller.quantity.text.isEmpty) {
+                                  setState(
+                                    () => controller.showQuantityError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
+                                if (showItemizeDetails) {
+                                  if (controller.unitAmount.text.isEmpty) {
+                                    setState(
+                                      () =>
+                                          controller.showUnitAmountError.value =
+                                              true,
+                                    );
+                                    isValid = false;
+                                  }
+
+                                  if (controller.selectedunit == null) {
+                                    setState(() => _showUnitError = true);
+                                    isValid = false;
+                                  }
+                                }
+                                final taxAmountMandatory = isFieldMandatory(
+                                  'Tax Amount',
+                                );
+                                // Validate other mandatory fields
+                                if (controller.taxAmount.text.isEmpty &&
+                                    taxAmountMandatory) {
+                                  setState(
+                                    () => controller.showTaxAmountError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
+                              }
+
+                              // Validate Project Id if mandatory
+                              final projectIdMandatory = isFieldMandatory(
+                                'Project Id',
+                              );
+
+                              print("projectIdMandatory$projectIdMandatory");
+                              print(
+                                "projectIdMandatory${controller.selectedProject == null}",
+                              );
+                              if (projectIdMandatory &&
+                                  controller.selectedProject == null) {
                                 setState(
-                                  () => controller.showUnitAmountError.value =
-                                      true,
+                                  () =>
+                                      controller.showProjectError.value = true,
+                                );
+                                isValid = false;
+                              } else {
+                                setState(
+                                  () =>
+                                      controller.showProjectError.value = false,
+                                );
+                              }
+
+                              print('isValid$isValid');
+                              print('isValid${itemizeControllers.length}');
+                              if (isValid) {
+                                if (showItemizeDetails) {
+                                  controllerItems.finalItems =
+                                      itemizeControllers
+                                          .map((c) => c.toExpenseItemModel())
+                                          .toList();
+                                  _nextStep();
+                                  FocusScope.of(context).unfocus();
+                                } else {
+                                  _nextStep();
+                                  FocusScope.of(context).unfocus();
+                                }
+                              }
+                            } else {
+                              Fluttertoast.showToast(
+                                msg: "Please check all Field",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
+                            }
+                           }
+                          else{
+                              if (validateExpenseForm()) {
+                              setState(() {
+                                controller.showQuantityError.value = false;
+                                controller.showUnitAmountError.value = false;
+                                _showUnitError = false;
+                                controller.showTaxAmountError.value = false;
+                              });
+
+                              bool isValid = true;
+
+                              if (controller.selectedCategoryId.isEmpty) {
+                                setState(
+                                  () =>
+                                      controller.showPaidForError.value = true,
                                 );
                                 isValid = false;
                               }
 
-                              if (controller.selectedunit == null) {
-                                setState(() => _showUnitError = true);
+                              if (_itemizeCount >= 1) {
+                                print(
+                                  "controller.unitAmount.text${_itemizeCount}",
+                                );
+
+                                if (controller.quantity.text.isEmpty) {
+                                  setState(
+                                    () => controller.showQuantityError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
+                                if (showItemizeDetails) {
+                                  if (controller.unitAmount.text.isEmpty) {
+                                    setState(
+                                      () =>
+                                          controller.showUnitAmountError.value =
+                                              true,
+                                    );
+                                    isValid = false;
+                                  }
+
+                                  if (controller.selectedunit == null) {
+                                    setState(() => _showUnitError = true);
+                                    isValid = false;
+                                  }
+                                }
+                                final taxAmountMandatory = isFieldMandatory(
+                                  'Tax Amount',
+                                );
+                                // Validate other mandatory fields
+                                if (controller.taxAmount.text.isEmpty &&
+                                    taxAmountMandatory) {
+                                  setState(
+                                    () => controller.showTaxAmountError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
+                              }
+
+                              // Validate Project Id if mandatory
+                              final projectIdMandatory = isFieldMandatory(
+                                'Project Id',
+                              );
+
+                              print("projectIdMandatory$projectIdMandatory");
+                              print(
+                                "projectIdMandatory${controller.selectedProject == null}",
+                              );
+                              if (projectIdMandatory &&
+                                  controller.selectedProject == null) {
+                                setState(
+                                  () =>
+                                      controller.showProjectError.value = true,
+                                );
                                 isValid = false;
-                              }
-                            }
-                            final taxAmountMandatory = isFieldMandatory(
-                              'Tax Amount',
-                            );
-                            // Validate other mandatory fields
-                            if (controller.taxAmount.text.isEmpty &&
-                                taxAmountMandatory) {
-                              setState(() => controller.showTaxAmountError.value = true);
-                              isValid = false;
-                            }
-                            // Validate Project Id if mandatory
-                            final projectIdMandatory = isFieldMandatory(
-                              'Project Id',
-                            );
-
-                            print("projectIdMandatory$projectIdMandatory");
-                            print(
-                              "projectIdMandatory${controller.selectedProject == null}",
-                            );
-                            if (projectIdMandatory &&
-                                controller.selectedProject == null) {
-                              setState(
-                                () => controller.showProjectError.value = true,
-                              );
-                              isValid = false;
-                            } else {
-                              setState(
-                                () => controller.showProjectError.value = false,
-                              );
-                            }
-
-                            print('isValid$isValid');
-                            print('isValid${itemizeControllers.length}');
-                            if (isValid) {
-                              if (showItemizeDetails) {
-                                controllerItems.finalItems = itemizeControllers
-                                    .map((c) => c.toExpenseItemModel())
-                                    .toList();
-                                _nextStep();
-                                FocusScope.of(context).unfocus();
                               } else {
-                                _nextStep();
-                                FocusScope.of(context).unfocus();
+                                setState(
+                                  () =>
+                                      controller.showProjectError.value = false,
+                                );
                               }
+
+                              print('isValid$isValid');
+                              print('isValid${itemizeControllers.length}');
+                              if (isValid) {
+                                if (showItemizeDetails) {
+                                  controllerItems.finalItems =
+                                      itemizeControllers
+                                          .map((c) => c.toExpenseItemModel())
+                                          .toList();
+                                  _nextStep();
+                                  FocusScope.of(context).unfocus();
+                                } else {
+                                  _nextStep();
+                                  FocusScope.of(context).unfocus();
+                                }
+                              }
+                            } else {
+                              Fluttertoast.showToast(
+                                msg: "Please check all Field",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                backgroundColor: Colors.red,
+                                textColor: Colors.white,
+                                fontSize: 16.0,
+                              );
                             }
-                          }
-                          else{
-                             Fluttertoast.showToast(
-          msg:"Please check all Field",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
                           }
                           },
                           style: OutlinedButton.styleFrom(

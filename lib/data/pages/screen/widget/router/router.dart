@@ -18,6 +18,10 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/unProcessed.da
 import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
+import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart' show SpendersDashboardPage;
+import 'package:digi_xpense/data/pages/screen/Leave_Section/dashboard_leave.dart';
+import 'package:digi_xpense/data/pages/screen/Leave_Section/leaveCalenderView.dart' show CalendarPage;
+import 'package:digi_xpense/data/pages/screen/Leave_Section/view_CreateLeave.dart';
 import 'package:digi_xpense/data/pages/screen/Notification/notification.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
 import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
@@ -49,6 +53,8 @@ class AppRoutes {
   static const String login = '/login';
   static const String forgetPasswordurl = '/forgetPassword';
   static const String dashboard_Main = '/dashboard_Main';
+    static const String spanders = '/dashboard_Main/spanders';
+
   static const String changesLanguage = '/profile/changesLanguage';
   static const String profile = '/profile/profileinfo';
   static const String personalInfo = '/profile/profileDetailsPage';
@@ -94,13 +100,19 @@ class AppRoutes {
       '/expense/reportsDashboard/reportsDashboard';
   static const String reportsAssignUser =
       '/expense/reportsAssignUser/reportsAssignUser';
+       static const String leaveDashboard =
+      '/expense/leaveDashboard/leaveDashboard';
   static const String reportCreateScreen =
       '/expense/reportCreateScreen/reportCreateScreen';
   static const String emailHubScreen = '/expense/emailHubScreen/emailHubScreen';
   static const String reportWizardParent =
       '/expense/reportWizardParent/reportWizardParent';
-  static const String expensePaginationPage =
-      '/expense/expensePaginationPage/expensePaginationPage';
+       static const String expensePaginationPage =
+      '/expense/reportWizardParent/reportWizardParent';
+  static const String calendarView =
+      '/leave/calendarView/calendarView';
+       static const String viewLeave =
+      '/leave/viewLeave/viewLeave';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -113,6 +125,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ForgetPassword());
       case changesLanguage:
         return MaterialPageRoute(builder: (_) => const SettingsPage());
+           case leaveDashboard:
+        return MaterialPageRoute(builder: (_) => const LeaveDashboard());
       case personalInfo:
         return MaterialPageRoute(builder: (_) => const PersonalDetailsPage());
       case notification:
@@ -125,6 +139,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const UserAssignmentScreen());
       case aIAnalyticsPage:
         return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
+         case viewLeave:
+        return MaterialPageRoute(builder: (_) => const ViewEditLeavePage(isReadOnly: false,));
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
           builder: (_) => const MyTeamExpenseDashboard(),
@@ -153,6 +169,8 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const EmailHubScreen());
       case expensePaginationPage:
         return MaterialPageRoute(builder: (_) => const ExpensePaginationPage());
+        case calendarView:
+        return MaterialPageRoute(builder: (_) => const CalendarPage());
       case approvalHubMain:
         return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
       case AppRoutes.viewCashAdvanseReturnForms:
@@ -282,10 +300,14 @@ class AppRoutes {
             ],
           ),
         );
+        case spanders:
+                final args = settings.arguments as Map<String, dynamic>;
+
+        return MaterialPageRoute(builder: (_) =>  SpendersDashboardPage(role: args["id"]));
       case expenseForm:
         return MaterialPageRoute(builder: (_) => const ExpenseCreationForm());
       case AppRoutes.getSpecificExpense:
-        final args = settings.arguments as Map<String, dynamic>?;
+        final args = settings.arguments as Map<String, dynamic>?; 
         print("args$args");
         return MaterialPageRoute(
           builder: (_) => ViewEditExpensePage(

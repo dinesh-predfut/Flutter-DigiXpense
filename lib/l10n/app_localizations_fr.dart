@@ -390,6 +390,10 @@ String get exitForm => 'Quitter le formulaire';
   String get cropImage => 'Recadrer l’image';
   @override
   String get referenceId => 'référence';
+   @override
+  String get employeeId => 'Identifiant employé';
+   @override
+  String get leaveCode => 'Code de congé';
   @override
   String get pleaseSelectMerchant => 'Veuillez sélectionner un commerçant';
   @override
@@ -404,10 +408,26 @@ String get exitForm => 'Quitter le formulaire';
   String get perDiemDetails => 'Détails du per diem';
   @override
   String get expenseId => 'ID de dépense';
-  @override
-  String get employeeId => 'ID employé';
+
   @override
   String get close => 'Fermer';
+@override String get reliever => 'Remplaçant';
+@override String get department => 'Département';
+@override String get dates => 'Dates';
+@override String get notifyingUsers => 'Utilisateurs notifiés';
+@override String get contactNumber => 'Numéro de contact';
+@override String get availabilityDuringLeave => 'Disponibilité pendant le congé';
+@override String get availability => 'Disponibilité';
+@override String get outOfOfficeMessage => 'Message d’absence';
+@override String get notifyHR => 'Notifier les RH';
+@override String get notifyTeamMembers => 'Notifier les membres de l’équipe';
+@override String get paidLeave => 'Congé payé';
+@override String get totalDays => 'Nombre total de jours';
+@override String get saveAsDraft => 'Enregistrer comme brouillon';
+@override String get editLeaveRequest => 'Modifier la demande de congé';
+@override String get newLeaveRequest => 'Nouvelle demande de congé';
+@override
+String get days => 'Jours';
 
   @override
   String get location => 'Lieu';

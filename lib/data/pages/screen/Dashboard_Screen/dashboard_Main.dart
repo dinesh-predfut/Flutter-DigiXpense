@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:digi_xpense/core/comman/widgets/chatCard.dart';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
 import 'package:digi_xpense/data/models.dart';
@@ -34,6 +35,9 @@ class _DashboardPageState extends State<DashboardPage>
   final double _minDragExtent = 100; // Minimum height
   RxBool isImageLoading = false.obs;
   Rxn<File> profileImage = Rxn<File>();
+  List<Dashboard> dashboards = [];
+  bool loadingDashboards = false;
+  Dashboard? selectedDashboard;
   final double _maxDragExtent =
       MediaQueryData.fromView(WidgetsBinding.instance.window).size.height *
       0.7; // Maximum height
@@ -45,11 +49,12 @@ class _DashboardPageState extends State<DashboardPage>
   @override
   void initState() {
     super.initState();
-
     _scrollController = ScrollController();
     getDeviceDetails(context);
     controller.updateFeatureVisibility();
-    // Kick off init flow
+    //  controller.loadDashboards();
+    _loadDashboards();
+    controller.initializeWizardConfigs(); // Initialize wizard configs
     _initializeAsync();
   }
 
@@ -95,7 +100,7 @@ class _DashboardPageState extends State<DashboardPage>
           _animationController.repeat();
         }
       });
-      controller.fetchChartData();
+      // controller.fetchChartData();
       controller.fetchExpensesByProjects();
       controller.fetchAndReplaceValue();
       registerDevice();
@@ -106,6 +111,7 @@ class _DashboardPageState extends State<DashboardPage>
       controller.getAllFeatureStates();
       controller.getUserPref(context);
       _loadProfileImage();
+
       controller.isInitialized.value = true;
     });
   }
@@ -248,6 +254,33 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
+  Future<void> _loadDashboards() async {
+    setState(() => loadingDashboards = true);
+    try {
+      dashboards = await controller.fetchDashboardWidgets();
+      print("ErrorErrordashboards: $dashboards");
+
+      if (dashboards.isNotEmpty) {
+        // Find the dashboard where IsDefault == true
+        final defaultDash = dashboards.firstWhere(
+          (d) => d.isDefault == true,
+          orElse: () => dashboards.first, // fallback if none marked default
+        );
+
+        controller.selectedDashboard.value = defaultDash;
+
+        await controller.onDashboardChanged(defaultDash);
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load dashboards: $e')));
+    } finally {
+      setState(() => loadingDashboards = false);
+    }
+  }
+
   Future<Map<String, dynamic>> getDeviceDetails(BuildContext context) async {
     print("Fetching device details...");
     final token = await controller.getDeviceToken();
@@ -255,6 +288,7 @@ class _DashboardPageState extends State<DashboardPage>
     final deviceId = await controller.getDeviceId();
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('selectedMenu', AppLocalizations.of(context)!.dashboard);
+    prefs.remove('last_route');
     final details = {
       "DeviceToken": token ?? "N/A",
       "Platform": platform,
@@ -270,24 +304,96 @@ class _DashboardPageState extends State<DashboardPage>
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
-    print("unreadCount${controller.unreadCount.value}");
     final theme = Theme.of(context);
-
-    ;
+    final List<RoleItem> roles = [
+      RoleItem(
+        title: "Spenders",
+        imagePath: "assets/image 2050.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Spender"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Line Managers",
+        imagePath: "assets/image 2051.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Line Manager"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Finance Manager",
+        imagePath: "assets/image 2050 (1).png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Finance Manager"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Project Manager",
+        imagePath: "assets/image 2054.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Project Manager"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Department Admin",
+        imagePath: "assets/image 2054.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Department Admin"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Branch Admin",
+        imagePath: "assets/image 2050.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Branch Admin"},
+          ),
+        },
+      ),
+      RoleItem(
+        title: "Admin",
+        imagePath: "assets/image 2050.png",
+        onTap: () => {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.spanders,
+            arguments: {'id': "Admin"},
+          ),
+        },
+      ),
+    ];
     return WillPopScope(
       onWillPop: () async {
         if (Platform.isAndroid) {
-          // final prefs = await SharedPreferences.getInstance();
-          // await prefs.setString('lastRoute', AppRoutes.dashboard_Main);
           SystemNavigator.pop();
         } else if (Platform.isIOS) {
           exit(0);
         }
         return false;
       },
-
       child: Scaffold(
-        // backgroundColor: const Color(0xFFF7F7F7),
         body: Obx(() {
           return controller.isUploadingCards.value
               ? const SkeletonLoaderPage()
@@ -295,757 +401,586 @@ class _DashboardPageState extends State<DashboardPage>
                   builder: (context, constraints) {
                     final isSmallScreen = constraints.maxWidth < 600;
                     final primaryColor = theme.primaryColor;
-                    //  Color primaryColors = theme.shade500;
-                    print("primaryColor.value${primaryColor.value}");
-                    return Column(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (primaryColor != const Color(0xFF1e4db7))
-                                  Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          primaryColor,
-                                          primaryColor.withOpacity(
-                                            0.7,
-                                          ), // Lighter primary color
-                                        ],
-                                      ),
+
+                    return SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header Section
+                          if (primaryColor != const Color(0xFF1e4db7))
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor,
+                                    primaryColor.withOpacity(0.7),
+                                  ],
+                                ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                40,
+                                16,
+                                16,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 80 : 100,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
                                     ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      40,
-                                      16,
-                                      16,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                  ),
+                                  Row(
+                                    children: [
+                                      const LanguageDropdown(),
+                                      _buildNotificationBadge(),
+                                      _buildProfileAvatar(),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (primaryColor == const Color(0xFF1e4db7))
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              padding: const EdgeInsets.fromLTRB(
+                                10,
+                                40,
+                                20,
+                                20,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Column(
                                       children: [
-                                        // Logo
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
                                           child: Image.asset(
                                             'assets/XpenseWhite.png',
-                                            width: isSmallScreen ? 80 : 100,
-                                            height: isSmallScreen ? 30 : 40,
+                                            width: 100,
+                                            height: 40,
                                             fit: BoxFit.cover,
                                           ),
                                         ),
-
-                                        // Actions
-                                        Row(
-                                          children: [
-                                            const LanguageDropdown(),
-                                            _buildNotificationBadge(),
-                                            _buildProfileAvatar(),
-                                          ],
-                                        ),
                                       ],
                                     ),
                                   ),
-                                if (primaryColor == const Color(0xFF1e4db7))
-                                  Container(
-                                    width: double.infinity,
-                                    height: 100,
-                                    decoration: const BoxDecoration(
-                                      image: DecorationImage(
-                                        image: AssetImage('assets/Vector.png'),
-                                        fit: BoxFit.cover,
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const LanguageDropdown(),
+                                      Stack(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.notifications,
+                                              color: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.notification,
+                                              );
+                                            },
+                                          ),
+                                          Obx(() {
+                                            final unreadCount = controller
+                                                .unreadNotifications
+                                                .length;
+                                            if (unreadCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  4,
+                                                ),
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.red,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 15,
+                                                      minHeight: 15,
+                                                    ),
+                                                child: Text(
+                                                  '$unreadCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 6,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            );
+                                          }),
+                                        ],
                                       ),
-                                      borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(10),
-                                        bottomRight: Radius.circular(10),
+                                      const SizedBox(width: 10),
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.pushNamed(
+                                            context,
+                                            AppRoutes.personalInfo,
+                                          );
+                                        },
+                                        child: Obx(
+                                          () => AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.15),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: AnimatedScale(
+                                              duration: const Duration(
+                                                milliseconds: 200,
+                                              ),
+                                              scale: isImageLoading.value
+                                                  ? 1.0
+                                                  : 1.05,
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(24),
+                                                child: Stack(
+                                                  children: [
+                                                    Container(
+                                                      width: 30,
+                                                      height: 30,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        color: Colors.grey[800],
+                                                      ),
+                                                      child:
+                                                          isImageLoading.value
+                                                          ? const Center(
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    strokeWidth:
+                                                                        2.5,
+                                                                  ),
+                                                            )
+                                                          : profileImage
+                                                                    .value !=
+                                                                null
+                                                          ? Image.file(
+                                                              profileImage
+                                                                  .value!,
+                                                              key: ValueKey(
+                                                                profileImage
+                                                                    .value!
+                                                                    .path,
+                                                              ),
+                                                              fit: BoxFit.cover,
+                                                              width: 30,
+                                                              height: 30,
+                                                            )
+                                                          : const Center(
+                                                              child: Icon(
+                                                                Icons.person,
+                                                                size: 28,
+                                                                color: Colors
+                                                                    .white70,
+                                                              ),
+                                                            ),
+                                                    ),
+                                                    if (isImageLoading.value)
+                                                      Container(
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          gradient:
+                                                              const LinearGradient(
+                                                                colors: [
+                                                                  Colors
+                                                                      .transparent,
+                                                                  Colors
+                                                                      .white10,
+                                                                ],
+                                                                stops: [
+                                                                  0.7,
+                                                                  1.0,
+                                                                ],
+                                                              ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      10,
-                                      40,
-                                      20,
-                                      20,
-                                    ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+
+                          // Auto-scrolling Cards Section
+                          SizedBox(
+                            height: 140,
+                            child: Obx(() {
+                              if (controller.manageExpensesCards.isEmpty) {
+                                return Center(child: Text(loc.pleaseWait));
+                              }
+                              return NotificationListener<
+                                UserScrollNotification
+                              >(
+                                onNotification: (notification) {
+                                  if (notification.direction ==
+                                      ScrollDirection.idle) {
+                                    _onUserScroll();
+                                  }
+                                  return false;
+                                },
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount:
+                                      controller.manageExpensesCards.length,
+                                  itemBuilder: (context, index) {
+                                    final card =
+                                        controller.manageExpensesCards[index];
+                                    return GestureDetector(
+                                      onTap: _onUserScroll,
+                                      child: _buildCard(card, isSmallScreen),
+                                    );
+                                  },
+                                ),
+                              );
+                            }),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Quick Actions Section
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _mostUsedButton(Icons.money, loc.expense, () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.generalExpense,
+                                    );
+                                  }),
+                                  const SizedBox(width: 20),
+                                  _mostUsedButton(
+                                    Icons.verified,
+                                    loc.approvals,
+                                    () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.approvalHubMain,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 20),
+                                  _mostUsedButton(Icons.mail, loc.mail, () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.emailHubScreen,
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Dashboard Selection and Role Selector
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.secondary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(12.0),
                                     child: Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Flexible(
-                                          child: Column(
-                                            children: [
-                                              // const Text(
-                                              //   'Welcome to',
-                                              //   style: TextStyle(
-                                              //       color: Colors.white,
-                                              //       fontSize: 8),
-                                              // ),
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                child: Image.asset(
-                                                  'assets/XpenseWhite.png',
-                                                  width: 100,
-                                                  height: 40,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                            ],
+                                        Text(
+                                          loc.myDashboard,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: Colors.white,
                                           ),
                                         ),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const LanguageDropdown(),
-                                            Stack(
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.notifications,
-                                                    color: Colors.white,
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.pushNamed(
-                                                      context,
-                                                      AppRoutes.notification,
-                                                    );
-                                                  },
-                                                ),
-                                                Obx(() {
-                                                  final unreadCount = controller
-                                                      .unreadNotifications
-                                                      .length;
-                                                  if (unreadCount == 0) {
-                                                    return const SizedBox.shrink();
-                                                  }
-                                                  return Positioned(
-                                                    right: 6,
-                                                    top: 6,
-                                                    child: Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            4,
-                                                          ),
-                                                      decoration:
-                                                          const BoxDecoration(
-                                                            color: Colors.red,
-                                                            shape:
-                                                                BoxShape.circle,
-                                                          ),
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                            minWidth: 15,
-                                                            minHeight: 15,
-                                                          ),
-                                                      child: Text(
-                                                        '$unreadCount',
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 6,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 10),
-                                            GestureDetector(
-                                              onTap: () {
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  AppRoutes.personalInfo,
-                                                );
-                                              },
-                                              child: Obx(
-                                                () => AnimatedContainer(
-                                                  duration: const Duration(
-                                                    milliseconds: 300,
-                                                  ),
-                                                  padding: const EdgeInsets.all(
-                                                    4,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.15),
-                                                        blurRadius: 12,
-                                                        offset: const Offset(
-                                                          0,
-                                                          4,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: AnimatedScale(
-                                                    duration: const Duration(
-                                                      milliseconds: 200,
-                                                    ),
-                                                    scale: isImageLoading.value
-                                                        ? 1.0
-                                                        : 1.05,
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            24,
-                                                          ),
-                                                      child: Stack(
-                                                        children: [
-                                                          // Placeholder or Image
-                                                          Container(
-                                                            width: 30,
-                                                            height: 30,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                                  shape: BoxShape
-                                                                      .circle,
-                                                                  color: Colors
-                                                                      .grey[800],
-                                                                ),
-                                                            child:
-                                                                isImageLoading
-                                                                    .value
-                                                                ? const Center(
-                                                                    child: CircularProgressIndicator(
-                                                                      color: Colors
-                                                                          .white,
-                                                                      strokeWidth:
-                                                                          2.5,
-                                                                    ),
-                                                                  )
-                                                                : profileImage
-                                                                          .value !=
-                                                                      null
-                                                                ? Image.file(
-                                                                    profileImage
-                                                                        .value!,
-                                                                    key: ValueKey(
-                                                                      profileImage
-                                                                          .value!
-                                                                          .path,
-                                                                    ), // 👈 forces rebuild
-                                                                    fit: BoxFit
-                                                                        .cover,
-                                                                    width: 30,
-                                                                    height: 30,
-                                                                  )
-                                                                : const Center(
-                                                                    child: Icon(
-                                                                      Icons
-                                                                          .person,
-                                                                      size: 28,
-                                                                      color: Colors
-                                                                          .white70,
-                                                                    ),
-                                                                  ),
-                                                          ),
-                                                          // Overlay shimmer when loading
-                                                          if (isImageLoading
-                                                              .value)
-                                                            Container(
-                                                              decoration: BoxDecoration(
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                                gradient: const LinearGradient(
-                                                                  colors: [
-                                                                    Colors
-                                                                        .transparent,
-                                                                    Colors
-                                                                        .white10,
-                                                                  ],
-                                                                  stops: [
-                                                                    0.7,
-                                                                    1.0,
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          // Edit icon overlay on tap-ready state
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+
+                                        // Dashboard Dropdown
                                       ],
                                     ),
                                   ),
-                                const SizedBox(height: 12),
-                                // Your existing header and content widgets...
-                                // Stack(
-                                //   children: [
-                                //     Container(
-                                //       width: double.infinity,
-                                //       height: 130,
-                                //       decoration: const BoxDecoration(
-                                //         image: DecorationImage(
-                                //           image: AssetImage('assets/Vector.png'),
-                                //           fit: BoxFit.cover,
-                                //         ),
-                                //         borderRadius: BorderRadius.only(
-                                //           bottomLeft: Radius.circular(10),
-                                //           bottomRight: Radius.circular(10),
-                                //         ),
-                                //       ),
-                                //       padding: const EdgeInsets.fromLTRB(
-                                //           10, 40, 20, 20),
-                                //       child: Row(
-                                //         mainAxisAlignment:
-                                //             MainAxisAlignment.spaceBetween,
-                                //         children: [
-                                //           Flexible(
-                                //             child: Column(
-                                //               children: [
-                                //                 const Text(
-                                //                   'Welcome to',
-                                //                   style: TextStyle(
-                                //                       color: Colors.white,
-                                //                       fontSize: 8),
-                                //                 ),
-                                //                 ClipRRect(
-                                //                   borderRadius:
-                                //                       BorderRadius.circular(20),
-                                //                   child: Image.asset(
-                                //                     'assets/XpenseWhite.png',
-                                //                     width: 100,
-                                //                     height: 40,
-                                //                     fit: BoxFit.cover,
-                                //                   ),
-                                //                 ),
-                                //               ],
-                                //             ),
-                                //           ),
-                                //           const SizedBox(height: 20),
-                                //           Row(
-                                //             mainAxisAlignment:
-                                //                 MainAxisAlignment.spaceBetween,
-                                //             children: [
-                                //               const LanguageDropdown(),
-                                //               Stack(
-                                //                 children: [
-                                //                   IconButton(
-                                //                     icon: const Icon(
-                                //                         Icons.notifications,
-                                //                         color: Colors.white),
-                                //                     onPressed: () {
-                                //                       Navigator.pushNamed(context,
-                                //                           AppRoutes.notification);
-                                //                     },
-                                //                   ),
-                                //                   Obx(() {
-                                //                     final unreadCount = controller
-                                //                         .unreadNotifications
-                                //                         .length;
-                                //                     if (unreadCount == 0) {
-                                //                       return const SizedBox
-                                //                           .shrink();
-                                //                     }
-                                //                     return Positioned(
-                                //                       right: 6,
-                                //                       top: 6,
-                                //                       child: Container(
-                                //                         padding:
-                                //                             const EdgeInsets.all(
-                                //                                 4),
-                                //                         decoration:
-                                //                             const BoxDecoration(
-                                //                           color: Colors.red,
-                                //                           shape: BoxShape.circle,
-                                //                         ),
-                                //                         constraints:
-                                //                             const BoxConstraints(
-                                //                           minWidth: 18,
-                                //                           minHeight: 18,
-                                //                         ),
-                                //                         child: Text(
-                                //                           '$unreadCount',
-                                //                           style: const TextStyle(
-                                //                             color: Colors.white,
-                                //                             fontSize: 10,
-                                //                             fontWeight:
-                                //                                 FontWeight.bold,
-                                //                           ),
-                                //                           textAlign:
-                                //                               TextAlign.center,
-                                //                         ),
-                                //                       ),
-                                //                     );
-                                //                   }),
-                                //                 ],
-                                //               ),
-                                //               const SizedBox(width: 10),
-                                //               GestureDetector(
-                                //                 onTap: () {
-                                //                   Navigator.pushNamed(context,
-                                //                       AppRoutes.personalInfo);
-                                //                 },
-                                //                 child: Obx(() => Container(
-                                //                       padding:
-                                //                           const EdgeInsets.all(2),
-                                //                       decoration: BoxDecoration(
-                                //                         shape: BoxShape.circle,
-                                //                         border: Border.all(
-                                //                             color: Colors.white,
-                                //                             width: 2),
-                                //                       ),
-                                //                       child: ClipRRect(
-                                //                         borderRadius:
-                                //                             BorderRadius.circular(
-                                //                                 20),
-                                //                         child: controller
-                                //                                 .isImageLoading
-                                //                                 .value
-                                //                             ? const SizedBox(
-                                //                                 width: 40,
-                                //                                 height: 40,
-                                //                                 child:
-                                //                                     CircularProgressIndicator(
-                                //                                   color: Colors
-                                //                                       .white,
-                                //                                   strokeWidth: 2,
-                                //                                 ),
-                                //                               )
-                                //                             : controller.profileImage
-                                //                                         .value !=
-                                //                                     null
-                                //                                 ? Image.file(
-                                //                                     controller
-                                //                                         .profileImage
-                                //                                         .value!,
-                                //                                     width: 40,
-                                //                                     height: 40,
-                                //                                     fit: BoxFit
-                                //                                         .cover,
-                                //                                   )
-                                //                                 : const Icon(
-                                //                                     Icons.person,
-                                //                                     size: 40,
-                                //                                     color: Colors
-                                //                                         .white,
-                                //                                   ),
-                                //                       ),
-                                //                     )),
-                                //               ),
-                                //             ],
-                                //           ),
-                                //         ],
-                                //       ),
-                                //     ),
-                                //   ],
-                                // ),
-                                SizedBox(
-                                  height: 140,
-                                  child: Obx(() {
-                                    if (controller
-                                        .manageExpensesCards
-                                        .isEmpty) {
-                                      return Center(
-                                        child: Text(loc.pleaseWait),
+
+                                  // Role Selector
+                                  // Role Selector + Dashboard dropdown (inside a Widget with access to controller)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            'Current Dashboard:',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                          Obx(() {
+                                            final selected = controller
+                                                .selectedDashboard
+                                                .value;
+                                            return DropdownButtonHideUnderline(
+                                              child: DropdownButton<Dashboard>(
+                                                value: selected,
+                                                icon: const Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: Colors.white,
+                                                ),
+                                                dropdownColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.secondary,
+                                                onChanged: (Dashboard? newDash) {
+                                                  if (newDash != null) {
+                                                    controller
+                                                            .selectedDashboard
+                                                            .value =
+                                                        newDash;
+                                                    controller
+                                                        .onDashboardChanged(
+                                                          newDash,
+                                                        );
+                                                  }
+                                                },
+                                                items: dashboards
+                                                    .map(
+                                                      (dashboard) =>
+                                                          DropdownMenuItem<
+                                                            Dashboard
+                                                          >(
+                                                            value: dashboard,
+                                                            child: Text(
+                                                              dashboard
+                                                                  .dashBoardTitle,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    color: Colors
+                                                                        .white,
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                    )
+                                                    .toList(),
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Widgets Display
+                                  Obx(() {
+                                    if (controller.isLoadingWidgets.value) {
+                                      return const Padding(
+                                        padding: EdgeInsets.all(20.0),
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       );
                                     }
-                                    return NotificationListener<
-                                      UserScrollNotification
-                                    >(
-                                      onNotification: (notification) {
-                                        if (notification.direction ==
-                                            ScrollDirection.idle) {
-                                          _onUserScroll();
-                                        }
-                                        return false;
-                                      },
-                                      child: ListView.builder(
-                                        controller: _scrollController,
-                                        scrollDirection: Axis.horizontal,
-                                        physics: const BouncingScrollPhysics(),
-                                        itemCount: controller
-                                            .manageExpensesCards
-                                            .length,
-                                        itemBuilder: (context, index) {
-                                          final card = controller
-                                              .manageExpensesCards[index];
-                                          return GestureDetector(
-                                            onTap: _onUserScroll,
-                                            child: _buildCard(
-                                              card,
-                                              isSmallScreen,
+
+                                    final wizards = controller
+                                        .getWizardsForCurrentRole();
+                                    if (wizards.isEmpty) {
+                                      return const Padding(
+                                        padding: EdgeInsets.all(20.0),
+                                        child: Center(
+                                          child: Text(
+                                            'No widgets available for this role',
+                                            style: TextStyle(
+                                              color: Colors.white70,
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    return SizedBox(
+                                      height: 280,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Row(
+                                          children: wizards.map((wizardItem) {
+                                            return Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              child: _buildDynamicWidget(
+                                                wizardItem,
+                                                context,
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
                                       ),
                                     );
                                   }),
-                                ),
-                                const SizedBox(height: 10),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        _mostUsedButton(
-                                          Icons.money,
-                                          loc.expense,
-                                          () {
-                                            Navigator.pushNamed(
-                                              context,
-                                              AppRoutes.generalExpense,
-                                            );
-                                          },
-                                        ),
-                                        const SizedBox(width: 20),
-                                        _mostUsedButton(
-                                          Icons.verified,
-                                          loc.approvals,
-                                          () {
-                                            Navigator.pushNamed(
-                                              context,
-                                              AppRoutes.approvalHubMain,
-                                            );
-                                          },
-                                        ),
-                                        const SizedBox(width: 20),
-                                        _mostUsedButton(
-                                          Icons.mail,
-                                          loc.mail,
-                                          () {
-                                            Navigator.pushNamed(
-                                              context,
-                                              AppRoutes.emailHubScreen,
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: Container(
-                                    height: 290,
-                                    // color:Theme.of(context).colorScheme.secondary ,
-                                    decoration: BoxDecoration(
-                                       color:Theme.of(context).colorScheme.secondary,
-                                      borderRadius: BorderRadius.circular(20),
-                                      // boxShadow:  [
-                                      //   BoxShadow(
-                                      //     color:  Theme.of(context).colorScheme.secondary,
-                                      //     blurRadius: 10,
-                                      //   ),  
-                                      // ],
-                                    ),
-                                    // padding: const EdgeInsets.all(7),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: Text(
-                                              loc.myDashboard,
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                                color: Colors.white,
-
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          child: SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: Row(
-                                              children: [
-                                                // 🔹 Expense Trends
-                                                Obx(() {
-                                                  if (controller
-                                                      .isLoading
-                                                      .value) {
-                                                    return _loaderBox();
-                                                  }
-                                                  return _expenseTrendChart(
-                                                    context,
-                                                  );
-                                                }),
-
-                                                // 🔹 Expense by Approval Status
-                                                Obx(() {
-                                                  if (controller
-                                                      .isLoading
-                                                      .value) {
-                                                    return _loaderBox();
-                                                  } else if (controller
-                                                      .manageExpensesSummary
-                                                      .isEmpty) {
-                                                    return _emptyBox();
-                                                  }
-                                                  return _approvalStatusChart(
-                                                    context,
-                                                  );
-                                                }),
-
-                                                // 🔹 Settlement Status
-                                                Obx(() {
-                                                  if (controller
-                                                      .isLoading
-                                                      .value) {
-                                                    return _loaderBox();
-                                                  } else if (controller
-                                                      .expensesByStatus
-                                                      .isEmpty) {
-                                                    return _emptyBox();
-                                                  }
-                                                  return _settlementStatusChart(
-                                                    context,
-                                                  );
-                                                }),
-
-                                                // 🔹 Expenses by Project
-                                                Obx(() {
-                                                  if (controller
-                                                      .isLoading
-                                                      .value) {
-                                                    return _loaderBox();
-                                                  } else if (controller
-                                                      .projectExpenses
-                                                      .isEmpty) {
-                                                    return _emptyBox();
-                                                  }
-                                                  return _expensesByProjectChart(
-                                                    context,
-                                                  );
-                                                }),
-
-                                                // 🔹 Expenses by Category
-                                                Obx(() {
-                                                  if (controller
-                                                      .isLoading
-                                                      .value) {
-                                                    return _loaderBox();
-                                                  } else if (controller
-                                                      .projectExpensesbyCategory
-                                                      .isEmpty) {
-                                                    return _emptyBox();
-                                                  }
-                                                  return _expensesByCategoryChart(
-                                                    context,
-                                                  );
-                                                }),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                // / Space before the draggable panel
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 15),
 
-                        // Draggable panel at the bottom
-                        // GestureDetector(
-                        //   onVerticalDragUpdate: (details) {
-                        //     setState(() {
-                        //       _dragOffset = (_dragOffset - details.delta.dy)
-                        //           .clamp(_minDragExtent, _maxDragExtent);
-                        //     });
-                        //   },
-                        //   child: AnimatedContainer(
-                        //     duration: const Duration(milliseconds: 300),
-                        //     height: _dragOffset,
-                        //     decoration: BoxDecoration(
-                                  
-                        //       // gradient: LinearGradient(
-                        //       //   colors: [
-                        //       //     primaryColor,
-                        //       //             primaryColor.withOpacity(
-                        //       //               0.7),
-                        //       //   ],
-                        //       //   begin: Alignment.topCenter,
-                        //       //   end: Alignment.bottomCenter,
-                        //       // ),
-                        //       borderRadius: const BorderRadius.vertical(
-                        //         top: Radius.circular(40),
-                        //       ),
-                        //       boxShadow: [
-                        //         BoxShadow(
-                        //           color: Colors.black.withOpacity(0.2),
-                        //           blurRadius: 20,
-                        //           spreadRadius: 5,
-                        //         ),
-                        //       ],
-                        //     ),
-                        //     child: ClipRRect(
-                        //       borderRadius: const BorderRadius.vertical(
-                        //         top: Radius.circular(40),
-                        //       ),
-                        //       child: Column(
-                        //         children: [
-                        //           // 🔥 Custom drag handle
-                        //           Center(
-                        //             child: Container(
-                        //               margin: const EdgeInsets.only(
-                        //                 top: 10,
-                        //                 bottom: 12,
-                        //               ),
-                        //               width: 60,
-                        //               height: 6,
-                        //               decoration: BoxDecoration(
-                        //                 gradient: const LinearGradient(
-                        //                   colors: [
-                        //                     Colors.blueAccent,
-                        //                     Colors.purpleAccent,
-                        //                   ],
-                        //                 ),
-                        //                 borderRadius: BorderRadius.circular(10),
-                        //               ),
-                        //             ),
-                        //           ),
+                          // My Roles Section
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white, // White background
+                                borderRadius: BorderRadius.circular(
+                                  12,
+                                ), // Rounded corners
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(
+                                      0.08,
+                                    ), // Subtle shadow
+                                    blurRadius: 12,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
 
-                        //           // 🌊 Wavy top curve (Optional for unique feel)
-                        //           // CustomPaint(
-                        //           //   size: Size(double.infinity, 30),
-                        //           //   painter: _TopCurvePainter(),
-                        //           // ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Dashboards",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Theme.of(context).primaryColorDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
 
-                        //           // 🌟 Transaction list content
-                        //           Expanded(child: _transactionList()),
-                        //         ],
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ),
-                      ],
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      int columnCount = 2;
+
+                                      if (constraints.maxWidth > 1200) {
+                                        columnCount = 4;
+                                      } else if (constraints.maxWidth > 800) {
+                                        columnCount = 3;
+                                      } else if (constraints.maxWidth > 500) {
+                                        columnCount = 2;
+                                      }
+
+                                      return GridView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: roles.length,
+                                        gridDelegate:
+                                            SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: columnCount,
+                                              crossAxisSpacing: 16,
+                                              mainAxisSpacing: 16,
+                                              childAspectRatio: 0.82,
+                                            ),
+                                        itemBuilder: (context, index) {
+                                          return RoleCard(item: roles[index]);
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 );
@@ -1053,6 +988,910 @@ class _DashboardPageState extends State<DashboardPage>
       ),
     );
   }
+
+  Widget _buildDynamicWidget(DashboardDataItem item, BuildContext context) {
+    return Container(
+      width: 240,
+      height: 250,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    item.filterProps?.widgetLabel ?? "",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  onPressed: () async {
+                    await controller.fetchWidgetDataFromEndpoint(item);
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Expanded(child: _buildWidgetContent(item, context)),
+        ],
+      ),
+    );
+  }
+
+  // Build Widget Content
+  Widget _buildWidgetContent(DashboardDataItem item, BuildContext context) {
+    final data = controller.getWidgetData(item.filterProps?.widgetName ?? "");
+
+    if (data == null) {
+      return Center(
+        child: ElevatedButton(
+          onPressed: () async {
+            await controller.fetchWidgetDataFromEndpoint(item);
+          },
+          child: const Text('Load Data'),
+        ),
+      );
+    }
+    switch (controller.getWidgetType(item.filterProps?.widgetName ?? '')) {
+      case 'LineChart':
+        return _buildLineChartWidget(item, data);
+
+      case 'BarChart':
+        return _buildBarChartWidget(item, data);
+
+      case 'PieChart':
+        return _buildPieChartWidget(item, data);
+
+      case 'DonutChart':
+        return _buildDonutChartWidget(item, data);
+
+      case 'SummaryBox':
+        return _buildSummaryBoxWidget(item, data);
+
+      case 'Table':
+        return _buildTable();
+ case 'MultiBarChart':
+        return _buildMultiBarChart(item, data);
+      default:
+        return _buildGenericWidgetContent(item, data);
+    }
+  }
+Widget _buildMultiBarChart(
+   DashboardDataItem item,
+    WidgetDataResponse data,
+) {
+ final multiSeries =controller.convertMultiSeriesChart(data!.raw);
+  if (multiSeries.isEmpty) {
+    return const Center(child: Text("No chart data"));
+  }
+
+  return Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: SfCartesianChart(
+      legend: Legend(isVisible: true),
+      // tooltipBehavior: TooltipBehavior(enable: true),
+      primaryXAxis: CategoryAxis(
+        labelRotation: 25,
+        labelStyle: const TextStyle(fontSize: 8),
+      ),
+      primaryYAxis: NumericAxis(
+        numberFormat: NumberFormat.compact(),
+        labelStyle: const TextStyle(fontSize: 9),
+      ),
+      series: multiSeries,
+    ),
+  );
+}
+
+
+  // Line Chart Widget
+  Widget _buildLineChartWidget(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    final chartData = _convertToChartDataPoints(data);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: SfCartesianChart(
+        primaryXAxis: const CategoryAxis(
+          labelRotation: 25,
+          labelStyle: TextStyle(fontSize: 5),
+          edgeLabelPlacement: EdgeLabelPlacement.shift,
+          labelIntersectAction: AxisLabelIntersectAction.hide,
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true),
+
+        series: <LineSeries<ChartDataPoint, String>>[
+          LineSeries<ChartDataPoint, String>(
+            dataSource: chartData,
+            xValueMapper: (p, _) => p.x,
+            yValueMapper: (p, _) => p.y,
+            markerSettings: const MarkerSettings(isVisible: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Bar Chart Widget
+  Widget _buildBarChartWidget(DashboardDataItem item, WidgetDataResponse data) {
+    final chartData = _convertToChartDataPoints(data);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: SfCartesianChart(
+        primaryXAxis: const CategoryAxis(
+          labelRotation: 25,
+          labelStyle: TextStyle(fontSize: 5),
+          edgeLabelPlacement: EdgeLabelPlacement.shift,
+          labelIntersectAction: AxisLabelIntersectAction.hide,
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true),
+        series: <ColumnSeries<ChartDataPoint, String>>[
+          ColumnSeries<ChartDataPoint, String>(
+            dataSource: chartData,
+            xValueMapper: (p, _) => p.x,
+            yValueMapper: (p, _) => p.y,
+            dataLabelSettings: const DataLabelSettings(isVisible: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pie Chart Widget
+  Widget _buildPieChartWidget(DashboardDataItem item, WidgetDataResponse data) {
+    final chartData = _convertToChartDataPoints(data);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: SfCircularChart(
+        tooltipBehavior: TooltipBehavior(
+          enable: true,
+          textStyle: const TextStyle(fontSize: 9),
+        ),
+
+        series: <PieSeries<ChartDataPoint, String>>[
+          PieSeries<ChartDataPoint, String>(
+            dataSource: chartData,
+            xValueMapper: (p, _) => p.x,
+            yValueMapper: (p, _) => p.y,
+
+            dataLabelSettings: const DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(fontSize: 8), // Reduced label font
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDonutChartWidget(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    final chartData = _convertToChartDataPoints(data);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: SfCircularChart(
+        legend: Legend(isVisible: true),
+        series: <DoughnutSeries<ChartDataPoint, String>>[
+          DoughnutSeries<ChartDataPoint, String>(
+            dataSource: chartData,
+            xValueMapper: (p, _) => p.x,
+            yValueMapper: (p, _) => p.y,
+            dataLabelSettings: const DataLabelSettings(isVisible: true),
+            explode: true,
+            explodeOffset: '10%',
+          ),
+        ],
+      ),
+    );
+  }
+Widget _buildTable() {
+  final headers = [
+    "ExpenseId",
+    "EmployeeName",
+    "ExpenseStatus",
+    "ApprovalStatus",
+    "TotalAmountTrans",
+    "Currency",
+    "MerchantName",
+    "ExpenseCategoryId",
+    "PaymentMethod",
+    "ReceiptDate",
+    "CreatedDatetime",
+  ];
+
+  return Obx(() {
+    final list = controller.getAllListGExpense;
+
+    if (list.isEmpty) {
+      return const Center(child: Text("No draft expenses found"));
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: DataTable(
+          headingRowColor: MaterialStateProperty.all(Colors.grey.shade300),
+          columns: headers
+              .map(
+                (h) => DataColumn(
+                  label: Text(
+                    h,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
+              .toList(),
+          rows: list.map<DataRow>((row) {
+            final mapRow = row.toMap(); // Convert object to Map
+
+            return DataRow(
+              cells: headers.map((h) {
+                var value = mapRow[h];
+
+                // Format timestamps
+                if ((h == "ReceiptDate" || h == "CreatedDatetime") &&
+                    value != null &&
+                    value is int) {
+                  value = controller.formattedDate(value);
+                }
+
+                return DataCell(
+                  Text(value?.toString() ?? ""),
+                );
+              }).toList(),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  });
+}
+
+  Widget _buildTableGridWidget(
+  DashboardDataItem item,
+  WidgetDataResponse data,
+) {
+  // Safely get list of rows
+  final list = data.getSeries();
+
+  if (list.isEmpty) {
+    return const Center(child: Text("No data available"));
+  }
+
+  // Extract headers from first row
+  final firstRow = list.first;
+  if (firstRow is! Map<String, dynamic>) {
+    return const Center(child: Text("Invalid table format"));
+  }
+
+  final headers = firstRow.keys.toList();
+
+  return Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: MaterialStateProperty.all(Colors.grey.shade200),
+          columns: [
+            for (final header in headers)
+              DataColumn(
+                label: Text(
+                  header.toString(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+          rows: list.map<DataRow>((row) {
+            if (row is! Map<String, dynamic>) return const DataRow(cells: []);
+            return DataRow(
+              cells: [
+                for (final h in headers) DataCell(Text(row[h]?.toString() ?? '')),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    ),
+  );
+}
+
+
+  // Summary Box Widget
+  Widget _buildSummaryBoxWidget(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    final value = data.getSingleValue();
+    final formattedValue = NumberFormat.currency(
+      symbol: "₹",
+      decimalDigits: 0,
+    ).format(value);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.analytics, size: 38, color: Colors.blue),
+          const SizedBox(height: 8),
+
+          Text(
+            formattedValue,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+
+          const SizedBox(height: 4),
+          Text(
+            item.filterProps?.widgetName ?? "",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Generic Widget Content
+  Widget _buildGenericWidgetContent(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    final chartData = _convertToChartDataPoints(data);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "Data Points: ${chartData.length}",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          if (chartData.isNotEmpty)
+            Text(
+              "Latest: ${chartData.last.y}",
+              style: const TextStyle(color: Colors.grey),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to convert API response to chart data points
+  List<ChartDataPoint> _convertToChartDataPoints(WidgetDataResponse data) {
+  final List<ChartDataPoint> points = [];
+  final raw = data.raw;
+
+  List<dynamic>? list;
+
+  // CASE 1: raw itself is a List of {x,y}
+  if (raw is List) {
+    list = raw;
+  }
+  // CASE 2: raw is a Map
+  else if (raw is Map<String, dynamic>) {
+    // CASE 2a: XAxis + YAxis format
+    if (raw['XAxis'] is List && raw['YAxis'] is List) {
+      final xAxis = List<String>.from(raw['XAxis']);
+      final yAxisRaw = raw['YAxis'] as List;
+
+      for (int i = 0; i < xAxis.length; i++) {
+        if (i < yAxisRaw.length) {
+          final yValue = yAxisRaw[i];
+          double y = 0.0;
+          if (yValue is num) {
+            y = yValue.toDouble();
+          } else if (yValue is String) {
+            y = double.tryParse(yValue) ?? 0.0;
+          } else if (yValue is Map && yValue.containsKey('y')) {
+            final val = yValue['y'];
+            y = (val is num) ? val.toDouble() : double.tryParse(val.toString()) ?? 0.0;
+          }
+          points.add(ChartDataPoint(x: xAxis[i], y: y));
+        }
+      }
+      return points;
+    }
+
+    // CASE 2b: raw['data'] is a List
+    if (raw['data'] is List) list = raw['data'];
+
+    // CASE 2c: raw['value'] is a List
+    else if (raw['value'] is List) list = raw['value'];
+
+    // CASE 2d: raw['value']['data'] is a List
+    else if (raw['value'] is Map && raw['value']['data'] is List) {
+      list = raw['value']['data'];
+    }
+  }
+
+  // If we have a list, parse it
+  if (list != null) {
+    for (var item in list) {
+      if (item is Map) {
+        final xValue = item['x'] ?? item['label'] ?? item['category'] ?? '';
+        final yRaw = item['y'] ?? item['value'] ?? item['amount'] ?? 0;
+        double yValue = 0.0;
+
+        if (yRaw is num) yValue = yRaw.toDouble();
+        else if (yRaw is String) yValue = double.tryParse(yRaw) ?? 0.0;
+
+        if (xValue != '') {
+          points.add(ChartDataPoint(x: xValue.toString(), y: yValue));
+        }
+      }
+    }
+  }
+
+  return points;
+}
+
+  // Widget _buildDashboardSection(BuildContext context, AppLocalizations loc) {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(horizontal: 20),
+  //     child: Container(
+  //       height: 320,
+  //       decoration: BoxDecoration(
+  //         color: Theme.of(context).colorScheme.secondary,
+  //         borderRadius: BorderRadius.circular(20),
+  //       ),
+  //       child: Column(
+  //         children: [
+  //           Padding(
+  //             padding: const EdgeInsets.all(12.0),
+  //             child: Row(
+  //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //               children: [
+  //                 Text(
+  //                   loc.myDashboard,
+  //                   style: const TextStyle(
+  //                     fontWeight: FontWeight.bold,
+  //                     fontSize: 18,
+  //                     color: Colors.white,
+  //                   ),
+  //                 ),
+  //                 // Current role indicator
+  //                 Obx(() {
+  //                   return Container(
+  //                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.white.withOpacity(0.1),
+  //                       borderRadius: BorderRadius.circular(20),
+  //                     ),
+  //                     child: Text(
+  //                       controller.currentRole.value,
+  //                       style: const TextStyle(
+  //                         color: Colors.white,
+  //                         fontWeight: FontWeight.w500,
+  //                       ),
+  //                     ),
+  //                   );
+  //                 }),
+  //               ],
+  //             ),
+  //           ),
+  //           Expanded(
+  //             child: Obx(() {
+  //               if (controller.isLoadingWidgets.value) {
+  //                 return const Center(
+  //                   child: CircularProgressIndicator(color: Colors.white),
+  //                 );
+  //               }
+
+  //               // final wizards = controller.getWizardsForCurrentRole();
+  //               // if (wizards.isEmpty) {
+  //               //   return Center(
+  //               //     child: Text(
+  //               //       'No widgets available for ${controller.currentRole.value}',
+  //               //       style: const TextStyle(color: Colors.white70),
+  //               //     ),
+  //               //   );
+  //               // }
+
+  //               return SingleChildScrollView(
+  //                 scrollDirection: Axis.horizontal,
+  //                 child: Row(
+  //                   children: wizards.map((wizard) {
+  //                     return _renderDynamicWidget(wizard, context);
+  //                   }).toList(),
+  //                 ),
+  //               );
+  //             }),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  // // Dynamic widget renderer
+  // Widget _renderDynamicWidget(WizardConfig wizard, BuildContext context) {
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: Container(
+  //       width: 260,
+  //       height: 240,
+  //       decoration: BoxDecoration(
+  //         color: Colors.white,
+  //         borderRadius: BorderRadius.circular(12),
+  //         boxShadow: [
+  //           BoxShadow(
+  //             color: Colors.black.withOpacity(0.1),
+  //             blurRadius: 8,
+  //             offset: const Offset(0, 2),
+  //           ),
+  //         ],
+  //       ),
+  //       child: Column(
+  //         children: [
+  //           // Widget header
+  //           Padding(
+  //             padding: const EdgeInsets.all(12.0),
+  //             child: Row(
+  //               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //               children: [
+  //                 Expanded(
+  //                   child: Text(
+  //                     wizard.displayName,
+  //                     style: const TextStyle(
+  //                       fontSize: 14,
+  //                       fontWeight: FontWeight.bold,
+  //                     ),
+  //                     maxLines: 2,
+  //                     overflow: TextOverflow.ellipsis,
+  //                   ),
+  //                 ),
+  //                 IconButton(
+  //                   icon: const Icon(Icons.refresh, size: 18),
+  //                   onPressed: () async {
+  //                     await controller.fetchWidgetData(wizard);
+  //                   },
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           // Widget content
+  //           Expanded(
+  //             child: _buildWidgetContent(wizard, context),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  // // Build widget content based on type
+  // Widget _buildWidgetContent(WizardConfig wizard, BuildContext context) {
+  //   final data = controller.getWidgetData(wizard.widgetName);
+
+  //   if (data == null) {
+  //     return Center(
+  //       child: ElevatedButton(
+  //         onPressed: () async {
+  //           await controller.fetchWidgetData(wizard);
+  //         },
+  //         child: const Text('Load Data'),
+  //       ),
+  //     );
+  //   }
+
+  //   switch (wizard.wizardType) {
+  //     case 'Line Chart Wizard':
+  //       return _buildLineChart(wizard, data);
+  //     case 'Bar Chart Wizard':
+  //       return _buildBarChart(wizard, data);
+  //     case 'Pie Chart Wizard':
+  //       return _buildPieChart(wizard, data);
+  //     case 'Summary Box Wizard':
+  //       return _buildSummaryBox(wizard, data);
+  //     default:
+  //       return _buildGenericChart(wizard, data);
+  //   }
+  // }
+
+  // // Line Chart Widget
+  // Widget _buildLineChart(WizardConfig wizard, WidgetDataResponse data) {
+  //   final chartData = data.toChartDataPoints();
+
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: SfCartesianChart(
+  //       primaryXAxis: CategoryAxis(
+  //         labelRotation: 45,
+  //         labelStyle: const TextStyle(fontSize: 9),
+  //       ),
+  //       primaryYAxis: NumericAxis(
+  //         numberFormat: NumberFormat.compact(),
+  //         labelStyle: const TextStyle(fontSize: 9),
+  //       ),
+  //       series: <LineSeries<ChartDataPoint, String>>[
+  //         LineSeries<ChartDataPoint, String>(
+  //           dataSource: chartData,
+  //           xValueMapper: (ChartDataPoint point, _) => point.x,
+  //           yValueMapper: (ChartDataPoint point, _) => point.y,
+  //           markerSettings: const MarkerSettings(isVisible: true),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // // Bar Chart Widget
+  // Widget _buildBarChart(WizardConfig wizard, WidgetDataResponse data) {
+  //   final chartData = data.toChartDataPoints();
+
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: SfCartesianChart(
+  //       primaryXAxis: CategoryAxis(
+  //         labelRotation: 45,
+  //         labelStyle: const TextStyle(fontSize: 9),
+  //       ),
+  //       primaryYAxis: NumericAxis(
+  //         numberFormat: NumberFormat.compact(),
+  //         labelStyle: const TextStyle(fontSize: 9),
+  //       ),
+  //       series: <ColumnSeries<ChartDataPoint, String>>[
+  //         ColumnSeries<ChartDataPoint, String>(
+  //           dataSource: chartData,
+  //           xValueMapper: (ChartDataPoint point, _) => point.x,
+  //           yValueMapper: (ChartDataPoint point, _) => point.y,
+  //           dataLabelSettings: const DataLabelSettings(isVisible: true),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // // Pie Chart Widget
+  // Widget _buildPieChart(WizardConfig wizard, WidgetDataResponse data) {
+  //   final chartData = data.toChartDataPoints();
+
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: SfCircularChart(
+  //       series: <PieSeries<ChartDataPoint, String>>[
+  //         PieSeries<ChartDataPoint, String>(
+  //           dataSource: chartData,
+  //           xValueMapper: (ChartDataPoint point, _) => point.x,
+  //           yValueMapper: (ChartDataPoint point, _) => point.y,
+  //           dataLabelSettings: const DataLabelSettings(isVisible: true),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Summary Box Widget
+  Widget _buildSummaryBox(WizardConfig wizard, WidgetDataResponse data) {
+    final value = data.getSingleValue();
+    final formattedValue = NumberFormat.currency(
+      symbol: '₹',
+      decimalDigits: 0,
+    ).format(value);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getIconForWidget(wizard.widgetName),
+            size: 40,
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            formattedValue,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            wizard.displayName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // // Generic Chart Widget
+  // Widget _buildGenericChart(WizardConfig wizard, WidgetDataResponse data) {
+  //   final chartData = data.toChartDataPoints();
+
+  //   return Padding(
+  //     padding: const EdgeInsets.all(8.0),
+  //     child: Column(
+  //       mainAxisAlignment: MainAxisAlignment.center,
+  //       children: [
+  //         Text(
+  //           'Data Points: ${chartData.length}',
+  //           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         if (chartData.isNotEmpty)
+  //           Text(
+  //             'Latest: ${chartData.last.y}',
+  //             style: const TextStyle(fontSize: 12, color: Colors.grey),
+  //           ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Helper function to get icon for widget
+  IconData _getIconForWidget(String widgetName) {
+    if (widgetName.toLowerCase().contains('expense')) {
+      return Icons.currency_rupee;
+    } else if (widgetName.toLowerCase().contains('cash')) {
+      return Icons.account_balance_wallet;
+    } else if (widgetName.toLowerCase().contains('leave')) {
+      return Icons.calendar_today;
+    } else if (widgetName.toLowerCase().contains('approval')) {
+      return Icons.check_circle;
+    }
+    return Icons.assessment;
+  }
+
+  // Auto-scrolling cards section
+  Widget _buildAutoScrollCards(AppLocalizations loc) {
+    return SizedBox(
+      height: 140,
+      child: Obx(() {
+        if (controller.manageExpensesCards.isEmpty) {
+          return Center(child: Text(loc.pleaseWait));
+        }
+        return NotificationListener<UserScrollNotification>(
+          onNotification: (notification) {
+            if (notification.direction == ScrollDirection.idle) {
+              _onUserScroll();
+            }
+            return false;
+          },
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: controller.manageExpensesCards.length,
+            itemBuilder: (context, index) {
+              final card = controller.manageExpensesCards[index];
+              return GestureDetector(
+                onTap: _onUserScroll,
+                child: _buildCard(card, false),
+              );
+            },
+          ),
+        );
+      }),
+    );
+  }
+
+  // Quick actions section
+  Widget _buildQuickActions(AppLocalizations loc) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _mostUsedButton(
+              Icons.money,
+              loc.expense,
+              () => Navigator.pushNamed(context, AppRoutes.generalExpense),
+            ),
+            const SizedBox(width: 20),
+            _mostUsedButton(
+              Icons.verified,
+              loc.approvals,
+              () => Navigator.pushNamed(context, AppRoutes.approvalHubMain),
+            ),
+            const SizedBox(width: 20),
+            _mostUsedButton(
+              Icons.mail,
+              loc.mail,
+              () => Navigator.pushNamed(context, AppRoutes.emailHubScreen),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // My Roles section
+  // Widget _buildRolesSection() {
+  //   return Padding(
+  //     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           "My Roles",
+  //           style: TextStyle(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.w700,
+  //             color: Theme.of(context).primaryColorDark,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 12),
+  //         LayoutBuilder(
+  //           builder: (context, constraints) {
+  //             int columnCount = 2;
+  //             if (constraints.maxWidth > 1200)
+  //               columnCount = 4;
+  //             else if (constraints.maxWidth > 800)
+  //               columnCount = 3;
+  //             else if (constraints.maxWidth > 500)
+  //               columnCount = 2;
+
+  //             return GridView.builder(
+  //               shrinkWrap: true,
+  //               physics: const NeverScrollableScrollPhysics(),
+  //               itemCount: roles.length,
+  //               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+  //                 crossAxisCount: columnCount,
+  //                 crossAxisSpacing: 16,
+  //                 mainAxisSpacing: 16,
+  //                 childAspectRatio: 0.82,
+  //               ),
+  //               itemBuilder: (context, index) => RoleCard(item: roles[index]),
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   IconData _getIconForStatus(String status) {
     switch (status) {
@@ -1084,18 +1923,18 @@ class _DashboardPageState extends State<DashboardPage>
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-       decoration: BoxDecoration(
-  gradient: LinearGradient(
-    colors: [
-      // Theme.of(context).colorScheme.primary,
-      Theme.of(context).colorScheme.secondary,
-      Theme.of(context).colorScheme.secondary,
-    ],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  ),
-  borderRadius: BorderRadius.circular(12),
-),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              // Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.secondary,
+              Theme.of(context).colorScheme.secondary,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
 
         child: Row(
           mainAxisSize: MainAxisSize.min, // ✅ makes width auto
@@ -1153,7 +1992,11 @@ class _DashboardPageState extends State<DashboardPage>
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,color: Colors.white),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           if (count > 5)
             GestureDetector(
@@ -1222,9 +2065,18 @@ class _DashboardPageState extends State<DashboardPage>
               backgroundColor: Colors.orange,
               child: Icon(Icons.account_balance_wallet, color: Colors.white),
             ),
-            title: Text('Requisition: ${tx.requisitionId}',style: TextStyle(color: Colors.white)),
-            subtitle: Text('Status: ${tx.approvalStatus}',style: TextStyle(color: Colors.white)),
-            trailing: Text('₹${tx.totalRequestedAmountInReporting}',style: TextStyle(color: Colors.white)),
+            title: Text(
+              'Requisition: ${tx.requisitionId}',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              'Status: ${tx.approvalStatus}',
+              style: TextStyle(color: Colors.white),
+            ),
+            trailing: Text(
+              '₹${tx.totalRequestedAmountInReporting}',
+              style: TextStyle(color: Colors.white),
+            ),
           );
         }),
       ],
@@ -1264,17 +2116,27 @@ class _DashboardPageState extends State<DashboardPage>
           backgroundColor: Colors.green,
           child: Icon(Icons.currency_rupee, color: Colors.white),
         ),
-        title: Text('Expense Id: ${tx.expenseId}',style: TextStyle(color: Colors.white)),
+        title: Text(
+          'Expense Id: ${tx.expenseId}',
+          style: TextStyle(color: Colors.white),
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Category: ${tx.expenseCategoryId}',style: TextStyle(color: Colors.white)),
             Text(
-              'Status: ${tx.approvalStatus}',style: TextStyle(color: Colors.white) // 👈 added ApprovalStatus
+              'Category: ${tx.expenseCategoryId}',
+              style: TextStyle(color: Colors.white),
+            ),
+            Text(
+              'Status: ${tx.approvalStatus}',
+              style: TextStyle(color: Colors.white), // 👈 added ApprovalStatus
             ),
           ],
         ),
-        trailing: Text('₹${tx.totalAmountTrans.toStringAsFixed(2)}',style: TextStyle(color: Colors.white)),
+        trailing: Text(
+          '₹${tx.totalAmountTrans.toStringAsFixed(2)}',
+          style: TextStyle(color: Colors.white),
+        ),
       );
     }).toList();
   }
