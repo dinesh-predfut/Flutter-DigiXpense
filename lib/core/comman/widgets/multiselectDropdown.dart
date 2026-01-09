@@ -1,6 +1,6 @@
+import 'package:digi_xpense/data/service.dart' show Controller;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:digi_xpense/data/service.dart';
 import '../../../l10n/app_localizations.dart';
 
 class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
@@ -25,6 +25,9 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
   final TextEditingController? controller;
   final bool isMultiSelect;
 
+  /// ✅ Optional header for Select All or custom widget
+  final Widget Function()? headerBuilder;
+
   const MultiSelectMultiColumnDropdownField({
     Key? key,
     required this.labelText,
@@ -47,6 +50,7 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
     this.enabled,
     this.controller,
     required this.isMultiSelect,
+    this.headerBuilder,
   }) : super(key: key);
 
   @override
@@ -57,7 +61,7 @@ class MultiSelectMultiColumnDropdownField<T> extends StatefulWidget {
 class _MultiSelectMultiColumnDropdownFieldState<T>
     extends State<MultiSelectMultiColumnDropdownField<T>> {
   static _MultiSelectMultiColumnDropdownFieldState? _currentOpenOverlay;
-  final controller = Get.put(Controller());
+  final controller = Get.put(Controller()); // Replace with your Controller
   late TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
@@ -75,11 +79,9 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
     if (widget.isMultiSelect) {
       _selectedItems = List<T>.from(widget.selectedValues ?? []);
       _updateMultiSelectControllerText();
-    } else {
-      if (widget.selectedValue != null) {
-        _selectedItem = widget.selectedValue;
-        _controller.text = widget.displayText(widget.selectedValue as T);
-      }
+    } else if (widget.selectedValue != null) {
+      _selectedItem = widget.selectedValue;
+      _controller.text = widget.displayText(widget.selectedValue as T);
     }
 
     _controller.addListener(_handleSearch);
@@ -104,30 +106,29 @@ class _MultiSelectMultiColumnDropdownFieldState<T>
       }
     }
   }
-void _handleSearch() {
-  setState(() {
-    _searchQuery = _controller.text;
-  });
 
-  // 🔹 Reset selection if user clears the field
-  if (_controller.text.isEmpty) {
-    if (widget.isMultiSelect && _selectedItems.isNotEmpty) {
-      setState(() {
-        _selectedItems.clear();
-      });
-      widget.onMultiChanged?.call([]);
-      controller.cashAdvanceIds.text = '';
-    } else if (!widget.isMultiSelect && _selectedItem != null) {
-      setState(() {
-        _selectedItem = null;
-      });
-      widget.onChanged(null);
+  void _handleSearch() {
+    setState(() {
+      _searchQuery = _controller.text;
+    });
+
+    // 🔹 Reset selection if user clears the field
+    if (_controller.text.isEmpty) {
+      if (widget.isMultiSelect && _selectedItems.isNotEmpty) {
+        setState(() {
+          _selectedItems.clear();
+        });
+        widget.onMultiChanged?.call([]);
+        controller.cashAdvanceIds.text = '';
+      } else if (!widget.isMultiSelect && _selectedItem != null) {
+        setState(() {
+          _selectedItem = null;
+        });
+        widget.onChanged(null);
+      }
     }
+    _overlayEntry?.markNeedsBuild();
   }
-
-  _overlayEntry?.markNeedsBuild();
-}
-
 
   void _showOverlay() {
     _currentOpenOverlay?._hideOverlay();
@@ -179,6 +180,20 @@ void _handleSearch() {
     }
   }
 
+  bool get _isAllSelected =>
+      widget.items.isNotEmpty && _selectedItems.length == widget.items.length;
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_isAllSelected) {
+        _selectedItems.clear();
+      } else {
+        _selectedItems = List<T>.from(widget.items);
+      }
+    });
+    _overlayEntry?.markNeedsBuild();
+  }
+
   Widget _buildDropdownContent() {
     final List<T> sortedItems = List.from(widget.items);
     sortedItems.sort((a, b) {
@@ -202,33 +217,34 @@ void _handleSearch() {
       ),
       child: Column(
         children: [
-          // 🔧 Reduced space in header row
+          /// ✅ Optional custom header (Select All)
+          if (widget.isMultiSelect && widget.headerBuilder != null)
+            widget.headerBuilder!(),
+
+          /// 🔹 Column headers
           Container(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
             child: Row(
               children: [
-                if (widget.isMultiSelect)
-                  const SizedBox(width: 40), // space for checkbox
-                ...widget.columnHeaders
-                    .map(
-                      (header) => Expanded(
-                        child: Text(
-                          header,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                if (widget.isMultiSelect) const SizedBox(width: 40),
+                ...widget.columnHeaders.map(
+                  (header) => Expanded(
+                    child: Text(
+                      header,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
                       ),
-                    )
-                    .toList(),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           const Divider(height: 1),
           Expanded(
             child: ListView.builder(
-              padding: EdgeInsets.zero, // 🔧 Removes default ListView padding
+              padding: EdgeInsets.zero,
               itemCount: sortedItems.length,
               itemBuilder: (context, index) {
                 final item = sortedItems[index];
@@ -246,8 +262,7 @@ void _handleSearch() {
           if (widget.isMultiSelect) ...[
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                  vertical: 6, horizontal: 8), // 🔧 Reduced confirm row padding
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -275,9 +290,7 @@ void _handleSearch() {
             value: isSelected,
             onChanged: (value) => _toggleItemSelection(item),
           ),
-          Expanded(
-            child: widget.rowBuilder(item, _searchQuery),
-          ),
+          Expanded(child: widget.rowBuilder(item, _searchQuery)),
         ],
       ),
     );
@@ -329,9 +342,7 @@ void _handleSearch() {
     if (widget.controller == null) _controller.dispose();
     _focusNode.dispose();
     _hideOverlay();
-    if (_currentOpenOverlay == this) {
-      _currentOpenOverlay = null;
-    }
+    if (_currentOpenOverlay == this) _currentOpenOverlay = null;
     super.dispose();
   }
 

@@ -1458,11 +1458,10 @@ class _HubApprovalViewEditCashAdvanceReturnPageState
                           );
                         }
 
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
+                      
+                  if (snapshot.hasError) {
+                    return Center(child: Text("No Data Available Please Skip Next"));
+                  }
 
                         final historyList = snapshot.data!;
                         if (historyList.isEmpty) {

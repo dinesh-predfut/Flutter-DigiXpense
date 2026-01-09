@@ -84,10 +84,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     itemizeControllers.add(Controller());
     controller.configuration();
     controller.isManualEntryMerchant = false;
-    _initializeUnits();
     _loadSettings();
     _featureFuture = controller.getAllFeatureStates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+          _initializeUnits();
+
       controller.configuration();
       controller.clearFormFields();
       // Safe to update observables here
@@ -2975,56 +2976,22 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                 controller.fetchExchangeRate();
                               },
                               controller: controller.currencyDropDowncontroller,
-                              rowBuilder: (c, searchQuery) {
-                                // 🔍 Check if current row matches search query
-                                bool isMatch = false;
-                                if (searchQuery.isNotEmpty) {
-                                  final searchableText =
-                                      '${c.code} ${c.name} ${c.symbol}'
-                                          .toLowerCase();
-                                  isMatch = searchableText.contains(
-                                    searchQuery.toLowerCase(),
-                                  );
-                                }
-
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                    horizontal: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isMatch
-                                        ? Colors.blue.withOpacity(
-                                            0.15,
-                                          ) // Highlight color
-                                        : null,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          c.code,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          c.name,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          c.symbol,
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
+                             rowBuilder: (c, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(child: Text(c.code)),
+                                              Expanded(child: Text(c.name)),
+                                              Expanded(child: Text(c.symbol)),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
                           }),
                         ),
                         const SizedBox(width: 10),

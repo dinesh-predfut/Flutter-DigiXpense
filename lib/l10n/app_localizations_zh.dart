@@ -331,6 +331,56 @@ String get exitForm => '退出表单';
 @override String get editLeaveRequest => '编辑请假申请';
 @override String get newLeaveRequest => '新建请假申请';
 @override
+String get newCreateLeaveRequest => '创建请假申请';
+
+@override String get leaveRequisitionId => '请假申请编号';
+@override String get delegatedAuthority => '代理人/代理权限';
+@override String get locationDuringLeave => '休假期间地点';
+@override String get availableForUrgentMatters => '紧急事项可联系';
+@override String get notAvailable => '不可用';
+@override String get dayType => '天类型';
+@override String get fullDay => '全天';
+@override String get firstHalf => '上半天';
+@override String get secondHalf => '下半天';
+@override String get myTeamLeaveDashboard => '我的团队请假看板';
+@override String get noEventsFor => '无事件：';
+@override String get duration => '时长';
+
+@override String get mon => '周一';
+@override String get tue => '周二';
+@override String get wed => '周三';
+@override String get thu => '周四';
+@override String get fri => '周五';
+@override String get sat => '周六';
+@override String get sun => '周日';
+
+@override String get noLeaveData => '暂无请假数据';
+@override String get remaining => '剩余';
+@override String get outOf => '中的';
+@override String get balance => '余额';
+@override String get leaveRequisition => '请假申请';
+@override String get myLeave => '我的请假';
+@override String get myTeamLeave => '我的团队请假';
+@override String get myTeamLeaveCancellation => '团队请假取消';
+@override
+String get addLeaveRequest => '新增请假申请';
+
+@override
+String get ofLeave => '的请假';
+@override
+String get appliedDate => '申请日期';
+
+@override
+String get total => '总计';
+
+@override
+String get uploadFileOrDragDrop => '上传文件或拖放';
+
+@override
+String get uploadAttachments => '附件';
+
+
+@override
 String get days => '天数';
 
   @override

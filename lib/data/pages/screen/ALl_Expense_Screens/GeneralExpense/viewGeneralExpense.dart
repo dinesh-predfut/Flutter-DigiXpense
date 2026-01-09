@@ -82,7 +82,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   void initState() {
     super.initState();
 
-    print("widget.isReadOnly${widget.isReadOnly}");
+    // print("widget.isReadOnly${widget.isReadOnly}");
     _focusNode = FocusNode();
     controller.selectedDate ??= DateTime.now();
     _focusNode.addListener(() {
@@ -128,17 +128,17 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     expenseIdController.text = widget.items!.expenseId.toString();
     receiptDateController.text = formatted;
     if (widget.items?.merchantId == null) {
-      print("merchantIdfalse");
+      //  // print("merchantIdfalse");
       controller.isManualEntryMerchant = true;
     } else {
       controller.isManualEntryMerchant = false;
-      print("merchantIdtrue");
+      //  // print("merchantIdtrue");
     }
 
     controller.paidToController.text =
         widget.items?.merchantId?.toString() ?? '';
 
-    print('--- AccountingDistributions Added ---');
+    //  // print('--- AccountingDistributions Added ---');
     controller.referenceID.text =
         widget.items?.referenceNumber?.toString() ?? '';
     if (widget.items != null && widget.items!.paymentMethod != null) {
@@ -398,7 +398,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
   void initializeCashAdvanceSelection() {
     String? backendSelectedIds = controller.cashAdvReqIds;
-    print("controller.cashAdvReqIds$backendSelectedIds");
+    //  // print("controller.cashAdvReqIds$backendSelectedIds");
     controller.preloadCashAdvanceSelections(
       controller.cashAdvanceListDropDown,
       backendSelectedIds,
@@ -416,7 +416,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     if (settings != null) {
       setState(() {
         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
-        print("allowDocAttachments$allowMultSelect");
+        //  // print("allowDocAttachments$allowMultSelect");
       });
     }
   }
@@ -478,9 +478,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
       controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
 
-      print(
-        "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
-      );
+      //  // print(
+      //   "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
+      // );
     } catch (e) {
       Get.snackbar('Error', e.toString());
     }
@@ -488,7 +488,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
   void _initializeItemizeControllers() {
     if (widget.items!.expenseTrans.isEmpty) {
-      print("expenseTransCalling");
+      //  // print("expenseTransCalling");
       final item = widget.items!;
       final controller = Controller();
 
@@ -551,14 +551,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
             );
           }),
         );
-        print('--- AccountingDistributions Added ---');
+        // print('--- AccountingDistributions Added ---');
         for (var dist in controller.accountingDistributions) {
-          print(
-            'TransAmount: ${dist?.transAmount}, ReportAmount: ${dist?.recId}, '
-            'AllocationFactor: ${dist?.allocationFactor}, DimensionValueId: ${dist?.dimensionValueId}',
-          );
+          // print(
+          //   'TransAmount: ${dist?.transAmount}, ReportAmount: ${dist?.recId}, '
+          //   'AllocationFactor: ${dist?.allocationFactor}, DimensionValueId: ${dist?.dimensionValueId}',
+          // );
         }
-        print('--------------------------------------');
+        // print('--------------------------------------');
       }
       return controller;
     }).toList();
@@ -690,7 +690,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         }
       }
     } catch (e) {
-      print("Error picking or cropping image: $e");
+      // print("Error picking or cropping image: $e");
       Fluttertoast.showToast(
         msg: "Failed to upload image",
         backgroundColor: Colors.red,
@@ -791,12 +791,12 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           ],
         ),
         body: Obx(() {
-          return controller.isLoadingviewImage.value
+          return controller.isLoadingLogin.value
               ? const SkeletonLoaderPage()
               : Form(
                   key: _formKey,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -836,31 +836,41 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                           ],
                         ),
                         const SizedBox(height: 5),
-                        GestureDetector(
-                          onTap: () => {
-                            if (controller.imageFiles.isEmpty && controller.isEnable.value)
-                              {_pickImage(ImageSource.gallery)},
-                          },
-                          child: Container(
-                            width: MediaQuery.of(context).size.width * 0.9,
-                            height: MediaQuery.of(context).size.height * 0.3,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Obx(() {
-                              if (controller.imageFiles.isEmpty) {
-                                return Center(
-                                  child: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.tapToUploadDocs,
+                        Obx(() {
+                          return Stack(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  if (controller.imageFiles.isEmpty &&
+                                      controller.isEnable.value &&
+                                      !controller.isLoadingviewImage.value) {
+                                    _pickImage(ImageSource.gallery);
+                                  }
+                                },
+                                child: Container(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.9,
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.3,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                );
-                              } else {
-                                return Stack(
-                                  children: [
-                                    PageView.builder(
+                                  child: Obx(() {
+                                    if (controller.imageFiles.isEmpty) {
+                                      return Center(
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.tapToUploadDocs,
+                                        ),
+                                      );
+                                    }
+
+                                    return PageView.builder(
                                       controller: _pageController,
                                       itemCount: controller.imageFiles.length,
                                       onPageChanged: (index) {
@@ -873,9 +883,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                           onTap: () =>
                                               _showFullImage(file, index),
                                           child: Container(
-                                            alignment: Alignment.center,
                                             margin: const EdgeInsets.all(8),
-                                            width: 100,
                                             decoration: BoxDecoration(
                                               border: Border.all(
                                                 color: Colors.deepPurple,
@@ -890,68 +898,30 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                           ),
                                         );
                                       },
-                                    ),
+                                    );
+                                  }),
+                                ),
+                              ),
 
-                                    Positioned(
-                                      bottom: 40,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Obx(
-                                          () => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                              horizontal: 16,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(
-                                                0.5,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                              // 🔥 CIRCULAR LOADER OVERLAY
+                              if (controller.isLoadingviewImage.value)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.25),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        color: Colors.white,
                                       ),
                                     ),
-                                    if (controller.isEnable.value)
-                                      Positioned(
-                                        bottom: 16,
-                                        right: 16,
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              _pickImage(ImageSource.gallery),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.deepPurple,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            padding: const EdgeInsets.all(8),
-                                            child: const Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 28,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                );
-                              }
-                            }),
-                          ),
-                        ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        }),
 
                         const SizedBox(height: 20),
                         Text(
@@ -1246,9 +1216,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
                               if (label == 'Refrence Id') {
                                 inputFields = _buildTextField(
-                                  label: "${AppLocalizations.of(
-                                    context,
-                                  )!.referenceId}${isMandatory ? " *" : ""}",
+                                  label:
+                                      "${AppLocalizations.of(context)!.referenceId}${isMandatory ? " *" : ""}",
                                   controller: controller.referenceID,
                                   isReadOnly: controller.isEnable.value,
                                   validator: (value) =>
@@ -1472,11 +1441,11 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   }
 
                                   setState(() {});
-                                  print("Paid Amount: $paid");
-                                  print("Rate: $rate");
-                                  print(
-                                    "Calculated INR Amount: ${controller.amountINR.text}",
-                                  );
+                                  // print("Paid Amount: $paid");
+                                  // print("Rate: $rate");
+                                  // print(
+                                  //         "Calculated INR Amount: ${controller.amountINR.text}",
+                                  // );
                                 },
                               ),
                             ),
@@ -2152,130 +2121,243 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                               },
                                             ),
                                             ...controller.configList
-    .where((field) =>
-        field['IsEnabled'] == true &&
-        field['FieldName'] == 'is Reimbursible')
-    .map((field) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
+                                                .where(
+                                                  (field) =>
+                                                      field['IsEnabled'] ==
+                                                          true &&
+                                                      field['FieldName'] ==
+                                                          'is Reimbursible',
+                                                )
+                                                .map((field) {
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      const SizedBox(height: 8),
 
-          Theme(
-            data: Theme.of(context).copyWith(
-              switchTheme: SwitchThemeData(
-                thumbColor: WidgetStateProperty.resolveWith<Color?>(
-                  (states) {
-                    final selected = states.contains(WidgetState.selected);
-                    if (states.contains(WidgetState.disabled)) {
-                      return selected ? Colors.green : null;
-                    }
-                    return selected ? Colors.green : null;
-                  },
-                ),
-                trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                  final selected = states.contains(WidgetState.selected);
-                  if (states.contains(WidgetState.disabled)) {
-                    return selected ? Colors.green.withOpacity(0.5) : null;
-                  }
-                  return selected ? Colors.green.withOpacity(0.5) : null;
-                }),
-              ),
-            ),
-            child: SwitchListTile(
-              title: Text(
-                AppLocalizations.of(context)!.isReimbursable,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              value: itemController.isReimbursable,
-              onChanged: controller.isEnable.value
-                  ? (val) {
-                      setState(() {
-                        itemController.isReimbursable = val;
-                        controller.isReimbursite = val;
-                        widget.items!.expenseTrans[index] =
-                            itemController.toExpenseItemUpdateModel();
-                      });
-                    }
-                  : null,
-            ),
-          ),
+                                                      Theme(
+                                                        data: Theme.of(context).copyWith(
+                                                          switchTheme: SwitchThemeData(
+                                                            thumbColor: WidgetStateProperty.resolveWith<Color?>((
+                                                              states,
+                                                            ) {
+                                                              final selected =
+                                                                  states.contains(
+                                                                    WidgetState
+                                                                        .selected,
+                                                                  );
+                                                              if (states.contains(
+                                                                WidgetState
+                                                                    .disabled,
+                                                              )) {
+                                                                return selected
+                                                                    ? Colors
+                                                                          .green
+                                                                    : null;
+                                                              }
+                                                              return selected
+                                                                  ? Colors.green
+                                                                  : null;
+                                                            }),
+                                                            trackColor: WidgetStateProperty.resolveWith<Color?>((
+                                                              states,
+                                                            ) {
+                                                              final selected =
+                                                                  states.contains(
+                                                                    WidgetState
+                                                                        .selected,
+                                                                  );
+                                                              if (states.contains(
+                                                                WidgetState
+                                                                    .disabled,
+                                                              )) {
+                                                                return selected
+                                                                    ? Colors
+                                                                          .green
+                                                                          .withOpacity(
+                                                                            0.5,
+                                                                          )
+                                                                    : null;
+                                                              }
+                                                              return selected
+                                                                  ? Colors.green
+                                                                        .withOpacity(
+                                                                          0.5,
+                                                                        )
+                                                                  : null;
+                                                            }),
+                                                          ),
+                                                        ),
+                                                        child: SwitchListTile(
+                                                          title: Text(
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.isReimbursable,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 16,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                ),
+                                                          ),
+                                                          value: itemController
+                                                              .isReimbursable,
+                                                          onChanged:
+                                                              controller
+                                                                  .isEnable
+                                                                  .value
+                                                              ? (val) {
+                                                                  setState(() {
+                                                                    itemController
+                                                                            .isReimbursable =
+                                                                        val;
+                                                                    controller
+                                                                            .isReimbursite =
+                                                                        val;
+                                                                    widget
+                                                                        .items!
+                                                                        .expenseTrans[index] = itemController
+                                                                        .toExpenseItemUpdateModel();
+                                                                  });
+                                                                }
+                                                              : null,
+                                                        ),
+                                                      ),
 
-          const SizedBox(height: 16),
-        ],
-      );
-    }).toList(),
-      
-                                          ...controller.configList
-    .where((field) =>
-        field['IsEnabled'] == true &&
-        field['FieldName'] == 'Is Billable')
-    .map((field) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
+                                                      const SizedBox(
+                                                        height: 16,
+                                                      ),
+                                                    ],
+                                                  );
+                                                })
+                                                .toList(),
 
-          Obx(
-            () => Theme(
-              data: Theme.of(context).copyWith(
-                switchTheme: SwitchThemeData(
-                  thumbColor:
-                      MaterialStateProperty.resolveWith<Color?>((states) {
-                    if (states.contains(MaterialState.disabled)) {
-                      return controller.isBillableCreate
-                          ? Colors.blue
-                          : Colors.grey.shade400;
-                    }
-                    if (states.contains(MaterialState.selected)) {
-                      return Colors.blue;
-                    }
-                    return Colors.grey.shade400;
-                  }),
-                  trackColor:
-                      MaterialStateProperty.resolveWith<Color?>((states) {
-                    if (states.contains(MaterialState.disabled)) {
-                      return controller.isBillableCreate
-                          ? Colors.blue.withOpacity(0.5)
-                          : Colors.grey.shade300;
-                    }
-                    if (states.contains(MaterialState.selected)) {
-                      return Colors.blue.withOpacity(0.5);
-                    }
-                    return Colors.grey.shade300;
-                  }),
-                ),
-              ),
-              child: SwitchListTile(
-                title: Text(
-                  AppLocalizations.of(context)!.isBillable,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                value: controller.isBillableCreate,
-                onChanged: controller.isEnable.value
-                    ? (val) {
-                        setState(() {
-                          controller.isBillableCreate = val;
-                          itemController.isBillableCreate = val;
-                          widget.items!.expenseTrans[index] =
-                              itemController.toExpenseItemUpdateModel();
-                        });
-                      }
-                    : null,
-              ),
-            ),
-          ),
+                                            ...controller.configList
+                                                .where(
+                                                  (field) =>
+                                                      field['IsEnabled'] ==
+                                                          true &&
+                                                      field['FieldName'] ==
+                                                          'Is Billable',
+                                                )
+                                                .map((field) {
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      const SizedBox(height: 8),
 
-          const SizedBox(height: 16),
-        ],
-      );
-    }).toList(),
+                                                      Obx(
+                                                        () => Theme(
+                                                          data: Theme.of(context).copyWith(
+                                                            switchTheme: SwitchThemeData(
+                                                              thumbColor: MaterialStateProperty.resolveWith<Color?>((
+                                                                states,
+                                                              ) {
+                                                                if (states.contains(
+                                                                  MaterialState
+                                                                      .disabled,
+                                                                )) {
+                                                                  return controller
+                                                                          .isBillableCreate
+                                                                      ? Colors
+                                                                            .blue
+                                                                      : Colors
+                                                                            .grey
+                                                                            .shade400;
+                                                                }
+                                                                if (states.contains(
+                                                                  MaterialState
+                                                                      .selected,
+                                                                )) {
+                                                                  return Colors
+                                                                      .blue;
+                                                                }
+                                                                return Colors
+                                                                    .grey
+                                                                    .shade400;
+                                                              }),
+                                                              trackColor: MaterialStateProperty.resolveWith<Color?>((
+                                                                states,
+                                                              ) {
+                                                                if (states.contains(
+                                                                  MaterialState
+                                                                      .disabled,
+                                                                )) {
+                                                                  return controller
+                                                                          .isBillableCreate
+                                                                      ? Colors
+                                                                            .blue
+                                                                            .withOpacity(
+                                                                              0.5,
+                                                                            )
+                                                                      : Colors
+                                                                            .grey
+                                                                            .shade300;
+                                                                }
+                                                                if (states.contains(
+                                                                  MaterialState
+                                                                      .selected,
+                                                                )) {
+                                                                  return Colors
+                                                                      .blue
+                                                                      .withOpacity(
+                                                                        0.5,
+                                                                      );
+                                                                }
+                                                                return Colors
+                                                                    .grey
+                                                                    .shade300;
+                                                              }),
+                                                            ),
+                                                          ),
+                                                          child: SwitchListTile(
+                                                            title: Text(
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.isBillable,
+                                                              style: const TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                            ),
+                                                            value: controller
+                                                                .isBillableCreate,
+                                                            onChanged:
+                                                                controller
+                                                                    .isEnable
+                                                                    .value
+                                                                ? (val) {
+                                                                    setState(() {
+                                                                      controller
+                                                                              .isBillableCreate =
+                                                                          val;
+                                                                      itemController
+                                                                              .isBillableCreate =
+                                                                          val;
+                                                                      widget
+                                                                          .items!
+                                                                          .expenseTrans[index] = itemController
+                                                                          .toExpenseItemUpdateModel();
+                                                                    });
+                                                                  }
+                                                                : null,
+                                                          ),
+                                                        ),
+                                                      ),
+
+                                                      const SizedBox(
+                                                        height: 16,
+                                                      ),
+                                                    ],
+                                                  );
+                                                })
+                                                .toList(),
 
                                             if (controller.isEnable.value)
                                               Row(
@@ -2425,7 +2507,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
                                 if (snapshot.hasError) {
                                   return Center(
-                                    child: Text('Error: ${snapshot.error}'),
+                                    child: Text("No Data Available"),
                                   );
                                 }
 
@@ -2452,7 +2534,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   itemCount: historyList.length,
                                   itemBuilder: (context, index) {
                                     final item = historyList[index];
-                                    print("Trackingitem: $item");
+                                    // print("Trackingitem: $item");
                                     return _buildTimelineItem(
                                       item,
                                       index == historyList.length - 1,
@@ -2837,8 +2919,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                           ),
                         ],
 
-                        if ( widget.isReadOnly &&widget.items!.approvalStatus == "Pending")
-                          Row(  
+                        if (widget.isReadOnly &&
+                            widget.items!.approvalStatus == "Pending")
+                          Row(
                             children: [
                               Obx(() {
                                 final isLoading =
@@ -2906,7 +2989,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.grey,
                             ),
-                            child: Text(AppLocalizations.of(context)!.cancel),
+                            child: Text(AppLocalizations.of(context)!.close),
                           ),
                         const SizedBox(height: 28),
                       ],
@@ -2981,9 +3064,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
                   onPressed: () {
-                            // controller.closeField();
-                            Navigator.pop(context);
-                          },
+                    // controller.closeField();
+                    Navigator.pop(context);
+                  },
                 ),
               ),
 
@@ -3056,7 +3139,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         'dd-MM-yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
-                      print("Invalid date format: ${controllers.text}");
+                      // print("Invalid date format: ${controllers.text}");
                       initialDate = DateTime.now();
                     }
                   }
@@ -3122,39 +3205,39 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     );
   }
 
-    Widget _buildTextField({
-      required String label,
-      required TextEditingController controller,
-      required bool isReadOnly,
-      void Function(String)? onChanged,
-      List<TextInputFormatter>? inputFormatters,
-      TextInputType keyboardType = TextInputType.text,
-      String? Function(String?)? validator,
-    }) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          TextFormField(
-            controller: controller,
-            enabled: isReadOnly,
-            onChanged: onChanged,
-            inputFormatters: inputFormatters,
-            keyboardType: keyboardType,
-            validator: validator,
-            decoration: InputDecoration(
-              labelText: label,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 20,
-                horizontal: 16,
-              ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
-          const SizedBox(height: 12),
-        ],
-      );
-    }
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
 
   Widget _buildSection({
     required String title,

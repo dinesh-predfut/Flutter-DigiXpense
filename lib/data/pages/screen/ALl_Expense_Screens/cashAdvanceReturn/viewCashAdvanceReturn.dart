@@ -46,8 +46,8 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
   final controller = Get.put(Controller());
-  late Future<List<ExpenseHistory>> historyFuture;
-   late Future<Map<String, bool>> _featureFuture;
+  Future<List<ExpenseHistory>> historyFuture = Future.value([]); //
+  late Future<Map<String, bool>> _featureFuture;
   String? selectedPaidTo;
   String? selectedPaidWith;
   String? statusApproval;
@@ -77,24 +77,27 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   void initState() {
     super.initState();
     
-   
-
-   _focusNode = FocusNode();
-     _focusNode.addListener(() {
-    setState(() {
-      _isTyping = _focusNode.hasFocus;
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _isTyping = _focusNode.hasFocus;
+          });
+        }
+      });
     });
-  });
-     _featureFuture = controller.getAllFeatureStates();
+    
+    _featureFuture = controller.getAllFeatureStates();
 
     print("merchantId${widget.isReadOnly}");
     expenseIdController.text = "";
     receiptDateController.text = "";
     merhantName.text = "";
 
-    _loadSettings();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      
       _pageController = PageController(
         initialPage: controller.currentIndex.value,
       );
@@ -109,6 +112,8 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller.currencyDropDown();
       _initializeItemizeControllers();
       _initializeData();
+      _loadSettings();
+      
       if (widget.items != null) {
         controller.fetchExpenseDocImage(widget.items!.recId);
         historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
@@ -160,15 +165,42 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         controller.currencyDropDowncontroller.text =
             widget.items!.currency ?? '';
       }
-      calculateAmounts(widget.items!.exchRate?.toString() ?? "1.0");
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          calculateAmounts(widget.items?.exchRate?.toString() ?? "1.0");
+          projectConfig = controller.getFieldConfig("Project Id");
+          taxGroupConfig = controller.getFieldConfig("Tax Group");
+          taxAmountConfig = controller.getFieldConfig("Tax Amount");
+          isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
+          isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
+          isBillableConfig = controller.getFieldConfig("Is Billable");
+          isLocationConfig = controller.getFieldConfig("Location");
+        }
+      });
     });
-     projectConfig = controller.getFieldConfig("Project Id");
-    taxGroupConfig = controller.getFieldConfig("Tax Group");
-    taxAmountConfig = controller.getFieldConfig("Tax Amount");
-    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
-    isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
-    isBillableConfig = controller.getFieldConfig("Is Billable");
-    isLocationConfig = controller.getFieldConfig("Location");
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _pageController.dispose();
+    _photoViewController.dispose();
+    _debounce?.cancel();
+    
+    // Dispose all controllers
+    expenseIdController.dispose();
+    receiptDateController.dispose();
+    referenceController.dispose();
+    merhantName.dispose();
+    
+    // Dispose itemize controllers
+    for (var itemController in itemizeControllers) {
+      // Dispose individual text controllers if they exist
+      // Add dispose method to your Controller class if needed
+    }
+    
+    super.dispose();
   }
 
   String? _validateRequiredField(String value, String fieldName, bool isMandatory) {
@@ -208,7 +240,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
     return null;
   }
 
- bool _validateForm() {
+  bool _validateForm() {
     bool isValid = true;
 
     if (_validateRequiredField(
@@ -228,26 +260,6 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         null) {
       isValid = false;
     }
-
-    // if (!controller.isManualEntryMerchant) {
-    //   if (_validateRequiredField(
-    //         controller.paidToController.text,
-    //         AppLocalizations.of(context)!.selectMerchant,
-    //         true,
-    //       ) !=
-    //       null) {
-    //     isValid = false;
-    //   }
-    // } else {
-    //   if (_validateRequiredField(
-    //         controller.manualPaidToController.text,
-    //         AppLocalizations.of(context)!.enterMerchantName,
-    //         true,
-    //       ) !=
-    //       null) {
-    //     isValid = false;
-    //   }
-    // }
 
     if (_validateRequiredField(
           controller.paidWithController.text,
@@ -389,9 +401,13 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   Future<void> _loadSettings() async {
     final settings = await controller.fetchGeneralSettings();
     if (settings != null) {
-      setState(() {
-        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
-        print("allowDocAttachments$allowMultSelect");
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+            print("allowDocAttachments$allowMultSelect");
+          });
+        }
       });
     }
   }
@@ -415,62 +431,67 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
       );
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.snackbar('Error', e.toString());
+      });
     }
   }
 
   void _initializeItemizeControllers() {
-    itemizeControllers =
-        widget.items?.expenseTrans?.map((item) {
-          final controller = Controller();
+    if (widget.items?.expenseTrans != null) {
+      itemizeControllers =
+          widget.items!.expenseTrans.map((item) {
+            final itemController = Controller();
 
-          print("Mapping AccountingDistribution => item: ${item.recId}");
-          controller.recID = item.recId;
-          controller.projectDropDowncontroller.text = item.projectId ?? '';
-          controller.descriptionController.text = item.description ?? '';
-          controller.quantity.text = item.quantity?.toString() ?? '0';
-          controller.unitPriceTrans.text =
-              item.unitPriceTrans?.toString() ?? '0';
-          controller.lineAmount.text = item.lineAmountTrans?.toString() ?? '0';
-          controller.lineAmountINR.text =
-              item.lineAmountReporting?.toString() ?? '0';
-          controller.taxAmount.text = item.taxAmount?.toString() ?? '0';
-          controller.taxGroupController.text = item.taxGroup ?? '';
-          controller.categoryController.text = item.expenseCategoryId ?? '';
-          controller.uomId.text = item.uomId ?? '';
-          controller.isReimbursable = item.isReimbursable ?? false;
-          controller.isBillableCreate = item.isBillable ?? false;
-          controller.toExpenseItemUpdateModels(item.recId);
+            print("Mapping AccountingDistribution => item: ${item.recId}");
+            itemController.recID = item.recId;
+            itemController.projectDropDowncontroller.text = item.projectId ?? '';
+            itemController.descriptionController.text = item.description ?? '';
+            itemController.quantity.text = item.quantity?.toString() ?? '0';
+            itemController.unitPriceTrans.text =
+                item.unitPriceTrans?.toString() ?? '0';
+            itemController.lineAmount.text = item.lineAmountTrans?.toString() ?? '0';
+            itemController.lineAmountINR.text =
+                item.lineAmountReporting?.toString() ?? '0';
+            itemController.taxAmount.text = item.taxAmount?.toString() ?? '0';
+            itemController.taxGroupController.text = item.taxGroup ?? '';
+            itemController.categoryController.text = item.expenseCategoryId ?? '';
+            itemController.uomId.text = item.uomId ?? '';
+            itemController.isReimbursable = item.isReimbursable ?? false;
+            itemController.isBillableCreate = item.isBillable ?? false;
+            itemController.toExpenseItemUpdateModels(item.recId);
 
-          if (item.accountingDistributions != null &&
-              item.accountingDistributions!.isNotEmpty) {
-            controller.split = item.accountingDistributions!.map((dist) {
-              return AccountingSplit(
-                paidFor: dist.dimensionValueId ?? '',
-                percentage: dist.allocationFactor ?? 0.0,
-                amount: dist.transAmount ?? 0.0,
-              );
-            }).toList();
-
-            controller.accountingDistributions.clear();
-            controller.accountingDistributions.addAll(
-              item.accountingDistributions!.map((dist) {
-                return AccountingDistribution(
-                  transAmount: dist.transAmount ?? 0.0,
-                  reportAmount: dist.reportAmount ?? 0.0,
-                  allocationFactor: dist.allocationFactor ?? 0.0,
-                  dimensionValueId: dist.dimensionValueId ?? '',
+            if (item.accountingDistributions != null &&
+                item.accountingDistributions!.isNotEmpty) {
+              itemController.split = item.accountingDistributions!.map((dist) {
+                return AccountingSplit(
+                  paidFor: dist.dimensionValueId ?? '',
+                  percentage: dist.allocationFactor ?? 0.0,
+                  amount: dist.transAmount ?? 0.0,
                 );
-              }),
-            );
-          } else {
-            controller.split = [];
-            controller.accountingDistributions.clear();
-          }
+              }).toList();
 
-          return controller;
-        }).toList() ??
-        [];
+              itemController.accountingDistributions.clear();
+              itemController.accountingDistributions.addAll(
+                item.accountingDistributions!.map((dist) {
+                  return AccountingDistribution(
+                    transAmount: dist.transAmount ?? 0.0,
+                    reportAmount: dist.reportAmount ?? 0.0,
+                    allocationFactor: dist.allocationFactor ?? 0.0,
+                    dimensionValueId: dist.dimensionValueId ?? '',
+                  );
+                }),
+              );
+            } else {
+              itemController.split = [];
+              itemController.accountingDistributions.clear();
+            }
+
+            return itemController;
+          }).toList();
+    } else {
+      itemizeControllers = [];
+    }
 
     _itemizeCount = itemizeControllers.length;
   }
@@ -484,53 +505,64 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       retries++;
     }
 
-    if (controller.paymentMethods.isNotEmpty) {
-      controller.selectedPaidWith = controller.paymentMethods.firstWhere(
-        (e) => e.paymentMethodId == widget.items!.paymentMethod,
-        orElse: () => controller.paymentMethods.first,
-      );
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      
+      if (controller.paymentMethods.isNotEmpty && widget.items != null) {
+        controller.selectedPaidWith = controller.paymentMethods.firstWhere(
+          (e) => e.paymentMethodId == widget.items!.paymentMethod,
+          orElse: () => controller.paymentMethods.first,
+        );
+      }
 
-    if (controller.project.isNotEmpty) {
-      controller.selectedProject = controller.project.firstWhere(
-        (e) => e.code == widget.items!.projectId,
-        orElse: () => controller.project.first,
-      );
-    }
-    if (controller.currencies.isNotEmpty) {
-      controller.selectedCurrency.value = controller.currencies.firstWhere(
-        (e) => e.code == widget.items!.currency,
-        orElse: () => controller.currencies.first,
-      );
-    }
-    setState(() {});
+      if (controller.project.isNotEmpty && widget.items != null) {
+        controller.selectedProject = controller.project.firstWhere(
+          (e) => e.code == widget.items!.projectId,
+          orElse: () => controller.project.first,
+        );
+      }
+      if (controller.currencies.isNotEmpty && widget.items != null) {
+        controller.selectedCurrency.value = controller.currencies.firstWhere(
+          (e) => e.code == widget.items!.currency,
+          orElse: () => controller.currencies.first,
+        );
+      }
+      setState(() {});
+    });
   }
 
- Future<void> calculateAmounts(String rateStr) async {
-  final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
-  final rate = double.tryParse(rateStr) ?? 1.0;
+  Future<void> calculateAmounts(String rateStr) async {
+    if (!mounted) return;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      
+      final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
+      final rate = double.tryParse(rateStr) ?? 1.0;
 
-  final result = paid * rate;
-  controller.amountINR.text = result.toStringAsFixed(2);
-  controller.isVisible.value = true;
+      final result = paid * rate;
+      controller.amountINR.text = result.toStringAsFixed(2);
+      controller.isVisible.value = true;
 
-  for (int i = 0; i < itemizeControllers.length; i++) {
-    final itemController = itemizeControllers[i];
-    final unitPrice = double.tryParse(itemController.lineAmount.text) ?? 0.0;
+      for (int i = 0; i < itemizeControllers.length; i++) {
+        final itemController = itemizeControllers[i];
+        final unitPrice = double.tryParse(itemController.lineAmount.text) ?? 0.0;
 
-    final lineAmountInINR = unitPrice * rate;
-    itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
+        final lineAmountInINR = unitPrice * rate;
+        itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
 
-    widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+        if (widget.items != null && i < widget.items!.expenseTrans.length) {
+          widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+        }
+      }
+    });
   }
-
-  await Future.delayed(Duration.zero);
-}
-
 
   void _addItemize() {
     if (_itemizeCount < 5) {
-      setState(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        
         final newItem = ExpenseItemUpdate(
           description: '',
           quantity: 0,
@@ -599,8 +631,12 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             orElse: () => controller.unit.first,
           );
 
-          setState(() {
-            controller.selectedunit = selected;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                controller.selectedunit = selected;
+              });
+            }
           });
         }
 
@@ -620,23 +656,31 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         _itemizeCount++;
         _selectedItemizeIndex = _itemizeCount - 1;
         showItemizeDetails = true;
+        
+        setState(() {});
       });
     }
   }
 
   void _removeItemize(int index) {
+    if (!mounted) return;
+    
     if (_itemizeCount <= 1) {
       setState(() {
         showItemizeDetails = false;
       });
     } else if (index >= 0 && index < widget.items!.expenseTrans.length) {
-      setState(() {
-        widget.items!.expenseTrans.removeAt(index);
-        itemizeControllers.removeAt(index);
-        _itemizeCount--;
-        if (_selectedItemizeIndex >= _itemizeCount) {
-          _selectedItemizeIndex = _itemizeCount - 1;
-        }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        
+        setState(() {
+          widget.items!.expenseTrans.removeAt(index);
+          itemizeControllers.removeAt(index);
+          _itemizeCount--;
+          if (_selectedItemizeIndex >= _itemizeCount) {
+            _selectedItemizeIndex = _itemizeCount - 1;
+          }
+        });
       });
     }
   }
@@ -673,7 +717,11 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller.calculateLineAmounts(itemController);
     }
 
-    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -686,17 +734,23 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       if (pickedFile != null) {
         final croppedFile = await _cropImage(File(pickedFile.path));
         if (croppedFile != null) {
-          setState(() {
-            controller.imageFiles.add(File(croppedFile.path));
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                controller.imageFiles.add(File(croppedFile.path));
+              });
+            }
           });
         }
       }
     } catch (e) {
       print("Error picking or cropping image: $e");
-      Fluttertoast.showToast(
-        msg: "Failed to upload image",
-        backgroundColor: Colors.red,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Fluttertoast.showToast(
+          msg: "Failed to upload image",
+          backgroundColor: Colors.red,
+        );
+      });
     } finally {
       controller.isImageLoading.value = false;
     }
@@ -704,23 +758,26 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
 
   @override
   Widget build(BuildContext context) {
-    Color buttonColor;
-    switch (statusApproval) {
-      case 'Approved':
-        buttonColor = Colors.green;
-        break;
-      case 'Rejected':
-        buttonColor = Colors.red;
-        break;
-      case 'Pending':
-        buttonColor = Colors.orange;
-        break;
-      case "Created":
-        buttonColor = Colors.blue;
-        break;
-      default:
-        buttonColor = Colors.grey;
+    Color buttonColor = Colors.grey;
+    if (statusApproval != null) {
+      switch (statusApproval) {
+        case 'Approved':
+          buttonColor = Colors.green;
+          break;
+        case 'Rejected':
+          buttonColor = Colors.red;
+          break;
+        case 'Pending':
+          buttonColor = Colors.orange;
+          break;
+        case "Created":
+          buttonColor = Colors.blue;
+          break;
+        default:
+          buttonColor = Colors.grey;
+      }
     }
+    
     return WillPopScope(
       onWillPop: () async {
         if (!controller.isEnable.value) {
@@ -776,7 +833,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             if (widget.isReadOnly &&
                 widget.items != null &&
                 widget.items!.approvalStatus != "Approved" &&
-                widget.items!.approvalStatus != "Cancelled")
+                widget.items!.approvalStatus != "Cancelled" && widget.items!.approvalStatus != "Pending")
               IconButton(
                 icon: Icon(
                   widget.items!.stepType == "Approval"
@@ -788,13 +845,17 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                             : Icons.edit_document),
                 ),
                 onPressed: () {
-                  setState(() {
-                    if (widget.items!.stepType == "Approval") {
-                      controller.isApprovalEnable.value =
-                          !controller.isApprovalEnable.value;
-                    } else if (widget.items!.approvalStatus != "Cancelled") {
-                      controller.isEnable.value = !controller.isEnable.value;
-                    }
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    
+                    setState(() {
+                      if (widget.items!.stepType == "Approval") {
+                        controller.isApprovalEnable.value =
+                            !controller.isApprovalEnable.value;
+                      } else if (widget.items!.approvalStatus != "Cancelled") {
+                        controller.isEnable.value = !controller.isEnable.value;
+                      }
+                    });
                   });
                 },
               ),
@@ -825,7 +886,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                     color: Colors.white,
                                   ),
                                   label: Text(
-                                    statusApproval!,
+                                    statusApproval ?? '',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.white,
@@ -893,7 +954,9 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                     controller: _pageController,
                     itemCount: controller.imageFiles.length,
                     onPageChanged: (index) {
-                      controller.currentIndex.value = index;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        controller.currentIndex.value = index;
+                      });
                     },
                     itemBuilder: (_, index) {
                       final file = controller.imageFiles[index];
@@ -1075,37 +1138,38 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   }
 
   Widget _buildLocationField() {
-    return Obx(() {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: controller.configListAdvance
-            .where(
-              (field) =>
-                  field['FieldName'] == 'Location' &&
-                  field['IsEnabled'] == true,
-            )
-            .map((field) {
-              final bool isMandatory = field['IsMandatory'] ?? false;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: controller.configListAdvance
+          .where(
+            (field) =>
+                field['FieldName'] == 'Location' &&
+                field['IsEnabled'] == true,
+          )
+          .map((field) {
+            final bool isMandatory = field['IsMandatory'] ?? false;
 
-              return SearchableMultiColumnDropdownField<LocationModel>(
-                labelText:
-                    '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
-                columnHeaders: [
-                  AppLocalizations.of(context)!.location,
-                  AppLocalizations.of(context)!.country,
-                ],
-                enabled: controller.isEnable.value,
-                controller: controller.locationController,
-                items: controller.location,
-                selectedValue: controller.selectedLocation,
-                searchValue: (loc) => loc.location,
-                displayText: (loc) => loc.location,
-                validator: (value) => isMandatory && (value == null)
-                    ? '${AppLocalizations.of(context)!.location} ${AppLocalizations.of(context)!.fieldRequired}'
-                    : null,
-                onChanged: (loc) {
+            return SearchableMultiColumnDropdownField<LocationModel>(
+              labelText:
+                  '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
+              columnHeaders: [
+                AppLocalizations.of(context)!.location,
+                AppLocalizations.of(context)!.country,
+              ],
+              enabled: controller.isEnable.value,
+              controller: controller.locationController,
+              items: controller.location,
+              selectedValue: controller.selectedLocation,
+              searchValue: (loc) => loc.location,
+              displayText: (loc) => loc.location,
+              validator: (value) => isMandatory && (value == null)
+                  ? '${AppLocalizations.of(context)!.location} ${AppLocalizations.of(context)!.fieldRequired}'
+                  : null,
+              onChanged: (loc) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
                   controller.selectedLocation = loc;
                   controller.fetchMaxAllowedPercentage();
+                  
                   if (_debounce?.isActive ?? false) _debounce!.cancel();
 
                   _debounce = Timer(
@@ -1179,26 +1243,26 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                     },
                   );
                   field['Error'] = null;
-                },
-                rowBuilder: (loc, searchQuery) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(loc.location)),
-                        Expanded(child: Text(loc.country)),
-                      ],
-                    ),
-                  );
-                },
-              );
-            })
-            .toList(),
-      );
-    });
+                });
+              },
+              rowBuilder: (loc, searchQuery) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(loc.location)),
+                      Expanded(child: Text(loc.country)),
+                    ],
+                  ),
+                );
+              },
+            );
+          })
+          .toList(),
+    );
   }
 
   Widget _buildCashAdvanceDropdown() {
@@ -1216,10 +1280,14 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
           ? AppLocalizations.of(context)!.pleaseSelectCashAdvanceField
           : null,
       onChanged: (item) {
-        controller.singleSelectedItem = item;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.singleSelectedItem = item;
+        });
       },
       onMultiChanged: (items) {
-        controller.multiSelectedItems.assignAll(items);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.multiSelectedItems.assignAll(items);
+        });
       },
       columnHeaders: [
         AppLocalizations.of(context)!.requestId,
@@ -1253,12 +1321,16 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       displayText: (p) => p.paymentMethodName,
       validator: (value) => _validateRequiredField(controller.paidWithController.text, AppLocalizations.of(context)!.paidWith, true),
       onChanged: (p) {
-        setState(() {
-          controller.selectedPaidWith = p;
-          controller.paymentMethodID = p!.paymentMethodId;
-          controller.paidWithController.text = p.paymentMethodId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              controller.selectedPaidWith = p;
+              controller.paymentMethodID = p!.paymentMethodId;
+              controller.paidWithController.text = p.paymentMethodId;
+            });
+            loadAndAppendCashAdvanceList();
+          }
         });
-        loadAndAppendCashAdvanceList();
       },
       controller: controller.paidWithController,
       rowBuilder: (p, searchQuery) {
@@ -1283,10 +1355,12 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             enabled: false,
             controller: controller.paidAmount,
             onChanged: (_) {
-              final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
-              final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
-              final result = paid * rate;
-              controller.amountINR.text = result.toStringAsFixed(2);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
+                final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
+                final result = paid * rate;
+                controller.amountINR.text = result.toStringAsFixed(2);
+              });
             },
             keyboardType: TextInputType.number,
             inputFormatters: [
@@ -1344,10 +1418,11 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
               ),
               validator: (value) => _validateRequiredField(controller.currencyDropDowncontroller.text, AppLocalizations.of(context)!.currency, true),
               onChanged: (c) async {
-                controller.selectedCurrency.value = c;
-                controller.fetchExchangeRate().then((_) {
-                  _updateAllLineItems();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  controller.selectedCurrency.value = c;
                 });
+                await controller.fetchExchangeRate();
+                _updateAllLineItems();
               },
               controller: controller.currencyDropDowncontroller,
               rowBuilder: (c, searchQuery) {
@@ -1381,24 +1456,29 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             ),
             validator: (value) => _validateNumericField(value ?? '', AppLocalizations.of(context)!.rate, true),
             onChanged: (val) {
-              final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
-              final rate = double.tryParse(val) ?? 1.0;
-              final result = paid * rate;
-              controller.amountINR.text = result.toStringAsFixed(2);
-              controller.isVisible.value = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                final paid = double.tryParse(controller.paidAmount.text) ?? 0.0;
+                final rate = double.tryParse(val) ?? 1.0;
+                final result = paid * rate;
+                controller.amountINR.text = result.toStringAsFixed(2);
+                controller.isVisible.value = true;
 
-              for (int i = 0; i < itemizeControllers.length; i++) {
-                final itemController = itemizeControllers[i];
-                final unitPrice =
-                    double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
-                final lineAmountInINR = unitPrice * rate;
-                itemController.lineAmountINR.text = lineAmountInINR
-                    .toStringAsFixed(2);
-                widget.items!.expenseTrans[i] = itemController
-                    .toExpenseItemUpdateModel();
-              }
-              calculateAmounts(controller.unitRate.text.toString());
-              setState(() {});
+                for (int i = 0; i < itemizeControllers.length; i++) {
+                  final itemController = itemizeControllers[i];
+                  final unitPrice =
+                      double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
+                  final lineAmountInINR = unitPrice * rate;
+                  itemController.lineAmountINR.text = lineAmountInINR
+                      .toStringAsFixed(2);
+                  widget.items!.expenseTrans[i] = itemController
+                      .toExpenseItemUpdateModel();
+                }
+                calculateAmounts(controller.unitRate.text.toString());
+                
+                if (mounted) {
+                  setState(() {});
+                }
+              });
             },
           ),
         ),
@@ -1574,25 +1654,29 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                                             )
                                                           : null,
                                                       onChanged: (p) {
-                                                        setState(() {
-                                                          controller
-                                                                  .selectedProject =
-                                                              p;
-                                                          itemController
-                                                                  .selectedProject =
-                                                              p;
-                                                          controller
-                                                              .projectDropDowncontroller
-                                                              .text = p!
-                                                              .code;
-                                                          widget
-                                                                  .items!
-                                                                  .expenseTrans[index] =
+                                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                          if (mounted) {
+                                                            setState(() {
+                                                              controller
+                                                                      .selectedProject =
+                                                                  p;
                                                               itemController
-                                                                  .toExpenseItemUpdateModel();
+                                                                      .selectedProject =
+                                                                  p;
+                                                              controller
+                                                                  .projectDropDowncontroller
+                                                                  .text = p!
+                                                                  .code;
+                                                              widget
+                                                                      .items!
+                                                                      .expenseTrans[index] =
+                                                                  itemController
+                                                                      .toExpenseItemUpdateModel();
+                                                            });
+                                                            controller
+                                                                .fetchExpenseCategory();
+                                                          }
                                                         });
-                                                        controller
-                                                            .fetchExpenseCategory();
                                                       },
                                                       controller: itemController
                                                           .projectDropDowncontroller,
@@ -1661,19 +1745,23 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                                             )
                                                           : null,
                                                       onChanged: (tax) {
-                                                        setState(() {
-                                                          itemController
-                                                                  .selectedTax =
-                                                              tax;
-                                                          widget
-                                                                  .items!
-                                                                  .expenseTrans[index] =
+                                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                          if (mounted) {
+                                                            setState(() {
                                                               itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                          itemController
-                                                              .taxGroupController
-                                                              .text = tax!
-                                                              .taxGroupId;
+                                                                      .selectedTax =
+                                                                  tax;
+                                                              widget
+                                                                      .items!
+                                                                      .expenseTrans[index] =
+                                                                  itemController
+                                                                      .toExpenseItemUpdateModel();
+                                                              itemController
+                                                                  .taxGroupController
+                                                                  .text = tax!
+                                                                  .taxGroupId;
+                                                            });
+                                                          }
                                                         });
                                                       },
                                                       controller: itemController
@@ -1735,12 +1823,16 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                                             )
                                                           : null,
                                                       onChanged: (value) {
-                                                        setState(() {
-                                                          widget
-                                                                  .items
-                                                                  ?.expenseTrans[index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
+                                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                          if (mounted) {
+                                                            setState(() {
+                                                              widget
+                                                                      .items
+                                                                      ?.expenseTrans[index] =
+                                                                  itemController
+                                                                      .toExpenseItemUpdateModel();
+                                                            });
+                                                          }
                                                         });
                                                       },
                                                     );
@@ -1784,72 +1876,12 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                         const SizedBox(height: 12),
                         _buildLineAmountINRField(itemController, index),
                          const SizedBox(height: 12),
-                        //  Obx(() {
-                        //       return Column(
-                        //         children: controller.customFields.map((field) {
-                        //           final String label = field['FieldLabel'] ?? field['FieldName'];
-                        //           final bool isMandatory = field['IsMandatory'] ?? false;
-
-                        //           Widget inputField;
-
-                        //           if (field['FieldType'] == 'List') {
-                        //             if (field['Options'] == null || field['Options'].isEmpty) {
-                        //               controller.fetchCustomFieldValues(field['FieldId']);
-                        //             }
-
-                        //             inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
-                        //               labelText: '$label${isMandatory ? " *" : ""}',
-                        //               items: (field['Options'] as List<CustomDropdownValue>?) ?? [],
-                        //               selectedValue: field['SelectedValue'],
-                        //               searchValue: (val) => val.valueName,
-                        //               enabled: controller.isEditModePerdiem,
-                        //               displayText: (val) => val.valueName,
-                        //               columnHeaders: const ['Value ID', 'Value Name'],
-                        //               rowBuilder: (val, searchQuery) => Padding(
-                        //                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                        //                 child: Row(
-                        //                   children: [
-                        //                     Expanded(child: Text(val.valueId)),
-                        //                     Expanded(child: Text(val.valueName)),
-                        //                   ],
-                        //                 ),
-                        //               ),
-                        //               validator: (val) =>
-                        //                   isMandatory && val == null ? 'Please select a value' : null,
-                        //               onChanged: (val) {
-                        //                 field['SelectedValue'] = val;
-                        //                 field['Error'] = null;
-                        //                 controller.customFields.refresh();
-                        //               },
-                        //             );
-                        //           } else {
-                        //             inputField = TextField(
-                        //               enabled: controller.isEditModePerdiem,
-                        //               decoration: InputDecoration(
-                        //                 labelText: '$label${isMandatory ? " *" : ""}',
-                        //                 border: const OutlineInputBorder(),
-                        //               ),
-                        //               onChanged: (value) {
-                        //                 field['EnteredValue'] = value;
-                        //                 controller.customFields.refresh();
-                        //               },
-                        //             );
-                        //           }
-
-                        //           return Padding(
-                        //             padding: const EdgeInsets.symmetric(vertical: 8),
-                        //             child: inputField,
-                        //           );
-                        //         }).toList(),
-                        //       );
-                        //     }),
-                        // const SizedBox(height: 12),
-                        // if (controller.isEnable.value)
-                        //   _buildAccountDistributionButton(
-                        //     itemController,
-                        //     index,
-                        //   ),
-                        // const SizedBox(height: 12),
+                        if (controller.isEnable.value)
+                          _buildAccountDistributionButton(
+                            itemController,
+                            index,
+                          ),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),
@@ -1859,46 +1891,6 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildProjectDropdown(Controller itemController, int index) {
-    return SearchableMultiColumnDropdownField<Project>(
-      enabled: controller.isEnable.value,
-      labelText: AppLocalizations.of(context)!.projectId,
-      columnHeaders: [
-        AppLocalizations.of(context)!.projectName,
-        AppLocalizations.of(context)!.projectId,
-      ],
-      items: controller.project,
-      selectedValue: itemController.selectedProject,
-      searchValue: (p) => '${p.name} ${p.code}',
-      displayText: (p) => p.code,
-      validator: (value) => projectConfig.isEnabled && projectConfig.isMandatory
-          ? _validateRequiredField(itemController.projectDropDowncontroller.text, AppLocalizations.of(context)!.projectId, true)
-          : null,
-      onChanged: (p) {
-        setState(() {
-          controller.selectedProject = p;
-          itemController.selectedProject = p;
-          itemController.projectDropDowncontroller.text = p!.code;
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
-        });
-        controller.fetchExpenseCategory();
-      },
-      controller: itemController.projectDropDowncontroller,
-      rowBuilder: (p, searchQuery) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(child: Text(p.name)),
-              Expanded(child: Text(p.code)),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -1916,12 +1908,16 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       displayText: (p) => p.categoryId,
       validator: (value) => _validateRequiredField(itemController.categoryController.text, AppLocalizations.of(context)!.paidFor, true),
       onChanged: (p) {
-        setState(() {
-          itemController.selectedCategory = p;
-          itemController.selectedCategoryId = p!.categoryId;
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
-          itemController.categoryController.text = p.categoryId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              itemController.selectedCategory = p;
+              itemController.selectedCategoryId = p!.categoryId;
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+              itemController.categoryController.text = p.categoryId;
+            });
+          }
         });
       },
       controller: itemController.categoryController,
@@ -1945,9 +1941,13 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller: itemController.descriptionController,
       isReadOnly: controller.isEnable.value,
       onChanged: (value) {
-        setState(() {
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+            });
+          }
         });
       },
     );
@@ -1967,11 +1967,15 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       displayText: (tax) => tax.name,
       validator: (value) => _validateRequiredField(itemController.uomId.text, AppLocalizations.of(context)!.unit, true),
       onChanged: (tax) {
-        setState(() {
-          itemController.selectedunit = tax;
-          itemController.uomId.text = tax!.code;
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              itemController.selectedunit = tax;
+              itemController.uomId.text = tax!.code;
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+            });
+          }
         });
       },
       controller: itemController.uomId,
@@ -2008,10 +2012,14 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
           });
         });
            _updateAllLineItems();
-        setState(() {
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
-          calculateAmounts(controller.unitRate.text.toString());
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+              calculateAmounts(controller.unitRate.text.toString());
+            });
+          }
         });
       },
     );
@@ -2035,18 +2043,26 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
 
   _updateAllLineItems();
 
-  setState(() {
-    final total = _calculateTotalLineAmount(itemController);
-    controller.paidAmount.text = total.toStringAsFixed(2);
-    widget.items!.expenseTrans[index] =
-        itemController.toExpenseItemUpdateModel();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      setState(() {
+        final total = _calculateTotalLineAmount(itemController);
+        controller.paidAmount.text = total.toStringAsFixed(2);
+        widget.items!.expenseTrans[index] =
+            itemController.toExpenseItemUpdateModel();
+      });
+    }
   });
 
   await calculateAmounts(controller.unitRate.text.toString());
 
-  setState(() {
-    final total = _calculateTotalLineAmount(itemController);
-    controller.paidAmount.text = total.toStringAsFixed(2);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      setState(() {
+        final total = _calculateTotalLineAmount(itemController);
+        controller.paidAmount.text = total.toStringAsFixed(2);
+      });
+    }
   });
 }
 
@@ -2066,9 +2082,13 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       validator: (value) => _validateNumericField(value!, AppLocalizations.of(context)!.lineAmount, true),
       onChanged: (value) async {
           await Future.delayed(Duration.zero);
-        setState(() {
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+            });
+          }
         });
       },
     );
@@ -2085,9 +2105,13 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       isReadOnly: false,
       validator: (value) => _validateNumericField(value!, AppLocalizations.of(context)!.lineAmountInInr, true),
       onChanged: (value) {
-        setState(() {
-          widget.items!.expenseTrans[index] = itemController
-              .toExpenseItemUpdateModel();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              widget.items!.expenseTrans[index] = itemController
+                  .toExpenseItemUpdateModel();
+            });
+          }
         });
       },
     );
@@ -2174,9 +2198,10 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
+          
+                  if (snapshot.hasError) {
+                    return Center(child: Text("No Data Available Please Skip Next"));
+                  }
 
             final historyList = snapshot.data!;
             if (historyList.isEmpty) {
@@ -2237,7 +2262,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         ],
       );
     } else if (widget.items!.approvalStatus == "Pending" &&
-        widget.items!.workitemrecid == null) {
+        widget.items!.workitemrecid == null && widget.isReadOnly) {
       return _buildCloseButton();
     } else {
       return _buildCancelButton();
@@ -2382,7 +2407,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
           child: ElevatedButton(
             onPressed: () => controller.chancelButton(context),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-            child: Text(AppLocalizations.of(context)!.cancel),
+            child: Text(AppLocalizations.of(context)!.close),
           ),
         ),
       ],
@@ -2518,7 +2543,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                       );
                     },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: Text(AppLocalizations.of(context)!.cancel),
+              child: Text(AppLocalizations.of(context)!.close),
             ),
           );
         }),
@@ -2598,7 +2623,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
     return ElevatedButton(
       onPressed: () => controller.chancelButton(context),
       style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-      child: Text(AppLocalizations.of(context)!.cancel),
+      child: Text(AppLocalizations.of(context)!.close),
     );
   }
 
@@ -2958,9 +2983,11 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                               '${user.userName} ${user.userId}',
                           displayText: (user) => user.userId,
                           onChanged: (user) {
-                            controller.userIdController.text =
-                                user?.userId ?? '';
-                            controller.selectedUser.value = user;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              controller.userIdController.text =
+                                  user?.userId ?? '';
+                              controller.selectedUser.value = user;
+                            });
                           },
                           controller: controller.userIdController,
                           rowBuilder: (user, searchQuery) {
@@ -3157,11 +3184,15 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                         onPressed: () async {
                           final croppedFile = await _cropImage(file);
                           if (croppedFile != null) {
-                            setState(() {
-                              controller.imageFiles[index] = croppedFile;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) {
+                                setState(() {
+                                  controller.imageFiles[index] = croppedFile;
+                                });
+                                Navigator.pop(context);
+                                _showFullImage(croppedFile, index);
+                              }
                             });
-                            Navigator.pop(context);
-                            _showFullImage(croppedFile, index);
                           }
                         },
                         backgroundColor: Colors.deepPurple,
@@ -3173,8 +3204,12 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                         heroTag: "delete_$index",
                         onPressed: () {
                           Navigator.pop(context);
-                          setState(() {
-                            controller.imageFiles.removeAt(index);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              setState(() {
+                                controller.imageFiles.removeAt(index);
+                              });
+                            }
                           });
                         },
                         backgroundColor: Colors.red,

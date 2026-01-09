@@ -279,6 +279,54 @@ String get welcomeBack => 'مرحباً بعودتك';
 @override String get saveAsDraft => 'حفظ كمسودة';
 @override String get editLeaveRequest => 'تعديل طلب الإجازة';
 @override String get newLeaveRequest => 'طلب إجازة جديد';
+@override String get leaveRequisitionId => 'معرّف طلب الإجازة';
+@override String get delegatedAuthority => 'السلطة المفوضة / البديل';
+@override String get locationDuringLeave => 'الموقع أثناء الإجازة';
+@override String get availableForUrgentMatters => 'متاح للحالات الطارئة';
+@override String get notAvailable => 'غير متاح';
+@override String get dayType => 'نوع اليوم';
+@override String get fullDay => 'يوم كامل';
+@override String get firstHalf => 'النصف الأول';
+@override String get secondHalf => 'النصف الثاني';
+@override String get myTeamLeaveDashboard => 'لوحة إجازات فريقي';
+@override String get noEventsFor => 'لا توجد أحداث لـ';
+@override String get duration => 'المدة';
+
+@override String get mon => 'اثن';
+@override String get tue => 'ثلث';
+@override String get wed => 'أرب';
+@override String get thu => 'خم';
+@override String get fri => 'جم';
+@override String get sat => 'سبت';
+@override String get sun => 'أحد';
+
+@override String get noLeaveData => 'لا توجد بيانات إجازات';
+@override String get leaveRequisition => 'طلب إجازة';
+@override String get myLeave => 'إجازاتي';
+@override String get myTeamLeave => 'إجازات فريقي';
+@override String get myTeamLeaveCancellation => 'إلغاء إجازة الفريق';
+@override
+String get addLeaveRequest => 'إضافة طلب إجازة';
+@override String get remaining => 'المتبقي';
+@override String get outOf => 'من';
+@override String get balance => 'الرصيد';
+@override
+String get newCreateLeaveRequest => 'إنشاء طلب إجازة';
+
+@override
+String get ofLeave => 'من الإجازة';
+@override
+String get appliedDate => 'تاريخ التقديم';
+
+@override
+String get total => 'الإجمالي';
+
+@override
+String get uploadFileOrDragDrop => 'تحميل ملف أو السحب والإفلات';
+
+@override
+String get uploadAttachments => 'المرفقات';
+
 @override
 String get days => 'الأيام';
 

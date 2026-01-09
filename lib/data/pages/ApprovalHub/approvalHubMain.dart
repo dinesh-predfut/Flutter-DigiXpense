@@ -283,7 +283,7 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                   }
 
                   if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
+                    return Center(child: Text("No Data Available Please Skip Next"));
                   }
 
                   if (snapshot.hasData && snapshot.data!.isNotEmpty) {

@@ -530,7 +530,7 @@ class ReportModel with ChangeNotifier {
 
   Future<List<dynamic>> fetchDatasetsDropDown() async {
     final url = Uri.parse(
-      'https://api.digixpense.com/api/v1/global/global/datasets?page=1&sort_order=asc',
+      '${Urls.baseURL}/api/v1/global/global/datasets?page=1&sort_order=asc',
     );
 
     try {
@@ -1177,7 +1177,7 @@ class ReportModel with ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse(
-          'https://api.digixpense.com/api/v1/reports/reports/reportandreportusermapping',
+          '${Urls.baseURL}/api/v1/reports/reports/reportandreportusermapping',
         ),
         headers: {
           'Content-Type': 'application/json',

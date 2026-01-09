@@ -351,6 +351,29 @@ String get duplicateReceiptWarning => 'Ce reçu semble être un doublon. Voulez-
 
 @override
 String get continueText => 'Continuer';
+@override String get myTeamLeaveDashboard => 'Tableau de congés de mon équipe';
+@override String get noEventsFor => 'Aucun événement pour';
+@override String get duration => 'Durée';
+
+@override String get mon => 'Lun';
+@override String get tue => 'Mar';
+@override String get wed => 'Mer';
+@override String get thu => 'Jeu';
+@override String get fri => 'Ven';
+@override String get sat => 'Sam';
+@override String get sun => 'Dim';
+
+@override String get noLeaveData => 'Aucune donnée de congé';
+@override String get remaining => 'Restant';
+@override String get outOf => 'Sur';
+@override String get balance => 'Solde';
+@override String get leaveRequisition => 'Demande de congé';
+@override String get myLeave => 'Mes congés';
+@override String get myTeamLeave => 'Congés de mon équipe';
+@override String get myTeamLeaveCancellation => 'Annulation de congé de mon équipe';
+String get addLeaveRequest => 'Add Leave Request';
+@override
+String get newCreateLeaveRequest => 'Créer une demande de congé';
 
 @override
 String get duplicateReceiptDetected => 'Reçu en double détecté';
@@ -426,6 +449,30 @@ String get exitForm => 'Quitter le formulaire';
 @override String get saveAsDraft => 'Enregistrer comme brouillon';
 @override String get editLeaveRequest => 'Modifier la demande de congé';
 @override String get newLeaveRequest => 'Nouvelle demande de congé';
+@override String get leaveRequisitionId => 'ID de demande de congé';
+@override String get delegatedAuthority => 'Autorité déléguée / Remplaçant';
+@override String get locationDuringLeave => 'Lieu pendant le congé';
+@override String get availableForUrgentMatters => 'Disponible pour les urgences';
+@override String get notAvailable => 'Indisponible';
+@override String get dayType => 'Type de jour';
+@override String get fullDay => 'Journée complète';
+@override String get firstHalf => 'Première moitié';
+@override String get secondHalf => 'Deuxième moitié';
+@override
+String get appliedDate => 'Date de demande';
+
+@override
+String get ofLeave => 'de congé';
+
+@override
+String get total => 'Total';
+
+@override
+String get uploadFileOrDragDrop => 'Téléverser un fichier ou glisser-déposer';
+
+@override
+String get uploadAttachments => 'Pièces jointes';
+
 @override
 String get days => 'Jours';
 

@@ -1287,10 +1287,10 @@ Future<void> _calculateAllDistances() async {
                                     );
                                   }),
                                 ),
-                              if (!controller.isEnable.value &&
+                              if (!controller.isEnable.value && widget.isEditMode! &&
                                   widget.mileageId!.stepType!.isEmpty &&
                                   widget.mileageId!.approvalStatus == "Pending")
-                                Expanded(
+                                Expanded( 
                                   child: Obx(() {
                                     final isLoading =
                                         controller
@@ -1375,10 +1375,7 @@ Future<void> _calculateAllDistances() async {
                                               );
                                               try {
                                                 controller.closeField();
-                                                Navigator.pushNamed(
-                                                  context,
-                                                  AppRoutes.generalExpense,
-                                                );
+                                                 Navigator.pop(context);
                                               } finally {
                                                 controller.setButtonLoading(
                                                   'cancel_main',

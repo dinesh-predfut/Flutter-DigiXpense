@@ -384,7 +384,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
-                      children: [
+                      children: [ 
                         if (widget.item != null)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -834,12 +834,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                           child: CircularProgressIndicator(),
                                         );
                                       }
-
-                                      if (snapshot.hasError) {
-                                        return Center(
-                                          child: Text('Error: ${snapshot.error}'),
-                                        );
-                                      }
+  if (snapshot.hasError) {
+                                          return Center(
+                                            child: Text(
+                                              "No Data Available",
+                                            ),
+                                          );
+                                        }
 
                                       final historyList = snapshot.data ?? [];
                                       if (historyList.isEmpty) {

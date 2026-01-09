@@ -113,38 +113,37 @@ class _SearchableMultiColumnDropdownFieldState<T>
     final showAbove =
         spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
 
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          // Transparent barrier to detect taps outside the dropdown
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _hideOverlay,
-              behavior: HitTestBehavior.translucent,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-
-          // Positioned dropdown
-          Positioned(
-            left: widget.alignLeft ?? offset.dx,
-            width: widget.dropdownWidth ?? size.width,
-            top: showAbove
-                ? offset.dy - dropdownHeight - 5
-                : offset.dy + size.height + 5,
-            child: CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              offset: Offset(
-                0,
-                showAbove ? -dropdownHeight - 5 : size.height + 5,
-              ),
-              child: Material(elevation: 4, child: _buildDropdownContent()),
-            ),
-          ),
-        ],
+_overlayEntry = OverlayEntry(
+  builder: (context) => Stack(
+    children: [
+      // Tap outside to close
+      Positioned.fill(
+        child: GestureDetector(
+          onTap: _hideOverlay,
+          behavior: HitTestBehavior.translucent,
+          child: const SizedBox(),
+        ),
       ),
-    );
+
+      CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        offset: Offset(
+          widget.alignLeft ?? 0,
+          showAbove ? -dropdownHeight - 5 : size.height + 5,
+        ),
+        child: Material(
+          elevation: 6,
+          child: SizedBox(
+            width: widget.dropdownWidth ?? size.width,
+            child: _buildDropdownContent(),
+          ),
+        ),
+      ),
+    ],
+  ),
+);
+
 
     Overlay.of(context, rootOverlay: true)!.insert(_overlayEntry!);
     _currentOpenOverlay = this;
@@ -268,13 +267,18 @@ class _SearchableMultiColumnDropdownFieldState<T>
 
                 // Highlight selected or matching row
                 Color? rowColor;
-                if (_selectedItem != null && _selectedItem == item) {
-                  rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
-                } else if (isSearchMatch) {
-                  rowColor = Theme.of(context).focusColor.withOpacity(0.1);
-                } else {
-                  rowColor = Colors.transparent;
-                }
+                // if (_selectedItem != null && _selectedItem == item) {
+                //   rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
+                // } else if (isSearchMatch) {
+                //   rowColor = Theme.of(context).focusColor.withOpacity(0.1);
+                // } else {
+                //   rowColor = Colors.transparent;
+                // }
+if (_selectedItem != null &&
+    widget.displayText(_selectedItem as T) ==
+        widget.displayText(item)) {
+  rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
+}
 
                 return InkWell(
                   hoverColor: Colors.blue.withOpacity(0.08),

@@ -85,7 +85,7 @@ class UserSettings {
         'DisplayName': displayName,
       };
 }
-class OrganizationSettings {
+class   OrganizationSettings {
   final String? name;
   final String? value;
   final String? defaultValue;
@@ -149,6 +149,31 @@ class UserPermissions {
         'Delete': delete,
       };
 }
+class ChecklistItem {
+  final String description;
+  final bool status;
+  final int recId;
+
+  ChecklistItem({
+    required this.description,
+    required this.status,
+    required this.recId,
+  });
+
+  ChecklistItem copyWith({
+    String? description,
+    bool? status,
+    int? recId,
+  }) {
+    return ChecklistItem(
+      description: description ?? this.description,
+      status: status ?? this.status,
+      recId: recId ?? this.recId,
+    );
+  }
+}
+
+
 
 class Role {
   final String? roleId;

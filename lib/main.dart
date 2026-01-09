@@ -238,7 +238,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late Widget _homeScreen;
-  
+  final GlobalKey<NavigatorState> appNavigatorKey =
+    GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -279,7 +281,12 @@ class _MyAppState extends State<MyApp> {
       });
     }
   }
-  
+    void restartApp() {
+  appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+    AppRoutes.dashboard_Main, // or login
+    (route) => false,
+  );
+}
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
@@ -288,7 +295,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Digi Xpense',
       debugShowCheckedModeBanner: false,
-      
+       navigatorKey: appNavigatorKey,
       // Provide a home to prevent white screen
       home: _homeScreen,
       

@@ -23,9 +23,11 @@ import '../../../../../l10n/app_localizations.dart';
 class ApprovalViewEditExpensePage extends StatefulWidget {
   final bool isReadOnly;
   final GESpeficExpense? items;
-  const ApprovalViewEditExpensePage(
-      {Key? key, this.items, required this.isReadOnly})
-      : super(key: key);
+  const ApprovalViewEditExpensePage({
+    Key? key,
+    this.items,
+    required this.isReadOnly,
+  }) : super(key: key);
 
   @override
   State<ApprovalViewEditExpensePage> createState() =>
@@ -33,7 +35,8 @@ class ApprovalViewEditExpensePage extends StatefulWidget {
 }
 
 class _ApprovalViewEditExpensePageState
-    extends State<ApprovalViewEditExpensePage> with TickerProviderStateMixin {
+    extends State<ApprovalViewEditExpensePage>
+    with TickerProviderStateMixin {
   final TextEditingController expenseIdController = TextEditingController();
   final TextEditingController receiptDateController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
@@ -63,7 +66,9 @@ class _ApprovalViewEditExpensePageState
   @override
   void initState() async {
     super.initState();
-    _pageController = PageController(initialPage: controller.currentIndex.value);
+    _pageController = PageController(
+      initialPage: controller.currentIndex.value,
+    );
     expenseIdController.text = "";
     receiptDateController.text = "";
     employeeName.text = "";
@@ -81,8 +86,9 @@ class _ApprovalViewEditExpensePageState
     controller.fetchExpenseDocImage(widget.items!.recId);
     initializeCashAdvanceSelection();
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
-    final formatted =
-        DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
+    final formatted = DateFormat(
+      'dd/MM/yyyy',
+    ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
     employeeName.text = widget.items!.employeeName!;
@@ -102,8 +108,8 @@ class _ApprovalViewEditExpensePageState
     controller.expenseID = widget.items!.expenseId;
     controller.recID = widget.items!.recId;
     workitemrecid = widget.items!.workitemrecid!;
-    controller.currencyDropDowncontroller.text =
-        widget.items!.currency.toString();
+    controller.currencyDropDowncontroller.text = widget.items!.currency
+        .toString();
 
     // Initialize itemize controllers
     _initializeItemizeControllers();
@@ -113,7 +119,9 @@ class _ApprovalViewEditExpensePageState
     String? backendSelectedIds = controller.cashAdvReqIds;
     print("controller.cashAdvReqIds$backendSelectedIds");
     controller.preloadCashAdvanceSelections(
-        controller.cashAdvanceListDropDown, backendSelectedIds);
+      controller.cashAdvanceListDropDown,
+      backendSelectedIds,
+    );
   }
 
   void _initializeItemizeControllers() {
@@ -207,8 +215,8 @@ class _ApprovalViewEditExpensePageState
         newController.quantity.text = newItem.quantity.toString();
         newController.unitAmountView.text = newItem.unitPriceTrans.toString();
         newController.lineAmount.text = newItem.lineAmountTrans.toString();
-        newController.lineAmountINR.text =
-            newItem.lineAmountReporting.toString();
+        newController.lineAmountINR.text = newItem.lineAmountReporting
+            .toString();
         newController.taxAmount.text = newItem.taxAmount.toString();
         newController.projectDropDowncontroller.text = newItem.projectId ?? '';
         newController.categoryController.text = newItem.expenseCategoryId;
@@ -226,11 +234,11 @@ class _ApprovalViewEditExpensePageState
         }
 
         if (controller.expenseCategory.isNotEmpty) {
-          newController.selectedCategory =
-              controller.expenseCategory.firstWhere(
-            (c) => c.categoryId == newItem.expenseCategoryId,
-            orElse: () => controller.expenseCategory.first,
-          );
+          newController.selectedCategory = controller.expenseCategory
+              .firstWhere(
+                (c) => c.categoryId == newItem.expenseCategoryId,
+                orElse: () => controller.expenseCategory.first,
+              );
         }
 
         if (controller.unit.isNotEmpty) {
@@ -248,7 +256,8 @@ class _ApprovalViewEditExpensePageState
         }
 
         debugPrint(
-            "Controller added with unit: ${newController.selectedunit?.name}");
+          "Controller added with unit: ${newController.selectedunit?.name}",
+        );
 
         // Add to controllers list (new reference for rebuild)
         itemizeControllers = List.from(itemizeControllers)..add(newController);
@@ -321,8 +330,8 @@ class _ApprovalViewEditExpensePageState
                 ? 'Edit Expense Approval'
                 : 'View Expense Approval',
             style: const TextStyle(
-              fontSize: 18, 
-              fontWeight: FontWeight.bold, 
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
@@ -366,118 +375,139 @@ class _ApprovalViewEditExpensePageState
                             ? null
                             : () => _pickImage(ImageSource.gallery),
                         child: Container(
-                            width: MediaQuery.of(context).size.width *
-                                0.9, // 90% of screen width
-                            height: MediaQuery.of(context).size.height *
-                                0.3, // 30% of screen height
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.grey, // border color
-                                width: 2, // border thickness
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                  12), // optional rounded corners
+                          width:
+                              MediaQuery.of(context).size.width *
+                              0.9, // 90% of screen width
+                          height:
+                              MediaQuery.of(context).size.height *
+                              0.3, // 30% of screen height
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.grey, // border color
+                              width: 2, // border thickness
                             ),
-                            child: Obx(() {
-                              if (controller.imageFiles.isEmpty) {
-                                return const Center(
-                                  child: Text('Tap to Upload Document(s)'),
-                                );
-                              } else {
-                                return Stack(
-                                  children: [
-                                    PageView.builder(
-                                      controller: _pageController,
-                                      itemCount: controller.imageFiles.length,
-                                      onPageChanged: (index) {
-                                        controller.currentIndex.value = index;
-                                      },
-                                      itemBuilder: (_, index) {
-                                        final file =
-                                            controller.imageFiles[index];
-                                        return GestureDetector(
-                                          onTap: () =>
-                                              _showFullImage(file, index),
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            margin: const EdgeInsets.all(8),
-                                            width: 100,
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                  color: Colors.deepPurple),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              image: DecorationImage(
-                                                image: FileImage(file),
-                                                fit: BoxFit.cover,
-                                              ),
+                            borderRadius: BorderRadius.circular(
+                              12,
+                            ), // optional rounded corners
+                          ),
+                          child: Obx(() {
+                            if (controller.imageFiles.isEmpty) {
+                              return const Center(
+                                child: Text('Tap to Upload Document(s)'),
+                              );
+                            } else {
+                              return Stack(
+                                children: [
+                                  PageView.builder(
+                                    controller: _pageController,
+                                    itemCount: controller.imageFiles.length,
+                                    onPageChanged: (index) {
+                                      controller.currentIndex.value = index;
+                                    },
+                                    itemBuilder: (_, index) {
+                                      final file = controller.imageFiles[index];
+                                      return GestureDetector(
+                                        onTap: () =>
+                                            _showFullImage(file, index),
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          margin: const EdgeInsets.all(8),
+                                          width: 100,
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.deepPurple,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            image: DecorationImage(
+                                              image: FileImage(file),
+                                              fit: BoxFit.cover,
                                             ),
                                           ),
-                                        );
-                                      },
-                                    ),
-                                    Positioned(
-                        bottom: 40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Obx(() => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 18),
-                                ),
-                              )),
-                        ),
-                      ),
-                                    Positioned(
-                                      top: 40,
-                                      right: 20,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.close,
-                                            color: Colors.white),
-                                        onPressed: () {
-                            controller.closeField();
-                            Navigator.pop(context);
-                          },
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 16,
-                                      right: 16,
-                                      child: GestureDetector(
-                                        onTap: () =>
-                                            _pickImage(ImageSource.gallery),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.deepPurple,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                                color: Colors.white, width: 2),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  Positioned(
+                                    bottom: 40,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Obx(
+                                        () => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                            horizontal: 16,
                                           ),
-                                          padding: const EdgeInsets.all(8),
-                                          child: const Icon(
-                                            Icons.add,
-                                            color: Colors.white,
-                                            size: 28,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(
+                                              0.5,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ],
-                                );
-                              }
-                            })),
+                                  ),
+                                  Positioned(
+                                    top: 40,
+                                    right: 20,
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        controller.closeField();
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 16,
+                                    right: 16,
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          _pickImage(ImageSource.gallery),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.all(8),
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                          }),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      const Text("Receipt Details",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        "Receipt Details",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 10),
                       _buildTextField(
                         label: "Expense ID *",
@@ -535,51 +565,56 @@ class _ApprovalViewEditExpensePageState
                           if (!controller.isManualEntryMerchant)
                             AbsorbPointer(
                               absorbing: !controller
-                                  .isEnable.value, // 🔥 disables dropdown
-                              child: SearchableMultiColumnDropdownField<
-                                  MerchantModel>(
-                                labelText: 'Select Merchant',
-                                columnHeaders: const [
-                                  'Merchant Name',
-                                  'Merchant ID'
-                                ],
-                                items: controller.paidTo,
-                                enabled: controller.isEnable.value,
-                                selectedValue: controller.selectedPaidto,
-                                searchValue: (p) =>
-                                    '${p.merchantNames} ${p.merchantId}',
-                                displayText: (p) => p.merchantNames,
-                                validator: (_) => null,
-                                onChanged: (p) {
-                                  setState(() {
-                                    controller.selectedPaidto = p;
-                                    controller.paidToController.text =
-                                        p!.merchantId;
-                                  });
-                                },
-                                controller: controller.paidToController,
-                                rowBuilder: (p, searchQuery) {
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                            child: Text(p.merchantNames)),
-                                        Expanded(
-                                            child: Text(p.merchantId)),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+                                  .isEnable
+                                  .value, // 🔥 disables dropdown
+                              child:
+                                  SearchableMultiColumnDropdownField<
+                                    MerchantModel
+                                  >(
+                                    labelText: 'Select Merchant',
+                                    columnHeaders: const [
+                                      'Merchant Name',
+                                      'Merchant ID',
+                                    ],
+                                    items: controller.paidTo,
+                                    enabled: controller.isEnable.value,
+                                    selectedValue: controller.selectedPaidto,
+                                    searchValue: (p) =>
+                                        '${p.merchantNames} ${p.merchantId}',
+                                    displayText: (p) => p.merchantNames,
+                                    validator: (_) => null,
+                                    onChanged: (p) {
+                                      setState(() {
+                                        controller.selectedPaidto = p;
+                                        controller.paidToController.text =
+                                            p!.merchantId;
+                                      });
+                                    },
+                                    controller: controller.paidToController,
+                                    rowBuilder: (p, searchQuery) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                          horizontal: 16,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(p.merchantNames),
+                                            ),
+                                            Expanded(child: Text(p.merchantId)),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
                             )
                           else
                             TextFormField(
                               controller: controller.manualPaidToController,
                               enabled: controller
-                                  .isEnable.value, // 🔥 disables text field
+                                  .isEnable
+                                  .value, // 🔥 disables text field
                               decoration: InputDecoration(
                                 labelText: 'Enter Merchant Name',
                                 border: OutlineInputBorder(
@@ -609,10 +644,11 @@ class _ApprovalViewEditExpensePageState
                         },
                         columnHeaders: const ['Request ID', 'Request Date'],
                         rowBuilder: (proj, searchQuery) {
-
                           return const Padding(
                             padding: EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 16),
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                             child: Row(
                               children: [
                                 // Expanded(child: Text(proj.location)),
@@ -628,7 +664,8 @@ class _ApprovalViewEditExpensePageState
                         children: [
                           const SizedBox(height: 4),
                           SearchableMultiColumnDropdownField<
-                              PaymentMethodModel>(
+                            PaymentMethodModel
+                          >(
                             enabled: controller.isEnable.value,
                             labelText: 'Paid With',
                             columnHeaders: const ['Payment Name', 'Payment ID'],
@@ -649,16 +686,15 @@ class _ApprovalViewEditExpensePageState
                             },
                             controller: controller.paidWithController,
                             rowBuilder: (p, searchQuery) {
-
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 16),
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
                                 child: Row(
                                   children: [
-                                    Expanded(
-                                        child: Text(p.paymentMethodName)),
-                                    Expanded(
-                                        child: Text(p.paymentMethodId)),
+                                    Expanded(child: Text(p.paymentMethodName)),
+                                    Expanded(child: Text(p.paymentMethodId)),
                                   ],
                                 ),
                               );
@@ -681,45 +717,50 @@ class _ApprovalViewEditExpensePageState
                               onChanged: (_) {
                                 controller.fetchExchangeRate();
 
-                                final paid = double.tryParse(
-                                        controller.paidAmount.text) ??
+                                final paid =
+                                    double.tryParse(
+                                      controller.paidAmount.text,
+                                    ) ??
                                     0.0;
                                 final rate =
                                     double.tryParse(controller.unitRate.text) ??
-                                        1.0;
+                                    1.0;
 
                                 final result = paid * rate;
 
-                                controller.amountINR.text =
-                                    result.toStringAsFixed(2);
+                                controller.amountINR.text = result
+                                    .toStringAsFixed(2);
                               },
                               keyboardType: TextInputType.number,
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(
-                                    r'^\d*\.?\d*')), // Only digits and dots allowed
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d*'),
+                                ), // Only digits and dots allowed
                               ],
                               decoration: const InputDecoration(
                                 labelText: 'Paid Amount *',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.only(
-                                      topRight: Radius.circular(0),
-                                      bottomRight: Radius.circular(0),
-                                      topLeft: Radius.circular(10),
-                                      bottomLeft: Radius.circular(10)),
+                                    topRight: Radius.circular(0),
+                                    bottomRight: Radius.circular(0),
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
+                                  ),
                                 ),
                               ),
                               onEditingComplete: () {
                                 String text = controller.paidAmount.text;
                                 double? value = double.tryParse(text);
                                 if (value != null) {
-                                  controller.paidAmount.text =
-                                      value.toStringAsFixed(2);
+                                  controller.paidAmount.text = value
+                                      .toStringAsFixed(2);
                                 }
                               },
                             ),
                           ),
                           Expanded(
-                              child: Obx(() =>
+                            child: Obx(
+                              () =>
                                   SearchableMultiColumnDropdownField<Currency>(
                                     enabled: controller.isEnable.value,
                                     alignLeft: -90,
@@ -728,19 +769,24 @@ class _ApprovalViewEditExpensePageState
                                     columnHeaders: const [
                                       'Code',
                                       'Name',
-                                      'Symbol'
+                                      'Symbol',
                                     ],
                                     items: controller.currencies,
                                     selectedValue:
                                         controller.selectedCurrency.value,
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 22, 2, 92),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      22,
+                                      2,
+                                      92,
+                                    ),
                                     searchValue: (c) =>
                                         '${c.code} ${c.name} ${c.symbol}',
                                     displayText: (c) => c.code,
                                     inputDecoration: const InputDecoration(
-                                      suffixIcon:
-                                          Icon(Icons.arrow_drop_down_outlined),
+                                      suffixIcon: Icon(
+                                        Icons.arrow_drop_down_outlined,
+                                      ),
                                       filled: true,
                                       fillColor: Color.fromARGB(55, 5, 23, 128),
                                       border: OutlineInputBorder(
@@ -762,21 +808,23 @@ class _ApprovalViewEditExpensePageState
                                     controller:
                                         controller.currencyDropDowncontroller,
                                     rowBuilder: (c, searchQuery) {
-
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
-                                            vertical: 12, horizontal: 16),
+                                          vertical: 12,
+                                          horizontal: 16,
+                                        ),
                                         child: Row(
                                           children: [
                                             Expanded(child: Text(c.code)),
                                             Expanded(child: Text(c.name)),
-                                            Expanded(
-                                                child: Text(c.symbol)),
+                                            Expanded(child: Text(c.symbol)),
                                           ],
                                         ),
                                       );
                                     },
-                                  ))),
+                                  ),
+                            ),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextFormField(
@@ -792,23 +840,29 @@ class _ApprovalViewEditExpensePageState
                                 // Fetch exchange rate if needed
                                 // controller.fetchExchangeRate();
 
-                                final paid = double.tryParse(
-                                        controller.paidAmount.text) ??
+                                final paid =
+                                    double.tryParse(
+                                      controller.paidAmount.text,
+                                    ) ??
                                     0.0;
                                 final rate = double.tryParse(val) ?? 1.0;
 
                                 // ✅ Perform calculation
                                 final result = paid * rate;
 
-                                controller.amountINR.text =
-                                    result.toStringAsFixed(2);
+                                controller.amountINR.text = result
+                                    .toStringAsFixed(2);
                                 controller.isVisible.value = true;
-                                for (int i = 0;
-                                    i < itemizeControllers.length;
-                                    i++) {
+                                for (
+                                  int i = 0;
+                                  i < itemizeControllers.length;
+                                  i++
+                                ) {
                                   final itemController = itemizeControllers[i];
-                                  final unitPrice = double.tryParse(
-                                          itemController.unitPriceTrans.text) ??
+                                  final unitPrice =
+                                      double.tryParse(
+                                        itemController.unitPriceTrans.text,
+                                      ) ??
                                       0.0;
 
                                   final lineAmountInINR = unitPrice * rate;
@@ -816,8 +870,8 @@ class _ApprovalViewEditExpensePageState
                                       lineAmountInINR.toStringAsFixed(2);
 
                                   // Sync with the model
-                                  widget.items!.expenseTrans[i] =
-                                      itemController.toExpenseItemUpdateModel();
+                                  widget.items!.expenseTrans[i] = itemController
+                                      .toExpenseItemUpdateModel();
                                 }
 
                                 // ✅ Trigger UI update
@@ -825,7 +879,8 @@ class _ApprovalViewEditExpensePageState
                                 print("Paid Amount: $paid");
                                 print("Rate: $rate");
                                 print(
-                                    "Calculated INR Amount: ${controller.amountINR.text}");
+                                  "Calculated INR Amount: ${controller.amountINR.text}",
+                                );
                               },
                             ),
                           ),
@@ -854,7 +909,9 @@ class _ApprovalViewEditExpensePageState
                               Text(
                                 "Itemized Expenses",
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ],
                           ),
@@ -890,42 +947,50 @@ class _ApprovalViewEditExpensePageState
                                                 MainAxisAlignment.end,
                                             children: [
                                               if (controller.isEnable.value &&
-                                                  widget.items!.expenseTrans
+                                                  widget
+                                                          .items!
+                                                          .expenseTrans
                                                           .length >
                                                       1)
                                                 IconButton(
-                                                  icon: const Icon(Icons.delete,
-                                                      color: Colors.red),
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                    color: Colors.red,
+                                                  ),
                                                   onPressed: () =>
                                                       _removeItemize(index),
                                                   tooltip: 'Remove this item',
                                                 ),
                                               if (controller.isEnable.value)
                                                 IconButton(
-                                                  icon: const Icon(Icons.add,
-                                                      color: Colors.green),
+                                                  icon: const Icon(
+                                                    Icons.add,
+                                                    color: Colors.green,
+                                                  ),
                                                   onPressed: _addItemize,
                                                   tooltip: 'Add new item',
                                                 ),
                                             ],
-                                          )
+                                          ),
                                         ],
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 12),
+                                        horizontal: 12,
+                                      ),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           SearchableMultiColumnDropdownField<
-                                              Project>(
+                                            Project
+                                          >(
                                             enabled: controller.isEnable.value,
                                             labelText: 'Project',
                                             columnHeaders: const [
                                               'Project Name',
-                                              'Project ID'
+                                              'Project ID',
                                             ],
                                             items: controller.project,
                                             selectedValue:
@@ -941,8 +1006,10 @@ class _ApprovalViewEditExpensePageState
                                                     p; // update controller state
                                                 controller
                                                     .projectDropDowncontroller
-                                                    .text = p!.code;
-                                                widget.items!
+                                                    .text = p!
+                                                    .code;
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel(); // sync with parent list
@@ -952,20 +1019,20 @@ class _ApprovalViewEditExpensePageState
                                             controller: itemController
                                                 .projectDropDowncontroller,
                                             rowBuilder: (p, searchQuery) {
-
                                               return Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16),
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child:
-                                                            Text(p.name)),
+                                                      child: Text(p.name),
+                                                    ),
                                                     Expanded(
-                                                        child:
-                                                            Text(p.code)),
+                                                      child: Text(p.code),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -973,12 +1040,13 @@ class _ApprovalViewEditExpensePageState
                                           ),
                                           const SizedBox(height: 12),
                                           SearchableMultiColumnDropdownField<
-                                              ExpenseCategory>(
+                                            ExpenseCategory
+                                          >(
                                             labelText: 'Paid For',
                                             enabled: controller.isEnable.value,
                                             columnHeaders: const [
                                               'Category Name',
-                                              'Category ID'
+                                              'Category ID',
                                             ],
                                             items: controller.expenseCategory,
                                             selectedValue:
@@ -990,36 +1058,41 @@ class _ApprovalViewEditExpensePageState
                                             onChanged: (p) {
                                               setState(() {
                                                 itemController
-                                                    .selectedCategory = p;
+                                                        .selectedCategory =
+                                                    p;
                                                 itemController
                                                         .selectedCategoryId =
                                                     p!.categoryId;
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
                                                 itemController
-                                                    .categoryController
-                                                    .text = p.categoryId;
+                                                        .categoryController
+                                                        .text =
+                                                    p.categoryId;
                                               });
                                             },
                                             controller: itemController
                                                 .categoryController,
                                             rowBuilder: (p, searchQuery) {
-
                                               return Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16),
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: Text(
-                                                            p.categoryName)),
+                                                      child: Text(
+                                                        p.categoryName,
+                                                      ),
+                                                    ),
                                                     Expanded(
-                                                        child: Text(
-                                                            p.categoryId)),
+                                                      child: Text(p.categoryId),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1034,7 +1107,8 @@ class _ApprovalViewEditExpensePageState
                                                 controller.isEnable.value,
                                             onChanged: (value) {
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1042,12 +1116,13 @@ class _ApprovalViewEditExpensePageState
                                             },
                                           ),
                                           SearchableMultiColumnDropdownField<
-                                              Unit>(
+                                            Unit
+                                          >(
                                             labelText: 'Unit *',
                                             enabled: controller.isEnable.value,
                                             columnHeaders: const [
                                               'Uom Id',
-                                              'Uom Name'
+                                              'Uom Name',
                                             ],
                                             items: controller.unit,
                                             selectedValue:
@@ -1064,7 +1139,8 @@ class _ApprovalViewEditExpensePageState
                                                     tax;
                                                 itemController.uomId.text =
                                                     tax!.code;
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1072,20 +1148,20 @@ class _ApprovalViewEditExpensePageState
                                             },
                                             controller: itemController.uomId,
                                             rowBuilder: (tax, searchQuery) {
-
                                               return Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16),
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: Text(
-                                                            tax.code)),
+                                                      child: Text(tax.code),
+                                                    ),
                                                     Expanded(
-                                                        child: Text(
-                                                            tax.name)),
+                                                      child: Text(tax.name),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1093,8 +1169,8 @@ class _ApprovalViewEditExpensePageState
                                           ),
                                           const SizedBox(height: 12),
                                           _buildTextField(
-                                              keyboardType: TextInputType.number,
-                                              inputFormatters: [
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'^\d*\.?\d{0,2}'),
                                               ), // Allows numbers with up to 2 decimal places
@@ -1106,9 +1182,11 @@ class _ApprovalViewEditExpensePageState
                                             onChanged: (value) {
                                               itemController
                                                   .calculateLineAmounts(
-                                                      itemController);
+                                                    itemController,
+                                                  );
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1116,8 +1194,8 @@ class _ApprovalViewEditExpensePageState
                                             },
                                           ),
                                           _buildTextField(
-                                              keyboardType: TextInputType.number,
-                                              inputFormatters: [
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'^\d*\.?\d{0,2}'),
                                               ), // Allows numbers with up to 2 decimal places
@@ -1135,9 +1213,11 @@ class _ApprovalViewEditExpensePageState
                                             onChanged: (value) {
                                               itemController
                                                   .calculateLineAmounts(
-                                                      itemController);
+                                                    itemController,
+                                                  );
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1151,7 +1231,8 @@ class _ApprovalViewEditExpensePageState
                                             isReadOnly: false,
                                             onChanged: (value) {
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1165,7 +1246,8 @@ class _ApprovalViewEditExpensePageState
                                             isReadOnly: false,
                                             onChanged: (value) {
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1173,12 +1255,13 @@ class _ApprovalViewEditExpensePageState
                                             },
                                           ),
                                           SearchableMultiColumnDropdownField<
-                                              TaxGroupModel>(
+                                            TaxGroupModel
+                                          >(
                                             enabled: controller.isEnable.value,
                                             labelText: "Tax Group",
                                             columnHeaders: const [
                                               'Tax Group',
-                                              'Tax ID'
+                                              'Tax ID',
                                             ],
                                             items: controller.taxGroup,
                                             selectedValue:
@@ -1191,33 +1274,37 @@ class _ApprovalViewEditExpensePageState
                                               setState(() {
                                                 itemController.selectedTax =
                                                     tax;
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
                                                 itemController
-                                                    .taxGroupController
-                                                    .text = tax!.taxGroupId;
+                                                        .taxGroupController
+                                                        .text =
+                                                    tax!.taxGroupId;
                                               });
                                             },
                                             controller: itemController
                                                 .taxGroupController,
                                             rowBuilder: (tax, searchQuery) {
-
                                               return Container(
                                                 // color: Colors.grey[300],
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16),
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                        child: Text(
-                                                            tax.taxGroup)),
+                                                      child: Text(tax.taxGroup),
+                                                    ),
                                                     Expanded(
-                                                        child: Text(
-                                                            tax.taxGroupId)),
+                                                      child: Text(
+                                                        tax.taxGroupId,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1225,8 +1312,8 @@ class _ApprovalViewEditExpensePageState
                                           ),
                                           const SizedBox(height: 12),
                                           _buildTextField(
-                                              keyboardType: TextInputType.number,
-                                              inputFormatters: [
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r'^\d*\.?\d{0,2}'),
                                               ), // Allows numbers with up to 2 decimal places
@@ -1238,7 +1325,8 @@ class _ApprovalViewEditExpensePageState
                                                 controller.isEnable.value,
                                             onChanged: (value) {
                                               setState(() {
-                                                widget.items!
+                                                widget
+                                                        .items!
                                                         .expenseTrans[index] =
                                                     itemController
                                                         .toExpenseItemUpdateModel();
@@ -1246,167 +1334,178 @@ class _ApprovalViewEditExpensePageState
                                             },
                                           ),
                                           const SizedBox(height: 12),
-                                         const SizedBox(height: 12),
-                                            Theme(
+                                          const SizedBox(height: 12),
+                                          Theme(
+                                            data: Theme.of(context).copyWith(
+                                              switchTheme: SwitchThemeData(
+                                                thumbColor:
+                                                    MaterialStateProperty.resolveWith<
+                                                      Color?
+                                                    >((states) {
+                                                      if (states.contains(
+                                                        MaterialState.disabled,
+                                                      )) {
+                                                        // ✅ Keep same thumb color even when disabled
+                                                        return Colors.green;
+                                                      }
+                                                      if (states.contains(
+                                                        MaterialState.selected,
+                                                      )) {
+                                                        return Colors.green;
+                                                      }
+                                                      return Colors
+                                                          .grey
+                                                          .shade400;
+                                                    }),
+                                                trackColor:
+                                                    MaterialStateProperty.resolveWith<
+                                                      Color?
+                                                    >((states) {
+                                                      if (states.contains(
+                                                        MaterialState.disabled,
+                                                      )) {
+                                                        // ✅ Keep same track color even when disabled
+                                                        return Colors.green
+                                                            .withOpacity(0.5);
+                                                      }
+                                                      if (states.contains(
+                                                        MaterialState.selected,
+                                                      )) {
+                                                        return Colors.green
+                                                            .withOpacity(0.5);
+                                                      }
+                                                      return Colors
+                                                          .grey
+                                                          .shade300;
+                                                    }),
+                                              ),
+                                            ),
+                                            child: SwitchListTile(
+                                              title: Text(
+                                                AppLocalizations.of(
+                                                  context,
+                                                )!.isReimbursable,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              value:
+                                                  itemController.isReimbursable,
+                                              onChanged:
+                                                  controller.isEnable.value
+                                                  ? (val) {
+                                                      setState(() {
+                                                        itemController
+                                                                .isReimbursable =
+                                                            val;
+                                                        controller
+                                                                .isReimbursite =
+                                                            val;
+                                                        widget
+                                                                .items!
+                                                                .expenseTrans[index] =
+                                                            itemController
+                                                                .toExpenseItemUpdateModel();
+                                                      });
+                                                    }
+                                                  : null, // disabled but keeps color
+                                            ),
+                                          ),
+                                          Obx(
+                                            () => Theme(
                                               data: Theme.of(context).copyWith(
                                                 switchTheme: SwitchThemeData(
                                                   thumbColor:
-                                                      MaterialStateProperty
-                                                          .resolveWith<Color?>(
-                                                              (states) {
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .disabled)) {
-                                                      // ✅ Keep same thumb color even when disabled
-                                                      return Colors.green;
-                                                    }
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .selected)) {
-                                                      return Colors.green;
-                                                    }
-                                                    return Colors.grey.shade400;
-                                                  }),
-                                                  trackColor:
-                                                      MaterialStateProperty
-                                                          .resolveWith<Color?>(
-                                                              (states) {
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .disabled)) {
-                                                      // ✅ Keep same track color even when disabled
-                                                      return Colors.green
-                                                          .withOpacity(0.5);
-                                                    }
-                                                    if (states.contains(
-                                                        MaterialState
-                                                            .selected)) {
-                                                      return Colors.green
-                                                          .withOpacity(0.5);
-                                                    }
-                                                    return Colors.grey.shade300;
-                                                  }),
-                                                ),
-                                              ),
-                                              child: SwitchListTile(
-                                                title: Text(
-                                                  AppLocalizations.of(context)!
-                                                      .isReimbursable,
-                                                  style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w500),
-                                                ),
-                                                value: itemController
-                                                    .isReimbursable,
-                                                onChanged: controller
-                                                        .isEnable.value
-                                                    ? (val) {
-                                                        setState(() {
-                                                          itemController
-                                                                  .isReimbursable =
-                                                              val;
-                                                          controller
-                                                                  .isReimbursite =
-                                                              val;
-                                                          widget.items!
-                                                                      .expenseTrans[
-                                                                  index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                        });
-                                                      }
-                                                    : null, // disabled but keeps color
-                                              ),
-                                            ),
-                                            Obx(() => Theme(
-                                                  data: Theme.of(context)
-                                                      .copyWith(
-                                                    switchTheme:
-                                                        SwitchThemeData(
-                                                      thumbColor:
-                                                          MaterialStateProperty
-                                                              .resolveWith<
-                                                                      Color?>(
-                                                                  (states) {
+                                                      MaterialStateProperty.resolveWith<
+                                                        Color?
+                                                      >((states) {
                                                         if (states.contains(
-                                                            MaterialState
-                                                                .disabled)) {
+                                                          MaterialState
+                                                              .disabled,
+                                                        )) {
                                                           return controller
                                                                   .isBillableCreate
                                                               ? Colors.blue
-                                                              : Colors.grey
-                                                                  .shade400;
+                                                              : Colors
+                                                                    .grey
+                                                                    .shade400;
                                                         }
                                                         if (states.contains(
-                                                            MaterialState
-                                                                .selected)) {
+                                                          MaterialState
+                                                              .selected,
+                                                        )) {
                                                           return Colors.blue;
                                                         }
                                                         return Colors
-                                                            .grey.shade400;
+                                                            .grey
+                                                            .shade400;
                                                       }),
-                                                      trackColor:
-                                                          MaterialStateProperty
-                                                              .resolveWith<
-                                                                      Color?>(
-                                                                  (states) {
+                                                  trackColor:
+                                                      MaterialStateProperty.resolveWith<
+                                                        Color?
+                                                      >((states) {
                                                         if (states.contains(
-                                                            MaterialState
-                                                                .disabled)) {
+                                                          MaterialState
+                                                              .disabled,
+                                                        )) {
                                                           return controller
                                                                   .isBillableCreate
                                                               ? Colors.blue
-                                                                  .withOpacity(
-                                                                      0.5)
-                                                              : Colors.grey
-                                                                  .shade300;
+                                                                    .withOpacity(
+                                                                      0.5,
+                                                                    )
+                                                              : Colors
+                                                                    .grey
+                                                                    .shade300;
                                                         }
                                                         if (states.contains(
-                                                            MaterialState
-                                                                .selected)) {
+                                                          MaterialState
+                                                              .selected,
+                                                        )) {
                                                           return Colors.blue
                                                               .withOpacity(0.5);
                                                         }
                                                         return Colors
-                                                            .grey.shade300;
+                                                            .grey
+                                                            .shade300;
                                                       }),
-                                                    ),
+                                                ),
+                                              ),
+                                              child: SwitchListTile(
+                                                title: Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.isBillable,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.black87,
                                                   ),
-                                                  child: SwitchListTile(
-                                                    title: Text(
-                                                      AppLocalizations.of(
-                                                              context)!
-                                                          .isBillable,
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: Colors.black87,
-                                                      ),
-                                                    ),
-                                                    value: controller
-                                                        .isBillableCreate,
-                                                    onChanged: controller
-                                                            .isEnable.value
-                                                        ? (val) {
-                                                            setState(() {
-                                                              widget.items!
-                                                                          .expenseTrans[
-                                                                      index] =
-                                                                  itemController
-                                                                      .toExpenseItemUpdateModel();
-                                                              controller
-                                                                      .isBillableCreate =
-                                                                  val;
+                                                ),
+                                                value:
+                                                    controller.isBillableCreate,
+                                                onChanged:
+                                                    controller.isEnable.value
+                                                    ? (val) {
+                                                        setState(() {
+                                                          widget
+                                                                  .items!
+                                                                  .expenseTrans[index] =
                                                               itemController
-                                                                      .isBillableCreate =
-                                                                  val;
-                                                            });
-                                                          }
-                                                        : null, // disabled but still keeps color
-                                                  ),
-                                                )),
+                                                                  .toExpenseItemUpdateModel();
+                                                          controller
+                                                                  .isBillableCreate =
+                                                              val;
+                                                          itemController
+                                                                  .isBillableCreate =
+                                                              val;
+                                                        });
+                                                      }
+                                                    : null, // disabled but still keeps color
+                                              ),
+                                            ),
+                                          ),
                                           if (controller.isEnable.value)
                                             Row(
                                               mainAxisAlignment:
@@ -1416,18 +1515,21 @@ class _ApprovalViewEditExpensePageState
                                                   onPressed: () {
                                                     final double lineAmount =
                                                         double.tryParse(
-                                                                itemController
-                                                                    .lineAmount
-                                                                    .text) ??
-                                                            0.0;
+                                                          itemController
+                                                              .lineAmount
+                                                              .text,
+                                                        ) ??
+                                                        0.0;
                                                     if (itemController
-                                                            .split.isEmpty &&
-                                                        item.accountingDistributions
+                                                            .split
+                                                            .isEmpty &&
+                                                        item
+                                                            .accountingDistributions
                                                             .isNotEmpty) {
-                                                      itemController.split
-                                                          .assignAll(
-                                                        item.accountingDistributions
-                                                            .map((e) {
+                                                      itemController.split.assignAll(
+                                                        item.accountingDistributions.map((
+                                                          e,
+                                                        ) {
                                                           return AccountingSplit(
                                                             paidFor: e
                                                                 .dimensionValueId,
@@ -1439,63 +1541,65 @@ class _ApprovalViewEditExpensePageState
                                                         }).toList(),
                                                       );
                                                     } else if (itemController
-                                                        .split.isEmpty) {
+                                                        .split
+                                                        .isEmpty) {
                                                       itemController.split.add(
-                                                          AccountingSplit(
-                                                              percentage:
-                                                                  100.0));
+                                                        AccountingSplit(
+                                                          percentage: 100.0,
+                                                        ),
+                                                      );
                                                     }
 
                                                     showModalBottomSheet(
                                                       context: context,
                                                       isScrollControlled: true,
-                                                      shape:
-                                                          const RoundedRectangleBorder(
+                                                      shape: const RoundedRectangleBorder(
                                                         borderRadius:
                                                             BorderRadius.vertical(
-                                                                top: Radius
-                                                                    .circular(
-                                                                        16)),
+                                                              top:
+                                                                  Radius.circular(
+                                                                    16,
+                                                                  ),
+                                                            ),
                                                       ),
-                                                      builder: (context) =>
-                                                          Padding(
-                                                        padding:
-                                                            EdgeInsets.only(
+                                                      builder: (context) => Padding(
+                                                        padding: EdgeInsets.only(
                                                           bottom: MediaQuery.of(
-                                                                  context)
-                                                              .viewInsets
-                                                              .bottom,
+                                                            context,
+                                                          ).viewInsets.bottom,
                                                           left: 16,
                                                           right: 16,
                                                           top: 24,
                                                         ),
-                                                        child:
-                                                            SingleChildScrollView(
-                                                          child:
-                                                              AccountingDistributionWidget(
+                                                        child: SingleChildScrollView(
+                                                          child: AccountingDistributionWidget(
                                                             splits:
                                                                 itemController
                                                                     .split,
                                                             lineAmount:
                                                                 lineAmount,
-                                                            onChanged: (i,
-                                                                updatedSplit) {
-                                                              if (!mounted)
-                                                                return;
-                                                              itemController
-                                                                      .split[i] =
-                                                                  updatedSplit;
-                                                            },
+                                                            onChanged:
+                                                                (
+                                                                  i,
+                                                                  updatedSplit,
+                                                                ) {
+                                                                  if (!mounted)
+                                                                    return;
+                                                                  itemController
+                                                                          .split[i] =
+                                                                      updatedSplit;
+                                                                },
                                                             onDistributionChanged:
                                                                 (newList) {
-                                                              if (!mounted)
-                                                                return;
-                                                              item.accountingDistributions
-                                                                  .clear();
-                                                              item.accountingDistributions
-                                                                  .addAll(
-                                                                      newList);
-                                                            },
+                                                                  if (!mounted)
+                                                                    return;
+                                                                  item.accountingDistributions
+                                                                      .clear();
+                                                                  item.accountingDistributions
+                                                                      .addAll(
+                                                                        newList,
+                                                                      );
+                                                                },
                                                           ),
                                                         ),
                                                       ),
@@ -1538,12 +1642,12 @@ class _ApprovalViewEditExpensePageState
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
                                 return const Center(
-                                    child: CircularProgressIndicator());
+                                  child: CircularProgressIndicator(),
+                                );
                               }
 
                               if (snapshot.hasError) {
-                                return Center(
-                                    child: Text('Error: ${snapshot.error}'));
+                                return Center(child: Text("No Data Available"));
                               }
 
                               final historyList = snapshot.data!;
@@ -1584,16 +1688,18 @@ class _ApprovalViewEditExpensePageState
                           return SizedBox(
                             width: double.infinity,
                             child: GradientButton(
-                                text: "Resubmit",
-                                isLoading: controller.buttonLoader.value,
-                                onPressed: () {
-                                  controller.addToFinalItems(widget.items!);
-                                  controller.saveinviewPageGeneralExpense(
-                                      context,
-                                      true,
-                                      true,
-                                      widget.items!.recId!);
-                                }),
+                              text: "Resubmit",
+                              isLoading: controller.buttonLoader.value,
+                              onPressed: () {
+                                controller.addToFinalItems(widget.items!);
+                                controller.saveinviewPageGeneralExpense(
+                                  context,
+                                  true,
+                                  true,
+                                  widget.items!.recId!,
+                                );
+                              },
+                            ),
                           );
                         }),
 
@@ -1662,38 +1768,50 @@ class _ApprovalViewEditExpensePageState
                                   controller.buttonLoaders['update'] ?? false;
                               final isUpdateAcceptLoading =
                                   controller.buttonLoaders['update_accept'] ??
-                                      false;
+                                  false;
                               final isRejectLoading =
                                   controller.buttonLoaders['reject'] ?? false;
                               final isAnyLoading = controller
-                                  .buttonLoaders.values
+                                  .buttonLoaders
+                                  .values
                                   .any((loading) => loading);
 
                               return Expanded(
                                 child: ElevatedButton(
-                                  onPressed: (isUpdateLoading ||
+                                  onPressed:
+                                      (isUpdateLoading ||
                                           isUpdateAcceptLoading ||
                                           isRejectLoading ||
                                           isAnyLoading)
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'update', true);
-                                          controller
-                                              .addToFinalItems(widget.items!);
+                                            'update',
+                                            true,
+                                          );
+                                          controller.addToFinalItems(
+                                            widget.items!,
+                                          );
                                           controller
                                               .reviewGendralExpense(
-                                                  context,
-                                                  false,
-                                                  widget.items!.workitemrecid!)
+                                                context,
+                                                false,
+                                                widget.items!.workitemrecid!,
+                                              )
                                               .whenComplete(() {
-                                            controller.setButtonLoading(
-                                                'update', false);
-                                          });
+                                                controller.setButtonLoading(
+                                                  'update',
+                                                  false,
+                                                );
+                                              });
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 3, 20, 117),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      3,
+                                      20,
+                                      117,
+                                    ),
                                   ),
                                   child: isUpdateLoading
                                       ? const SizedBox(
@@ -1720,38 +1838,50 @@ class _ApprovalViewEditExpensePageState
                                   controller.buttonLoaders['update'] ?? false;
                               final isUpdateAcceptLoading =
                                   controller.buttonLoaders['update_accept'] ??
-                                      false;
+                                  false;
                               final isRejectLoading =
                                   controller.buttonLoaders['reject'] ?? false;
                               final isAnyLoading = controller
-                                  .buttonLoaders.values
+                                  .buttonLoaders
+                                  .values
                                   .any((loading) => loading);
 
                               return Expanded(
                                 child: ElevatedButton(
-                                  onPressed: (isUpdateAcceptLoading ||
+                                  onPressed:
+                                      (isUpdateAcceptLoading ||
                                           isUpdateLoading ||
                                           isRejectLoading ||
                                           isAnyLoading)
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'update_accept', true);
-                                          controller
-                                              .addToFinalItems(widget.items!);
+                                            'update_accept',
+                                            true,
+                                          );
+                                          controller.addToFinalItems(
+                                            widget.items!,
+                                          );
                                           controller
                                               .reviewGendralExpense(
-                                                  context,
-                                                  true,
-                                                  widget.items!.workitemrecid!)
+                                                context,
+                                                true,
+                                                widget.items!.workitemrecid!,
+                                              )
                                               .whenComplete(() {
-                                            controller.setButtonLoading(
-                                                'update_accept', false);
-                                          });
+                                                controller.setButtonLoading(
+                                                  'update_accept',
+                                                  false,
+                                                );
+                                              });
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 3, 20, 117),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      3,
+                                      20,
+                                      117,
+                                    ),
                                   ),
                                   child: isUpdateAcceptLoading
                                       ? const SizedBox(
@@ -1774,7 +1904,6 @@ class _ApprovalViewEditExpensePageState
                       if (controller.isEnable.value &&
                           widget.items!.stepType == "Review")
                         const SizedBox(height: 12), // space between rows
-
                       //  if (controller.isEnable.value &&
                       //       widget.items!.stepType == "Review")
                       if (controller.isEnable.value &&
@@ -1786,39 +1915,51 @@ class _ApprovalViewEditExpensePageState
                                   controller.buttonLoaders['update'] ?? false;
                               final isUpdateAcceptLoading =
                                   controller.buttonLoaders['update_accept'] ??
-                                      false;
+                                  false;
                               final isRejectLoading =
                                   controller.buttonLoaders['reject'] ?? false;
                               final isAnyLoading = controller
-                                  .buttonLoaders.values
+                                  .buttonLoaders
+                                  .values
                                   .any((loading) => loading);
 
                               return Expanded(
                                 child: ElevatedButton(
-                                  onPressed: (isRejectLoading ||
+                                  onPressed:
+                                      (isRejectLoading ||
                                           isUpdateLoading ||
                                           isUpdateAcceptLoading ||
                                           isAnyLoading)
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'reject', true);
-                                          controller
-                                              .addToFinalItems(widget.items!);
+                                            'reject',
+                                            true,
+                                          );
+                                          controller.addToFinalItems(
+                                            widget.items!,
+                                          );
                                           controller
                                               .saveinviewPageGeneralExpense(
-                                                  context,
-                                                  false,
-                                                  false,
-                                                  widget.items!.recId!)
+                                                context,
+                                                false,
+                                                false,
+                                                widget.items!.recId!,
+                                              )
                                               .whenComplete(() {
-                                            controller.setButtonLoading(
-                                                'reject', false);
-                                          });
+                                                controller.setButtonLoading(
+                                                  'reject',
+                                                  false,
+                                                );
+                                              });
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 238, 20, 20),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      238,
+                                      20,
+                                      20,
+                                    ),
                                   ),
                                   child: isRejectLoading
                                       ? const SizedBox(
@@ -1843,11 +1984,9 @@ class _ApprovalViewEditExpensePageState
                                   Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey),
-                                child: const Text(
-                                  "Close",
-                               
+                                  backgroundColor: Colors.grey,
                                 ),
+                                child: const Text("Close"),
                               ),
                             ),
                           ],
@@ -1867,15 +2006,23 @@ class _ApprovalViewEditExpensePageState
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'approve', true);
+                                            'approve',
+                                            true,
+                                          );
                                           showActionPopup(context, "Approve");
 
                                           controller.setButtonLoading(
-                                              'approve', false);
+                                            'approve',
+                                            false,
+                                          );
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 30, 117, 3),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      30,
+                                      117,
+                                      3,
+                                    ),
                                   ),
                                   child: isLoading
                                       ? const SizedBox(
@@ -1900,22 +2047,30 @@ class _ApprovalViewEditExpensePageState
                             Obx(() {
                               final isLoading =
                                   controller.buttonLoaders['reject_approval'] ??
-                                      false;
+                                  false;
                               return Expanded(
                                 child: ElevatedButton(
                                   onPressed: isLoading
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'reject_approval', true);
+                                            'reject_approval',
+                                            true,
+                                          );
                                           showActionPopup(context, "Reject");
 
                                           controller.setButtonLoading(
-                                              'reject_approval', false);
+                                            'reject_approval',
+                                            false,
+                                          );
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 238, 20, 20),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      238,
+                                      20,
+                                      20,
+                                    ),
                                   ),
                                   child: isLoading
                                       ? const SizedBox(
@@ -1950,15 +2105,23 @@ class _ApprovalViewEditExpensePageState
                                       ? null
                                       : () {
                                           controller.setButtonLoading(
-                                              'escalate', true);
+                                            'escalate',
+                                            true,
+                                          );
                                           showActionPopup(context, "Escalate");
 
                                           controller.setButtonLoading(
-                                              'escalate', false);
+                                            'escalate',
+                                            false,
+                                          );
                                         },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        const Color.fromARGB(255, 3, 20, 117),
+                                    backgroundColor: const Color.fromARGB(
+                                      255,
+                                      3,
+                                      20,
+                                      117,
+                                    ),
                                   ),
                                   child: isLoading
                                       ? const SizedBox(
@@ -1986,11 +2149,9 @@ class _ApprovalViewEditExpensePageState
                                   controller.chancelButton(context);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey),
-                                child: const Text(
-                                  "Close",
-                               
+                                  backgroundColor: Colors.grey,
                                 ),
+                                child: const Text("Close"),
                               ),
                             ),
                           ],
@@ -2004,13 +2165,11 @@ class _ApprovalViewEditExpensePageState
                             controller.isApprovalEnable.value = false;
                           },
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey),
-                          child: const Text(
-                            "Cancel",
-                         
+                            backgroundColor: Colors.grey,
                           ),
+                          child: const Text("Cancel"),
                         ),
-                        const SizedBox(height: 30),
+                      const SizedBox(height: 30),
                     ],
                   ),
                 );
@@ -2071,31 +2230,29 @@ class _ApprovalViewEditExpensePageState
 
   // ... (keep all your existing helper methods below)
   Future<File?> _cropImage(File file) async {
-  final croppedFile = await ImageCropper().cropImage(
-    sourcePath: file.path,
-    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
-    uiSettings: [
-      AndroidUiSettings(
-        toolbarTitle: 'Crop Image',
-        toolbarColor: Colors.deepPurple,
-        toolbarWidgetColor: Colors.white,
-        lockAspectRatio: false,
-      ),
-      IOSUiSettings(
-        title: 'Crop Image',
-        aspectRatioLockEnabled: false,
-      ),
-    ],
-  );
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Image',
+          toolbarColor: Colors.deepPurple,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: false,
+        ),
+        IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
+      ],
+    );
 
-  if (croppedFile != null) {
-    final croppedImage = File(croppedFile.path); return croppedImage;
-    // ignore: use_build_context_synchronously
-    // await controller.sendUploadedFileToServer(context, croppedImage);
+    if (croppedFile != null) {
+      final croppedImage = File(croppedFile.path);
+      return croppedImage;
+      // ignore: use_build_context_synchronously
+      // await controller.sendUploadedFileToServer(context, croppedImage);
+    }
+
+    return null;
   }
-
-  return null;
-}
 
   void _zoomIn() {
     _photoViewController.scale = _photoViewController.scale! * 1.2;
@@ -2111,85 +2268,86 @@ class _ApprovalViewEditExpensePageState
     });
   }
 
- void _showFullImage(File file, int index) {
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent, // remove white box background
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Full image view
-            PhotoView.customChild(
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 9.0,
-              backgroundDecoration: const BoxDecoration(
-                color: Colors.transparent,
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(
+        0.9,
+      ), // darker transparent background
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent, // remove white box background
+          insetPadding: const EdgeInsets.all(8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Full image view
+              PhotoView.customChild(
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 9.0,
+                backgroundDecoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                child: Image.file(file, fit: BoxFit.contain),
               ),
-              child: Image.file(file, fit: BoxFit.contain),
-            ),
 
-            // Close button (top-left)
-            Positioned(
-              top: 30,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: () {
-                            // controller.closeField();
+              // Close button (top-left)
+              Positioned(
+                top: 30,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () {
+                    // controller.closeField();
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+
+              // Floating edit & delete buttons (top-right)
+              Positioned(
+                top: 80,
+                right: 20,
+                child: Column(
+                  children: [
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "edit_$index",
+                        onPressed: () async {
+                          final croppedFile = await _cropImage(file);
+                          if (croppedFile != null) {
+                            setState(() {
+                              controller.imageFiles[index] = croppedFile;
+                            });
                             Navigator.pop(context);
-                          },
-              ),
-            ),
-
-            // Floating edit & delete buttons (top-right)
-            Positioned(
-              top: 80,
-              right: 20,
-              child: Column(
-                children: [
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () async {
-                        final croppedFile = await _cropImage(file);
-                        if (croppedFile != null) {
-                          setState(() {
-                            controller.imageFiles[index] = croppedFile;
-                          });
+                            _showFullImage(croppedFile, index);
+                          }
+                        },
+                        backgroundColor: Colors.deepPurple,
+                        child: const Icon(Icons.edit),
+                      ),
+                    const SizedBox(height: 12),
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "delete_$index",
+                        onPressed: () {
                           Navigator.pop(context);
-                          _showFullImage(croppedFile, index);
-                        }
-                      },
-                      backgroundColor: Colors.deepPurple,
-                      child: const Icon(Icons.edit),
-                    ),
-                  const SizedBox(height: 12),
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          controller.imageFiles.removeAt(index);
-                        });
-                      },
-                      backgroundColor: Colors.red,
-                      child: const Icon(Icons.delete),
-                    ),
-                ],
+                          setState(() {
+                            controller.imageFiles.removeAt(index);
+                          });
+                        },
+                        backgroundColor: Colors.red,
+                        child: const Icon(Icons.delete),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
@@ -2211,8 +2369,10 @@ class _ApprovalViewEditExpensePageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -2224,7 +2384,7 @@ class _ApprovalViewEditExpensePageState
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -2277,10 +2437,7 @@ class _ApprovalViewEditExpensePageState
                       Obx(
                         () => SearchableMultiColumnDropdownField<User>(
                           labelText: 'User *',
-                          columnHeaders: const [
-                            'User Name',
-                            'User ID',
-                          ],
+                          columnHeaders: const ['User Name', 'User ID'],
                           items: controller.userList,
                           selectedValue: controller.selectedUser.value,
                           searchValue: (user) =>
@@ -2295,7 +2452,9 @@ class _ApprovalViewEditExpensePageState
                           rowBuilder: (user, searchQuery) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
                               child: Row(
                                 children: [
                                   Expanded(child: Text(user.userName)),
@@ -2309,10 +2468,7 @@ class _ApprovalViewEditExpensePageState
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 16),
-                    const Text(
-                      'Comment',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    const Text('Comment', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
@@ -2333,8 +2489,9 @@ class _ApprovalViewEditExpensePageState
                             width: 2,
                           ),
                         ),
-                        errorText:
-                            isCommentError ? 'Comment is required.' : null,
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
                       ),
                       onChanged: (value) {
                         if (isCommentError && value.trim().isNotEmpty) {
@@ -2365,9 +2522,8 @@ class _ApprovalViewEditExpensePageState
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(
-                                child: SkeletonLoaderPage(),
-                              ),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
                             final success = await controller.postApprovalAction(
@@ -2378,8 +2534,10 @@ class _ApprovalViewEditExpensePageState
                             );
 
                             // Hide the loading indicator
-                            if (Navigator.of(context, rootNavigator: true)
-                                .canPop()) {
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
@@ -2387,12 +2545,15 @@ class _ApprovalViewEditExpensePageState
 
                             if (success) {
                               Navigator.pushNamed(
-                                  context, AppRoutes.approvalDashboard);
+                                context,
+                                AppRoutes.approvalDashboard,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Failed to submit action')),
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -2404,7 +2565,7 @@ class _ApprovalViewEditExpensePageState
                         ),
                       ],
                     ),
-                     const SizedBox(height: 30),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -2415,37 +2576,38 @@ class _ApprovalViewEditExpensePageState
     );
   }
 
- Widget _buildTextField({
-  required String label,
-  required TextEditingController controller,
-  required bool isReadOnly,
-  void Function(String)? onChanged,
-  List<TextInputFormatter>? inputFormatters,
-  TextInputType keyboardType = TextInputType.text, // default to text
-}) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const SizedBox(height: 4),
-      TextField(
-        controller: controller,
-        enabled: isReadOnly,
-        onChanged: onChanged,
-        inputFormatters: inputFormatters,
-        keyboardType: keyboardType, // set keyboard type here
-        decoration: InputDecoration(
-          labelText: label,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text, // default to text
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType, // set keyboard type here
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
         ),
-      ),
-      const SizedBox(height: 12),
-    ],
-  );
-}
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   Widget _buildDropdownField({
     required String label,
     required List<String> items,
@@ -2456,24 +2618,23 @@ class _ApprovalViewEditExpensePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
           value: selectedValue,
           decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onChanged: isReadOnly ? null : onChanged,
           items: items
-              .map((e) => DropdownMenuItem<String>(
-                    value: e,
-                    child: Text(e),
-                  ))
+              .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
               .toList(),
         ),
         const SizedBox(height: 12),
@@ -2507,10 +2668,7 @@ class _ApprovalViewEditExpensePageState
           ),
         ),
         if (expanded)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: child,
-          )
+          Padding(padding: const EdgeInsets.only(top: 10), child: child),
       ],
     );
   }
@@ -2525,8 +2683,9 @@ class _ApprovalViewEditExpensePageState
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
             title: Text(
               title,
@@ -2541,10 +2700,13 @@ class _ApprovalViewEditExpensePageState
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),

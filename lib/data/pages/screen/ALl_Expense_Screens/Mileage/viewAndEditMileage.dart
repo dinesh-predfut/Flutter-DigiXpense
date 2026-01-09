@@ -514,9 +514,13 @@ void calculateAmount() {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      }
+                        if (snapshot.hasError) {
+                                          return Center(
+                                            child: Text(
+                                              "No Data Available",
+                                            ),
+                                          );
+                                        }
 
                       final historyList = snapshot.data!;
                       if (historyList.isEmpty) {

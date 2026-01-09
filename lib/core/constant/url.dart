@@ -75,6 +75,8 @@ class Urls {
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const updateApprovalStatus =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
+       static const updateApprovalStatusLeave =
+          "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=LeaveCancellation";
   static const updateApprovalStatusCashAdvance =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
   static const getSpecificPerdiemExpense =
@@ -109,6 +111,8 @@ class Urls {
       "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion/";
   static const deleteExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenses?RecId=";
+      static const deleteLeave =
+      "$baseURL/api/v1/leaverequisition/leavemanagement/deleteleave?recid=";
       static const deleteExpenseUnprocess =
       "$baseURL/api/v1/expenseregistration/expenseregistration/unprocessedexpense?RecId=";
   static const pendingApprovals =

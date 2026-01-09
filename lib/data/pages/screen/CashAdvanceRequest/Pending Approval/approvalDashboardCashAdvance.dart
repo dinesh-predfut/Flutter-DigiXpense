@@ -445,7 +445,7 @@ Rxn<File> profileImage = Rxn<File>();
                             }).toList();
                             if (expenses.isEmpty) {
                               return const Center(
-                                child: Text("No expenses found"),
+                                child: Text("No Pending Approvals found"),
                               );
                             }
 
@@ -573,7 +573,7 @@ Rxn<File> profileImage = Rxn<File>();
     );
   }
 
-  Widget _buildProfileAvatar() {
+ Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(context, AppRoutes.personalInfo);
@@ -584,7 +584,6 @@ Rxn<File> profileImage = Rxn<File>();
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.15),
@@ -596,54 +595,58 @@ Rxn<File> profileImage = Rxn<File>();
           child: AnimatedScale(
             duration: const Duration(milliseconds: 200),
             scale: controller.isImageLoading.value ? 1.0 : 1.05,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Stack(
-                children: [
-                  // Placeholder or Image
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey[800],
-                    ),
-                    child: controller.isImageLoading.value
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                        : profileImage.value != null
-                        ? Image.file(
-                            profileImage.value!,
-                            fit: BoxFit.cover,
-                            width: 30,
-                            height: 30,
-                          )
-                        : const Center(
-                            child: Icon(
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
                               Icons.person,
-                              size: 28,
+                              size: 18,
                               color: Colors.white70,
                             ),
-                          ),
-                  ),
-                  // Overlay shimmer when loading
-                  if (controller.isImageLoading.value)
-                    Container(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.white10],
-                          stops: [0.7, 1.0],
-                        ),
-                      ),
                     ),
 
-                  // Edit icon overlay on tap-ready state
-                ],
+                    /// Loader Overlay
+                    if (controller.isImageLoading.value)
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -651,6 +654,7 @@ Rxn<File> profileImage = Rxn<File>();
       ),
     );
   }
+
 
   Widget _buildStyledCard(ManageExpensesCard card) {
     final theme = Theme.of(context);

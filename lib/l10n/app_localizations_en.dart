@@ -447,7 +447,51 @@ String get exitForm => 'Exit Form';
 @override String get totalDays => 'Total Days';
 @override String get saveAsDraft => 'Save as Draft';
 @override String get editLeaveRequest => 'Edit Leave Request';
-@override String get newLeaveRequest => 'New Leave Request';
+@override String get newLeaveRequest => 'View Leave Request';
+@override
+String get newCreateLeaveRequest => 'Create Leave Request';
+
+@override String get leaveRequisitionId => 'Leave Requisition ID';
+@override String get delegatedAuthority => 'Delegated authority/Reliever';
+@override String get locationDuringLeave => 'Location during leave';
+@override String get availableForUrgentMatters => 'Available For Urgent Matters';
+@override String get notAvailable => 'Not Available';
+@override String get dayType => 'Day Type';
+@override String get fullDay => 'Full Day';
+@override String get firstHalf => 'First Half';
+@override String get secondHalf => 'Second Half';
+@override String get myTeamLeaveDashboard => 'My Team Leave Dashboard';
+@override String get noEventsFor => 'No events for';
+@override String get duration => 'Duration';
+
+@override String get mon => 'Mon';
+@override String get tue => 'Tue';
+@override String get wed => 'Wed';
+@override String get thu => 'Thu';
+@override String get fri => 'Fri';
+@override String get sat => 'Sat';
+@override String get sun => 'Sun';
+
+@override String get noLeaveData => 'No Leave Data';
+@override String get remaining => 'Remaining';
+@override String get outOf => 'Out of';
+@override String get balance => 'Balance';
+String get addLeaveRequest => 'Add Leave Request';
+@override String get leaveRequisition => 'Leave Requisition';
+@override String get myLeave => 'My Leave';
+@override String get myTeamLeave => 'My Team Leave';
+@override String get myTeamLeaveCancellation => 'My Team Leave Cancellation';
+
+@override
+String get appliedDate => 'Applied Date';
+
+@override
+String get ofLeave => 'of Leave';
+
+@override
+String get total => 'Total';
+
+
 @override
 String get days => 'Days';
 
@@ -656,6 +700,11 @@ String get days => 'Days';
 String get employeeName => 'Employee Name';
 @override
 String get justification => 'Justification';
+@override
+String get uploadFileOrDragDrop => 'Upload a file or drag and drop';
+
+@override
+String get uploadAttachments => 'Attachments';
 
   @override
   String get search => 'Search';
@@ -878,7 +927,7 @@ String get justification => 'Justification';
   @override
   String get editCashAdvanceReturn => 'Edit Cash Advance Return';
   @override
-  String get viewCashAdvanceReturn => 'View Cash Advance Return';
+  String get viewCashAdvanceReturn => 'View Cash Advance Returns';
   @override
   String get receiptDetails => 'Receipt Details';
   @override

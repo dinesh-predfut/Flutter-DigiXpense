@@ -919,44 +919,88 @@ class _CashAdvanceRequestDashboardState
     );
   }
 
-  Widget _buildProfileAvatar() {
+ Widget _buildProfileAvatar() {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
       child: Obx(
-        () => Container(
-          padding: const EdgeInsets.all(2),
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: controller.isImageLoading.value
-                ? const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
                     ),
-                  )
-                : profileImage.value != null
-                ? Image.file(
-                    profileImage.value!,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  )
-                : const Icon(Icons.person, size: 40, color: Colors.white),
+
+                    /// Loader Overlay
+                    if (controller.isImageLoading.value)
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
-  // General TextField-like displa
-
-  // Example itemized detail block
-}
+    }
 
 Widget _buildSwipeActionLeft(bool isLoading) {
   return Container(

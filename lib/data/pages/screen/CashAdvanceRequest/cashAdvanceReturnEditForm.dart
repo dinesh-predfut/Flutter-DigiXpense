@@ -75,8 +75,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   @override
   void initState() {
     super.initState();
-    _pageController =
-        PageController(initialPage: controller.currentIndex.value);
+   
     expenseIdController.text = "";
     requestDateController.text = "";
     merhantName.text = "";
@@ -90,6 +89,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
     isLocationConfig = controller.getFieldConfig("Location");
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+       _pageController =
+        PageController(initialPage: controller.currentIndex.value);
       controller.getconfigureFieldCashAdvance();
       controller.fetchLocation();
       controller.fetchPaidto();
@@ -101,7 +102,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       controller.fetchExpenseDocImage(widget.items!.recId);
       print("widget.items!.stepType == " "${widget.items!.stepType}");
       historyFuture = controller.cashadvanceTracking(widget.items!.recId);
-    });
+
 
     final timestamp = widget.items!.requestDate;
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -147,6 +148,7 @@ controller.requestedPercentage.text =
     controller.recID = widget.items!.recId;
 
     _initializeItemizeControllers();
+        });
   }
 
   double _calculateTotalLineAmount(Controller controllers) {
@@ -282,7 +284,7 @@ controller.currencyDropDowncontrollerCA2.text =
         ]);
 
         final exchangeResponse1 = results[0] as ExchangeRateResponse?;
-        final maxPercentage = results[1] as double?;
+        final maxPercentage = item.percentage;
 
         if (exchangeResponse1 != null) {
           controller.unitRateCA1.text =
@@ -294,11 +296,11 @@ controller.currencyDropDowncontrollerCA2.text =
 
         if (maxPercentage != null && maxPercentage > 0 && paidAmounts != null) {
           final calculatedPercentage = (paidAmounts * maxPercentage) / 100;
-          print("lineAdvanceRequesteds${item.lineAdvanceRequested}");
+          print("lineAdvanceRequesteds$maxPercentage");
           controller.totalRequestedAmount.text =
-              calculatedPercentage.toString();
+              item.lineAdvanceRequested.toString();
           controller.calculatedPercentage.value = calculatedPercentage;
-controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100';
+controller.requestedPercentage.text = maxPercentage.toString();
         }
 
         final reqPaidAmount = controller.totalRequestedAmount.text.trim();
@@ -701,7 +703,7 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
           ],
         ),
         body: Obx(() {
-          return controller.isLoadingviewImage.value
+          return controller.isLoadingLogin.value
               ? const SkeletonLoaderPage()
               : Form(
                   key: _formKey,
@@ -711,116 +713,81 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => {
-                            if (controller.imageFiles.isEmpty)
-                              {_pickImage(ImageSource.gallery)},
-                          },
-                          child: Container(
-                            width: MediaQuery.of(context).size.width * 0.9,
-                            height: MediaQuery.of(context).size.height * 0.3,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.grey,
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Obx(() {
-                              if (controller.imageFiles.isEmpty) {
-                                return Center(
-                                  child: Text(
-                                    AppLocalizations.of(context)!.tapToUploadDocs,
-                                  ),
-                                );
-                              } else {
-                                return Stack(
-                                  children: [
-                                    PageView.builder(
-                                      controller: _pageController,
-                                      itemCount: controller.imageFiles.length,
-                                      onPageChanged: (index) {
-                                        controller.currentIndex.value = index;
-                                      },
-                                      itemBuilder: (_, index) {
-                                        final file = controller.imageFiles[index];
-                                        return GestureDetector(
-                                          onTap: () => _showFullImage(file, index),
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            margin: const EdgeInsets.all(8),
-                                            width: 100,
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: Colors.deepPurple,
-                                              ),
-                                              borderRadius: BorderRadius.circular(8),
-                                              image: DecorationImage(
-                                                image: FileImage(file),
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                Obx(() {
+  return Stack(
+    children: [
+      GestureDetector(
+        onTap: () {
+          if (controller.imageFiles.isEmpty &&
+              controller.isEnable.value &&
+              !controller.isLoadingviewImage.value) {
+            _pickImage(ImageSource.gallery);
+          }
+        },
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.3,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey, width: 2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Obx(() {
+            if (controller.imageFiles.isEmpty) {
+              return Center(
+                child: Text(
+                  AppLocalizations.of(context)!.tapToUploadDocs,
+                ),
+              );
+            }
 
-                                    Positioned(
-                                      bottom: 40,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Obx(
-                                          () => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                              horizontal: 16,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(0.5),
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (controller.isEnable.value)
-                                      Positioned(
-                                        bottom: 16,
-                                        right: 16,
-                                        child: GestureDetector(
-                                          onTap: () => _pickImage(ImageSource.gallery),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.deepPurple,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            padding: const EdgeInsets.all(8),
-                                            child: const Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 28,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                );
-                              }
-                            }),
-                          ),
-                        ),
+            return PageView.builder(
+              controller: _pageController,
+              itemCount: controller.imageFiles.length,
+              onPageChanged: (index) {
+                controller.currentIndex.value = index;
+              },
+              itemBuilder: (_, index) {
+                final file = controller.imageFiles[index];
+                return GestureDetector(
+                  onTap: () => _showFullImage(file, index),
+                  child: Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.deepPurple),
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: FileImage(file),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+        ),
+      ),
+
+      // 🔥 CIRCULAR LOADER OVERLAY
+      if (controller.isLoadingviewImage.value)
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
+}),
+
                       const SizedBox(height: 20),
                       Text(AppLocalizations.of(context)!.receiptDetails,
                           style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -831,12 +798,13 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                         isReadOnly: false,
                         validator: (value) => _validateRequiredField(value!, "Cash Advance Requisition ID", true),
                       ),
+                        const SizedBox(height: 6),
                       buildDateField(
                         AppLocalizations.of(context)!.requestDate,
                         requestDateController,
                         isReadOnly: !controller.isEnable.value,
                       ),
-
+  const SizedBox(height: 6),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1259,7 +1227,7 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                                                           style: const TextStyle(color: Colors.red, fontSize: 12),
                                                         ),
                                                       ),
-                                                    const SizedBox(height: 16),
+                                                    const SizedBox(height: 6),
                                                   ],
                                                 );
                                               }).toList(),
@@ -1313,23 +1281,100 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                                             },
                                           ),
                                           const SizedBox(height: 12),
-                                          TextField(
-                                            controller: itemController.requestedPercentage,
-                                            decoration: InputDecoration(
-                                              labelText: "${AppLocalizations.of(context)!.requestedPercentage} %",
-                                              enabled: false,
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(width: 2),
-                                                borderRadius: BorderRadius.circular(10),
-                                              ),
-                                            ),
-                                          ),
+                                         TextField(
+  controller: itemController.requestedPercentage,
+  enabled: controller.isEnable.value,
+  keyboardType: TextInputType.number,
+  decoration: InputDecoration(
+    labelText: "${AppLocalizations.of(context)!.requestedPercentage} %",
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    focusedBorder: OutlineInputBorder(
+      borderSide: const BorderSide(width: 2),
+      borderRadius: BorderRadius.circular(10),
+    ),
+  ),
+  onChanged: (value) {
+    if (value.isEmpty) return;
+
+    final double percentage = double.tryParse(value) ?? 0.0;
+    if (percentage <= 0) return;
+
+    // Cancel debounce
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      /// Base values
+      final double unitAmount =
+          double.tryParse(itemController.unitAmount.text) ?? 0.0;
+
+      /// 1️⃣ Calculate estimated amount
+      final double estimatedAmount = unitAmount * percentage / 100;
+
+      itemController.totalunitEstimatedAmount.text =
+          estimatedAmount.toStringAsFixed(2);
+      itemController.paidAmount.text =
+          estimatedAmount.toStringAsFixed(2);
+
+      /// 2️⃣ Exchange rate (Paid Amount)
+      final currency1 =
+          itemController.currencyDropDowncontrollerCA3.text;
+
+      if (currency1.isNotEmpty) {
+        final exchangeResponse =
+            await itemController.fetchExchangeRateCA(
+                currency1, estimatedAmount.toString());
+
+        if (exchangeResponse != null) {
+          itemController.unitRateCA1.text =
+              exchangeResponse.exchangeRate.toString();
+          itemController.amountINRCA1.text =
+              exchangeResponse.totalAmount.toStringAsFixed(2);
+          itemController.isVisible.value = true;
+        }
+      }
+
+      /// 3️⃣ Requested Amount calculation
+      final maxAllowed =
+          await itemController.fetchMaxAllowedPercentage();
+
+      if (maxAllowed != null && maxAllowed > 0) {
+        final double requestedAmount =
+            (estimatedAmount * maxAllowed) / 100;
+
+        itemController.totalRequestedAmount.text =
+            requestedAmount.toStringAsFixed(2);
+        itemController.calculatedPercentage.value =
+            requestedAmount;
+      }
+
+      /// 4️⃣ Exchange rate (Requested Amount)
+      final reqCurrency =
+          itemController.currencyDropDowncontrollerCA2.text;
+      final reqAmount =
+          itemController.totalRequestedAmount.text;
+
+      if (reqCurrency.isNotEmpty && reqAmount.isNotEmpty) {
+        final exchangeResponse =
+            await itemController.fetchExchangeRateCA(
+                reqCurrency, reqAmount);
+
+        if (exchangeResponse != null) {
+          itemController.unitRateCA2.text =
+              exchangeResponse.exchangeRate.toString();
+          itemController.amountINRCA2.text =
+              exchangeResponse.totalAmount.toStringAsFixed(2);
+
+          _calculateTotalLineAmount(itemController);
+          _calculateTotalLineAmount2(itemController);
+        }
+      }
+
+      _syncControllerToModel(index);
+    });
+  },
+),
+
                                           const SizedBox(height: 12),
                                           _buildTextField(
                                               keyboardType: TextInputType.number,
@@ -1603,7 +1648,7 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                                                             AppLocalizations.of(context)!.symbol
                                                           ],
                                                           controller: itemController.currencyDropDowncontrollerCA3,
-                                                          items: itemController.currencies,
+                                                          items: controller.currencies,
                                                           selectedValue: itemController.selectedCurrencyCA1.value,
                                                           searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
                                                           displayText: (c) => c.code,
@@ -1921,10 +1966,13 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                               if (snapshot.connectionState == ConnectionState.waiting) {
                                 return const Center(child: CircularProgressIndicator());
                               }
-
-                              if (snapshot.hasError) {
-                                return Center(child: Text('Error: ${snapshot.error}'));
-                              }
+  if (snapshot.hasError) {
+                                          return Center(
+                                            child: Text(
+                                              "No Data Available",
+                                            ),
+                                          );
+                                        }
 
                               final historyList = snapshot.data!;
                               if (historyList.isEmpty) {
@@ -2250,7 +2298,7 @@ controller.requestedPercentage.text = maxPercentage?.toInt().toString() ?? '100'
                             },
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                             child: Text(
-                              AppLocalizations.of(context)!.cancel,
+                              AppLocalizations.of(context)!.close,
                             ),
                           ),
                       ] else ...[

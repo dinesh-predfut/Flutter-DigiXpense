@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:digi_xpense/core/comman/widgets/chatCard.dart';
 import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
 import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
+import 'package:digi_xpense/core/constant/url.dart' show Urls;
 import 'package:digi_xpense/data/models.dart';
 import 'package:flutter/material.dart';
 import 'package:digi_xpense/l10n/app_localizations.dart';
@@ -51,10 +52,12 @@ class _DashboardPageState extends State<DashboardPage>
     super.initState();
     _scrollController = ScrollController();
     getDeviceDetails(context);
+    controller.fetchAndStoreFeatures(Params.userToken);
+
     controller.updateFeatureVisibility();
     //  controller.loadDashboards();
     _loadDashboards();
-    controller.initializeWizardConfigs(); // Initialize wizard configs
+    // controller.initializeWizardConfigs(); // Initialize wizard configs
     _initializeAsync();
   }
 
@@ -70,19 +73,17 @@ class _DashboardPageState extends State<DashboardPage>
     });
   }
 
-  void _initializeAsync() async {
-    controller.isUploadingCards.value = true;
+  Future<void> _initializeAsync() async {
+    print("Initialization failed111: ${controller.isDataLoaded.value}");
+    if (controller.isDataLoaded.value) return;
 
     controller.digiSessionId = const Uuid().v4();
-    Timer(const Duration(seconds: 3), () {
-      controller.getPersonalDetails(context);
-      controller.getCashAdvanceAPI();
-      controller.getExpenseList();
-      controller.fetchExpensesByCategory();
-      controller.fetchManageExpensesSummary();
-      controller.fetchExpensesByStatus();
-      controller.fetchAndStoreFeatures(Params.userToken);
-      controller.fetchAndCombineData().then((_) {
+
+    try {
+      /// 1️⃣ FIRST: fetch reference / user token (blocking)
+      await controller.getPersonalDetails(context); // if this gives token
+      await controller.getUserPref(context);
+      await controller.fetchAndCombineData().then((_) {
         if (controller.manageExpensesCards.isNotEmpty && mounted) {
           _animationController = AnimationController(
             vsync: this,
@@ -100,35 +101,47 @@ class _DashboardPageState extends State<DashboardPage>
           _animationController.repeat();
         }
       });
-      // controller.fetchChartData();
-      controller.fetchExpensesByProjects();
-      controller.fetchAndReplaceValue();
-      registerDevice();
-      controller.currencyDropDown();
-      controller.fetchNotifications();
-      controller.getPersonalDetails(context);
-      controller.configuration();
-      controller.getAllFeatureStates();
-      controller.getUserPref(context);
-      _loadProfileImage();
 
+      /// 2️⃣ SECOND: parallel API calls (FAST)
+      await Future.wait(
+        [
+              controller.getCashAdvanceAPI(),
+              controller.getExpenseList(),
+              controller.fetchExpensesByCategory(),
+              controller.fetchManageExpensesSummary(),
+              controller.fetchExpensesByStatus(),
+              controller.fetchExpensesByProjects(),
+              controller.fetchAndReplaceValue(),
+              controller.fetchNotifications(),
+              controller.currencyDropDown(),
+              controller.configuration(),
+              controller.getAllFeatureStates(),
+              registerDevice(),
+              _loadProfileImage(),
+            ]
+            as Iterable<Future>,
+      );
+
+      controller.isDataLoaded.value = true;
+    } catch (e) {
+      debugPrint("Initialization failed: $e");
       controller.isInitialized.value = true;
-    });
+    }
   }
 
   void _loadProfileImage() async {
-    // isImageLoading.value = true;
+    controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
     if (path != null && File(path).existsSync()) {
       profileImage.value = File(path);
-      // isImageLoading.value = false;
+      controller.isImageLoading.value = false;
     } else {
       await controller.getProfilePicture();
       final path = prefs.getString('profileImagePath');
 
       profileImage.value = File(path!);
-      // isImageLoading.value = false;
+      controller.isImageLoading.value = false;
     }
   }
   // void _initializeAsync() async {
@@ -231,7 +244,7 @@ class _DashboardPageState extends State<DashboardPage>
       // Step 2: Make POST API call
       final response = await http.post(
         Uri.parse(
-          'https://api.digixpense.com/api/v1/common/pushnotifications/registerdevice',
+          '${Urls.baseURL}/api/v1/common/pushnotifications/registerdevice',
         ),
         headers: {
           'accept': 'application/json',
@@ -395,7 +408,7 @@ class _DashboardPageState extends State<DashboardPage>
       },
       child: Scaffold(
         body: Obx(() {
-          return controller.isUploadingCards.value
+          return controller.isUploadingCardsUpdate.value
               ? const SkeletonLoaderPage()
               : LayoutBuilder(
                   builder: (context, constraints) {
@@ -577,77 +590,84 @@ class _DashboardPageState extends State<DashboardPage>
                                               duration: const Duration(
                                                 milliseconds: 200,
                                               ),
-                                              scale: isImageLoading.value
+                                              scale: controller.isImageLoading.value
                                                   ? 1.0
                                                   : 1.05,
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(24),
-                                                child: Stack(
-                                                  children: [
-                                                    Container(
-                                                      width: 30,
-                                                      height: 30,
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: Colors.grey[800],
-                                                      ),
-                                                      child:
-                                                          isImageLoading.value
-                                                          ? const Center(
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                    color: Colors
-                                                                        .white,
-                                                                    strokeWidth:
-                                                                        2.5,
-                                                                  ),
-                                                            )
-                                                          : profileImage
+                                              child: ClipOval(
+                                                child: SizedBox(
+                                                  width: 30,
+                                                  height: 30,
+                                                  child: Stack(
+                                                    alignment: Alignment.center,
+                                                    children: [
+                                                      /// Avatar / Placeholder
+                                                      Container(
+                                                        width: 30,
+                                                        height: 30,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              color: Colors
+                                                                  .grey[800],
+                                                            ),
+                                                        child:
+                                                            profileImage
                                                                     .value !=
                                                                 null
-                                                          ? Image.file(
-                                                              profileImage
-                                                                  .value!,
-                                                              key: ValueKey(
+                                                            ? Image.file(
                                                                 profileImage
-                                                                    .value!
-                                                                    .path,
-                                                              ),
-                                                              fit: BoxFit.cover,
-                                                              width: 30,
-                                                              height: 30,
-                                                            )
-                                                          : const Center(
-                                                              child: Icon(
+                                                                    .value!,
+                                                                key: ValueKey(
+                                                                  profileImage
+                                                                      .value!
+                                                                      .path,
+                                                                ),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              )
+                                                            : const Icon(
                                                                 Icons.person,
-                                                                size: 28,
+                                                                size: 18,
                                                                 color: Colors
                                                                     .white70,
                                                               ),
-                                                            ),
-                                                    ),
-                                                    if (isImageLoading.value)
-                                                      Container(
-                                                        decoration: BoxDecoration(
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          gradient:
-                                                              const LinearGradient(
-                                                                colors: [
-                                                                  Colors
-                                                                      .transparent,
-                                                                  Colors
-                                                                      .white10,
-                                                                ],
-                                                                stops: [
-                                                                  0.7,
-                                                                  1.0,
-                                                                ],
-                                                              ),
-                                                        ),
                                                       ),
-                                                  ],
+
+                                                      /// Loader Overlay
+                                                      if (controller.isImageLoading.value)
+                                                        Container(
+                                                          width: 30,
+                                                          height: 30,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                      0.35,
+                                                                    ),
+                                                              ),
+                                                          child: const Center(
+                                                            child: SizedBox(
+                                                              width: 14,
+                                                              height: 14,
+                                                              child: CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                valueColor:
+                                                                    AlwaysStoppedAnimation<
+                                                                      Color
+                                                                    >(
+                                                                      Colors
+                                                                          .white,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -1074,39 +1094,36 @@ class _DashboardPageState extends State<DashboardPage>
 
       case 'Table':
         return _buildTable();
- case 'MultiBarChart':
+      case 'MultiBarChart':
         return _buildMultiBarChart(item, data);
       default:
         return _buildGenericWidgetContent(item, data);
     }
   }
-Widget _buildMultiBarChart(
-   DashboardDataItem item,
-    WidgetDataResponse data,
-) {
- final multiSeries =controller.convertMultiSeriesChart(data!.raw);
-  if (multiSeries.isEmpty) {
-    return const Center(child: Text("No chart data"));
+
+  Widget _buildMultiBarChart(DashboardDataItem item, WidgetDataResponse data) {
+    final multiSeries = controller.convertMultiSeriesChart(data!.raw);
+    if (multiSeries.isEmpty) {
+      return const Center(child: Text("No chart data"));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: SfCartesianChart(
+        legend: Legend(isVisible: true),
+        // tooltipBehavior: TooltipBehavior(enable: true),
+        primaryXAxis: CategoryAxis(
+          labelRotation: 25,
+          labelStyle: const TextStyle(fontSize: 8),
+        ),
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.compact(),
+          labelStyle: const TextStyle(fontSize: 9),
+        ),
+        series: multiSeries,
+      ),
+    );
   }
-
-  return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: SfCartesianChart(
-      legend: Legend(isVisible: true),
-      // tooltipBehavior: TooltipBehavior(enable: true),
-      primaryXAxis: CategoryAxis(
-        labelRotation: 25,
-        labelStyle: const TextStyle(fontSize: 8),
-      ),
-      primaryYAxis: NumericAxis(
-        numberFormat: NumberFormat.compact(),
-        labelStyle: const TextStyle(fontSize: 9),
-      ),
-      series: multiSeries,
-    ),
-  );
-}
-
 
   // Line Chart Widget
   Widget _buildLineChartWidget(
@@ -1223,121 +1240,120 @@ Widget _buildMultiBarChart(
       ),
     );
   }
-Widget _buildTable() {
-  final headers = [
-    "ExpenseId",
-    "EmployeeName",
-    "ExpenseStatus",
-    "ApprovalStatus",
-    "TotalAmountTrans",
-    "Currency",
-    "MerchantName",
-    "ExpenseCategoryId",
-    "PaymentMethod",
-    "ReceiptDate",
-    "CreatedDatetime",
-  ];
 
-  return Obx(() {
-    final list = controller.getAllListGExpense;
+  Widget _buildTable() {
+    final headers = [
+      "ExpenseId",
+      "EmployeeName",
+      "ExpenseStatus",
+      "ApprovalStatus",
+      "TotalAmountTrans",
+      "Currency",
+      "MerchantName",
+      "ExpenseCategoryId",
+      "PaymentMethod",
+      "ReceiptDate",
+      "CreatedDatetime",
+    ];
+
+    return Obx(() {
+      final list = controller.getAllListGExpense;
+
+      if (list.isEmpty) {
+        return const Center(child: Text("No draft expenses found"));
+      }
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: DataTable(
+            headingRowColor: MaterialStateProperty.all(Colors.grey.shade300),
+            columns: headers
+                .map(
+                  (h) => DataColumn(
+                    label: Text(
+                      h,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                )
+                .toList(),
+            rows: list.map<DataRow>((row) {
+              final mapRow = row.toMap(); // Convert object to Map
+
+              return DataRow(
+                cells: headers.map((h) {
+                  var value = mapRow[h];
+
+                  // Format timestamps
+                  if ((h == "ReceiptDate" || h == "CreatedDatetime") &&
+                      value != null &&
+                      value is int) {
+                    value = controller.formattedDate(value);
+                  }
+
+                  return DataCell(Text(value?.toString() ?? ""));
+                }).toList(),
+              );
+            }).toList(),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildTableGridWidget(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    // Safely get list of rows
+    final list = data.getSeries();
 
     if (list.isEmpty) {
-      return const Center(child: Text("No draft expenses found"));
+      return const Center(child: Text("No data available"));
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(Colors.grey.shade300),
-          columns: headers
-              .map(
-                (h) => DataColumn(
+    // Extract headers from first row
+    final firstRow = list.first;
+    if (firstRow is! Map<String, dynamic>) {
+      return const Center(child: Text("Invalid table format"));
+    }
+
+    final headers = firstRow.keys.toList();
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: MaterialStateProperty.all(Colors.grey.shade200),
+            columns: [
+              for (final header in headers)
+                DataColumn(
                   label: Text(
-                    h,
+                    header.toString(),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-              )
-              .toList(),
-          rows: list.map<DataRow>((row) {
-            final mapRow = row.toMap(); // Convert object to Map
-
-            return DataRow(
-              cells: headers.map((h) {
-                var value = mapRow[h];
-
-                // Format timestamps
-                if ((h == "ReceiptDate" || h == "CreatedDatetime") &&
-                    value != null &&
-                    value is int) {
-                  value = controller.formattedDate(value);
-                }
-
-                return DataCell(
-                  Text(value?.toString() ?? ""),
-                );
-              }).toList(),
-            );
-          }).toList(),
+            ],
+            rows: list.map<DataRow>((row) {
+              if (row is! Map<String, dynamic>) return const DataRow(cells: []);
+              return DataRow(
+                cells: [
+                  for (final h in headers)
+                    DataCell(Text(row[h]?.toString() ?? '')),
+                ],
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
-  });
-}
-
-  Widget _buildTableGridWidget(
-  DashboardDataItem item,
-  WidgetDataResponse data,
-) {
-  // Safely get list of rows
-  final list = data.getSeries();
-
-  if (list.isEmpty) {
-    return const Center(child: Text("No data available"));
   }
-
-  // Extract headers from first row
-  final firstRow = list.first;
-  if (firstRow is! Map<String, dynamic>) {
-    return const Center(child: Text("Invalid table format"));
-  }
-
-  final headers = firstRow.keys.toList();
-
-  return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: MaterialStateProperty.all(Colors.grey.shade200),
-          columns: [
-            for (final header in headers)
-              DataColumn(
-                label: Text(
-                  header.toString(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-          ],
-          rows: list.map<DataRow>((row) {
-            if (row is! Map<String, dynamic>) return const DataRow(cells: []);
-            return DataRow(
-              cells: [
-                for (final h in headers) DataCell(Text(row[h]?.toString() ?? '')),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
-    ),
-  );
-}
-
 
   // Summary Box Widget
   Widget _buildSummaryBoxWidget(
@@ -1405,72 +1421,76 @@ Widget _buildTable() {
 
   // Helper method to convert API response to chart data points
   List<ChartDataPoint> _convertToChartDataPoints(WidgetDataResponse data) {
-  final List<ChartDataPoint> points = [];
-  final raw = data.raw;
+    final List<ChartDataPoint> points = [];
+    final raw = data.raw;
 
-  List<dynamic>? list;
+    List<dynamic>? list;
 
-  // CASE 1: raw itself is a List of {x,y}
-  if (raw is List) {
-    list = raw;
-  }
-  // CASE 2: raw is a Map
-  else if (raw is Map<String, dynamic>) {
-    // CASE 2a: XAxis + YAxis format
-    if (raw['XAxis'] is List && raw['YAxis'] is List) {
-      final xAxis = List<String>.from(raw['XAxis']);
-      final yAxisRaw = raw['YAxis'] as List;
+    // CASE 1: raw itself is a List of {x,y}
+    if (raw is List) {
+      list = raw;
+    }
+    // CASE 2: raw is a Map
+    else if (raw is Map<String, dynamic>) {
+      // CASE 2a: XAxis + YAxis format
+      if (raw['XAxis'] is List && raw['YAxis'] is List) {
+        final xAxis = List<String>.from(raw['XAxis']);
+        final yAxisRaw = raw['YAxis'] as List;
 
-      for (int i = 0; i < xAxis.length; i++) {
-        if (i < yAxisRaw.length) {
-          final yValue = yAxisRaw[i];
-          double y = 0.0;
-          if (yValue is num) {
-            y = yValue.toDouble();
-          } else if (yValue is String) {
-            y = double.tryParse(yValue) ?? 0.0;
-          } else if (yValue is Map && yValue.containsKey('y')) {
-            final val = yValue['y'];
-            y = (val is num) ? val.toDouble() : double.tryParse(val.toString()) ?? 0.0;
+        for (int i = 0; i < xAxis.length; i++) {
+          if (i < yAxisRaw.length) {
+            final yValue = yAxisRaw[i];
+            double y = 0.0;
+            if (yValue is num) {
+              y = yValue.toDouble();
+            } else if (yValue is String) {
+              y = double.tryParse(yValue) ?? 0.0;
+            } else if (yValue is Map && yValue.containsKey('y')) {
+              final val = yValue['y'];
+              y = (val is num)
+                  ? val.toDouble()
+                  : double.tryParse(val.toString()) ?? 0.0;
+            }
+            points.add(ChartDataPoint(x: xAxis[i], y: y));
           }
-          points.add(ChartDataPoint(x: xAxis[i], y: y));
         }
+        return points;
       }
-      return points;
-    }
 
-    // CASE 2b: raw['data'] is a List
-    if (raw['data'] is List) list = raw['data'];
-
-    // CASE 2c: raw['value'] is a List
-    else if (raw['value'] is List) list = raw['value'];
-
-    // CASE 2d: raw['value']['data'] is a List
-    else if (raw['value'] is Map && raw['value']['data'] is List) {
-      list = raw['value']['data'];
-    }
-  }
-
-  // If we have a list, parse it
-  if (list != null) {
-    for (var item in list) {
-      if (item is Map) {
-        final xValue = item['x'] ?? item['label'] ?? item['category'] ?? '';
-        final yRaw = item['y'] ?? item['value'] ?? item['amount'] ?? 0;
-        double yValue = 0.0;
-
-        if (yRaw is num) yValue = yRaw.toDouble();
-        else if (yRaw is String) yValue = double.tryParse(yRaw) ?? 0.0;
-
-        if (xValue != '') {
-          points.add(ChartDataPoint(x: xValue.toString(), y: yValue));
-        }
+      // CASE 2b: raw['data'] is a List
+      if (raw['data'] is List)
+        list = raw['data'];
+      // CASE 2c: raw['value'] is a List
+      else if (raw['value'] is List)
+        list = raw['value'];
+      // CASE 2d: raw['value']['data'] is a List
+      else if (raw['value'] is Map && raw['value']['data'] is List) {
+        list = raw['value']['data'];
       }
     }
-  }
 
-  return points;
-}
+    // If we have a list, parse it
+    if (list != null) {
+      for (var item in list) {
+        if (item is Map) {
+          final xValue = item['x'] ?? item['label'] ?? item['category'] ?? '';
+          final yRaw = item['y'] ?? item['value'] ?? item['amount'] ?? 0;
+          double yValue = 0.0;
+
+          if (yRaw is num)
+            yValue = yRaw.toDouble();
+          else if (yRaw is String)
+            yValue = double.tryParse(yRaw) ?? 0.0;
+
+          if (xValue != '') {
+            points.add(ChartDataPoint(x: xValue.toString(), y: yValue));
+          }
+        }
+      }
+    }
+
+    return points;
+  }
 
   // Widget _buildDashboardSection(BuildContext context, AppLocalizations loc) {
   //   return Padding(
@@ -2275,7 +2295,7 @@ Widget _buildTable() {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            child: isImageLoading.value
+            child: controller.isImageLoading.value
                 ? const SizedBox(
                     width: 40,
                     height: 40,

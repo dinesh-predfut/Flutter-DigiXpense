@@ -2142,12 +2142,13 @@ Rxn<File> profileImage = Rxn<File>();
                                     child: CircularProgressIndicator(),
                                   );
                                 }
-
-                                if (snapshot.hasError) {
-                                  return Center(
-                                    child: Text('Error: ${snapshot.error}'),
-                                  );
-                                }
+  if (snapshot.hasError) {
+                                          return Center(
+                                            child: Text(
+                                              "No Data Available",
+                                            ),
+                                          );
+                                        }
 
                                 final historyList = snapshot.data!;
                                 if (historyList.isEmpty) {
@@ -2762,7 +2763,7 @@ Rxn<File> profileImage = Rxn<File>();
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.grey,
                             ),
-                            child: Text(AppLocalizations.of(context)!.cancel),
+                            child: Text(AppLocalizations.of(context)!.close),
                           ),
                         const SizedBox(height: 28),
                       ],

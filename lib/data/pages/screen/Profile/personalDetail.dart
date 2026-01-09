@@ -79,7 +79,7 @@ late Future<Map<String, bool>> featureFuture;
 
     setState(() {
       hasEmailError = invalid;
-      _errorText = invalid ? "One or more emails are invalid" : null;
+      _errorText = invalid ? "Please Enter Valid Email" : null;
       isTyping = value.trim().isNotEmpty;
     });
   }

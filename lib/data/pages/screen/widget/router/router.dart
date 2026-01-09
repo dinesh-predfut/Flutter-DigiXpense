@@ -19,11 +19,21 @@ import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceRet
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
 import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart' show SpendersDashboardPage;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/dashboard_leave.dart';
-import 'package:digi_xpense/data/pages/screen/Leave_Section/leaveCalenderView.dart' show CalendarPage;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/view_CreateLeave.dart';
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/Leave_Approvals/leaveApprovals.dart' show PendingApprovalsLeaveDashboard;
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/Leave_Cancellation/leave_Cancelation_Dashboard.dart';
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/My_Teams_Leave/my_Team_dashboard_leave.dart';
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/dashboard_leave.dart';
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart' show CalendarPage;
+import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
 import 'package:digi_xpense/data/pages/screen/Notification/notification.dart';
+import 'package:digi_xpense/data/pages/screen/Payroll/paySlipDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
+import 'package:digi_xpense/data/pages/screen/Task_Board/addmoreetailsTask.dart';
+import 'package:digi_xpense/data/pages/screen/Task_Board/boardDashboard.dart';
+import 'package:digi_xpense/data/pages/screen/Task_Board/boardList.dart' show KanbanBoardPage, KanbanBoardScreen;
+import 'package:digi_xpense/data/pages/screen/Task_Board/view-Board.dart';
+import 'package:digi_xpense/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
+import 'package:digi_xpense/data/pages/screen/TimeSheet/timesheetDashboard.dart';
 import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
 import 'package:flutter/material.dart';
 import 'package:digi_xpense/core/comman/navigationBar.dart';
@@ -111,8 +121,28 @@ class AppRoutes {
       '/expense/reportWizardParent/reportWizardParent';
   static const String calendarView =
       '/leave/calendarView/calendarView';
+       static const String myTeamsDashboard =
+      '/myTeamsDashboard/myTeamsDashboard/myTeamsDashboard';
        static const String viewLeave =
       '/leave/viewLeave/viewLeave';
+       static const String leavePendingApprovals =
+      '/leave/leavePendingApprovals/leavePendingApprovals';
+         static const String leaveCancellation =
+      '/leave/leaveCancellation/leaveCancellation';
+       static const String paySlipDashboard =
+      '/leave/paySlipDashboard/paySlipDashboard';
+       static const String boardDashboard =
+      '/leave/boardDashboard/boardDashboard';
+        static const String createBoard =
+      '/leave/boardDashboard/createBoard';
+        static const String kanbanBoardPage =
+      '/leave/kanbanBoardPage/kanbanBoardPage';
+           static const String taskAddDetails =
+      '/leave/kanbanBoardPage/taskAddDetails';
+              static const String timeSheetDashboard =
+      '/leave/timeSheetDashboard/timeSheetDashboard';
+      static const String timeSheetRequestPage =
+      '/leave/timeSheetRequestPage/timeSheetRequestPage';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -131,16 +161,72 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const PersonalDetailsPage());
       case notification:
         return MaterialPageRoute(builder: (_) => const NotificationPage());
+         case paySlipDashboard:
+        return MaterialPageRoute(builder: (_) => const Payslip_Dashboard());
+         case timeSheetDashboard:
+        return MaterialPageRoute(builder: (_) => const TimeSheetDashboard());
+         case timeSheetRequestPage:
+        return MaterialPageRoute(builder: (_) => const TimeSheetRequestPage());
+        // case taskAddDetails:
+        // return MaterialPageRoute(builder: (_) => const TaskDetailsPage());
+        // Your route configuration should look like this:
+case kanbanBoardPage:
+  final args = settings.arguments as Map<String, dynamic>?;
+  
+  if (args != null && args['boardId'] != null) {
+    final board = args['boardId'];
+    return MaterialPageRoute(
+      builder: (_) => KanbanBoardScreen(boardId: board),
+    );
+  } else {
+    // Return to previous screen or show error
+    return MaterialPageRoute(
+      builder: (_) => const Scaffold(
+        body: Center(
+          child: Text('Board not found'),
+        ),
+      ),
+    );
+  }
+      
       case cashAdvanceReturnForms:
         return MaterialPageRoute(builder: (_) => const CashAdvanceReturnForm());
+          case leaveCancellation:
+        return MaterialPageRoute(builder: (_) => const CancellationLeaveDashboard());
       case reportWizardParent:
         return MaterialPageRoute(builder: (_) => ReportWizardParent());
       case reportsAssignUser:
         return MaterialPageRoute(builder: (_) => const UserAssignmentScreen());
       case aIAnalyticsPage:
         return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
-         case viewLeave:
-        return MaterialPageRoute(builder: (_) => const ViewEditLeavePage(isReadOnly: false,));
+          case myTeamsDashboard:
+        return MaterialPageRoute(builder: (_) => const MyTeamLeaveDashboard());
+          case leavePendingApprovals:
+        return MaterialPageRoute(builder: (_) => const PendingApprovalsLeaveDashboard());
+        case boardDashboard:
+        return MaterialPageRoute(builder: (_) => const BoardDashboard());
+         case createBoard:
+        return MaterialPageRoute(builder: (_) => const CreateEditBoardPage());
+        case AppRoutes.viewLeave:
+
+ final Map<String, dynamic>? args =
+    settings.arguments as Map<String, dynamic>?;
+
+final LeaveDetailsModel? leaveRequest =
+    args != null ? args['item'] as LeaveDetailsModel? : null;
+
+final bool readOnly = args?['readOnly'] == true;
+final bool status = args?['status'] == true; // ✅ SAFE
+print("StatusLeave$status");
+return MaterialPageRoute(
+  builder: (_) => ViewEditLeavePage(
+    leaveRequest: leaveRequest,
+    isReadOnly: readOnly,
+    status: status,
+  ),
+);
+
+
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
           builder: (_) => const MyTeamExpenseDashboard(),
@@ -263,7 +349,7 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => MileageFirstFrom(
             mileageId: expense,
-            isReadOnly: args?['isReadOnly'] ?? false,
+            isReadOnly: args?['isReadOnly'],
           ),
         );
       case AppRoutes.autoScan:

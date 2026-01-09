@@ -368,18 +368,20 @@ abstract class AppLocalizations {
   String get totalEstimatedAmountIn;
   String get search;
   String get employeeName;
+  String get uploadFileOrDragDrop;
+  String get uploadAttachments;
   String get businessJustification;
-    String get justification;
-    String get justificationRequired ;
+  String get justification;
+  String get justificationRequired;
   String get enterJustification;
-  String get pleaseEnterJustification ;
+  String get pleaseEnterJustification;
   String get somethingWentWrong;
-  String get timezoneName ;
-    String get timezoneCode ;
-    String get timezoneId  ;
-  String get languageName ;
-  
-  String get languageId  ;
+  String get timezoneName;
+  String get timezoneCode;
+  String get timezoneId;
+  String get languageName;
+
+  String get languageId;
   String get id;
   String get paidAmountExceedsMaxPercentage;
   String get totalRequestedAmount;
@@ -537,7 +539,7 @@ abstract class AppLocalizations {
   String get item;
   String get pleaseWait;
   String get leaveCode;
-    String get reliever;
+  String get reliever;
   String get department;
   String get dates;
   String get notifyingUsers;
@@ -552,7 +554,40 @@ abstract class AppLocalizations {
   String get saveAsDraft;
   String get editLeaveRequest;
   String get newLeaveRequest;
-String get days;
+    String get newCreateLeaveRequest;
+  String get leaveRequisitionId;
+  String get delegatedAuthority;
+  String get locationDuringLeave;
+  String get availableForUrgentMatters;
+  String get notAvailable;
+  String get dayType;
+  String get fullDay;
+  String get firstHalf;
+  String get secondHalf;
+  String get ofLeave;
+  String get total;
+  String get appliedDate;
+  String get days;
+  String get myTeamLeaveDashboard;
+  String get noEventsFor;
+  String get duration;
+
+  String get mon;
+  String get tue;
+  String get wed;
+  String get thu;
+  String get fri;
+  String get sat;
+  String get sun;
+ String get addLeaveRequest;
+  String get noLeaveData;
+  String get remaining;
+  String get outOf;
+  String get balance;
+  String get leaveRequisition;
+  String get myLeave;
+  String get myTeamLeave;
+  String get myTeamLeaveCancellation;
 }
 
 class _AppLocalizationsDelegate

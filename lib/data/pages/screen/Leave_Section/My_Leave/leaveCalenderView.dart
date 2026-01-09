@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:digi_xpense/data/models.dart' show LeaveTransaction, LeaveModel;
+import 'package:digi_xpense/data/models.dart' show LeaveDetailsModel, LeaveDetailsModel;
 import 'package:digi_xpense/data/service.dart' show Controller;
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -239,148 +239,175 @@ bool get isDayView => true;
  
 
   Widget _buildTableCalendar() {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              TableCalendar<LeaveTransaction>(
-                firstDay: DateTime.utc(2000, 1, 1),
-                lastDay: DateTime.utc(2050, 12, 31),
-                focusedDay: controller.focusedDay,
-                 calendarFormat: selectedFormat ,
-                
-                eventLoader: (date) {
-                  final key = DateTime(date.year, date.month, date.day);
-                  return controller.events[key] ?? [];
-                },
-                selectedDayPredicate: (d) =>
-                    isSameDay(d, controller.selectedDay),
-                headerStyle: const HeaderStyle(
-                  titleCentered: true,
-                  formatButtonVisible: false,
-                ),
-                calendarStyle: CalendarStyle(
-                  markerDecoration: BoxDecoration(),
-                  markersAlignment: Alignment.bottomCenter,
-                  markersMaxCount: 3,
-                ),
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    if (events.isEmpty) return const SizedBox.shrink();
-
-                    final dots = events
-                        .take(3)
-                        .map(
-                          (e) =>
-                              (e as LeaveTransaction).leaveColor ?? '#e13333',
-                        )
-                        .toList();
-
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: dots.map((hex) {
-                        return Container(
-                          width: 6,
-                          height: 6,
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
-                            color: _colorFromHex(hex),
-                            shape: BoxShape.circle,
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-                onDaySelected: (selected, focused) {
-                  controller.onDaySelected(selected, focused);
-                  setState(() {});
-                },
-                onPageChanged: (focused) {
-                  controller.focusedDay = focused;
-                },
+  return AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            TableCalendar<LeaveDetailsModel>( // Specify the type here
+              firstDay: DateTime.utc(2000, 1, 1),
+              lastDay: DateTime.utc(2050, 12, 31),
+              focusedDay: controller.focusedDay,
+              calendarFormat: selectedFormat,
+              eventLoader: (date) {
+                final key = DateTime(date.year, date.month, date.day);
+                return controller.events[key] ?? [];
+              },
+              selectedDayPredicate: (d) => 
+                  isSameDay(d, controller.selectedDay),
+              headerStyle: const HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }  
+              calendarStyle: CalendarStyle(
+                markerDecoration: BoxDecoration(),
+                markersAlignment: Alignment.bottomCenter,
+                markersMaxCount: 3,
+              ),
+              calendarBuilders: CalendarBuilders(
+            markerBuilder: (context, date, events) {
+  if (events.isEmpty) return const SizedBox.shrink();
 
+  final dots = <String>[];
+  for (final e in events.take(3)) {
+    // No need to cast, e should already be LeaveDetailsModel
+    dots.add(e.leaveColor ?? '#e13333');
+  }
 
-  Widget _buildBottomList() {
-    final list = controller.selectedEvents;
-    if (list.isEmpty) {
-      return Center(
-        child: Text(
-          'No events for ${DateFormat('yMMMd').format(controller.selectedDay)}',
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: dots.map((hex) {
+      return Container(
+        width: 6,
+        height: 6,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: _colorFromHex(hex),
+          shape: BoxShape.circle,
         ),
       );
-    }
+    }).toList(),
+  );
+},
+              ),
+              onDaySelected: (selected, focused) {
+                controller.onDaySelected(selected, focused);
+                setState(() {});
+              },
+              onPageChanged: (focused) {
+                controller.focusedDay = focused;
+                setState(() {});
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
-    return ListView.builder(
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final ev = list[index];
-        return GestureDetector(
-          onTap: () => _openDetail(ev),
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: _colorFromHex('#e13333'),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ev.leaveCode,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        DateFormat(
-                          'EEE, MMM d, y',
-                        ).format(ev.transDate as DateTime),
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
-        );
-      },
+ Widget _buildBottomList() {
+  final list = controller.selectedEvents;
+  if (list.isEmpty) {
+    return Center(
+      child: Text(
+        'No events for ${DateFormat('yMMMd').format(controller.selectedDay)}',
+      ),
     );
   }
 
-  void _openDetail(LeaveTransaction ev) {
+  return ListView.builder(
+    itemCount: list.length,
+    itemBuilder: (context, index) {
+      final ev = list[index];
+      
+      final leave = ev; // Now safe to cast
+      
+      // Convert int timestamps to DateTime
+      final fromDate = DateTime.fromMillisecondsSinceEpoch(leave.fromDate);
+      final toDate = DateTime.fromMillisecondsSinceEpoch(leave.toDate);
+      
+      return GestureDetector(
+        onTap: () => _openDetail(leave),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 6),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: _colorFromHex(leave.leaveColor ?? '#e13333'),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      leave.leaveCode,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      leave.employeeName,
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${leave.duration} day${leave.duration != 1 ? 's' : ''}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    DateFormat('MMM d').format(fromDate),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    'to ${DateFormat('MMM d').format(toDate)}',
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, size: 20),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+  void _openDetail(LeaveDetailsModel ev) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => LeaveDetailPage(transaction: ev)),
@@ -389,11 +416,13 @@ bool get isDayView => true;
 }
 
 class LeaveDetailPage extends StatelessWidget {
-  final LeaveTransaction transaction;
+  final LeaveDetailsModel transaction;
   const LeaveDetailPage({super.key, required this.transaction});
 
   @override
   Widget build(BuildContext context) {
+    final fromDate = DateTime.fromMillisecondsSinceEpoch(transaction.fromDate);
+DateFormat('yMMMd').format(fromDate);
     return Scaffold(
       appBar: AppBar(title: const Text('Leave Details')),
       body: Padding(
@@ -424,10 +453,10 @@ class LeaveDetailPage extends StatelessWidget {
             const SizedBox(height: 12),
             _row(
               'Date',
-              DateFormat('yMMMd').format(transaction.transDate as DateTime),
+              DateFormat('yMMMd').format(fromDate),
             ),
             _row('Approval Status', transaction.approvalStatus),
-            _row('No of Days', transaction.noOfDays.toString()),
+            _row('No of Days', transaction.duration.toString()),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),

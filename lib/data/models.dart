@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:get/get_connect/http/src/response/response.dart' as http show Response;
+import 'package:get/get_connect/http/src/response/response.dart'
+    as http
+    show Response;
+import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http hide Response;
 
@@ -403,14 +407,12 @@ class Language {
 
   set value(Null value) {}
 }
+
 class CustomDropdownValue {
   final String valueId;
   final String valueName;
 
-  CustomDropdownValue({
-    required this.valueId,
-    required this.valueName,
-  });
+  CustomDropdownValue({required this.valueId, required this.valueName});
 
   factory CustomDropdownValue.fromJson(Map<String, dynamic> json) {
     return CustomDropdownValue(
@@ -670,11 +672,20 @@ class Currency {
 
   factory Currency.fromJson(Map<String, dynamic> json) {
     return Currency(
-      code: json['CurrencyCode'] as String,
-      name: json['CurrencyName'] as String,
-      symbol: json['CurrencySymbol'] as String,
+      code: json['CurrencyCode'],
+      name: json['CurrencyName'],
+      symbol: json['CurrencySymbol'],
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Currency && other.code == code;
+  }
+
+  @override
+  int get hashCode => code.hashCode;
 }
 
 class Payment {
@@ -974,7 +985,7 @@ class GExpense {
       location: json['Location'] ?? '',
     );
   }
- Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap() {
     return {
       "ExpenseId": expenseId,
       "EmployeeName": employeeName,
@@ -989,6 +1000,7 @@ class GExpense {
       "CreatedDatetime": createdDatetime,
     };
   }
+
   static DateTime? _toDateTime(dynamic value) {
     if (value == null) return null;
     try {
@@ -1000,6 +1012,7 @@ class GExpense {
 
   operator [](String other) {}
 }
+
 class GExpenseMap {
   final String expenseId;
   final String employeeName;
@@ -1972,7 +1985,7 @@ class ExpenseItemUpdate {
 
       projectId: json['ProjectId'],
       description: json['Description']?.toString(),
-     expenseId: _toInt(json['ExpenseId']),
+      expenseId: _toInt(json['ExpenseId']),
       isReimbursable: json['IsReimbursable'] ?? false,
       isBillable: json['IsBillable'] ?? false,
       accountingDistributions:
@@ -2005,7 +2018,6 @@ class ExpenseItemUpdate {
   };
 }
 
-
 class FilterItem {
   final String id;
   final String label;
@@ -2029,17 +2041,32 @@ class FilterItem {
   @override
   int get hashCode => id.hashCode;
 }
+
 class RoleItem {
   final String title;
   final String imagePath;
   final VoidCallback onTap;
 
-  RoleItem({
-    required this.title,
-    required this.imagePath,
-    required this.onTap,
-  });
+  RoleItem({required this.title, required this.imagePath, required this.onTap});
 }
+
+class PayslipAnalyticsCard {
+  final String title;
+  final double value;
+  final double? secondaryValue;
+
+  PayslipAnalyticsCard({
+    required this.title,
+    required this.value,
+    this.secondaryValue,
+  });
+
+  @override
+  String toString() {
+    return 'PayslipAnalyticsCard(title: $title, value: $value, secondaryValue: $secondaryValue)';
+  }
+}
+
 class ItemizedExpense {
   String? expenseCategoryId;
   String? uomId;
@@ -2063,6 +2090,84 @@ class ItemizedExpense {
     this.isReimbursable = false,
   });
 }
+class LeaveAnalyticsResponse {
+  final List<LeaveAnalytics> leaveCodeAnalytics;
+  final List<UpcomingHoliday> upcomingHolidays;
+  final List<LastAppliedLeave> lastAppliedLeaves;
+
+  LeaveAnalyticsResponse({
+    required this.leaveCodeAnalytics,
+    required this.upcomingHolidays,
+    required this.lastAppliedLeaves,
+  });
+
+  factory LeaveAnalyticsResponse.fromJson(Map<String, dynamic> json) {
+    return LeaveAnalyticsResponse(
+      leaveCodeAnalytics: (json['LeaveCodeAnalytics'] as List? ?? [])
+          .map((e) => LeaveAnalytics.fromJson(e))
+          .toList(),
+      upcomingHolidays: (json['UpomingHolidays'] as List? ?? [])
+          .map((e) => UpcomingHoliday.fromJson(e))
+          .toList(),
+      lastAppliedLeaves: (json['LastAppliedLeaves'] as List? ?? [])
+          .map((e) => LastAppliedLeave.fromJson(e))
+          .toList(),
+    );
+  }
+}
+class UpcomingHoliday {
+  final String name;
+  final String holidayType;
+  final DateTime date;
+
+  UpcomingHoliday({
+    required this.name,
+    required this.holidayType,
+    required this.date,
+  });
+
+  factory UpcomingHoliday.fromJson(Map<String, dynamic> json) {
+    return UpcomingHoliday(
+      name: json['Name'] ?? '',
+      holidayType: json['HolidayType'] ?? '',
+      date: DateTime.fromMillisecondsSinceEpoch(json['Date']),
+    );
+  }
+}
+
+class LastAppliedLeave {
+  final String leaveId;
+  final DateTime applicationDate;
+  final DateTime fromDate;
+  final DateTime toDate;
+  final double duration;
+  final String approvalStatus;
+  final String cancellationStatus;
+
+  LastAppliedLeave({
+    required this.leaveId,
+    required this.applicationDate,
+    required this.fromDate,
+    required this.toDate,
+    required this.duration,
+    required this.approvalStatus,
+    required this.cancellationStatus,
+  });
+
+  factory LastAppliedLeave.fromJson(Map<String, dynamic> json) {
+    return LastAppliedLeave(
+      leaveId: json['LeaveId'] ?? '',
+      applicationDate:
+          DateTime.fromMillisecondsSinceEpoch(json['ApplicationDate']),
+      fromDate: DateTime.fromMillisecondsSinceEpoch(json['FromDate']),
+      toDate: DateTime.fromMillisecondsSinceEpoch(json['ToDate']),
+      duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      cancellationStatus: json['CancellationStatus'] ?? '',
+    );
+  }
+}
+
 class LeaveAnalytics {
   final double totalLeaves; // 🔥 change to double
   final String leaveCode;
@@ -2088,32 +2193,52 @@ class LeaveAnalytics {
     );
   }
 }
+
 class LeaveCodeModel {
   final String code;
   final String name;
   final String type;
-  
-  LeaveCodeModel({
-    required this.code,
-    required this.name,
-    required this.type,
-  });
+
+  LeaveCodeModel({required this.code, required this.name, required this.type});
 }
 
-class EmployeeModel {
-  final String employeeId;
-  final String name;
-  final String email;
-  final String department;
-  
-  EmployeeModel({
-    required this.employeeId,
-    required this.name,
-    required this.email,
-    required this.department,
-  });
-}
+class Employee {
+  final String id;
+  final String firstName;
+  final String? middleName;
+  final String lastName;
+  final int employmentStartDate;
+  final int employmentEndDate;
 
+  Employee({
+    required this.id,
+    required this.firstName,
+    this.middleName,
+    required this.lastName,
+    required this.employmentStartDate,
+    required this.employmentEndDate,
+  });
+
+  factory Employee.fromJson(Map<String, dynamic> json) {
+    return Employee(
+      id: json['Id'] ?? '',
+      firstName: json['FirstName'] ?? '',
+      middleName: json['MiddleName'],
+      lastName: json['LastName'] ?? '',
+      employmentStartDate: json['EmploymentStartDate'] ?? 0,
+      employmentEndDate: json['EmploymentEndDate'] ?? 0,
+    );
+  }
+
+  /// Full name for dropdown
+  String get fullName {
+    return [
+      firstName,
+      if (middleName != null && middleName!.isNotEmpty) middleName,
+      lastName,
+    ].join(' ');
+  }
+}
 
 class LeaveFieldConfig {
   final String fieldId;
@@ -2122,7 +2247,7 @@ class LeaveFieldConfig {
   final bool isMandatory;
   final String functionalArea;
   final String recId;
-  
+
   LeaveFieldConfig({
     required this.fieldId,
     required this.fieldName,
@@ -2134,6 +2259,14 @@ class LeaveFieldConfig {
 }
 
 class LeaveRequest {
+  final String employeeId;
+  final String employeeName;
+  final int applicationDate;
+  final String calendarId;
+  final bool fromDateHalfDay;
+  final String? fromDateHalfDayValue;
+  final bool toDateHalfDay;
+  final String? toDateHalfDayValue;
   final String? leaveCode;
   final String? projectId;
   final String? relieverId;
@@ -2149,16 +2282,32 @@ class LeaveRequest {
   final bool? notifyTeam;
   final bool? isPaidLeave;
   final int totalDays;
-  final String status;
-  final String? recId;
-  final String? approvalStatus;
-  
+  final int? duration;
+  // final String status;
+  final int? recId;
+  final String? leaveId;
+  // final String? approvalStatus;
+  final double leaveBalance;
+  final List<LeaveTransactionModel> transactions;
+  final List<DocumentAttachmentbase64> attachments;
+
   LeaveRequest({
+    required this.employeeId,
+    required this.employeeName,
+    required this.applicationDate,
+    required this.calendarId,
+    required this.fromDateHalfDay,
+    this.fromDateHalfDayValue,
+    required this.toDateHalfDay,
+    this.toDateHalfDayValue,
+    required this.leaveBalance,
     this.leaveCode,
+    this.leaveId,
     this.projectId,
     this.relieverId,
     this.startDate,
     this.endDate,
+    this.duration,
     this.location,
     this.notifyingUsers,
     this.contactNumber,
@@ -2169,37 +2318,720 @@ class LeaveRequest {
     this.notifyTeam,
     this.isPaidLeave,
     required this.totalDays,
-    required this.status,
+    // required this.status,
     this.recId,
-    this.approvalStatus,
+    // this.approvalStatus,
+    required this.transactions,
+    this.attachments = const [],
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "LeaveId": leaveId,
+      "EmployeeId": employeeId,
+      "EmployeeName": employeeName,
+      "ApplicationDate": applicationDate,
+      "CalendarId": calendarId,
+      "RecId": recId,
+      "LeaveCode": leaveCode,
+      "ProjectId": (projectId?.trim().isNotEmpty ?? false) ? projectId : null,
+      "Reliever": relieverId,
+      "LeaveBalance": leaveBalance,
+      "FromDate": startDate?.millisecondsSinceEpoch,
+      "ToDate": endDate?.millisecondsSinceEpoch,
+      "LeaveDateType": "MultipleDays",
+      "ToDateHalfDay": toDateHalfDay,
+      "ToDateHalfDayValue": toDateHalfDayValue,
+      "LeaveLocation": location,
+      "ReasonForLeave": comments,
+      "FromDateHalfDay": fromDateHalfDay,
+      "FromDateHalfDayValue": fromDateHalfDayValue,
+      "AvailabilityDuringLeave":
+          (availabilityDuringLeave?.trim().isNotEmpty ?? false)
+          ? availabilityDuringLeave
+          : null,
+
+      "OutOfOfficeMessage": (outOfOfficeMessage?.trim().isNotEmpty ?? false)
+          ? outOfOfficeMessage
+          : null,
+
+      "NotifyHR": notifyHR ?? false,
+      "NotifyTeamMembers": notifyTeam ?? false,
+      "IsLeaveUnPaid": !(isPaidLeave ?? true),
+      "EmergencyContactNumber":
+          (contactNumber != null && contactNumber!.isNotEmpty)
+          ? contactNumber
+          : null,
+      "NotifyingUserIds": (notifyingUsers != null && notifyingUsers!.isNotEmpty)
+    ? notifyingUsers!.join(';')
+    : null,
+
+
+      "Duration": totalDays,
+      // "ApprovalStatus": approvalStatus,
+      "LeaveTransactions": transactions.map((t) => t.toJson()).toList(),
+
+      "DocumentAttachment": {
+        "File": attachments == null || attachments!.isEmpty
+            ? []
+            : attachments!
+                  .expand((a) => a.file) // 🔑 flatten FileItem list
+                  .map((f) => f.toJson())
+                  .toList(),
+      },
+    };
+  }
 }
-  
+
+class LeaveDetailsModel {
+  final String leaveId;
+  final int applicationDate;
+  final String? reasonForLeave;
+
+  final int? workitemrecid;
+  final String? stepType;
+
+  final String employeeId;
+  final String employeeName;
+
+  final int fromDate;
+  final bool fromDateHalfDay;
+  final String? fromDateHalfDayValue;
+
+  final String leaveCode;
+  final String? reliever;
+
+  final int toDate;
+  final bool toDateHalfDay;
+  final String? toDateHalfDayValue;
+
+  final int recId;
+  final String? projectId;
+
+  final bool notifyHR;
+  final bool notifyTeamMembers;
+  final List<String>? notifyingUserIds;
+
+  final String? outOfOfficeMessage;
+  final bool isLeaveUnPaid;
+  final String? emergencyContactNumber;
+  final String? availabilityDuringLeave;
+  final String? leaveLocation;
+
+  final double duration;
+  final int leaveBalance;
+  final String approvalStatus;
+  final String leaveDateType;
+
+  final String? calendarId;
+  final String? leaveStatus;
+  final String? leaveColor;
+
+  // 🔥 CANCELLATION FIELDS (NEW)
+  final int? cancellationRecId;
+  final int? cancellationApplicationDate;
+  final String? leaveCancelId;
+  final int? cancellationDate;
+  final String? reasonForCancellation;
+  final String? cancellationApprovalStatus;
+  final String? requestType;
+
+  final List<LeaveTransactionforLeave> leaveTransactions;
+  final List<dynamic> leaveCustomFieldValues;
+
+  LeaveDetailsModel({
+    required this.leaveId,
+    required this.applicationDate,
+    this.reasonForLeave,
+    this.workitemrecid,
+    this.stepType,
+    required this.employeeId,
+    required this.employeeName,
+    required this.fromDate,
+    required this.fromDateHalfDay,
+    this.fromDateHalfDayValue,
+    required this.leaveCode,
+    this.reliever,
+    required this.toDate,
+    required this.toDateHalfDay,
+    this.toDateHalfDayValue,
+    required this.recId,
+    this.projectId,
+    required this.notifyHR,
+    required this.notifyTeamMembers,
+    this.notifyingUserIds,
+    this.outOfOfficeMessage,
+    required this.isLeaveUnPaid,
+    this.emergencyContactNumber,
+    this.availabilityDuringLeave,
+    this.leaveLocation,
+    required this.duration,
+    required this.leaveBalance,
+    required this.approvalStatus,
+    required this.leaveDateType,
+    this.calendarId,
+    this.leaveStatus,
+    this.leaveColor,
+
+    // cancellation
+    this.cancellationRecId,
+    this.cancellationApplicationDate,
+    this.leaveCancelId,
+    this.cancellationDate,
+    this.reasonForCancellation,
+    this.cancellationApprovalStatus,
+    this.requestType,
+
+    required this.leaveTransactions,
+    required this.leaveCustomFieldValues,
+  });
+
+  factory LeaveDetailsModel.fromJson(Map<String, dynamic> json) {
+    return LeaveDetailsModel(
+      leaveId: json['LeaveId'] ?? '',
+      applicationDate: json['ApplicationDate'] ?? 0,
+      reasonForLeave: json['ReasonForLeave'],
+      stepType: json['StepType'],
+      workitemrecid: json['workitemrecid'],
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      fromDate: json['FromDate'] ?? 0,
+      fromDateHalfDay: json['FromDateHalfDay'] ?? false,
+      fromDateHalfDayValue: json['FromDateHalfDayValue'],
+      leaveCode: json['LeaveCode'] ?? '',
+      reliever: json['Reliever'],
+      toDate: json['ToDate'] ?? 0,
+      toDateHalfDay: json['ToDateHalfDay'] ?? false,
+      toDateHalfDayValue: json['ToDateHalfDayValue'],
+      recId: json['RecId'] ?? 0,
+      projectId: json['ProjectId'],
+      notifyHR: json['NotifyHR'] ?? false,
+      notifyTeamMembers: json['NotifyTeamMembers'] ?? false,
+
+      notifyingUserIds: json['NotifyingUserIds'] != null
+          ? (json['NotifyingUserIds'] as String)
+                .split(';')
+                .where((e) => e.isNotEmpty)
+                .toList()
+          : null,
+
+      outOfOfficeMessage: json['OutOfOfficeMessage'],
+      isLeaveUnPaid: json['IsLeaveUnPaid'] ?? false,
+      emergencyContactNumber: json['EmergencyContactNumber'],
+      availabilityDuringLeave: json['AvailabilityDuringLeave'],
+      leaveLocation: json['LeaveLocation'],
+      duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
+      leaveBalance: json['LeaveBalance'] ?? 0,
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      leaveDateType: json['LeaveDateType'] ?? '',
+      calendarId: json['CalendarId'],
+      leaveStatus: json['LeaveStatus'],
+      leaveColor: json['LeaveColor'],
+
+      // 🔥 Cancellation mapping
+      cancellationRecId: json['CancellationRecId'],
+      cancellationApplicationDate: json['CancellationApplicationDate'],
+      leaveCancelId: json['LeaveCancelId'],
+      cancellationDate: json['CancellationDate'],
+      reasonForCancellation: json['ReasonForCancellation'],
+      cancellationApprovalStatus: json['CancellationApprovalStatus'],
+      requestType: json['RequestType'],
+
+      leaveTransactions: (json['LeaveTransactions'] as List? ?? [])
+          .map((e) => LeaveTransactionforLeave.fromJson(e))
+          .toList(),
+
+      leaveCustomFieldValues: List<dynamic>.from(
+        json['LeaveCustomFieldValues'] ?? [],
+      ),
+    );
+  }
+  String? get leaveCancelID => leaveCancelId;
+  int? get cancellationRECID => cancellationRecId;
+  int? get cancellationDATE => cancellationDate;
+}
+
+class LeaveTransactionforLeave {
+  final int? leaveCancelId;
+  final int? recId;
+  final String employeeId;
+  final int transDate;
+  final double noOfDays;
+  final String leaveCode;
+  final bool leaveFirstHalf;
+  final bool leaveSecondHalf;
+  final bool isHoliday;
+  final String? approvalStatus;
+  final DateTypeModel? dateType;
+
+  LeaveTransactionforLeave({
+    this.leaveCancelId,
+    this.recId,
+    required this.employeeId,
+    required this.isHoliday,
+    required this.transDate,
+    required this.noOfDays,
+    required this.leaveCode,
+    required this.leaveFirstHalf,
+    required this.leaveSecondHalf,
+    this.approvalStatus,
+    this.dateType,
+  });
+
+  factory LeaveTransactionforLeave.fromJson(Map<String, dynamic> json) {
+    return LeaveTransactionforLeave(
+      leaveCancelId: json['LeaveCancelId'],
+      recId: json['RecId'],
+      employeeId: json['EmployeeId'] ?? '',
+      transDate: json['TransDate'] ?? 0,
+      noOfDays: (json['NoOfDays'] as num?)?.toDouble() ?? 0.0,
+      leaveCode: json['LeaveCode'] ?? '',
+      leaveFirstHalf: json['LeaveFirstHalf'] ?? false,
+      leaveSecondHalf: json['LeaveSecondHalf'] ?? false,
+      isHoliday: json['IsHoliday'] ?? false,
+      approvalStatus: json['ApprovalStatus'],
+      dateType: json['DateType'] != null
+          ? DateTypeModel.fromJson(json['DateType'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'LeaveCancelId': leaveCancelId,
+      'RecId': recId,
+      'EmployeeId': employeeId,
+      'TransDate': transDate,
+      'NoOfDays': noOfDays,
+      'LeaveCode': leaveCode,
+      'LeaveFirstHalf': leaveFirstHalf,
+      'LeaveSecondHalf': leaveSecondHalf,
+      'ApprovalStatus': approvalStatus,
+      'DateType': dateType?.toJson(),
+    };
+  }
+}
+
+class LeaveTransactionModel {
+  /// =======================
+  /// API FIELDS
+  /// =======================
+  final String employeeId;
+  final int transDate; // milliseconds
+  final double noOfDays;
+  final String leaveCode;
+  final bool leaveFirstHalf;
+  final bool leaveSecondHalf;
+  final bool isHoliday;
+  final int? recId; // required for partial cancellation
+
+  /// =======================
+  /// UI / STATE FIELDS
+  /// =======================
+
+  /// Original day type from API (used to compare changes)
+  final String originalDayType;
+
+  /// Editable day type (GetX reactive)
+  RxString dayType;
+
+  /// Used specifically in partial cancel popup (same as dayType but kept separate if needed)
+  RxString dayTypeLeave;
+
+  LeaveTransactionModel({
+    required this.employeeId,
+    required this.transDate,
+    required this.noOfDays,
+    required this.leaveCode,
+    required this.leaveFirstHalf,
+    required this.leaveSecondHalf,
+    required this.isHoliday,
+    this.recId,
+    required this.originalDayType,
+    required this.dayType,
+    required this.dayTypeLeave,
+  });
+ double get calculatedDays {
+    if (noOfDays == 0 || isHoliday) {
+      return 0.0;
+    }
+
+    switch (dayType.value) {
+      case 'First Half':
+      case 'Second Half':
+        return 0.5;
+      case 'Full Day':
+      default:
+        return 1.0;
+    }
+  }
+  /// =======================
+  /// FROM JSON
+  /// =======================
+  factory LeaveTransactionModel.fromJson(Map<String, dynamic> json) {
+    /// derive day type from API flags
+    String derivedDayType = 'FullDay';
+
+    if (json['LeaveFirstHalf'] == true) {
+      derivedDayType = 'FirstHalf';
+    } else if (json['LeaveSecondHalf'] == true) {
+      derivedDayType = 'SecondHalf';
+    }
+
+    /// holiday override
+    if (json['IsHoliday'] == true) {
+      derivedDayType = 'Holiday';
+    }
+
+    return LeaveTransactionModel(
+      employeeId: json['EmployeeId'] ?? '',
+      transDate: json['TransDate'] ?? 0,
+      noOfDays: (json['NoOfDays'] ?? 0).toDouble(),
+      leaveCode: json['LeaveCode'] ?? '',
+      leaveFirstHalf: json['LeaveFirstHalf'] ?? false,
+      leaveSecondHalf: json['LeaveSecondHalf'] ?? false,
+      isHoliday: json['IsHoliday'] ?? false,
+      recId: json['RecId'], // nullable for create flow
+
+      originalDayType: derivedDayType,
+      dayType: derivedDayType.obs,
+      dayTypeLeave: derivedDayType.obs,
+    );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      "EmployeeId": employeeId,
+      "TransDate": transDate,
+      "NoOfDays": noOfDays,
+      "LeaveCode": leaveCode,
+      "LeaveFirstHalf": leaveFirstHalf,
+      "LeaveSecondHalf": leaveSecondHalf,
+      "IsHoliday": isHoliday,
+      // Include RecId only if it's not null
+      if (recId != null) "RecId": recId,
+    };
+  }
+
+  /// =======================
+  /// HELPERS / GETTERS
+  /// =======================
+
+  /// Convert millis → DateTime
+  DateTime get date => DateTime.fromMillisecondsSinceEpoch(transDate);
+
+  /// Check if half day
+  bool get isHalfDay =>
+      dayType.value == 'FirstHalf' || dayType.value == 'SecondHalf';
+
+  /// Calculate day value
+ 
+
+  /// =======================
+  /// PARTIAL CANCEL PAYLOAD
+  /// =======================
+  Map<String, dynamic> toPartialCancelJson() {
+    return {"RecId": recId, "DayType": dayTypeLeave.value};
+  }
+}
+
+class DocumentAttachmentbase64 {
+  final List<FileItem> file;
+
+  DocumentAttachmentbase64({required this.file});
+
+  factory DocumentAttachmentbase64.fromJson(Map<String, dynamic> json) {
+    return DocumentAttachmentbase64(
+      file: json['File'] != null
+          ? List<FileItem>.from(json['File'].map((x) => FileItem.fromJson(x)))
+          : [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'File': file.map((x) => x.toJson()).toList(),
+  };
+}
+
+class FileItem {
+  final int index;
+  final String name;
+  final String type;
+  final String base64Data;
+  final String hashMapKey;
+
+  FileItem({
+    required this.index,
+    required this.name,
+    required this.type,
+    required this.base64Data,
+    required this.hashMapKey,
+  });
+
+  factory FileItem.fromJson(Map<String, dynamic> json) {
+    return FileItem(
+      index: json['index'],
+      name: json['name'],
+      type: json['type'],
+      base64Data: json['base64Data'],
+      hashMapKey: json['Hashmapkey'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'index': index,
+    'name': name,
+    'type': type,
+    'base64Data': base64Data,
+    'Hashmapkey': hashMapKey,
+  };
+}
+
+class LeaveCancellationModel {
+  final String leaveCancelId;
+  final String leaveId;
+  final int leaveReqId;
+  final int applicationDate;
+  final int cancellationDate;
+  final String employeeId;
+  final String approvalStatus;
+  final String createdBy;
+  final String modifiedBy;
+  final int organizationId;
+  final int workitemrecid;
+  final int recId;
+  final String reasonForCancellation;
+  final int createdDatetime;
+  final int modifiedDatetime;
+  final int subOrganizationId;
+  final bool isActive;
+  final String stepType;
+
+  LeaveCancellationModel({
+    required this.leaveCancelId,
+    required this.leaveId,
+    required this.leaveReqId,
+    required this.applicationDate,
+    required this.cancellationDate,
+    required this.employeeId,
+    required this.approvalStatus,
+    required this.createdBy,
+    required this.modifiedBy,
+    required this.organizationId,
+    required this.recId,
+    required this.workitemrecid,
+    required this.reasonForCancellation,
+    required this.createdDatetime,
+    required this.modifiedDatetime,
+    required this.subOrganizationId,
+    required this.isActive,
+    required this.stepType,
+  });
+
+  /// 🔹 FROM JSON
+  factory LeaveCancellationModel.fromJson(Map<String, dynamic> json) {
+    return LeaveCancellationModel(
+      leaveCancelId: json['LeaveCancelId'] ?? '',
+      leaveId: json['LeaveId'] ?? '',
+
+      leaveReqId: json['LeaveReqId'] ?? 0,
+      applicationDate: json['ApplicationDate'] ?? 0,
+      cancellationDate: json['CancellationDate'] ?? 0,
+      employeeId: json['EmployeeId'] ?? '',
+      approvalStatus: json['ApprovalStatus'] ?? '',
+      createdBy: json['CreatedBy'] ?? '',
+      modifiedBy: json['ModifiedBy'] ?? '',
+      stepType: json['StepType'] ?? '',
+
+      organizationId: json['OrganizationId'] ?? 0,
+      recId: json['RecId'] ?? 0,
+      reasonForCancellation: json['ReasonForCancellation'] ?? '',
+      createdDatetime: json['CreatedDatetime'] ?? 0,
+      modifiedDatetime: json['ModifiedDatetime'] ?? 0,
+      subOrganizationId: json['SubOrganizationId'] ?? 0,
+      isActive: json['IsActive'] ?? false,
+      workitemrecid: json['workitemrecid'] ?? 0,
+    );
+  }
+
+  /// 🔹 TO JSON (Optional)
+  Map<String, dynamic> toJson() {
+    return {
+      'LeaveCancelId': leaveCancelId,
+      'LeaveId': leaveId,
+      'LeaveReqId': leaveReqId,
+      'ApplicationDate': applicationDate,
+      'CancellationDate': cancellationDate,
+      'EmployeeId': employeeId,
+      'ApprovalStatus': approvalStatus,
+      'CreatedBy': createdBy,
+      'ModifiedBy': modifiedBy,
+      'OrganizationId': organizationId,
+      'RecId': recId,
+      'ReasonForCancellation': reasonForCancellation,
+      'CreatedDatetime': createdDatetime,
+      'ModifiedDatetime': modifiedDatetime,
+      'SubOrganizationId': subOrganizationId,
+      'IsActive': isActive,
+      'StepType': stepType,
+    };
+  }
+}
+
+class LeaveRequestCreate {
+  String? leaveId;
+  String employeeId;
+  int applicationDate;
+  String leaveDateType;
+  int fromDate;
+  int toDate;
+  String employeeName;
+  String reasonForLeave;
+  String leaveLocation;
+  String reliever;
+  String projectId;
+  bool notifyHR;
+  bool notifyTeamMembers;
+  bool isLeaveUnPaid;
+  String emergencyContactNumber;
+  String outOfOfficeMessage;
+  String availabilityDuringLeave;
+  String notifyingUserIds;
+  int duration;
+  String calendarId;
+  double leaveBalance;
+  String leaveCode;
+
+  LeaveRequestCreate({
+    this.leaveId,
+    required this.employeeId,
+    required this.applicationDate,
+    required this.leaveDateType,
+    required this.fromDate,
+    required this.toDate,
+    required this.employeeName,
+    required this.reasonForLeave,
+    required this.leaveLocation,
+    required this.reliever,
+    required this.projectId,
+    required this.notifyHR,
+    required this.notifyTeamMembers,
+    required this.isLeaveUnPaid,
+    required this.emergencyContactNumber,
+    required this.outOfOfficeMessage,
+    required this.availabilityDuringLeave,
+    required this.notifyingUserIds,
+    required this.duration,
+    required this.calendarId,
+    required this.leaveBalance,
+    required this.leaveCode,
+  });
+
+  /// 🔴 THIS METHOD WAS MISSING
+  Map<String, dynamic> toJson() {
+    return {
+      "LeaveId": leaveId,
+      "EmployeeId": employeeId,
+      "ApplicationDate": applicationDate,
+      "LeaveDateType": leaveDateType,
+      "FromDate": fromDate,
+      "ToDate": toDate,
+      "EmployeeName": employeeName,
+      "ReasonForLeave": reasonForLeave,
+      "LeaveLocation": leaveLocation,
+      "Reliever": reliever,
+      "ProjectId": projectId,
+      "NotifyHR": notifyHR,
+      "NotifyTeamMembers": notifyTeamMembers,
+      "IsLeaveUnPaid": isLeaveUnPaid,
+      "EmergencyContactNumber": emergencyContactNumber,
+      "OutOfOfficeMessage": outOfOfficeMessage,
+      "AvailabilityDuringLeave": availabilityDuringLeave,
+      "NotifyingUserIds": notifyingUserIds,
+      "Duration": duration,
+      "CalendarId": calendarId,
+      "LeaveBalance": leaveBalance,
+      "LeaveCode": leaveCode,
+    };
+  }
+}
+
 class LeaveRequisition {
   final String leaveId;
   final int applicationDate;
   final String employeeId;
+  final String employeeName;
+  final int? workitemrecid;
+  final String? stepType;
   final int fromDate;
+  final bool fromDateHalfDay;
+  final String? fromDateHalfDayValue;
+
   final int toDate;
+  final bool toDateHalfDay;
+  final String? toDateHalfDayValue;
+
   final String leaveCode;
   final String approvalStatus;
-  final String employeeName;
+  final String leaveStatus;
+
   final double duration;
   final int leaveBalance;
+
   final String? reasonForLeave;
+  final String? reliever;
+  final String? approverComments;
+
+  final String? projectId;
+  final bool notifyHR;
+  final bool notifyTeamMembers;
+  final String? notifyingUserIds;
+
+  final String? outOfOfficeMessage;
+  final String? emergencyContactNumber;
+  final String? availabilityDuringLeave;
+  final String? leaveLocation;
+
+  final String leaveDateType;
+  final String calendarId;
+  final bool isLeaveUnPaid;
+
+  final int recId;
+  final bool isActive;
 
   LeaveRequisition({
     required this.leaveId,
     required this.applicationDate,
     required this.employeeId,
+    required this.employeeName,
     required this.fromDate,
+    required this.fromDateHalfDay,
+    this.fromDateHalfDayValue,
     required this.toDate,
+    required this.toDateHalfDay,
+    this.toDateHalfDayValue,
     required this.leaveCode,
     required this.approvalStatus,
-    required this.employeeName,
+    required this.leaveStatus,
     required this.duration,
     required this.leaveBalance,
     this.reasonForLeave,
+    this.reliever,
+    this.workitemrecid,
+    this.stepType,
+    this.approverComments,
+    this.projectId,
+    required this.notifyHR,
+    required this.notifyTeamMembers,
+    this.notifyingUserIds,
+    this.outOfOfficeMessage,
+    this.emergencyContactNumber,
+    this.availabilityDuringLeave,
+    this.leaveLocation,
+    required this.leaveDateType,
+    required this.calendarId,
+    required this.isLeaveUnPaid,
+    required this.recId,
+    required this.isActive,
   });
 
   factory LeaveRequisition.fromJson(Map<String, dynamic> json) {
@@ -2207,19 +3039,50 @@ class LeaveRequisition {
       leaveId: json['LeaveId'] ?? '',
       applicationDate: json['ApplicationDate'] ?? 0,
       employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+      workitemrecid: json['workitemrecid'] is int
+          ? json['workitemrecid']
+          : int.tryParse(json['workitemrecid']?.toString() ?? ''),
+
+      stepType: json['StepType'] ?? '',
       fromDate: json['FromDate'] ?? 0,
+      fromDateHalfDay: json['FromDateHalfDay'] ?? false,
+      fromDateHalfDayValue: json['FromDateHalfDayValue'],
+
       toDate: json['ToDate'] ?? 0,
+      toDateHalfDay: json['ToDateHalfDay'] ?? false,
+      toDateHalfDayValue: json['ToDateHalfDayValue'],
+
       leaveCode: json['LeaveCode'] ?? '',
       approvalStatus: json['ApprovalStatus'] ?? '',
-      employeeName: json['EmployeeName'] ?? '',
+      leaveStatus: json['LeaveStatus'] ?? '',
+
       duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
       leaveBalance: (json['LeaveBalance'] as num?)?.toInt() ?? 0,
+
       reasonForLeave: json['ReasonForLeave'],
+      reliever: json['Reliever'],
+      approverComments: json['ApproverComments'],
+
+      projectId: json['ProjectId'],
+      notifyHR: json['NotifyHR'] ?? false,
+      notifyTeamMembers: json['NotifyTeamMembers'] ?? false,
+      notifyingUserIds: json['NotifyingUserIds'],
+
+      outOfOfficeMessage: json['OutOfOfficeMessage'],
+      emergencyContactNumber: json['EmergencyContactNumber'],
+      availabilityDuringLeave: json['AvailabilityDuringLeave'],
+      leaveLocation: json['LeaveLocation'],
+
+      leaveDateType: json['LeaveDateType'] ?? '',
+      calendarId: json['CalendarId'] ?? '',
+      isLeaveUnPaid: json['IsLeaveUnPaid'] ?? false,
+
+      recId: json['RecId'] ?? 0,
+      isActive: json['IsActive'] ?? true,
     );
   }
 }
-
-
 
 class DashboardDataItem {
   final int x;
@@ -2259,21 +3122,17 @@ class DashboardDataItem {
     );
   }
 }
+
 class AdvanceFilteration {
   final String matchType;
   final List<Rule> rules;
 
-  AdvanceFilteration({
-    required this.matchType,
-    required this.rules,
-  });
+  AdvanceFilteration({required this.matchType, required this.rules});
 
   factory AdvanceFilteration.fromJson(Map<String, dynamic> json) {
     return AdvanceFilteration(
       matchType: json['matchType'] ?? '',
-      rules: (json['rules'] as List)
-          .map((e) => Rule.fromJson(e))
-          .toList(),
+      rules: (json['rules'] as List).map((e) => Rule.fromJson(e)).toList(),
     );
   }
 }
@@ -2301,13 +3160,12 @@ class FilterProps {
       functionalArea: json['FunctionalArea'] ?? '',
       advanceFilterations: json['AdvanceFilterations'] != null
           ? (json['AdvanceFilterations'] as List)
-              .map((e) => AdvanceFilteration.fromJson(e))
-              .toList()
+                .map((e) => AdvanceFilteration.fromJson(e))
+                .toList()
           : null,
     );
   }
 }
-
 
 // Add these models to your models.dart file
 class WizardConfig {
@@ -2326,7 +3184,13 @@ class WizardConfig {
   });
 
   // Empty sentinel
-  factory WizardConfig.empty() => const WizardConfig(widgetName: '', displayName: '', wizardType: '', apiEndpoint: '', role: '');
+  factory WizardConfig.empty() => const WizardConfig(
+    widgetName: '',
+    displayName: '',
+    wizardType: '',
+    apiEndpoint: '',
+    role: '',
+  );
 
   bool get isEmpty => widgetName.isEmpty;
 }
@@ -2392,7 +3256,10 @@ class WidgetDataResponse {
     if (raw is List && (raw as List).isNotEmpty) {
       final first = (raw as List).first;
       if (first is Map) {
-        return double.tryParse((first['value'] ?? first['Value'] ?? first['y']).toString()) ?? 0.0;
+        return double.tryParse(
+              (first['value'] ?? first['Value'] ?? first['y']).toString(),
+            ) ??
+            0.0;
       }
     }
 
@@ -2400,19 +3267,16 @@ class WidgetDataResponse {
   }
 
   /// Safely return series as a List
-List<dynamic> getSeries() {
-  if (isMap) {
-    final map = asMap;
-    if (map['data'] is List) return map['data'] as List;
-    if (map['value'] is List) return map['value'] as List;
+  List<dynamic> getSeries() {
+    if (isMap) {
+      final map = asMap;
+      if (map['data'] is List) return map['data'] as List;
+      if (map['value'] is List) return map['value'] as List;
+    }
+    if (isList) return asList;
+    return [];
   }
-  if (isList) return asList;
-  return [];
 }
-}
-
-
-
 
 class DashboardByRole {
   final int? recId;
@@ -2443,24 +3307,23 @@ class DashboardByRole {
       description: json['Description'] as String?,
       metadata: json['MetaData'] != null
           ? List<WidgetMetadata>.from(
-              (json['MetaData'] as List).map(
-                (x) => WidgetMetadata.fromJson(x),
-              ),
+              (json['MetaData'] as List).map((x) => WidgetMetadata.fromJson(x)),
             )
           : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'RecId': recId,
-        'WidgetName': widgetName,
-        'FunctionalArea': functionalArea,
-        'RoleId': roleId,
-        'WidgetLabel': widgetLabel,
-        'Description': description,
-        'MetaData': metadata?.map((x) => x.toJson()).toList(),
-      };
+    'RecId': recId,
+    'WidgetName': widgetName,
+    'FunctionalArea': functionalArea,
+    'RoleId': roleId,
+    'WidgetLabel': widgetLabel,
+    'Description': description,
+    'MetaData': metadata?.map((x) => x.toJson()).toList(),
+  };
 }
+
 class WidgetMetadata {
   final String? tableName;
   final String? tableLabel;
@@ -2480,9 +3343,7 @@ class WidgetMetadata {
       tableLabel: json['TableLabel'] as String?,
       columns: json['Columns'] != null
           ? List<TableColumn>.from(
-              (json['Columns'] as List).map(
-                (x) => TableColumn.fromJson(x),
-              ),
+              (json['Columns'] as List).map((x) => TableColumn.fromJson(x)),
             )
           : null,
       relationships: json['relationships'] != null
@@ -2496,24 +3357,20 @@ class WidgetMetadata {
   }
 
   Map<String, dynamic> toJson() => {
-        'TableName': tableName,
-        'TableLabel': tableLabel,
-        'Columns': columns?.map((x) => x.toJson()).toList(),
-        'relationships': relationships?.map((x) => x.toJson()).toList(),
-      };
+    'TableName': tableName,
+    'TableLabel': tableLabel,
+    'Columns': columns?.map((x) => x.toJson()).toList(),
+    'relationships': relationships?.map((x) => x.toJson()).toList(),
+  };
 }
+
 class TableColumn {
   final String? colname;
   final String? type;
   final String? label;
   final String? enumName;
 
-  TableColumn({
-    this.colname,
-    this.type,
-    this.label,
-    this.enumName,
-  });
+  TableColumn({this.colname, this.type, this.label, this.enumName});
 
   factory TableColumn.fromJson(Map<String, dynamic> json) {
     return TableColumn(
@@ -2525,21 +3382,18 @@ class TableColumn {
   }
 
   Map<String, dynamic> toJson() => {
-        'Colname': colname,
-        'Type': type,
-        'Label': label,
-        'EnumName': enumName,
-      };
+    'Colname': colname,
+    'Type': type,
+    'Label': label,
+    'EnumName': enumName,
+  };
 }
 
 class TableRelationship {
   final String? relation;
   final String? description;
 
-  TableRelationship({
-    this.relation,
-    this.description,
-  });
+  TableRelationship({this.relation, this.description});
 
   factory TableRelationship.fromJson(Map<String, dynamic> json) {
     return TableRelationship(
@@ -2549,20 +3403,18 @@ class TableRelationship {
   }
 
   Map<String, dynamic> toJson() => {
-        'Relation': relation,
-        'Description': description,
-      };
+    'Relation': relation,
+    'Description': description,
+  };
 }
+
 class ChartDataPoint {
   final String x;
   final double y;
-  
-  ChartDataPoint({
-    required this.x,
-    required this.y,
-  });
+
+  ChartDataPoint({required this.x, required this.y});
 }
-  
+
 class Dashboard {
   final String dashBoardType;
   final String dashBoardName;
@@ -2607,7 +3459,6 @@ class Dashboard {
   }
 }
 
-
 class DashboardItem {
   final int x;
   final int y;
@@ -2637,12 +3488,15 @@ class DashboardItem {
       h: json['h'] ?? 0,
       id: json['id'] ?? '',
       currentRole: json['currentRole'] ?? '',
-      filterProps: (json['filterProps'] is Map) ? Map<String, dynamic>.from(json['filterProps']) : {},
-      refRecId: (json['RefRecId'] is int) ? json['RefRecId'] : int.tryParse('${json['RefRecId']}') ?? 0,
+      filterProps: (json['filterProps'] is Map)
+          ? Map<String, dynamic>.from(json['filterProps'])
+          : {},
+      refRecId: (json['RefRecId'] is int)
+          ? json['RefRecId']
+          : int.tryParse('${json['RefRecId']}') ?? 0,
     );
   }
 }
-
 
 class GESpeficExpense {
   final String expenseId;
@@ -2787,6 +3641,7 @@ class GESpeficExpense {
     return false;
   }
 }
+
 class UnprocessExpenseModels {
   final String expenseId;
   final String? projectId;
@@ -2894,7 +3749,9 @@ class UnprocessExpenseModels {
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
       isReimbursable: _parseBool(json['IsReimbursable']),
       country: json['Country']?.toString(),
-      recId: json['RecId'] != null ? int.tryParse(json['RecId'].toString()) : null,
+      recId: json['RecId'] != null
+          ? int.tryParse(json['RecId'].toString())
+          : null,
       expenseStatus: json['ExpenseStatus']?.toString(),
       location: json['Location']?.toString(),
       cashAdvReqId: json['CashAdvReqId']?.toString() ?? '',
@@ -3452,17 +4309,15 @@ class ProjectExpense {
     return ProjectExpense(x: json['x'] ?? '', y: (json['y'] as num).toDouble());
   }
 }
+
 class MultiSeriesDataPoint {
   final String x;
   final double y;
   final Color color;
 
-  MultiSeriesDataPoint({
-    required this.x,
-    required this.y,
-    required this.color,
-  });
+  MultiSeriesDataPoint({required this.x, required this.y, required this.color});
 }
+
 class ExpenseHeader {
   final String? expenseId;
   final String? expenseStatus;
@@ -3586,8 +4441,7 @@ class ExpenseHeader {
       totalApprovedAmount: json["TotalApprovedAmount"] == null
           ? null
           : (json["TotalApprovedAmount"]).toDouble(),
-      totalRejectedAmount:
-          (json["TotalRejectedAmount"] ?? 0).toDouble(),
+      totalRejectedAmount: (json["TotalRejectedAmount"] ?? 0).toDouble(),
       userExchRate: (json["UserExchRate"] ?? 0).toDouble(),
       country: json["Country"],
       taxGroup: json["TaxGroup"],
@@ -3614,6 +4468,7 @@ class ExpenseHeader {
     );
   }
 }
+
 class LeaveTransaction {
   final DateTime transDate;
   final double noOfDays;
@@ -3622,8 +4477,7 @@ class LeaveTransaction {
   final bool leaveFirstHalf;
   final bool leaveSecondHalf;
   final int recId;
-
-  // metadata coming from parent LeaveModel (nullable)
+  final DateTypeModel? dateType;
   final String? leaveColor;
   final String? employeeName;
   final String? leaveId;
@@ -3639,9 +4493,15 @@ class LeaveTransaction {
     this.leaveColor,
     this.employeeName,
     this.leaveId,
+    this.dateType,
   });
 
-  factory LeaveTransaction.fromJson(Map<String, dynamic> json, {String? color, String? empName, String? leaveId}) {
+  factory LeaveTransaction.fromJson(
+    Map<String, dynamic> json, {
+    String? color,
+    String? empName,
+    String? leaveId,
+  }) {
     return LeaveTransaction(
       transDate: DateTime.fromMillisecondsSinceEpoch(json['TransDate']),
       noOfDays: (json['NoOfDays'] as num?)?.toDouble() ?? 0.0,
@@ -3653,6 +4513,9 @@ class LeaveTransaction {
       leaveColor: color,
       employeeName: empName,
       leaveId: leaveId,
+      dateType: json['DateType'] != null
+          ? DateTypeModel.fromJson(json['DateType'])
+          : null,
     );
   }
 
@@ -3681,10 +4544,51 @@ class LeaveTransaction {
       leaveId: leaveId ?? this.leaveId,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'TransDate': transDate.millisecondsSinceEpoch,
+      'NoOfDays': noOfDays,
+      'LeaveCode': leaveCode,
+      'ApprovalStatus': approvalStatus,
+      'LeaveFirstHalf': leaveFirstHalf,
+      'LeaveSecondHalf': leaveSecondHalf,
+      'RecId': recId,
+      'LeaveColor': leaveColor,
+      'EmployeeName': employeeName,
+      'LeaveId': leaveId,
+      'DateType': dateType?.toJson(),
+    };
+  }
 }
 
+class DateTypeModel {
+  final String dateType;
+  final double noOfDays;
+  final bool? isSelected;
 
+  DateTypeModel({
+    required this.dateType,
+    required this.noOfDays,
+    this.isSelected,
+  });
 
+  factory DateTypeModel.fromJson(Map<String, dynamic> json) {
+    return DateTypeModel(
+      dateType: json['DateType'],
+      noOfDays: (json['NoOfDays'] as num).toDouble(),
+      isSelected: json['isSelected'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'DateType': dateType,
+      'NoOfDays': noOfDays,
+      if (isSelected != null) 'isSelected': isSelected,
+    };
+  }
+}
 
 class LeaveModel {
   final String leaveId;
@@ -3768,7 +4672,8 @@ class LeaveModel {
       notifyingUserIds: json["NotifyingUserIds"]?.toString() ?? "",
       outOfOfficeMessage: json["OutOfOfficeMessage"]?.toString() ?? "",
       emergencyContactNumber: json["EmergencyContactNumber"]?.toString() ?? "",
-      availabilityDuringLeave: json["AvailabilityDuringLeave"]?.toString() ?? "",
+      availabilityDuringLeave:
+          json["AvailabilityDuringLeave"]?.toString() ?? "",
       leaveLocation: json["LeaveLocation"]?.toString() ?? "",
       duration: (json["Duration"] ?? 0).toDouble(),
       leaveBalance: (json["LeaveBalance"] ?? 0).toDouble(),
@@ -3780,11 +4685,10 @@ class LeaveModel {
       /// ⛔ SAFEST FIX → if list is null, return an empty list
       transactions: (json["LeaveTransactions"] as List? ?? [])
           .map((e) => LeaveTransaction.fromJson(e))
-          .toList(),  
+          .toList(),
     );
   }
 }
-
 
 List<ExpenseHeader> expenseHeaderListFromJson(dynamic data) {
   return (data as List<dynamic>)
@@ -4361,12 +5265,14 @@ class CashAdvanceRequestItemizeFornew {
     return int.tryParse(value.toString());
   }
 }
+
 class FieldConfig {
   final bool isEnabled;
   final bool isMandatory;
 
   FieldConfig(this.isEnabled, this.isMandatory);
 }
+
 class CashAdvanceRequestItemize {
   List<AccountingDistribution>? accountingDistributions;
   int? baseUnit;
@@ -5161,6 +6067,722 @@ double? _toDoubleOrNull(dynamic value) {
   return null;
 }
 
+class BoardModel {
+  final int recId;
+  final String boardId;
+  final String boardName;
+  final String boardType;
+  final String referenceType;
+  final String referenceId;
+  final String referenceName;
+  final bool isActive;
+  final String areaName;
+
+  BoardModel({
+    required this.recId,
+    required this.boardId,
+    required this.boardName,
+    required this.boardType,
+    required this.referenceType,
+    required this.referenceId,
+    required this.referenceName,
+    required this.isActive,
+    required this.areaName,
+  });
+
+  factory BoardModel.fromJson(Map<String, dynamic> json) {
+    return BoardModel(
+      recId: json['RecId'] ?? 0,
+      boardId: json['BoardId'] ?? '',
+      boardName: json['BoardName'] ?? '',
+      boardType: json['BoardType'] ?? '',
+      referenceType: json['ReferenceType'] ?? '',
+      referenceId: json['ReferenceId'] ?? '',
+      referenceName: json['ReferenceName'] ?? '',
+      isActive: json['IsActive'] ?? false,
+      areaName: json['AreaName'] ?? '',
+    );
+  }
+}
+
+class EmployeeGroup {
+  final String id;
+  final String name;
+  final String? description;
+  final List<Employee> members;
+
+  EmployeeGroup({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.members,
+  });
+
+  factory EmployeeGroup.fromJson(Map<String, dynamic> json) {
+    return EmployeeGroup(
+      id: json['id'] ?? json['GroupId'] ?? '',
+      name: json['name'] ?? json['LeaveCodes'] ?? '',
+      description: json['Description'],
+      members:
+          (json['members'] as List<dynamic>?)
+              ?.map((e) => Employee.fromJson(e))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+// In your models.dart file, update the factory methods
+// models/task_models.dart
+class TaskDetailModel {
+  String taskId;
+  String taskName;
+  String? notes;
+  bool? showNotes;
+  bool? showChecklist;
+  double? estimatedHours;
+  String priority;
+  String shelfId;
+  DateTime? startDate;
+  DateTime? dueDate;
+  List<TagModel> tagId;
+  List<String> assignedTo;
+  String status;
+  String? parentTaskId;
+  String? dependent;
+  String? cardType;
+  int recId;
+
+  TaskDetailModel({
+    required this.taskId,
+    required this.taskName,
+    this.notes,
+    this.showNotes,
+    this.showChecklist,
+    this.estimatedHours,
+    required this.priority,
+    required this.shelfId,
+    this.startDate,
+    this.dueDate,
+    required this.tagId,
+    required this.assignedTo,
+    required this.status,
+    this.parentTaskId,
+    this.dependent,
+    this.cardType,
+    required this.recId,
+  });
+
+  factory TaskDetailModel.fromJson(Map<String, dynamic> json) {
+    return TaskDetailModel(
+      taskId: json['TaskId']?.toString() ?? '',
+      taskName: json['TaskName']?.toString() ?? '',
+      notes: json['Notes'],
+      showNotes: json['ShowNotes'],
+      showChecklist: json['ShowChecklist'],
+      estimatedHours: json['EstimatedHours'] != null
+          ? double.tryParse(json['EstimatedHours'].toString())
+          : null,
+      priority: json['Priority']?.toString() ?? 'Low',
+      shelfId: json['ShelfId']?.toString() ?? '',
+      startDate: json['StartDate'] != null
+          ? DateTime.tryParse(json['StartDate'].toString())
+          : null,
+      dueDate: json['DueDate'] != null
+          ? DateTime.tryParse(json['DueDate'].toString())
+          : null,
+      tagId:
+          (json['TagId'] as List?)
+              ?.map((e) => TagModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      assignedTo:
+          (json['AssignedTo'] as List?)?.map((e) => e.toString()).toList() ??
+          [],
+      status: json['Status']?.toString() ?? '',
+      parentTaskId: json['ParentTaskId']?.toString(),
+      dependent: json['Dependent']?.toString(),
+      cardType: json['CardType']?.toString(),
+      recId: json['RecId'] is int
+          ? json['RecId']
+          : int.tryParse(json['RecId']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+class LocalAttachment {
+  final File file;
+  final String fileName;
+
+  LocalAttachment({required this.file, required this.fileName});
+}
+
+class CommentModel {
+  final String commentId;
+  final String taskId;
+  final String commentedBy;
+  final String comment;
+  final int createdDatetime;
+  final int recId;
+
+  CommentModel({
+    required this.commentId,
+    required this.taskId,
+    required this.commentedBy,
+    required this.comment,
+    required this.createdDatetime,
+    required this.recId,
+  });
+
+  factory CommentModel.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    return CommentModel(
+      commentId: json['CommentId'] ?? '',
+      taskId: json['TaskId'] ?? '',
+      commentedBy: json['CommentedBy'] ?? '',
+      comment: json['Comment'] ?? '',
+      createdDatetime: parseInt(json['CreatedDatetime']),
+      recId: parseInt(json['RecId']),
+    );
+  }
+}
+
+class AttachmentModel {
+  final String attachmentId;
+  final String taskId;
+  final bool showAttachment;
+  final String fileType;
+  final String fileSize;
+  final String? base64Data;
+  final String filePath;
+  final int recId;
+  final String fileName;
+  final File? localFile;
+  AttachmentModel({
+    required this.attachmentId,
+    required this.taskId,
+    required this.showAttachment,
+    required this.fileType,
+    required this.fileSize,
+    required this.filePath,
+    required this.recId,
+    required this.fileName,
+    this.base64Data,
+    this.localFile,
+  });
+  bool get isLocal => localFile != null;
+  factory AttachmentModel.fromJson(Map<String, dynamic> json) {
+    return AttachmentModel(
+      attachmentId: json['AttachmentId'] ?? '',
+      taskId: json['TaskId'] ?? '',
+      showAttachment: json['ShowAttachment'] ?? false,
+      fileType: json['FileType'] ?? '',
+      fileSize: json['FileSize'] ?? '',
+      filePath: json['FilePath'] ?? '',
+      recId: json['RecId'] ?? 0,
+      fileName: json['FileName'] ?? '',
+      base64Data: json['base64Data'] ?? '',
+    );
+  }
+}
+
+class ChecklistItem {
+  String description;
+  bool status;
+  int recId;
+
+  ChecklistItem({
+    required this.description,
+    required this.status,
+    required this.recId,
+  });
+
+  factory ChecklistItem.fromJson(Map<String, dynamic> json) {
+    return ChecklistItem(
+      description: json['Description'] ?? '',
+      status: json['Status'] ?? false,
+      recId: json['RecId'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        "Description": description,
+        "Status": status,
+        "RecId": recId,
+      };
+}
+
+
+class TaskModel {
+  final String taskId;
+  final String taskName;
+  final String priority;
+  final String assignedTo;
+  final int recId;
+  final String shelfId;
+  final String status;
+  final String? dueDate;
+  final bool isActive;
+  final TaskData? taskData;
+
+  TaskModel({
+    required this.taskId,
+    required this.taskName,
+    required this.priority,
+    required this.assignedTo,
+    required this.recId,
+    required this.shelfId,
+    required this.status,
+    this.dueDate,
+    required this.isActive,
+    this.taskData,
+  });
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  factory TaskModel.fromJson(Map<String, dynamic> json) {
+    return TaskModel(
+      taskId: json['TaskId']?.toString() ?? '',
+      taskName: json['TaskName']?.toString() ?? '',
+      priority: json['Priority']?.toString() ?? '',
+      assignedTo: json['AssignedTo']?.toString() ?? '',
+      recId: _toInt(json['RecId']),
+      shelfId: json['ShelfId']?.toString() ?? '',
+      status: json['Status']?.toString() ?? '',
+      dueDate: json['DueDate']?.toString(),
+      isActive: json['IsActive'] == true || json['IsActive'] == 1,
+      taskData: json['TaskData'] != null
+          ? TaskData.fromJson(json['TaskData'])
+          : null,
+    );
+  }
+}
+
+class TaskData {
+  final String? version;
+  final int? actualHours;
+
+  TaskData({
+    this.version,
+    this.actualHours,
+  });
+
+  factory TaskData.fromJson(Map<String, dynamic> json) {
+    return TaskData(
+      version: json['Version']?.toString(),
+      actualHours: _toNullableInt(json['Actual Hours']),
+    );
+  }
+
+  static int? _toNullableInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+}
+
+
+class TagModel {
+  String tagId;
+  String tagName;
+  String tagColor;
+  // int recId;
+
+  TagModel({
+    required this.tagId,
+    required this.tagName,
+    required this.tagColor,
+    // required this.recId,
+  });
+
+  factory TagModel.fromJson(Map<String, dynamic> json) {
+    return TagModel(
+      tagId: json['TagId'] ?? '',
+      tagName: json['TagName'] ?? '',
+      tagColor: json['TagColor'] ?? '#000000',
+      // recId: json['RecId'] ?? 0,
+    );
+  }
+}
+
+class CardTypeModel {
+  String boardCardId;
+  String cardName;
+  String? iconUrl;
+  int recId;
+
+  CardTypeModel({
+    required this.boardCardId,
+    required this.cardName,
+    this.iconUrl,
+    required this.recId,
+  });
+
+  factory CardTypeModel.fromJson(Map<String, dynamic> json) {
+    return CardTypeModel(
+      boardCardId: json['BoardCardId'] ?? '',
+      cardName: json['CardName'] ?? '',
+      iconUrl: json['IconURL'],
+      recId: json['RecId'] ?? 0,
+    );
+  }
+}
+
+class KanbanBoard {
+  final String boardId;
+  final String boardName;
+  final String? boardTheme; // 👈 ADD THIS
+  final List<Shelf> shelfs;
+
+  KanbanBoard({
+    required this.boardId,
+    required this.boardName,
+    this.boardTheme,
+    required this.shelfs,
+  });
+
+
+  factory KanbanBoard.fromJson(Map<String, dynamic> json) {
+    return KanbanBoard(
+      boardId: json['BoardId'] ?? '',
+      boardName: json['BoardName'] ?? '',
+      boardTheme: json['BoardTheme'],
+      shelfs:
+          (json['Shelfs'] as List<dynamic>?)
+              ?.map((shelfJson) => Shelf.fromJson(shelfJson))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+class Shelf {
+  final String shelfId;
+  final String shelfName;
+  final int sortOrder;
+  final String boardId;
+  final int recId;
+  final String colorPallete;
+  final List<TaskItem> tasks;
+  bool isCollapsed;
+
+  Shelf({
+    required this.shelfId,
+    required this.shelfName,
+    required this.sortOrder,
+    required this.colorPallete,
+    required this.boardId,
+    required this.recId,
+    required this.tasks,
+    this.isCollapsed = false,
+  });
+
+  factory Shelf.fromJson(Map<String, dynamic> json) {
+    return Shelf(
+      shelfId: json['ShelfId'] ?? '',
+      shelfName: json['ShelfName'] ?? '',
+      sortOrder: json['SortOrder'] ?? 0,
+      colorPallete: json['ColorPallete'] ?? '#FFFFFF', 
+      boardId: json['BoardId'] ?? '',
+      recId: json['RecId'] ?? 0,
+      tasks: (json['Tasks'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => TaskItem.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class TaskItem {
+  final String taskId;
+  final String taskName;
+  final String shelfId;
+  final String statusId;
+  final String statusName;
+  final String? description;
+  final bool showNotes;
+  final bool showChecklist;
+  final DateTime? dueDate;
+  final DateTime? startDate;
+  final String priority;
+  final List<String> assignedTo;
+  final int recId;
+  final CardType? cardType;
+  final List<Tag> tags;
+  final int attachmentsCount;
+  final int commentsCount;
+  final List<TaskDocument> taskDocuments;
+  final List<dynamic> checkLists;
+
+  TaskItem({
+    required this.taskId,
+    required this.taskName,
+    required this.shelfId,
+    required this.statusId,
+    required this.statusName,
+    this.description,
+    required this.showNotes,
+    required this.showChecklist,
+    this.dueDate,
+    this.startDate,
+    required this.priority,
+    required this.assignedTo,
+    required this.recId,
+    this.cardType,
+    required this.tags,
+    required this.attachmentsCount,
+    required this.commentsCount,
+    required this.taskDocuments,
+    required this.checkLists,
+  });
+
+  factory TaskItem.fromJson(Map<String, dynamic> json) {
+    /// 🔐 SAFE CardType handling (object | [] | null)
+    final dynamic cardTypeRaw = json['CardType'];
+    CardType? cardType;
+    if (cardTypeRaw is Map<String, dynamic>) {
+      cardType = CardType.fromJson(cardTypeRaw);
+    } else {
+      cardType = null;
+    }
+
+    /// 🔐 SAFE Tags
+    final List<Tag> tags = (json['Tags'] is List)
+        ? (json['Tags'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => Tag.fromJson(e))
+              .toList()
+        : [];
+
+    /// 🔐 SAFE TaskDocuments
+    final List<TaskDocument> documents = (json['TaskDocuments'] is List)
+        ? (json['TaskDocuments'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map((e) => TaskDocument.fromJson(e))
+              .toList()
+        : [];
+
+    return TaskItem(
+      taskId: json['TaskId'] ?? '',
+      taskName: json['TaskName'] ?? '',
+      shelfId: json['ShelfId'] ?? '',
+      statusId: json['StatusId'] ?? '',
+      statusName: json['StatusName'] ?? '',
+
+      description: json['Notes'],
+      showNotes: json['ShowNotes'] == true,
+      showChecklist: json['ShowChecklist'] == true,
+
+      dueDate: json['DueDate'] != null
+          ? DateTime.tryParse(json['DueDate'].toString())
+          : null,
+
+      startDate: json['StartDate'] != null
+          ? DateTime.tryParse(json['StartDate'].toString())
+          : null,
+
+      priority: json['Priority'] ?? 'Low',
+
+      assignedTo: (json['AssignedTo'] is List)
+          ? (json['AssignedTo'] as List).map((e) => e.toString()).toList()
+          : [],
+
+      recId: json['RecId'] ?? 0,
+
+      /// ✅ FIXED
+      cardType: cardType,
+
+      tags: tags,
+
+      attachmentsCount: json['AttachmentsCount'] ?? 0,
+      commentsCount: json['CommentsCount'] ?? 0,
+
+      taskDocuments: documents,
+
+      checkLists: json['CheckLists'] is List ? json['CheckLists'] : [],
+    );
+  }
+}
+class BoardSettings {
+  final String boardSettingId;
+  final String boardId;                 // ✅ added
+  final int recId;                      // ✅ added
+
+  final String boardTheme;
+  final String defaultSortingOrder;
+  final String boardSettingType;
+  final bool timeTrackingEnabled;
+  final bool enableAuditLogs;            // ✅ added
+  final bool isActive;                   // ✅ added
+
+  final String? backgroundImageUrl;
+
+  final String boardName;
+  final String? description;
+  final String boardOwnerName;
+  final String? referenceType;
+  final String? referenceId;
+
+  BoardSettings({
+    required this.boardSettingId,
+    required this.boardId,
+    required this.recId,
+    required this.boardTheme,
+    required this.defaultSortingOrder,
+    required this.boardSettingType,
+    required this.timeTrackingEnabled,
+    required this.enableAuditLogs,
+    required this.isActive,
+    this.backgroundImageUrl,
+    required this.boardName,
+    this.description,
+    required this.boardOwnerName,
+    this.referenceType,
+    this.referenceId,
+  });
+
+  factory BoardSettings.fromJson(Map<String, dynamic> json) {
+    return BoardSettings(
+      boardSettingId: json['BoardSettingId'] ?? '',
+      boardId: json['BoardId'] ?? '',
+      recId: json['RecId'] ?? 0,
+
+      boardTheme: json['BoardTheme'] ?? '',
+      defaultSortingOrder: json['DefaultSortingOrder'] ?? '',
+      boardSettingType: json['BoardSettingType'] ?? '',
+      timeTrackingEnabled: json['TimeTrackingEnabled'] ?? false,
+      enableAuditLogs: json['EnableAuditLogs'] ?? false,
+      isActive: json['IsActive'] ?? true,
+
+      backgroundImageUrl: json['BackgroundImageUrl'],
+      boardName: json['BoardName'] ?? '',
+      description: json['Description'],
+      boardOwnerName: json['BoardOwnerName'] ?? '',
+      referenceType: json['ReferenceType'],
+      referenceId: json['ReferenceId'],
+    );
+  }
+}
+
+
+
+class TaskDocument {
+  final String attachmentId;
+  final String taskId;
+  final bool showAttachment;
+  final String fileType;
+  final String fileSize;
+  final String filePath;
+  final int recId;
+  final String fileName;
+
+  TaskDocument({
+    required this.attachmentId,
+    required this.taskId,
+    required this.showAttachment,
+    required this.fileType,
+    required this.fileSize,
+    required this.filePath,
+    required this.recId,
+    required this.fileName,
+  });
+
+  factory TaskDocument.fromJson(Map<String, dynamic> json) {
+    return TaskDocument(
+      attachmentId: json['AttachmentId'] ?? '',
+      taskId: json['TaskId'] ?? '',
+      showAttachment: json['ShowAttachment'] ?? false,
+      fileType: json['FileType'] ?? '',
+      fileSize: json['FileSize'] ?? '',
+      filePath: json['FilePath'] ?? '',
+      recId: json['RecId'] ?? 0,
+      fileName: json['FileName'] ?? '',
+    );
+  }
+}
+
+class CardType {
+  final String boardCardId;
+  final String cardName;
+  final bool isEnabled;
+  final String? iconURL;
+  final String? description;
+  final int recId;
+
+  CardType({
+    required this.boardCardId,
+    required this.cardName,
+    required this.isEnabled,
+    this.iconURL,
+    this.description,
+    required this.recId,
+  });
+
+  factory CardType.fromJson(Map<String, dynamic> json) {
+    return CardType(
+      boardCardId: json['BoardCardId'] ?? '',
+      cardName: json['CardName'] ?? '',
+      isEnabled: json['IsEnabled'] ?? false,
+      iconURL: json['IconURL'],
+      description: json['Description'],
+      recId: json['RecId'] ?? 0,
+    );
+  }
+}
+
+class Tag {
+  final String tagId;
+  final String tagName;
+  final String tagColor;
+
+  Tag({required this.tagId, required this.tagName, required this.tagColor});
+
+  factory Tag.fromJson(Map<String, dynamic> json) {
+    return Tag(
+      tagId: json['TagId'] ?? '',
+      tagName: json['TagName'] ?? '',
+      tagColor: json['TagColor'] ?? '#000000',
+    );
+  }
+}
+
+class BoardTemplate {
+  final String? areaId;
+  final String areaName;
+  final String description;
+  final String icon;
+  final int? recId;
+
+  BoardTemplate({
+    this.areaId,
+    required this.areaName,
+    required this.description,
+    required this.icon,
+    this.recId,
+  });
+
+  factory BoardTemplate.fromJson(Map<String, dynamic> json) {
+    return BoardTemplate(
+      areaId: json['AreaId'],
+      areaName: json['AreaName'] ?? '',
+      description: json['Description'] ?? '',
+      icon: json['Icon'] ?? '',
+      recId: json['RecId'],
+    );
+  }
+}
+
 class CashAdvanceGeneralSettings {
   final bool allowCashAdvAgainstExpenseReg;
   final bool allowDocAttachments;
@@ -5221,7 +6843,6 @@ class CashAdvanceDropDownModel {
       requestDate: json['RequestDate'] ?? 0,
     );
   }
-
 
   Map<String, dynamic> toJson() => {
     'CashAdvanceReqId': cashAdvanceReqId,
@@ -5745,6 +7366,92 @@ class ApiResponse {
       data: categories,
       plotData: json['plot'] ?? '',
       answer: json['answer'] ?? '',
+    );
+  }
+}
+
+class BoardMember {
+  final String boardMemberId;
+  final String userId;
+  final String userName;
+  final String email;
+  final String accessPermission;
+  final bool isActive;
+  final String status;
+  final int recId;
+
+  BoardMember({
+    required this.boardMemberId,
+    required this.userId,
+    required this.userName,
+    required this.email,
+    required this.accessPermission,
+    required this.isActive,
+    required this.status,
+    required this.recId,
+  });
+
+  factory BoardMember.fromJson(Map<String, dynamic> json) {
+    return BoardMember(
+      boardMemberId: json['BoardMemberId'] ?? '',
+      userId: json['UserId'] ?? '',
+      userName: json['UserName'] ?? '',
+      email: json['Email'] ?? '',
+      accessPermission: json['AccessPermission'] ?? '',
+      isActive: json['IsActive'] ?? false,
+      status: json['Status'] ?? '',
+      recId: json['RecId'] ?? 0,
+    );
+  }
+}
+class PayrollsTeams {
+  final int recId;
+  final String employeeId;
+  final String employeeName;
+  final DateTime? paymentDate;
+  final DateTime? periodStartDate;
+  final DateTime? periodEndDate;
+  final String type;
+  final String source;
+  final bool isActive;
+  final int organizationId;
+
+  PayrollsTeams({
+    required this.recId,
+    required this.employeeId,
+    required this.employeeName,
+    this.paymentDate,
+    this.periodStartDate,
+    this.periodEndDate,
+    required this.type,
+    required this.source,
+    required this.isActive,
+    required this.organizationId,
+  });
+
+  factory PayrollsTeams.fromJson(Map<String, dynamic> json) {
+    return PayrollsTeams(
+      recId: json['RecId'] ?? 0,
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+
+      /// 🔑 milliseconds → DateTime
+      paymentDate: json['PaymentDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['PaymentDate'])
+          : null,
+
+      periodStartDate: json['PeriodStartDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['PeriodStartDate'])
+          : null,
+
+      periodEndDate: json['PeriodEndDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['PeriodEndDate'])
+          : null,
+
+      type: json['Type'] ?? '',
+      source: json['Source'] ?? '',
+      isActive: json['IsActive'] ?? false,
+      organizationId: json['OrganizationId'] ?? 0,
     );
   }
 }
