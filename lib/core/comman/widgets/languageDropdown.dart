@@ -1,4 +1,4 @@
-import 'package:digi_xpense/main.dart';
+import 'package:diginexa/main.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
@@ -78,7 +78,7 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 120,
+      width: 100,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         // color: Colors.transparent,
@@ -138,7 +138,7 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
                     fit: BoxFit.cover,
                   ),
                   const SizedBox(width: 6),
-                  Text(lang['name']),
+                  Text(lang['name'],style: TextStyle(fontSize: 8),),
                 ],
               ),
             );

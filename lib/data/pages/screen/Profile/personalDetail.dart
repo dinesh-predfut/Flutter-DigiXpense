@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/multiColumnDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/main.dart';
-import 'package:digi_xpense/theme/settheme.dart';
+import 'package:diginexa/core/comman/widgets/multiColumnDropdown.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/main.dart';
+import 'package:diginexa/theme/settheme.dart';
+import 'package:diginexa/theme/theme.dart' show ThemeNotifier;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
@@ -21,7 +22,7 @@ import '../../../../core/comman/widgets/dateSelector.dart';
 import '../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../models.dart';
 import 'package:flutter/services.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart'; // import 'package:flutter_chips_input/flutter_chips_input.dart';
+import 'package:diginexa/l10n/app_localizations.dart'; // import 'package:flutter_chips_input/flutter_chips_input.dart';
 
 class PersonalDetailsPage extends StatefulWidget {
   const PersonalDetailsPage({super.key});
@@ -31,7 +32,7 @@ class PersonalDetailsPage extends StatefulWidget {
 }
 
 class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   final FocusNode _focusNode = FocusNode();
   final _formKey = GlobalKey<FormState>();
   FocusNode _contactStateFocusNode = FocusNode();
@@ -39,7 +40,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
   final TextEditingController textcontroller = TextEditingController();
   final TextEditingController _statePresentStateTextController =
       TextEditingController();
-late Future<Map<String, bool>> featureFuture;
+  late Future<Map<String, bool>> featureFuture;
   final TextEditingController _controller = TextEditingController();
   List<Map<String, dynamic>> filteredOptions = [];
   List<Map<String, dynamic>> filteredStateOptions = [];
@@ -160,7 +161,7 @@ late Future<Map<String, bool>> featureFuture;
         });
       }
     });
- featureFuture = controller.getAllFeatureStates();
+    featureFuture = controller.getAllFeatureStates();
     // controller.getProfilePicture();
 
     // if (controller.contactStreetController.text.isEmpty &&
@@ -168,12 +169,13 @@ late Future<Map<String, bool>> featureFuture;
     //     controller.selectedContCountry.value == null) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       fetchAllData();
+       _loadProfileImage();
     });
-    _loadProfileImage();
+   
   }
 
   Future<void> _loadProfileImage() async {
-    // controller.isImageLoading.value = true;
+    controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
     if (path != null && File(path).existsSync()) {
@@ -181,6 +183,7 @@ late Future<Map<String, bool>> featureFuture;
       setState(() {});
       controller.isImageLoading.value = false;
     } else {
+        controller.isImageLoading.value = false;
       // await controller.getProfilePicture();
     }
   }
@@ -382,15 +385,21 @@ late Future<Map<String, bool>> featureFuture;
 
                             final file = profileImage.value;
 
-                            return CircleAvatar(
-                              radius: 60,
-                              backgroundImage: file != null
-                                  ? FileImage(file, scale: 1.0)
-                                  : null,
-                              key: UniqueKey(),
-                              child: file == null
-                                  ? const Icon(Icons.person, size: 60)
-                                  : null,
+                            return GestureDetector(
+                              onTap: () {
+                                if (file != null) {
+                                  showFullImage(context, file);
+                                }
+                              },
+                              child: CircleAvatar(
+                                radius: 60,
+                                backgroundImage: file != null
+                                    ? FileImage(file)
+                                    : null,
+                                child: file == null
+                                    ? const Icon(Icons.person, size: 60)
+                                    : null,
+                              ),
                             );
                           }),
 
@@ -474,11 +483,12 @@ late Future<Map<String, bool>> featureFuture;
                                     decoration: InputDecoration(
                                       labelText: loc.phoneNumber,
                                       labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(10),
-                                        
                                       ),
                                       counterText: "",
                                     ),
@@ -625,9 +635,11 @@ late Future<Map<String, bool>> featureFuture;
                                             decoration: InputDecoration(
                                               labelText:
                                                   '${loc.searchCountry}*',
-                                                  labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+                                              labelStyle: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                              ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(10),
@@ -935,8 +947,10 @@ late Future<Map<String, bool>> featureFuture;
                                                 decoration: InputDecoration(
                                                   labelText: loc.searchState,
                                                   labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -1338,9 +1352,11 @@ late Future<Map<String, bool>> featureFuture;
                                             decoration: InputDecoration(
                                               labelText:
                                                   '${loc.searchCountry}*',
-                                                  labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+                                              labelStyle: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                              ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(10),
@@ -1618,8 +1634,10 @@ late Future<Map<String, bool>> featureFuture;
                                                 decoration: InputDecoration(
                                                   labelText: loc.searchState,
                                                   labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -2044,7 +2062,7 @@ late Future<Map<String, bool>> featureFuture;
                           ),
                           Obx(() {
                             final isEnabled = controller.userPref.value;
-                            print("isEnabledss${controller.userPref.value}");
+                           
                             return AbsorbPointer(
                               absorbing:
                                   !isEnabled, // disables taps when loading
@@ -2087,7 +2105,8 @@ late Future<Map<String, bool>> featureFuture;
                                               horizontal: 16,
                                             ),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
                                               children: [
                                                 Expanded(
                                                   // flex: 2,
@@ -2557,26 +2576,33 @@ late Future<Map<String, bool>> featureFuture;
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                         StatefulBuilder(
-  builder: (context, setLocalState) {
-    return TextField(
-      controller: _controller,
-      decoration: InputDecoration(
-        labelText: loc.enterEmail,
-        border: OutlineInputBorder(),
-        errorText: _errorText,
-        labelStyle: TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-      onChanged: (val) {
-        setLocalState(() {});  // only rebuilds email field
-        _validateOnChange(val); // your logic stays same
-      },
-      onSubmitted: _addEmails,
-    );
-  },
-),
+                                            StatefulBuilder(
+                                              builder: (context, setLocalState) {
+                                                return TextField(
+                                                  controller: _controller,
+                                                  decoration: InputDecoration(
+                                                    labelText: loc.enterEmail,
+                                                    border:
+                                                        OutlineInputBorder(),
+                                                    errorText: _errorText,
+                                                    labelStyle: TextStyle(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary,
+                                                    ),
+                                                  ),
+                                                  onChanged: (val) {
+                                                    setLocalState(
+                                                      () {},
+                                                    ); // only rebuilds email field
+                                                    _validateOnChange(
+                                                      val,
+                                                    ); // your logic stays same
+                                                  },
+                                                  onSubmitted: _addEmails,
+                                                );
+                                              },
+                                            ),
 
                                             const SizedBox(height: 8),
                                             if (isTyping)
@@ -2604,7 +2630,7 @@ late Future<Map<String, bool>> featureFuture;
                                                 ],
                                               ),
                                             FutureBuilder<Map<String, bool>>(
-                                             future: featureFuture,
+                                              future: featureFuture,
                                               builder: (context, snapshot) {
                                                 if (snapshot.connectionState ==
                                                     ConnectionState.waiting) {
@@ -2855,11 +2881,107 @@ late Future<Map<String, bool>> featureFuture;
                           const SizedBox(height: 20),
                         ],
                       ),
+                      Obx(
+                        () => ListTile(
+                          leading: controller.isLogoutLoading.value
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.logout, color: Colors.red),
+
+                          title: Text(
+                            controller.isLogoutLoading.value
+                                ? "Logging out..."
+                                : loc.logout,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+
+                          // ✅ Disable second click
+                          onTap: controller.isLogoutLoading.value
+                              ? null
+                              : () {
+                                  _showLogoutConfirmation(context, () async {
+                                    controller.isLogoutLoading.value = true;
+
+                                    try {
+                                      await controller.logout();
+
+                                      final prefs =
+                                          await SharedPreferences.getInstance();
+
+                                      await prefs.remove('token');
+                                      await prefs.remove('employeeId');
+                                      await prefs.remove('userId');
+                                      await prefs.remove('refresh_token');
+                                      await prefs.remove('userName');
+                                      await prefs.remove('profileImagePath');
+
+                                      prefs.setString('last_route', 'Login');
+
+                                      final themeNotifier =
+                                          Provider.of<ThemeNotifier>(
+                                            context,
+                                            listen: false,
+                                          );
+
+                                      await themeNotifier.clearTheme();
+
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        AppRoutes.signin,
+                                        (route) => false,
+                                      );
+                                    } finally {
+                                      controller.isLogoutLoading.value = false;
+                                    }
+                                  });
+                                },
+                        ),
+                      ),
                     ],
                   ),
                 );
         }),
       ),
+    );
+  }
+
+  Future<void> _showLogoutConfirmation(
+    BuildContext context,
+    VoidCallback onLogout,
+  ) async {
+    return showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Colors.white,
+          title: const Text(
+            'Confirm Logout',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text("Are you sure you want to logout?"),
+          actions: [
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onLogout();
+              },
+              child: const Text("Logout"),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2918,9 +3040,7 @@ late Future<Map<String, bool>> featureFuture;
         validator: validator,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(
-  color: Theme.of(context).colorScheme.primary,
-),
+          labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           filled: !isEnabled,
         ),
@@ -2995,8 +3115,40 @@ late Future<Map<String, bool>> featureFuture;
     );
   }
 
+  void showFullImage(BuildContext context, File imageFile) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(imageFile),
+                ),
+              ),
+
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void showEditPopup(BuildContext context) {
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(

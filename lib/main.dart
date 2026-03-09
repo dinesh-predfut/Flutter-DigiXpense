@@ -1,5 +1,9 @@
 import 'dart:convert';
-import 'package:digi_xpense/data/pages/screen/screenLoader.dart';
+import 'package:diginexa/core/comman/widgets/internetProvider.dart' show InternetProvider;
+import 'package:diginexa/core/comman/widgets/internetWrap.dart';
+import 'package:diginexa/core/comman/widgets/noInternetPage.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/data/pages/screen/screenLoader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -9,11 +13,11 @@ import 'package:firebase_core/firebase_core.dart';
 
 // Local imports
 import 'firebase_options.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/theme/theme.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/theme/theme.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
 
 /// Locale Notifier
 class LocaleNotifier extends ChangeNotifier {
@@ -104,7 +108,7 @@ class AppInitializer {
     final langId = prefs.getString("LanguageID") ?? "LUG-01";
     final refreshToken = prefs.getString('refresh_token');
     final initialRoute = await _getInitialRoute(refreshToken);
-print("initialRoute$initialRoute");
+    print("initialRoute$initialRoute");
     // Initialize SetSharedPref
     try {
       await SetSharedPref().getData();
@@ -113,7 +117,8 @@ print("initialRoute$initialRoute");
     }
 
     // Initialize theme
-    final Color initialColor = themeColorMap[themeKey] ?? const Color(0xFF1A237E);
+    final Color initialColor =
+        themeColorMap[themeKey] ?? const Color(0xFF1A237E);
     final themeNotifier = ThemeNotifier(
       ThemeData(
         useMaterial3: true,
@@ -140,11 +145,16 @@ print("initialRoute$initialRoute");
 
   static Future<String> _getInitialRoute(String? refreshToken) async {
     final prefs = await SharedPreferences.getInstance();
-    final lastRoute = prefs.getString('last_route'); // Changed from refresh_token
+    final lastRoute = prefs.getString(
+      'last_route',
+    ); // Changed from refresh_token
     print("lastRoute$lastRoute");
+    print("refreshToken$refreshToken");
     if (lastRoute == "Login") {
       return AppRoutes.signin;
-    } else if (refreshToken == null || refreshToken.isEmpty || refreshToken == "null") {
+    } else if (refreshToken == null ||
+        refreshToken.isEmpty ||
+        refreshToken == "null") {
       return AppRoutes.entryScreen;
     } else {
       return AppRoutes.dashboard_Main;
@@ -166,7 +176,7 @@ class AppInitData {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   runApp(
     FutureBuilder<AppInitData>(
       future: AppInitializer.initialize(),
@@ -176,9 +186,20 @@ void main() {
             final initData = snapshot.data!;
             return MultiProvider(
               providers: [
-                ChangeNotifierProvider<ThemeNotifier>.value(value: initData.themeNotifier),
-                ChangeNotifierProvider<LocaleNotifier>.value(value: initData.localeNotifier),
-                ChangeNotifierProvider<ReportModel>(create: (_) => ReportModel()),
+                ChangeNotifierProvider<ThemeNotifier>.value(
+                  value: initData.themeNotifier,
+                ),
+
+                ChangeNotifierProvider<LocaleNotifier>.value(
+                  value: initData.localeNotifier,
+                ),
+
+                ChangeNotifierProvider<ReportModel>(
+                  create: (_) => ReportModel(),
+                ),
+
+                /// ✅ INTERNET PROVIDER ADDED
+                ChangeNotifierProvider(create: (_) => InternetProvider()),
               ],
               child: MyApp(initialRoute: initData.initialRoute),
             );
@@ -193,7 +214,13 @@ void main() {
                     children: [
                       FlutterLogo(size: 100),
                       const SizedBox(height: 20),
-                      const Text('Digi Xpense', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Digi Xpense',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       const Text('Initialization failed, please restart'),
                       const SizedBox(height: 20),
@@ -238,22 +265,21 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late Widget _homeScreen;
-  final GlobalKey<NavigatorState> appNavigatorKey =
-    GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
-    
+
     // Create a temporary home screen that will navigate to the initial route
     _homeScreen = _buildTempHomeScreen();
-    
+
     // Delay navigation to ensure MaterialApp is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _navigateToInitialRoute();
     });
   }
-  
+
   Widget _buildTempHomeScreen() {
     return Scaffold(
       body: Container(
@@ -264,16 +290,19 @@ class _MyAppState extends State<MyApp> {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
-              const Text('Loading Digi Xpense...'),
+              const Text('Loading DigiNexa...'),
               const SizedBox(height: 10),
-              Text('Route: ${widget.initialRoute}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                'Route: ${widget.initialRoute}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
         ),
       ),
     );
   }
-  
+
   void _navigateToInitialRoute() {
     if (mounted) {
       Future.delayed(Duration.zero, () {
@@ -281,24 +310,26 @@ class _MyAppState extends State<MyApp> {
       });
     }
   }
-    void restartApp() {
-  appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-    AppRoutes.dashboard_Main, // or login
-    (route) => false,
-  );
-}
+
+  void restartApp() {
+    appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+      AppRoutes.dashboard_Main, // or login
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     final localeNotifier = Provider.of<LocaleNotifier>(context);
 
     return MaterialApp(
-      title: 'Digi Xpense',
+      title: 'Diginexa',
       debugShowCheckedModeBanner: false,
-       navigatorKey: appNavigatorKey,
+      navigatorKey: appNavigatorKey,
       // Provide a home to prevent white screen
-      home: _homeScreen,
-      
+      // home: _homeScreen,
+
       initialRoute: widget.initialRoute,
       onGenerateRoute: (settings) {
         print("Navigating to: ${settings.name}");
@@ -308,7 +339,7 @@ class _MyAppState extends State<MyApp> {
           print("Route generation error: $e");
           // Fallback route
           return MaterialPageRoute(
-            builder: (_) => Scaffold(
+             builder: (_) => Scaffold(
               appBar: AppBar(title: const Text('Error')),
               body: Center(
                 child: Column(
@@ -322,7 +353,10 @@ class _MyAppState extends State<MyApp> {
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, AppRoutes.entryScreen);
+                        Navigator.pushReplacementNamed(
+                          context,
+                          AppRoutes.entryScreen,
+                        );
                       },
                       child: const Text('Go to Home'),
                     ),
@@ -347,29 +381,14 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      
+
       // Add a builder to catch errors
-      builder: (context, child) {
-        return child ?? Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.warning, size: 64, color: Colors.orange),
-                const SizedBox(height: 20),
-                const Text('App Error'),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    runApp(MyApp(initialRoute: AppRoutes.entryScreen));
-                  },
-                  child: const Text('Restart App'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+     
+    builder: (context, child) {
+  return InternetWrapper(
+    child: child ?? const SizedBox(),
+  );
+},
     );
   }
 }
@@ -391,7 +410,7 @@ class SimpleLoadingScreen extends StatelessWidget {
             const CircularProgressIndicator(),
             const SizedBox(height: 20),
             const Text(
-              'Digi Xpense',
+              'Diginexa',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),

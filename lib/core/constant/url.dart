@@ -1,5 +1,8 @@
 class Urls {
-  static const String baseURL = "https://api.digixpense.com";
+  // static const String baseURL = "https://api.digixpense.com";
+  static const String baseURL = "https://digixepenseapi.loclx.io";
+//   static const String baseURL = "http://69.30.253.234:9700";
+            //   static const String baseURL = "http://192.168.11.58:9700";
     static const login = "$baseURL/api/v1/tenant/auth/login/";
   static const forgetPassword =
       "$baseURL/api/v1/tenant/auth/forgotpassword/?user_id=";
@@ -51,8 +54,10 @@ class Urls {
       "$baseURL/api/v1/expenseregistration/expenseregistration/currency?filter_query=STPCompanyCurrencies.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const expenseCategory =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expensecategory?ProjectId=";
-  static const exchangeRate =
+  static const exchangeRateCA =
       "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversionfromorg";
+        static const exchangeRate =
+      "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversion";
   static const saveGenderalExpense =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenseregistrationscreen?functionalentity=ExpenseRequisition";
   static const cashadvancerequisitions =
@@ -75,10 +80,14 @@ class Urls {
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/detailedapproval?";
   static const updateApprovalStatus =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=ExpenseRequisition";
+      static const externalApprovals =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/externalapproval/takeaction";
        static const updateApprovalStatusLeave =
           "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=LeaveCancellation";
   static const updateApprovalStatusCashAdvance =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
+       static const sheetApprovals =
+      "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=TimesheetRequisition";
   static const getSpecificPerdiemExpense =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemregistration?RecId=";
   static const getSpecificPerdiemExpenseApproval =
@@ -125,7 +134,7 @@ class Urls {
       "$baseURL/api/v1/mileageregistration/mileageregistration/mileageregistration?functionalentity=ExpenseRequisition&";
   static const mileageregistrationview =
       "$baseURL/api/v1/mileageregistration/mileageregistration/";
-  static const getNotifications = "$baseURL/api/v1/websocket/notifications1/";
+  static const getNotifications = "$baseURL/api/v1/websocket/notifications/";
   static const getCustomField =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype";
   static const getdimensionsDropdownName =

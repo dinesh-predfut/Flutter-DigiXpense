@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:digi_xpense/data/models.dart' show LeaveDetailsModel, LeaveDetailsModel;
-import 'package:digi_xpense/data/service.dart' show Controller;
+import 'package:diginexa/data/models.dart' show LeaveDetailsModel, LeaveDetailsModel;
+import 'package:diginexa/data/service.dart' show Controller;
 import 'package:flutter/material.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/get_instance.dart';
@@ -25,7 +25,11 @@ DateTime _selectedDay = DateTime.now();
   @override
   void initState() {
     super.initState();
-    controller.loadCalendarLeaves();
+   final range = controller.getMonthRangeEpoch(controller.focusedDay);
+    controller.loadCalendarLeaves(
+      fromDate: range['from']!,
+      toDate: range['to']!,
+    );
     // default: today selected
     controller.selectedDay = DateTime.now();
     controller.focusedDay = DateTime.now();
@@ -193,7 +197,7 @@ Widget _segmentedControl() {
   return Container(
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
-      color: const Color(0xFFF0F0F5),
+       color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(30),
     ),
     child: Row(
@@ -244,7 +248,7 @@ bool get isDayView => true;
     builder: (context, _) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+         color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
         ),

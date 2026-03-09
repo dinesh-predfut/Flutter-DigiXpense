@@ -1,10 +1,10 @@
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -23,7 +23,7 @@ class MileageFirstFrom extends StatefulWidget {
 
 class _MileageFirstFromState extends State<MileageFirstFrom>
     with SingleTickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<List<ExpenseHistory>>? historyFuture;
   String? statusApproval;
   bool _showProjectError = false;
@@ -37,12 +37,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   @override
   void initState() {
     super.initState();
+    print("mileageId${widget.mileageId}");
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
     final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
-    controller.fetchMileageRates();
+    
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.fetchMileageRates();
       await controller.fetchProjectName();
 
       await controller.configuration();
@@ -225,7 +227,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     } else {
       _showProjectError = false;
     }
-    if (controller.mileageVehicleID.text.isEmpty) {
+    if (controller.selectedVehicleType == null) {
       setState(() {
         vehicleError = 'Please select a Vehicle Type';
       });
@@ -567,6 +569,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                                   ),
                                               child: Row(
                                                 children: [
+                                                  SizedBox(width: 10,),
                                                   Expanded(
                                                     child: Text(proj.name),
                                                   ),

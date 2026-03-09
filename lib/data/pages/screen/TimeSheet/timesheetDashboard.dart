@@ -1,30 +1,33 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart' show Params;
-import 'package:digi_xpense/data/models.dart'
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/data/models.dart'
     show
         ManageExpensesCard,
         GExpense,
         LeaveAnalytics,
         LeaveRequisition,
         LeaveDetailsModel,
-        Employee;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+        Employee,
+        TimesheetModel;
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class TimeSheetDashboard extends StatefulWidget {
@@ -36,7 +39,7 @@ class TimeSheetDashboard extends StatefulWidget {
 
 class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     with TickerProviderStateMixin {
-  late final Controller controller;
+  final controller = Get.find<Controller>();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -45,7 +48,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
   // Tab related variables
   int _selectedTabIndex = 0;
-  final List<String> _tabTitles = ['Table View', 'Time Tracker'];
+  late final List<String> _tabTitles = [AppLocalizations.of(context)!.tableView, AppLocalizations.of(context)!.timeTracker];
 
   // Calendar related variables
   DateTime _focusedDay = DateTime.now();
@@ -86,36 +89,26 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
   @override
   void initState() {
     super.initState();
-    controller = Get.find(); // Use existing controller
     _loadProfileImage();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
-      
-    
     });
-   
 
-  
-    controller.fetchNotifications();
-    controller.getPersonalDetails(context);
+     controller.fetchCustomFieldsTimeSheet();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.fetchLeaveRequisitions().then((_) {
+      controller.fetchNotifications();
+      controller.getPersonalDetails(context);
+      controller.fetchTimeSheetData().then((_) {
         controller.isLoadingLeaves.value = false;
       });
     });
   }
 
-
-
-
-
-  
-
   void _loadProfileImage() async {
     // controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('selectedMenu', 'My Leave');
+    prefs.setString('selectedMenu', 'My TimeSheets');
     final path = prefs.getString('profileImagePath');
     if (path != null && File(path).existsSync()) {
       profileImage.value = File(path);
@@ -124,8 +117,6 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
       controller.isImageLoading.value = false;
     }
   }
-
-
 
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
@@ -156,7 +147,8 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
     return WillPopScope(
       onWillPop: () async {
-       
+        controller.selectedStatus = "Un Reported";
+        controller.selectedTimeSheetStatusDropDown.value = "Un Reported";
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
       },
@@ -171,7 +163,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                if (primaryColor != const Color(0xFF1e4db7))
+           if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -179,43 +171,82 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [primaryColor, primaryColor.withOpacity(0.7)],
+                        colors: [
+                          primaryColor,
+                          primaryColor.withOpacity(
+                            0.7,
+                          ), // Lighter primary color
+                        ],
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          onPressed: _openMenu,
-                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                          style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.all(5),
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        // Logo
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const LanguageDropdown(),
 
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
-                        ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
                       ],
                     ),
                   ),
@@ -233,39 +264,75 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                         bottomRight: Radius.circular(10),
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                    child: Row(
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child:Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          onPressed: _openMenu,
-                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                          style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.all(8),
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              const LanguageDropdown(),
 
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
-                        ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
                       ],
                     ),
                   ),
@@ -275,7 +342,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                   child: Padding(
                     padding: const EdgeInsets.only(left: 16.0),
                     child: Text(
-                      "TimeSheets ${AppLocalizations.of(context)!.dashboard}",
+                      AppLocalizations.of(context)!.myTimesheets,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -346,10 +413,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                
-
-              
+                if (_selectedTabIndex == 0) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: SizedBox(
@@ -419,7 +483,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                                             .selectedTimeSheetStatusDropDown
                                             .value =
                                         newValue;
-                                    controller.fetchLeaveRequisitions();
+                                    controller.fetchTimeSheetData();
                                   }
                                 },
                                 items: statusOptions.map<DropdownMenuItem<String>>((
@@ -451,11 +515,13 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: SizedBox(
-                          height: 40,
+                          height: 48,
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.add, size: 16),
                             label: Text(
-                              "Add Time Sheet Request ",
+                              "${AppLocalizations.of(
+                                    context,
+                                  )!.addTimeSheets} ",
                               style: TextStyle(fontSize: 12),
                             ),
                             style: ElevatedButton.styleFrom(
@@ -485,15 +551,13 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                       ),
                     ],
                   ),
-              
 
-                // 🔹 Content based on selected tab
-                Expanded(
-                  child: 
-                      _buildCardViewContent(context)
-                    
-                ),
-              ]
+                  // 🔹 Content based on selected tab
+                  Expanded(child: _buildCardViewContent(context)),
+                ] else ...[
+                  Expanded(child:TimeTrackerView()),
+                ],
+              ],
             );
           },
         ),
@@ -501,29 +565,6 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     );
   }
 
-  
- 
-
-  
-
-  
-
-  void _openDetail(LeaveDetailsModel ev) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ViewEditLeavePage(
-          leaveRequest: ev,
-          isReadOnly: true,
-          status: false,
-        ),
-      ),
-    );
-  }
-
-  
-
-  
   Widget _buildCardViewContent(BuildContext context) {
     return Obx(() {
       print("isLoadingLeaves => ${controller.isLoadingLeaves.value}");
@@ -532,28 +573,30 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
         return const SkeletonLoaderPage();
       }
 
-      if (controller.filteredLeaves.isEmpty) {
-        return Center(child: Text(AppLocalizations.of(context)!.noLeaveData));
-      }
+      if (controller.filteredSheet.isEmpty) {
+  return const CommonNoDataWidget();
+}
 
       return ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        itemCount: controller.filteredLeaves.length,
+        itemCount: controller.filteredSheet.length,
         itemBuilder: (ctx, idx) {
-          final item = controller.filteredLeaves[idx];
+          final item = controller.filteredSheet[idx];
 
           return Dismissible(
-            key: ValueKey(item.leaveId),
+            key: ValueKey(item.timesheetId),
             background: _buildSwipeActionLeft(isLoading),
             secondaryBackground: _buildSwipeActionRight(),
             confirmDismiss: (direction) async {
               if (direction == DismissDirection.startToEnd) {
                 setState(() => isLoading = true);
-                await controller.fetchSpecificLeaveDetails(
-                  context,
-                  item.recId,
-                  true,
+                await controller.fetchSpecificTimesheet(
+                  recId: item.recId,
+                  lockId: item.recId,
+                  context: context,
+                   page:"Edit"
                 );
+
                 setState(() => isLoading = false);
                 return false;
               }
@@ -565,7 +608,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                   builder: (ctx) => AlertDialog(
                     title: Text(AppLocalizations.of(context)!.delete),
                     content: Text(
-                      '${AppLocalizations.of(context)!.delete} "${item.leaveId}"?',
+                      '${AppLocalizations.of(context)!.delete} "${item.timesheetId}"?',
                     ),
                     actions: [
                       TextButton(
@@ -585,7 +628,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
                 if (shouldDelete == true) {
                   setState(() => isLoading = true);
-                  await controller.deleteLeave(item.recId);
+                  await controller.deleteTimeSheets(item.recId);
                   setState(() => isLoading = false);
                   return true;
                 }
@@ -687,27 +730,27 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                     ),
 
                     /// Loader Overlay
-                    if (controller.isImageLoading.value)
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
@@ -848,13 +891,18 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     );
   }
 
-  Widget _buildStyledCard(LeaveRequisition item, BuildContext context) {
+  Widget _buildStyledCard(TimesheetModel item, BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () async {
         // 👉 Handle click here
         // Example: Navigate to details page
-        await controller.fetchSpecificLeaveDetails(context, item.recId, true);
+        await controller.fetchSpecificTimesheet(
+          recId: item.recId,
+          lockId: item.recId,
+          context: context,
+           page:"Edit"
+        );
       },
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -879,7 +927,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.leaveId,
+                    item.timesheetId,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -887,7 +935,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'No of Days: ${item.duration} | Balance: ${item.leaveBalance}',
+                    '${AppLocalizations.of(context)!.employeeId} : ${item.employeeId} | ${AppLocalizations.of(context)!.name}: ${item.employeeName}',
                     style: const TextStyle(fontSize: 12),
                   ),
                   const SizedBox(height: 6),

@@ -1,12 +1,12 @@
 // Full Updated Code with Null Safety Fixes
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -26,7 +26,7 @@ class CreatePerDiemPage extends StatefulWidget {
 
 class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     with SingleTickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   bool _showProjectError = false;
   bool _showLocationError = false;
   String? statusApproval;
@@ -37,37 +37,41 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   @override
   void initState() {
     super.initState();
-
-    _initializeDataCashAdvance();
-    _loadSettings();
-
-    print("isReadOnly ${widget.isReadOnly}");
-    controller.isReadOnly = widget.isReadOnly;
-
     if (widget.item != null) {
-      controller.cashAdvReqIds = widget.item!.cashAdvReqId ?? '';
-      statusApproval = widget.item!.approvalStatus ?? 'Unknown';
-
-      if (widget.item!.stepType == "Approval") {
-        controller.isEditModePerdiem = false;
-        controller.isEditMode = false;
-        controller.isReadOnly = true;
-      }
-
-      workitemrecid = widget.item!.workitemrecid;
-
       historyFuture = controller.fetchExpenseHistory(widget.item!.recId);
-      controller.split = (widget.item!.accountingDistributions ?? []).map((dist) {
-        return AccountingSplit(
-          paidFor: dist.dimensionValueId ?? '',
-          percentage: dist.allocationFactor ?? 0.0,
-          amount: dist.transAmount ?? 0.0,
-        );
-      }).toList();
-    } else {
-      statusApproval = 'Unknown';
-      workitemrecid = null;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeDataCashAdvance();
+      _loadSettings();
+      controller.loadAllCustomFieldValues();
+      controller.isReadOnly = widget.isReadOnly;
+
+      if (widget.item != null) {
+        controller.cashAdvReqIds = widget.item!.cashAdvReqId ?? '';
+        statusApproval = widget.item!.approvalStatus ?? 'Unknown';
+
+        if (widget.item!.stepType == "Approval") {
+          controller.isEditModePerdiem = false;
+          controller.isEditMode = false;
+          controller.isReadOnly = true;
+        }
+
+        workitemrecid = widget.item!.workitemrecid;
+
+        controller.split = (widget.item!.accountingDistributions).map((dist) {
+          return AccountingSplit(
+            paidFor: dist.dimensionValueId ?? '',
+            percentage: dist.allocationFactor ?? 0.0,
+            amount: dist.transAmount ?? 0.0,
+          );
+        }).toList();
+
+        setState(() {}); // safe here
+      } else {
+        statusApproval = 'Unknown';
+        workitemrecid = null;
+      }
+    });
 
     // ✅ Defer all UI-affecting state updates
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -86,10 +90,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       loadAndAppendCashAdvanceList();
       controller.fetchCustomFields();
       controller.configuration();
-
-      await _initializeData();
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _initializeData();
+      });
       if (widget.item == null) {
-        controller.fetchPerDiemRates();
+        await controller.fetchPerDiemRates();
+        controller.fetchExchangeRatePerdiem();
+        print("isReadOnly ${widget.isReadOnly}");
       }
     });
   }
@@ -104,17 +111,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     }
   }
 
-    Future<void> loadAndAppendCashAdvanceList() async {
-      controller.cashAdvanceListDropDown.clear();
+  Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+      controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
       print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
-      try {
-        final newItems = await controller.fetchExpenseCashAdvanceList();
-        controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
-        print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
-      } catch (e) {
-        Get.snackbar('Error', e.toString());
-      }
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
     }
+  }
 
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
@@ -174,17 +181,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
     controller.fromDateController.text = formatted;
     controller.toDateController.text = formatted;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([controller.fetchProjectName()]);
     });
-    
+
     if (widget.item != null) {
       controller.isLoadingGE2.value = true;
       print("Its Called ");
       final item = widget.item!;
       controller.isManualEntry = true;
-      
+
       // Safe project matching with fallback
       final matchedProject = controller.project.firstWhere(
         (p) => p.code == item.projectId,
@@ -221,25 +228,30 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
       // Safe date handling
       if (item.fromDate != null) {
-        controller.fromDateController.text = DateFormat('dd-MMM-yyyy')
-            .format(DateTime.fromMillisecondsSinceEpoch(item.fromDate!));
+        controller.fromDateController.text = DateFormat(
+          'dd-MMM-yyyy',
+        ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate!));
       }
-      
+
       if (item.toDate != null) {
-        controller.toDateController.text = DateFormat('dd-MMM-yyyy')
-            .format(DateTime.fromMillisecondsSinceEpoch(item.toDate!));
+        controller.toDateController.text = DateFormat(
+          'dd-MMM-yyyy',
+        ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate!));
       }
-      
+
       controller.expenseIdController.text = item.expenseId ?? '';
       controller.employeeIdController.text = item.employeeId ?? '';
-      controller.employeeName.text = item.employeeName ?? ''; // ✅ Safe null handling
+      controller.employeeName.text =
+          item.employeeName ?? ''; // ✅ Safe null handling
       controller.daysController.text = (item.noOfDays ?? 0).toString();
-      
+
       await controller.fetchPerDiemRates();
       controller.amountInController.clear();
       controller.allocationLines.clear();
-      controller.amountInController.text = (item.totalAmountReporting ?? 0.0).toString();
-      controller.exchangeamountInController.text = (item.totalAmountTrans ?? 0.0).toString();
+      controller.amountInController.text = (item.totalAmountReporting ?? 0.0)
+          .toString();
+      controller.exchangeamountInController.text =
+          (item.totalAmountTrans ?? 0.0).toString();
       controller.purposeController.text = item.description ?? '';
 
       historyFuture = controller.fetchExpenseHistory(item.recId);
@@ -250,7 +262,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         controller.perDiemController.text = item.perDiemId ?? '';
       }
 
-      print("allocationLinesData ${controller.allocationLines.map((e) => e.toJson()).toList()}");
+      print(
+        "allocationLinesData ${controller.allocationLines.map((e) => e.toJson()).toList()}",
+      );
       controller.accountingDistributions = item.accountingDistributions ?? [];
       controller.isLoadingGE2.value = false;
     }
@@ -296,13 +310,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       default:
         buttonColor = Colors.grey;
     }
-    
+
     if (controller.expenseIdController.text.isEmpty && widget.item != null) {
       controller.isLoadingGE2.value = true;
     } else {
       controller.isLoadingGE2.value = false;
     }
-    
+
     return WillPopScope(
       onWillPop: () async {
         if (!controller.isEditModePerdiem) {
@@ -348,15 +362,19 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
             widget.item == null
                 ? loc.createPerDiem
                 : controller.isEditModePerdiem
-                    ? loc.editPerDiem
-                    : loc.viewPerDiem,
+                ? loc.editPerDiem
+                : loc.viewPerDiem,
           ),
           actions: [
             if (!controller.isReadOnly)
               if (!widget.isReadOnly &&
-                  widget.item != null &&
-                  widget.item!.approvalStatus != "Approved" &&
-                  widget.item!.approvalStatus != "Cancelled")
+                      widget.item != null &&
+                      widget.item!.approvalStatus != "Approved" &&
+                      widget.item!.approvalStatus != "Cancelled" &&
+                      widget.item!.approvalStatus != "Pending" ||
+                  widget.item!.stepType != null &&
+                      (widget.item!.approvalStatus == "Pending" ||
+                          widget.item!.approvalStatus == "Created"))
                 IconButton(
                   icon: Icon(
                     controller.isEditModePerdiem
@@ -365,7 +383,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   ),
                   onPressed: () {
                     setState(() {
-                      controller.isEditModePerdiem = !controller.isEditModePerdiem;
+                      controller.isEditModePerdiem =
+                          !controller.isEditModePerdiem;
                     });
                   },
                 ),
@@ -384,7 +403,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: Column(
-                      children: [ 
+                      children: [
                         if (widget.item != null)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -399,7 +418,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   color: Colors.white,
                                 ),
                                 label: Text(
-                                  statusApproval ?? 'Unknown', // ✅ Safe null handling
+                                  statusApproval ??
+                                      'Unknown', // ✅ Safe null handling
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.white,
@@ -416,7 +436,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   minimumSize: const Size(0, 32),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
                             ],
@@ -459,7 +480,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             )
                             .map((field) {
                               final String label = field['FieldName'];
-                              final bool isMandatory = field['IsMandatory'] ?? false;
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
 
                               Widget inputField;
 
@@ -467,7 +489,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SearchableMultiColumnDropdownField<Project>(
-                                    labelText: '${loc.projectId} ${isMandatory ? "*" : ""}',
+                                    labelText:
+                                        '${loc.projectId} ${isMandatory ? "*" : ""}',
                                     columnHeaders: [
                                       loc.projectName,
                                       loc.projectId,
@@ -476,7 +499,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                     controller: controller.projectIdController,
                                     items: controller.project,
                                     selectedValue: controller.selectedProject,
-                                    searchValue: (proj) => '${proj.name} ${proj.code}',
+                                    searchValue: (proj) =>
+                                        '${proj.name} ${proj.code}',
                                     displayText: (proj) => proj.code,
                                     onChanged: (proj) {
                                       loadAndAppendCashAdvanceList();
@@ -495,6 +519,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ),
                                         child: Row(
                                           children: [
+                                            SizedBox(width: 10),
                                             Expanded(child: Text(proj.name)),
                                             Expanded(child: Text(proj.code)),
                                           ],
@@ -533,26 +558,32 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   field['IsEnabled'] == true,
                             )
                             .map((field) {
-                              final bool isMandatory = field['IsMandatory'] ?? false;
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  SearchableMultiColumnDropdownField<LocationModel>(
-                                    labelText: '${loc.location} ${isMandatory ? "*" : ""}',
+                                  SearchableMultiColumnDropdownField<
+                                    LocationModel
+                                  >(
+                                    labelText:
+                                        '${loc.location} ${isMandatory ? "*" : ""}',
                                     items: controller.location,
                                     selectedValue: controller.selectedLocation,
                                     enabled: controller.isEditModePerdiem,
                                     controller: controller.locationController,
                                     searchValue: (proj) => proj.location,
                                     displayText: (proj) => proj.location,
-                                    validator: (proj) => isMandatory && proj == null
+                                    validator: (proj) =>
+                                        isMandatory && proj == null
                                         ? loc.selectLocale
                                         : null,
                                     onChanged: (proj) async {
                                       controller.selectedLocation = proj;
                                       if (proj != null) {
-                                        controller.selectedLocationController = proj.location;
+                                        controller.selectedLocationController =
+                                            proj.location;
                                         await controller.fetchPerDiemRates();
                                         controller.fetchExchangeRatePerdiem();
                                       }
@@ -567,7 +598,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ),
                                         child: Row(
                                           children: [
-                                            Expanded(child: Text(proj.location)),
+                                            Expanded(
+                                              child: Text(proj.location),
+                                            ),
                                             Expanded(child: Text(proj.country)),
                                           ],
                                         ),
@@ -594,7 +627,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            MultiSelectMultiColumnDropdownField<CashAdvanceDropDownModel>(
+                            MultiSelectMultiColumnDropdownField<
+                              CashAdvanceDropDownModel
+                            >(
                               labelText: loc.cashAdvanceRequest,
                               items: controller.cashAdvanceListDropDown,
                               isMultiSelect: allowMultSelect ?? false,
@@ -607,11 +642,12 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   ? loc.pleaseSelectCashAdvanceField
                                   : null,
                               onChanged: (item) {
-                                controller.cashAdvanceIds.text = item.toString();
+                                controller.cashAdvanceIds.text = item
+                                    .toString();
                               },
                               onMultiChanged: (items) {},
                               columnHeaders: [loc.requestId, loc.requestDate],
-                              controller: controller.cashAdvanceIds,
+                              // controller: controller.cashAdvanceIds,
                               rowBuilder: (proj, searchQuery) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -620,10 +656,14 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   ),
                                   child: Row(
                                     children: [
-                                      Expanded(child: Text(proj.cashAdvanceReqId)),
+                                      Expanded(
+                                        child: Text(proj.cashAdvanceReqId),
+                                      ),
                                       Expanded(
                                         child: Text(
-                                          controller.formattedDate(proj.requestDate),
+                                          controller.formattedDate(
+                                            proj.requestDate,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -656,7 +696,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                if (widget.item == null || controller.isEditModePerdiem)
+                                if (widget.item == null ||
+                                    controller.isEditModePerdiem)
                                   SizedBox(
                                     width: 50,
                                     child: stylishSettingsButton(
@@ -698,57 +739,83 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             Obx(() {
                               return Column(
                                 children: controller.customFields.map((field) {
-                                  final String label = field['FieldLabel'] ?? field['FieldName'];
-                                  final bool isMandatory = field['IsMandatory'] ?? false;
+                                  final String label =
+                                      field['FieldLabel'] ?? field['FieldName'];
+                                  final bool isMandatory =
+                                      field['IsMandatory'] ?? false;
 
                                   Widget inputField;
 
                                   if (field['FieldType'] == 'List') {
-                                    if (field['Options'] == null || field['Options'].isEmpty) {
-                                      controller.fetchCustomFieldValues(field['FieldId']);
-                                    }
-
-                                    inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
-                                      labelText: '$label${isMandatory ? " *" : ""}',
-                                      items: (field['Options'] as List<CustomDropdownValue>?) ?? [],
-                                      selectedValue: field['SelectedValue'],
-                                      searchValue: (val) => val.valueName,
-                                      enabled: controller.isEditModePerdiem,
-                                      displayText: (val) => val.valueName,
-                                      columnHeaders: const ['Value ID', 'Value Name'],
-                                      rowBuilder: (val, searchQuery) => Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                                        child: Row(
-                                          children: [
-                                            Expanded(child: Text(val.valueId)),
-                                            Expanded(child: Text(val.valueName)),
+                                    inputField =
+                                    inputField =
+                                        SearchableMultiColumnDropdownField<
+                                          CustomDropdownValue
+                                        >(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          items:
+                                              (field['Options']
+                                                  as List<
+                                                    CustomDropdownValue
+                                                  >?) ??
+                                              [],
+                                          selectedValue: field['SelectedValue'],
+                                          searchValue: (val) => val.valueName,
+                                          enabled: controller.isEditModePerdiem,
+                                          displayText: (val) => val.valueName,
+                                          columnHeaders: const [
+                                            'Value ID',
+                                            'Value Name',
                                           ],
-                                        ),
-                                      ),
-                                      validator: (val) =>
-                                          isMandatory && val == null ? 'Please select a value' : null,
-                                      onChanged: (val) {
-                                        field['SelectedValue'] = val;
-                                        field['Error'] = null;
-                                        controller.customFields.refresh();
-                                      },
-                                    );
+                                          rowBuilder: (val, searchQuery) =>
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 10,
+                                                      horizontal: 16,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(val.valueId),
+                                                    ),
+                                                    Expanded(
+                                                      child: Text(
+                                                        val.valueName,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          validator: (val) =>
+                                              isMandatory && val == null
+                                              ? 'Please select a value'
+                                              : null,
+                                          onChanged: (val) {
+                                            field['SelectedValue'] = val;
+                                            field['Error'] = null;
+                                            controller.customFields.refresh();
+                                          },
+                                        );
                                   } else {
                                     inputField = TextField(
                                       enabled: controller.isEditModePerdiem,
                                       decoration: InputDecoration(
-                                        labelText: '$label${isMandatory ? " *" : ""}',
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
                                         border: const OutlineInputBorder(),
                                       ),
                                       onChanged: (value) {
                                         field['EnteredValue'] = value;
-                                        controller.customFields.refresh();
                                       },
                                     );
                                   }
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
                                     child: inputField,
                                   );
                                 }).toList(),
@@ -761,21 +828,29 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 children: [
                                   TextButton(
                                     onPressed: () {
-                                      final double lineAmount = double.tryParse(
+                                      final double lineAmount =
+                                          double.tryParse(
                                             controller.amountInController.text,
                                           ) ??
                                           0.0;
 
                                       if (controller.split.isEmpty &&
-                                          controller.accountingDistributions.isNotEmpty) {
+                                          controller
+                                              .accountingDistributions
+                                              .isNotEmpty) {
                                         controller.split.assignAll(
-                                          controller.accountingDistributions.map((e) {
+                                          controller.accountingDistributions
+                                              .map((e) {
                                                 return AccountingSplit(
-                                                  paidFor: e?.dimensionValueId ?? '',
-                                                  percentage: e?.allocationFactor ?? 0.0,
+                                                  paidFor:
+                                                      e?.dimensionValueId ?? '',
+                                                  percentage:
+                                                      e?.allocationFactor ??
+                                                      0.0,
                                                   amount: e?.transAmount ?? 0.0,
                                                 );
-                                              }).toList(),
+                                              })
+                                              .toList(),
                                         );
                                       } else if (controller.split.isEmpty) {
                                         controller.split.add(
@@ -793,7 +868,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ),
                                         builder: (context) => Padding(
                                           padding: EdgeInsets.only(
-                                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                                            bottom: MediaQuery.of(
+                                              context,
+                                            ).viewInsets.bottom,
                                             left: 16,
                                             right: 16,
                                             top: 24,
@@ -804,12 +881,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                               lineAmount: lineAmount,
                                               onChanged: (i, updatedSplit) {
                                                 if (!mounted) return;
-                                                controller.split[i] = updatedSplit;
+                                                controller.split[i] =
+                                                    updatedSplit;
                                               },
                                               onDistributionChanged: (newList) {
                                                 if (!mounted) return;
-                                                controller.accountingDistributions.clear();
-                                                controller.accountingDistributions.addAll(newList);
+                                                controller
+                                                    .accountingDistributions
+                                                    .clear();
+                                                controller
+                                                    .accountingDistributions
+                                                    .addAll(newList);
                                               },
                                             ),
                                           ),
@@ -829,18 +911,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   FutureBuilder<List<ExpenseHistory>>(
                                     future: historyFuture,
                                     builder: (context, snapshot) {
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
                                         return const Center(
                                           child: CircularProgressIndicator(),
                                         );
                                       }
-  if (snapshot.hasError) {
-                                          return Center(
-                                            child: Text(
-                                              "No Data Available",
-                                            ),
-                                          );
-                                        }
+                                      if (snapshot.hasError) {
+                                        return Center(
+                                          child: Text("No Data Available"),
+                                        );
+                                      }
 
                                       final historyList = snapshot.data ?? [];
                                       if (historyList.isEmpty) {
@@ -850,7 +931,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             child: Text(
                                               loc.noHistoryMessage,
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(color: Colors.grey),
+                                              style: const TextStyle(
+                                                color: Colors.grey,
+                                              ),
                                             ),
                                           ),
                                         );
@@ -858,7 +941,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                       print("historyList: $historyList");
                                       return ListView.builder(
                                         shrinkWrap: true,
-                                        physics: const NeverScrollableScrollPhysics(),
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
                                         itemCount: historyList.length,
                                         itemBuilder: (context, index) {
                                           final item = historyList[index];
@@ -876,35 +960,51 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             const SizedBox(height: 20),
 
                             // Submit Button for new PerDiem
-                            if (controller.isEditModePerdiem && widget.item == null) ...[
+                            if (controller.isEditModePerdiem &&
+                                widget.item == null) ...[
                               const SizedBox(height: 20),
                               Obx(() {
-                                bool isLoading = controller.buttonLoaders['submit'] ?? false;
+                                bool isLoading =
+                                    controller.buttonLoaders['submit'] ?? false;
                                 return SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     onPressed: isLoading
                                         ? null
                                         : () async {
-                                            controller.setButtonLoading('submit', true);
+                                            controller.setButtonLoading(
+                                              'submit',
+                                              true,
+                                            );
                                             try {
                                               if (validateForm()) {
-                                                await controller.updatePerDiemDetails(
-                                                  context,
-                                                  true,
-                                                  false,
-                                                  null,
-                                                );
+                                                await controller
+                                                    .updatePerDiemDetails(
+                                                      context,
+                                                      true,
+                                                      false,
+                                                      null,
+                                                    );
                                               } else {
                                                 print("Validation failed");
                                               }
                                             } finally {
-                                              controller.setButtonLoading('submit', false);
+                                              controller.setButtonLoading(
+                                                'submit',
+                                                false,
+                                              );
                                             }
                                           },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color.fromARGB(255, 2, 21, 131),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        2,
+                                        21,
+                                        131,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                     ),
                                     child: isLoading
                                         ? const SizedBox(
@@ -917,7 +1017,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                           )
                                         : Text(
                                             loc.submit,
-                                            style: const TextStyle(color: Colors.white),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
                                           ),
                                   ),
                                 );
@@ -927,42 +1029,59 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['save'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['save'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () async {
-                                                controller.setButtonLoading('save', true);
+                                                controller.setButtonLoading(
+                                                  'save',
+                                                  true,
+                                                );
                                                 try {
                                                   if (validateForm()) {
-                                                    await controller.updatePerDiemDetails(
-                                                      context,
-                                                      false,
-                                                      false,
-                                                      null,
-                                                    );
+                                                    await controller
+                                                        .updatePerDiemDetails(
+                                                          context,
+                                                          false,
+                                                          false,
+                                                          null,
+                                                        );
                                                   } else {
                                                     print("Validation failed");
                                                   }
                                                 } finally {
-                                                  controller.setButtonLoading('save', false);
+                                                  controller.setButtonLoading(
+                                                    'save',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 13, 138, 2),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            13,
+                                            138,
+                                            2,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.save,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -970,12 +1089,14 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () => {controller.chancelButton(context),
-                                      controller.closeField()},
+                                      onPressed: () => {
+                                        controller.chancelButton(context),
+                                        controller.closeField(),
+                                      },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey,
                                       ),
-                                      child: Text(loc.cancel), 
+                                      child: Text(loc.cancel),
                                     ),
                                   ),
                                 ],
@@ -983,42 +1104,61 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             ],
 
                             // Cancel & Close Buttons (Pending approval)
-                            if (widget.item != null && controller.isEditModePerdiem &&
-                                widget.item!.stepType == null && widget.item!.expenseStatus == "Verified")
+                            if (widget.item != null &&
+                                widget.item!.stepType == null &&
+                                widget.item!.approvalStatus == "Pending")
                               Row(
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['cancel'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['cancel'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () async {
-                                                controller.setButtonLoading('cancel', true);
+                                                controller.setButtonLoading(
+                                                  'cancel',
+                                                  true,
+                                                );
                                                 try {
-                                                  await controller.cancelExpense(
-                                                    context,
-                                                    widget.item!.recId.toString(),
-                                                  );
+                                                  await controller
+                                                      .cancelExpense(
+                                                        context,
+                                                        widget.item!.recId
+                                                            .toString(),
+                                                      );
                                                 } finally {
-                                                  controller.setButtonLoading('cancel', false);
+                                                  controller.setButtonLoading(
+                                                    'cancel',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 233, 151, 151),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            233,
+                                            151,
+                                            151,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.red,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.red,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.cancel,
-                                                style: const TextStyle(color: Colors.red),
+                                                style: const TextStyle(
+                                                  color: Colors.red,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1026,14 +1166,18 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () => {controller.chancelButton(context),
-                                      controller.closeField()},
+                                      onPressed: () => {
+                                        controller.chancelButton(context),
+                                        controller.closeField(),
+                                      },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey,
                                       ),
                                       child: Text(
                                         loc.close,
-                                        style: const TextStyle(color: Colors.black),
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1041,49 +1185,76 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                               ),
 
                             // Update & Accept buttons for Review step
-                            if (controller.isEditModePerdiem && widget.item != null && widget.item!.stepType == "Review") ...[
+                            if (controller.isEditModePerdiem &&
+                                widget.item != null &&
+                                widget.item!.stepType == "Review") ...[
                               Row(
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoadingUpdate = controller.buttonLoaders['update'] ?? false;
-                                      bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                      bool isLoadingUpdate =
+                                          controller.buttonLoaders['update'] ??
+                                          false;
+                                      bool isAnyLoading = controller
+                                          .buttonLoaders
+                                          .values
+                                          .any((loading) => loading == true);
                                       return ElevatedButton(
-                                        onPressed: (isLoadingUpdate || isAnyLoading)
+                                        onPressed:
+                                            (isLoadingUpdate || isAnyLoading)
                                             ? null
                                             : () async {
-                                                controller.setButtonLoading('update', true);
+                                                controller.setButtonLoading(
+                                                  'update',
+                                                  true,
+                                                );
                                                 try {
                                                   if (validateForm()) {
-                                                    await controller.perdiemApprovalReview(
-                                                      context,
-                                                      false,
-                                                      widget.item!.workitemrecid,
-                                                      widget.item!.recId.toString(),
-                                                      widget.item!.expenseId.toString(),
-                                                    );
+                                                    await controller
+                                                        .perdiemApprovalReview(
+                                                          context,
+                                                          false,
+                                                          widget
+                                                              .item!
+                                                              .workitemrecid,
+                                                          widget.item!.recId
+                                                              .toString(),
+                                                          widget.item!.expenseId
+                                                              .toString(),
+                                                        );
                                                   } else {
                                                     print("Validation failed");
                                                   }
                                                 } finally {
-                                                  controller.setButtonLoading('update', false);
+                                                  controller.setButtonLoading(
+                                                    'update',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            3,
+                                            20,
+                                            117,
+                                          ),
                                         ),
                                         child: isLoadingUpdate
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.update,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1091,40 +1262,66 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoadingAccept = controller.buttonLoaders['updateAccept'] ?? false;
-                                      bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                      bool isLoadingAccept =
+                                          controller
+                                              .buttonLoaders['updateAccept'] ??
+                                          false;
+                                      bool isAnyLoading = controller
+                                          .buttonLoaders
+                                          .values
+                                          .any((loading) => loading == true);
                                       return ElevatedButton(
-                                        onPressed: (isLoadingAccept || isAnyLoading)
+                                        onPressed:
+                                            (isLoadingAccept || isAnyLoading)
                                             ? null
                                             : () async {
-                                                controller.setButtonLoading('updateAccept', true);
+                                                controller.setButtonLoading(
+                                                  'updateAccept',
+                                                  true,
+                                                );
                                                 try {
-                                                  await controller.perdiemApprovalReview(
-                                                    context,
-                                                    true,
-                                                    widget.item!.workitemrecid,
-                                                    widget.item!.recId.toString(),
-                                                    widget.item!.expenseId.toString(),
-                                                  );
+                                                  await controller
+                                                      .perdiemApprovalReview(
+                                                        context,
+                                                        true,
+                                                        widget
+                                                            .item!
+                                                            .workitemrecid,
+                                                        widget.item!.recId
+                                                            .toString(),
+                                                        widget.item!.expenseId
+                                                            .toString(),
+                                                      );
                                                 } finally {
-                                                  controller.setButtonLoading('updateAccept', false);
+                                                  controller.setButtonLoading(
+                                                    'updateAccept',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            3,
+                                            20,
+                                            117,
+                                          ),
                                         ),
                                         child: isLoadingAccept
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.updateAndAccept,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1136,33 +1333,52 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['reject'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['reject'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () async {
-                                                controller.setButtonLoading('reject', true);
+                                                controller.setButtonLoading(
+                                                  'reject',
+                                                  true,
+                                                );
                                                 try {
-                                                  showActionPopup(context, "Reject");
+                                                  showActionPopup(
+                                                    context,
+                                                    "Reject",
+                                                  );
                                                 } finally {
-                                                  controller.setButtonLoading('reject', false);
+                                                  controller.setButtonLoading(
+                                                    'reject',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 238, 20, 20),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            238,
+                                            20,
+                                            20,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.reject,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1170,14 +1386,18 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () => {controller.chancelButton(context),
-                                      controller.closeField()},
+                                      onPressed: () => {
+                                        controller.chancelButton(context),
+                                        controller.closeField(),
+                                      },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey,
                                       ),
                                       child: Text(
                                         loc.close,
-                                        style: const TextStyle(color: Colors.black),
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1186,10 +1406,16 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             ],
 
                             // Submit Button for Created status
-                            if (controller.isEditModePerdiem && widget.item != null && widget.item!.approvalStatus == "Created")
+                            if (controller.isEditModePerdiem &&
+                                widget.item != null &&
+                                widget.item!.approvalStatus == "Created")
                               Obx(() {
-                                bool isLoadingSubmit = controller.buttonLoaders['submit'] ?? false;
-                                bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                bool isLoadingSubmit =
+                                    controller.buttonLoaders['submit'] ?? false;
+                                bool isAnyLoading = controller
+                                    .buttonLoaders
+                                    .values
+                                    .any((loading) => loading == true);
                                 return SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton(
@@ -1197,23 +1423,39 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ? null
                                         : () {
                                             if (validateForm()) {
-                                              controller.setButtonLoading('submit', true);
-                                              controller.updatePerDiemDetails(
-                                                context,
+                                              controller.setButtonLoading(
+                                                'submit',
                                                 true,
-                                                false,
-                                                widget.item!.recId,
-                                                widget.item!.expenseId,
-                                              ).whenComplete(
-                                                () => controller.setButtonLoading('submit', false),
                                               );
+                                              controller
+                                                  .updatePerDiemDetails(
+                                                    context,
+                                                    true,
+                                                    false,
+                                                    widget.item!.recId,
+                                                    widget.item!.expenseId,
+                                                  )
+                                                  .whenComplete(
+                                                    () => controller
+                                                        .setButtonLoading(
+                                                          'submit',
+                                                          false,
+                                                        ),
+                                                  );
                                             } else {
                                               print("Validation failed");
                                             }
                                           },
                                     style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      backgroundColor: const Color.fromARGB(255, 2, 19, 114),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        2,
+                                        19,
+                                        114,
+                                      ),
                                     ),
                                     child: isLoadingSubmit
                                         ? const SizedBox(
@@ -1236,48 +1478,73 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                               }),
 
                             // Save & Cancel for Created status
-                            if (controller.isEditModePerdiem && widget.item != null && widget.item!.approvalStatus == "Created") ...[
+                            if (controller.isEditModePerdiem &&
+                                widget.item != null &&
+                                widget.item!.approvalStatus == "Created") ...[
                               const SizedBox(height: 20),
                               Row(
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoadingSave = controller.buttonLoaders['save'] ?? false;
-                                      bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                      bool isLoadingSave =
+                                          controller.buttonLoaders['save'] ??
+                                          false;
+                                      bool isAnyLoading = controller
+                                          .buttonLoaders
+                                          .values
+                                          .any((loading) => loading == true);
                                       return ElevatedButton(
-                                        onPressed: (isLoadingSave || isAnyLoading)
+                                        onPressed:
+                                            (isLoadingSave || isAnyLoading)
                                             ? null
                                             : () {
                                                 if (validateForm()) {
-                                                  controller.setButtonLoading('save', true);
-                                                  controller.updatePerDiemDetails(
-                                                    context,
-                                                    false,
-                                                    false,
-                                                    widget.item!.recId,
-                                                    widget.item!.expenseId,
-                                                  ).whenComplete(
-                                                    () => controller.setButtonLoading('save', false),
+                                                  controller.setButtonLoading(
+                                                    'save',
+                                                    true,
                                                   );
+                                                  controller
+                                                      .updatePerDiemDetails(
+                                                        context,
+                                                        false,
+                                                        false,
+                                                        widget.item!.recId,
+                                                        widget.item!.expenseId,
+                                                      )
+                                                      .whenComplete(
+                                                        () => controller
+                                                            .setButtonLoading(
+                                                              'save',
+                                                              false,
+                                                            ),
+                                                      );
                                                 } else {
                                                   print("Validation failed");
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 28, 114, 2),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            28,
+                                            114,
+                                            2,
+                                          ),
                                         ),
                                         child: isLoadingSave
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.save,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1285,18 +1552,34 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoadingCancel = controller.buttonLoaders['cancel'] ?? false;
-                                      bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                      bool isLoadingCancel =
+                                          controller.buttonLoaders['cancel'] ??
+                                          false;
+                                      bool isAnyLoading = controller
+                                          .buttonLoaders
+                                          .values
+                                          .any((loading) => loading == true);
                                       return ElevatedButton(
-                                        onPressed: (isLoadingCancel || isAnyLoading)
+                                        onPressed:
+                                            (isLoadingCancel || isAnyLoading)
                                             ? null
                                             : () {
-                                                controller.setButtonLoading('cancel', true);
+                                                controller.setButtonLoading(
+                                                  'cancel',
+                                                  true,
+                                                );
                                                 Future.delayed(
-                                                  const Duration(milliseconds: 500),
+                                                  const Duration(
+                                                    milliseconds: 500,
+                                                  ),
                                                   () {
-                                                    controller.chancelButton(context);
-                                                    controller.setButtonLoading('cancel', false);
+                                                    controller.chancelButton(
+                                                      context,
+                                                    );
+                                                    controller.setButtonLoading(
+                                                      'cancel',
+                                                      false,
+                                                    );
                                                   },
                                                 );
                                               },
@@ -1307,10 +1590,11 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(loc.cancel),
                                       );
@@ -1321,48 +1605,74 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             ],
 
                             // Resubmit for Rejected status
-                            if (controller.isEditModePerdiem && widget.item != null && widget.item!.approvalStatus == "Rejected")
+                            if (controller.isEditModePerdiem &&
+                                widget.item != null &&
+                                widget.item!.approvalStatus == "Rejected")
                               Column(
                                 children: [
                                   Obx(() {
-                                    bool isLoadingResubmit = controller.buttonLoaders['resubmit'] ?? false;
-                                    bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                    bool isLoadingResubmit =
+                                        controller.buttonLoaders['resubmit'] ??
+                                        false;
+                                    bool isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading == true);
                                     return SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton(
-                                        onPressed: (isLoadingResubmit || isAnyLoading)
+                                        onPressed:
+                                            (isLoadingResubmit || isAnyLoading)
                                             ? null
                                             : () {
                                                 if (validateForm()) {
-                                                  controller.setButtonLoading('resubmit', true);
-                                                  controller.updatePerDiemDetails(
-                                                    context,
+                                                  controller.setButtonLoading(
+                                                    'resubmit',
                                                     true,
-                                                    true,
-                                                    widget.item!.recId,
-                                                    widget.item!.expenseId.toString(),
-                                                  ).whenComplete(
-                                                    () => controller.setButtonLoading('resubmit', false),
                                                   );
+                                                  controller
+                                                      .updatePerDiemDetails(
+                                                        context,
+                                                        true,
+                                                        true,
+                                                        widget.item!.recId,
+                                                        widget.item!.expenseId
+                                                            .toString(),
+                                                      )
+                                                      .whenComplete(
+                                                        () => controller
+                                                            .setButtonLoading(
+                                                              'resubmit',
+                                                              false,
+                                                            ),
+                                                      );
                                                 } else {
                                                   print("Validation failed");
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 4, 2, 114),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            4,
+                                            2,
+                                            114,
+                                          ),
                                         ),
                                         child: isLoadingResubmit
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.resubmit,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       ),
                                     );
@@ -1372,42 +1682,76 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                     children: [
                                       Expanded(
                                         child: Obx(() {
-                                          bool isLoadingUpdate = controller.buttonLoaders['update'] ?? false;
-                                          bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                          bool isLoadingUpdate =
+                                              controller
+                                                  .buttonLoaders['update'] ??
+                                              false;
+                                          bool isAnyLoading = controller
+                                              .buttonLoaders
+                                              .values
+                                              .any(
+                                                (loading) => loading == true,
+                                              );
                                           return ElevatedButton(
-                                            onPressed: (isLoadingUpdate || isAnyLoading)
+                                            onPressed:
+                                                (isLoadingUpdate ||
+                                                    isAnyLoading)
                                                 ? null
                                                 : () {
                                                     if (validateForm()) {
-                                                      controller.setButtonLoading('update', true);
-                                                      controller.updatePerDiemDetails(
-                                                        context,
-                                                        false,
-                                                        false,
-                                                        widget.item!.recId,
-                                                        widget.item!.expenseId.toString(),
-                                                      ).whenComplete(
-                                                        () => controller.setButtonLoading('update', false),
-                                                      );
+                                                      controller
+                                                          .setButtonLoading(
+                                                            'update',
+                                                            true,
+                                                          );
+                                                      controller
+                                                          .updatePerDiemDetails(
+                                                            context,
+                                                            false,
+                                                            false,
+                                                            widget.item!.recId,
+                                                            widget
+                                                                .item!
+                                                                .expenseId
+                                                                .toString(),
+                                                          )
+                                                          .whenComplete(
+                                                            () => controller
+                                                                .setButtonLoading(
+                                                                  'update',
+                                                                  false,
+                                                                ),
+                                                          );
                                                     } else {
-                                                      print("Validation failed");
+                                                      print(
+                                                        "Validation failed",
+                                                      );
                                                     }
                                                   },
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color.fromARGB(255, 20, 94, 2),
+                                              backgroundColor:
+                                                  const Color.fromARGB(
+                                                    255,
+                                                    20,
+                                                    94,
+                                                    2,
+                                                  ),
                                             ),
                                             child: isLoadingUpdate
                                                 ? const SizedBox(
                                                     width: 20,
                                                     height: 20,
-                                                    child: CircularProgressIndicator(
-                                                      color: Colors.white,
-                                                      strokeWidth: 2,
-                                                    ),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
                                                   )
                                                 : Text(
                                                     loc.update,
-                                                    style: const TextStyle(color: Colors.white),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                    ),
                                                   ),
                                           );
                                         }),
@@ -1415,18 +1759,29 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Obx(() {
-                                          bool isAnyLoading = controller.buttonLoaders.values.any((loading) => loading == true);
+                                          bool isAnyLoading = controller
+                                              .buttonLoaders
+                                              .values
+                                              .any(
+                                                (loading) => loading == true,
+                                              );
                                           return ElevatedButton(
                                             onPressed: isAnyLoading
                                                 ? null
-                                                : () => {controller.chancelButton(context),
-                                      controller.closeField()},
+                                                : () => {
+                                                    controller.chancelButton(
+                                                      context,
+                                                    ),
+                                                    controller.closeField(),
+                                                  },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.grey,
                                             ),
                                             child: Text(
                                               loc.close,
-                                              style: const TextStyle(color: Colors.black),
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                              ),
                                             ),
                                           );
                                         }),
@@ -1437,38 +1792,59 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                               ),
 
                             // Approval buttons
-                            if (!controller.isEditMode && widget.item != null && widget.item!.stepType == "Approval") ...[
+                            if (!controller.isEditMode &&
+                                widget.item != null &&
+                                widget.item!.stepType == "Approval") ...[
                               Row(
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['approve'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['approve'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () {
-                                                controller.setButtonLoading('approve', true);
+                                                controller.setButtonLoading(
+                                                  'approve',
+                                                  true,
+                                                );
                                                 try {
-                                                  showActionPopup(context, "Approve");
+                                                  showActionPopup(
+                                                    context,
+                                                    "Approve",
+                                                  );
                                                 } finally {
-                                                  controller.setButtonLoading('approve', false);
+                                                  controller.setButtonLoading(
+                                                    'approve',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 30, 117, 3),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            30,
+                                            117,
+                                            3,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.approvals,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1476,33 +1852,52 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['reject'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['reject'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () {
-                                                controller.setButtonLoading('reject', true);
+                                                controller.setButtonLoading(
+                                                  'reject',
+                                                  true,
+                                                );
                                                 try {
-                                                  showActionPopup(context, "Reject");
+                                                  showActionPopup(
+                                                    context,
+                                                    "Reject",
+                                                  );
                                                 } finally {
-                                                  controller.setButtonLoading('reject', false);
+                                                  controller.setButtonLoading(
+                                                    'reject',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 238, 20, 20),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            238,
+                                            20,
+                                            20,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.reject,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1514,33 +1909,53 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 children: [
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['escalate'] ?? false;
+                                      bool isLoading =
+                                          controller
+                                              .buttonLoaders['escalate'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () {
-                                                controller.setButtonLoading('escalate', true);
+                                                controller.setButtonLoading(
+                                                  'escalate',
+                                                  true,
+                                                );
                                                 try {
-                                                  showActionPopup(context, "Escalate");
+                                                  showActionPopup(
+                                                    context,
+                                                    "Escalate",
+                                                  );
                                                 } finally {
-                                                  controller.setButtonLoading('escalate', false);
+                                                  controller.setButtonLoading(
+                                                    'escalate',
+                                                    false,
+                                                  );
                                                 }
                                               },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            3,
+                                            20,
+                                            117,
+                                          ),
                                         ),
                                         child: isLoading
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.escalate,
-                                                style: const TextStyle(color: Colors.white),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1548,17 +1963,29 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Obx(() {
-                                      bool isLoading = controller.buttonLoaders['close'] ?? false;
+                                      bool isLoading =
+                                          controller.buttonLoaders['close'] ??
+                                          false;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
                                             : () {
-                                                controller.setButtonLoading('close', true);
+                                                controller.setButtonLoading(
+                                                  'close',
+                                                  true,
+                                                );
                                                 Future.delayed(
-                                                  const Duration(milliseconds: 500),
+                                                  const Duration(
+                                                    milliseconds: 500,
+                                                  ),
                                                   () {
-                                                    controller.chancelButton(context);
-                                                    controller.setButtonLoading('close', false);
+                                                    controller.chancelButton(
+                                                      context,
+                                                    );
+                                                    controller.setButtonLoading(
+                                                      'close',
+                                                      false,
+                                                    );
                                                     controller.closeField();
                                                   },
                                                 );
@@ -1570,14 +1997,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                             ? const SizedBox(
                                                 width: 20,
                                                 height: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : Text(
                                                 loc.close,
-                                                style: const TextStyle(color: Colors.black),
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                ),
                                               ),
                                       );
                                     }),
@@ -1587,10 +2017,34 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             ],
 
                             // Close button for view mode
-                            if (controller.isEditMode && widget.item != null && !controller.isEditModePerdiem)
+                            if (controller.isEditMode &&
+                                widget.item != null &&
+                                (widget.item!.stepType == null &&
+                                    widget.item!.approvalStatus != "Pending") &&
+                                !controller.isEditModePerdiem)
                               ElevatedButton(
-                                onPressed: () => {controller.chancelButton(context),
-                                      controller.closeField()},
+                                onPressed: () => {
+                                  controller.chancelButton(context),
+                                  controller.closeField(),
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                ),
+                                child: Text(
+                                  loc.close,
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ),
+                            if (controller.isEditMode &&
+                                widget.item != null &&
+                                (widget.item!.stepType != null &&
+                                    widget.item!.approvalStatus == "Pending") &&
+                                !controller.isEditModePerdiem)
+                              ElevatedButton(
+                                onPressed: () => {
+                                  controller.chancelButton(context),
+                                  controller.closeField(),
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey,
                                 ),
@@ -1645,33 +2099,43 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
                 if (controllers.text.trim().isNotEmpty) {
                   try {
-                    initialDate = DateFormat('dd-MMM-yyyy').parseStrict(controllers.text.trim());
+                    initialDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controllers.text.trim());
                   } catch (_) {}
                 }
 
                 DateTime firstDate = DateTime(2000);
                 DateTime lastDate = DateTime.now();
 
-                if (!isFromDate && controller.fromDateController.text.isNotEmpty) {
+                if (!isFromDate &&
+                    controller.fromDateController.text.isNotEmpty) {
                   try {
-                    firstDate = DateFormat('dd-MMM-yyyy').parseStrict(controller.fromDateController.text.trim());
+                    firstDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controller.fromDateController.text.trim());
                   } catch (_) {}
                 }
 
                 final picked = await showDatePicker(
                   context: context,
                   initialDate: initialDate,
-                  firstDate: firstDate,
-                  lastDate: lastDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
                 );
 
                 if (picked != null) {
-                  if (!isFromDate && controller.fromDateController.text.isNotEmpty) {
-                    final fromDate = DateFormat('dd-MMM-yyyy').parseStrict(controller.fromDateController.text.trim());
+                  if (!isFromDate &&
+                      controller.fromDateController.text.isNotEmpty) {
+                    final fromDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controller.fromDateController.text.trim());
                     if (picked.isBefore(fromDate)) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("To Date cannot be earlier than From Date."),
+                          content: Text(
+                            "To Date cannot be earlier than From Date.",
+                          ),
                         ),
                       );
                       return;
@@ -1796,10 +2260,12 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                           columnHeaders: [loc.userName, loc.userId],
                           items: controller.userList,
                           selectedValue: controller.selectedUser.value,
-                          searchValue: (user) => '${user.userName} ${user.userId}',
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
                           displayText: (user) => user.userId,
                           onChanged: (user) {
-                            controller.userIdController.text = user?.userId ?? '';
+                            controller.userIdController.text =
+                                user?.userId ?? '';
                             controller.selectedUser.value = user;
                           },
                           controller: controller.userIdController,
@@ -1822,7 +2288,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 16),
-                    Text(loc.comments, style: const TextStyle(fontSize: 16)),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
@@ -1843,7 +2312,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             width: 2,
                           ),
                         ),
-                        errorText: isCommentError ? 'Comment is required.' : null,
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
                       ),
                       onChanged: (value) {
                         if (isCommentError && value.trim().isNotEmpty) {
@@ -1856,7 +2327,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                         onPressed: () {
+                          onPressed: () {
                             controller.closeField();
                             Navigator.pop(context);
                           },
@@ -1874,28 +2345,39 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(child: SkeletonLoaderPage()),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
                             final success = await controller.postApprovalAction(
                               context,
-                              workitemrecid: workitemrecid != null ? [workitemrecid!] : [], // ✅ Safe null handling
+                              workitemrecid: workitemrecid != null
+                                  ? [workitemrecid!]
+                                  : [], // ✅ Safe null handling
                               decision: status,
                               comment: commentController.text,
                             );
 
-                            if (Navigator.of(context, rootNavigator: true).canPop()) {
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
                             if (!context.mounted) return;
 
                             if (success) {
-                              Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.approvalDashboard,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to submit action')),
+                                const SnackBar(
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -2046,37 +2528,61 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                         ElevatedButton(
                           onPressed: _isSaveButtonEnabled()
                               ? () {
-                                  controller.setTheAllcationAmount = 0.0.toInt();
+                                  controller.setTheAllcationAmount = 0.0
+                                      .toInt();
 
-                                  if (controller.initialUnitPriceTrans == null ||
-                                      controller.initialUnitPriceTrans!.length != controller.allocationLines.length) {
-                                    controller.initialUnitPriceTrans = controller.allocationLines
-                                        .map((data) => data.unitPriceTrans)
-                                        .toList();
+                                  if (controller.initialUnitPriceTrans ==
+                                          null ||
+                                      controller
+                                              .initialUnitPriceTrans!
+                                              .length !=
+                                          controller.allocationLines.length) {
+                                    controller.initialUnitPriceTrans =
+                                        controller.allocationLines
+                                            .map((data) => data.unitPriceTrans)
+                                            .toList();
                                   }
 
-                                  for (int i = 0; i < controller.allocationLines.length; i++) {
+                                  for (
+                                    int i = 0;
+                                    i < controller.allocationLines.length;
+                                    i++
+                                  ) {
                                     var data = controller.allocationLines[i];
-                                    double initialUnitPrice = controller.initialUnitPriceTrans![i];
+                                    double initialUnitPrice =
+                                        controller.initialUnitPriceTrans![i];
 
-                                    print('Before: unitPrice=$initialUnitPrice, parsed=${data.parsed}');
-                                    print('Before: setTheAllcationAmount=${controller.setTheAllcationAmount}, parsed=${data.parsed}');
+                                    print(
+                                      'Before: unitPrice=$initialUnitPrice, parsed=${data.parsed}',
+                                    );
+                                    print(
+                                      'Before: setTheAllcationAmount=${controller.setTheAllcationAmount}, parsed=${data.parsed}',
+                                    );
 
-                                    data.unitPriceTrans = initialUnitPrice * data.parsed;
+                                    data.unitPriceTrans =
+                                        initialUnitPrice * data.parsed;
                                     data.quantity = data.parsed;
                                   }
 
-                                  controller.paidAmount.text = controller.amountInController.text;
-                                  double updatedTotal = controller.allocationLines.fold(
-                                    0.0,
-                                    (sum, item) => sum + item.unitPriceTrans,
-                                  );
+                                  controller.paidAmount.text =
+                                      controller.amountInController.text;
+                                  double updatedTotal = controller
+                                      .allocationLines
+                                      .fold(
+                                        0.0,
+                                        (sum, item) =>
+                                            sum + item.unitPriceTrans,
+                                      );
 
                                   if (_isSaveButtonEnabled()) {
-                                    controller.amountInController.text = updatedTotal.toStringAsFixed(2);
-                                    controller.exchangeamountInController.text = updatedTotal.toStringAsFixed(2);
+                                    controller.amountInController.text =
+                                        updatedTotal.toStringAsFixed(2);
+                                    controller.exchangeamountInController.text =
+                                        updatedTotal.toStringAsFixed(2);
                                   }
-                                  print("amountInController${controller.amountInController.text}");
+                                  print(
+                                    "amountInController${controller.amountInController.text}",
+                                  );
                                   controller.fetchExchangeRatePerdiem();
 
                                   if (_isSaveButtonEnabled()) {
@@ -2086,15 +2592,27 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                       msg: "No of Days Not Valid",
                                       toastLength: Toast.LENGTH_SHORT,
                                       gravity: ToastGravity.BOTTOM,
-                                      backgroundColor: const Color.fromARGB(255, 250, 1, 1),
-                                      textColor: const Color.fromARGB(255, 212, 210, 241),
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        250,
+                                        1,
+                                        1,
+                                      ),
+                                      textColor: const Color.fromARGB(
+                                        255,
+                                        212,
+                                        210,
+                                        241,
+                                      ),
                                       fontSize: 16.0,
                                     );
                                   }
                                 }
                               : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _isSaveButtonEnabled() ? AppColors.gradientEnd : Colors.grey,
+                            backgroundColor: _isSaveButtonEnabled()
+                                ? AppColors.gradientEnd
+                                : Colors.grey,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 12,
@@ -2103,7 +2621,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                           child: Text(
                             loc.save,
                             style: TextStyle(
-                              color: _isSaveButtonEnabled() ? Colors.white : Colors.black45,
+                              color: _isSaveButtonEnabled()
+                                  ? Colors.white
+                                  : Colors.black45,
                             ),
                           ),
                         ),
@@ -2141,7 +2661,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
               Expanded(
                 child: _buildReadonlyField(
                   label: loc.effectiveFrom,
-                  value: _formatDate(DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom)),
+                  value: _formatDate(
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2159,7 +2681,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
               Expanded(
                 child: _buildReadonlyField(
                   label: loc.effectiveTo,
-                  value: _formatDate(DateTime.fromMillisecondsSinceEpoch(data.effectiveTo)),
+                  value: _formatDate(
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveTo),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2203,7 +2727,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
             initialValue: data.quantity.toString(),
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               filled: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -2216,12 +2743,15 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   data.errorText = loc.pleaseEnterNumberOfDays;
                 } else {
                   final parsed = double.tryParse(val);
-                  final totalDays = double.tryParse(controller.daysController.text);
+                  final totalDays = double.tryParse(
+                    controller.daysController.text,
+                  );
                   if (parsed != null) {
                     if (parsed < 0) {
                       data.errorText = loc.numberOfDaysCannotBeNegative;
                     } else if (parsed > (totalDays ?? 0)) {
-                      data.errorText = "${loc.enteredDaysCannotExceedAllocated} $totalDays";
+                      data.errorText =
+                          "${loc.enteredDaysCannotExceedAllocated} $totalDays";
                     } else {
                       data.errorText = null;
                       data.parsed = parsed;

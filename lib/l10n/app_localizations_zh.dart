@@ -81,7 +81,103 @@ class AppLocalizationsZh extends AppLocalizations {
   String get personalInformation => '个人资料';
   @override
   String get personalDetails => '个人信息';
-
+ @override
+  String get punchInOut => '打卡/签退';
+  
+  @override
+  String get punchInOutList => '打卡记录';
+  
+  @override
+  String get myTeamAttendance => '我的团队考勤';
+  
+  @override
+  String get timesheets => '时间表';
+  
+  @override
+  String get myTeamTimesheets => '我的团队时间表';
+  
+  @override
+  String get payroll => '工资单';
+  
+  @override
+  String get myPayslips => '我的工资条';
+  
+  @override
+  String get allPayslips => '所有工资条';
+    @override
+  String get leaveCancellation => '请假取消';
+  @override
+  String get fullyCancel => '完全取消';
+  
+  @override
+  String get partialCancel => '部分取消';
+  
+  @override
+  String get cardView => '卡片视图';
+  
+  @override
+  String get calendarView => '日历视图';
+  
+  @override
+  String get month => '月';
+  
+  @override
+  String get week => '周';
+  @override String get wouldYouLikeToPunch => '您要打卡吗？';
+  
+  @override String get punchOut => '签退';
+  
+  @override String get punchIn => '打卡';
+  
+  @override String get status => '状态';
+  
+  @override String get lastSession => '上次会话';
+  
+  @override String get lastIn => '上次打卡';
+  
+  @override String get lastOut => '上次签退';
+  
+  @override String get totalTime => '总时间';
+  
+  @override String get selfieVerification => '自拍验证';
+  
+  @override String get retake => '重拍';
+  
+  @override String get currentLocation => '当前位置';
+  
+  @override String get myLocation => '我的位置';
+  
+  @override String get loading => '加载中...';
+  
+  @override String get fetchingLocation => '获取位置中...';
+  
+  @override String get locationPermissionDenied => '位置权限被拒绝';
+  
+  @override String get failedToFetchLocation => '获取位置失败';
+  
+  @override String get cameraPermissionDenied => '相机权限被拒绝';
+  
+  @override String get networkError => '网络错误';
+  
+  @override String get punchFailed => '打卡失败，请重试。';
+  
+  @override String get punchedInSuccessfully => '打卡成功！';
+  
+  @override String get punchedOutSuccessfully => '签退成功！';
+  
+  @override String get noPreviousSession => '无上次会话';
+  
+  @override String get locationNotAvailable => '位置不可用';
+  
+  @override String get takeSelfie => '拍照';
+  
+  @override String get selfiePlaceholder => '添加自拍';
+  @override
+  String get day => '日';
+  @override
+  String get myTimesheets => '我的时间表';
+  @override
+  String get board => '公告板';
   @override
   String get approvedExpensesTotal => '已批准的费用（总计）';
 
@@ -208,8 +304,7 @@ String get welcomeBack => '欢迎回来';
   String get mileage => '里程';
   @override
   String get noExpensesFound => '未找到费用';
-  @override
-  String get loading => '加载中...';
+ 
   @override
   String get view => '查看';
   @override
@@ -589,8 +684,20 @@ String get somethingWentWrong => '出现问题：';
   String get tryAsking => "尝试提问：";
   @override
   String get aiAnalytics => "AI 分析";
-  @override
-  String get networkError => "网络错误。请检查您的连接。";
+  @override String get totalHours => '总小时数';
+  @override String get transactionId => '交易ID';
+  @override String get punchInTime => '打卡时间';
+  @override String get punchOutTime => '签退时间';
+  @override String get totalDuration => '总时长';
+  @override String get captureType => '捕获类型';
+  @override String get punchInGeofenceId => '打卡地理围栏ID';
+  @override String get punchOutGeofenceId => '签退地理围栏ID';
+  @override String get isRegularized => '是否已调整';
+  @override String get punchInLocation => '打卡位置';
+   @override String get myAttendanceList => '我的考勤列表';
+  @override String get punchOutLocation => '签退位置';
+  @override String get viewTeamMemberAttendance => '查看团队成员考勤';
+  @override String get viewAttendanceTransaction => '查看考勤交易';
   @override
   String get requestError => "抱歉，无法处理您的请求。请重试。";
   @override
@@ -655,5 +762,145 @@ String get languageId => '语言编号';
 @override String get numberOfDaysCannotBeNegative => '天数不能为负数';
 @override String get enteredDaysCannotExceedAllocated => '输入的天数不能超过分配的天数';
 @override String get pleaseEnterValidNumber => '请输入有效数字';
+@override String get boardDashboard => '看板仪表板';
+  @override String get createBoard => '创建看板';
+  @override String get boardName => '看板名称';
+  @override String get boardTemplate => '看板模板';
+  @override String get referenceName => '参考名称';
+  @override String get boardTaskDetails => '看板任务详情';
+  @override String get taskName => '任务名称';
+  @override String get enterTaskName => '输入任务名称';
+  @override String get selectTags => '选择标签';
+  @override String get tagId => '标签ID';
+  @override String get tagName => '标签名称';
+  @override String get selectUsers => '选择用户';
+  @override String get estimatedHours => '预计工时';
+  @override String get cardType => '卡片类型';
+  @override String get priority => '优先级';
+  @override String get low => '低';
+  @override String get high => '高';
+  @override String get medium => '中';
+  @override String get urgent => '紧急';
+  @override String get actualHours => '实际工时';
+  @override String get version => '版本';
+  @override String get parentTask => '父任务';
+  @override String get taskId => '任务ID';
+  @override String get selectDependency => '选择依赖';
+  @override String get checklist => '检查清单';
+  @override String get addItem => '添加项目';
+  @override String get showInCard => '在卡片中显示';
+  @override String get enterNotes => '输入备注';
+  @override String get addAttachment => '添加附件';
+  @override String get posting => '正在发布...';
+  @override String get comment => '评论';
+  @override String get noCommentsYet => '暂无评论';
+  @override String get grid => '网格';
+  @override String get boardSettings => '看板设置';
+  @override String get addShelf => '添加列';
+  @override String get addTask => '添加任务';
+  @override String get noTasksFound => '未找到任务';
+  @override String get deleteTask => '删除任务';
+  @override String get noDueDate => '无截止日期';
+  @override String get shelfName => '列名称';
+  @override String get searchTasksUsersTags => '搜索任务、用户、标签...';
+  @override String get assigned => '已分配';
+  @override String get editShelf => '编辑列';
+  @override String get areYouSureDeleteTask => '确定要删除此任务吗？';
+  @override String get dueDate => '截止日期';
+  @override String get addBoardMembers => '添加看板成员';
+   @override String get visibilityOfYourBoard => '看板可见性';
+  @override String get public => '公开';
+  @override String get visibleToEveryone => '对所有人可见';
+  @override String get private => '私有';
+  @override String get onlySelectedUsers => '仅选中的用户可见';
+  @override String get enterBoardName => '输入看板名称';
+  @override String get boardNameIsRequired => '看板名称是必填项';
+  @override String get selectTemplate => '选择模板';
+  @override String get pleaseSelectATemplate => '请选择一个模板';
+  @override String get branchEmployees => '分支员工';
+@override String get departmentEmployees => '部门员工';
+@override String get viewType => '视图类型';
+@override String get leaveFullCancellation => '全部请假取消';
+@override String get reasonForCancellation => '取消原因';
+@override String get pleaseEnterCancellationReason => '请输入取消原因';
+@override String get leavePartialCancellation => '部分请假取消';
+@override
+String get myLeaveCancellations => '我的请假取消';
+  @override
+String get timeDetails => '时间详情';
+  @override String get templateIsRequired => '模板是必填项';
+  @override String get selectGroups => '选择群组';
+  @override String get areYouSureDeleteBoard => '确定要删除此看板吗？';
+  @override String get thisActionCannotBeUndone => '此操作无法撤销。';
+  @override String get deleteBoard => '删除看板';
+   @override String get boardOwnerName => '看板所有者名称';
+  @override String get defaultSortingOrder => '默认排序顺序';
+  @override String get byAssignee => '按负责人';
+  @override String get enableTimeTracking => '启用时间跟踪';
+  @override String get referenceType => '参考类型';
+  @override String get boardTheme => '看板主题';
+  @override String get dark => '深色';
+  @override String get light => '浅色';
+  @override String get systemDefault => '系统默认';
+  @override String get backgroundImage => '背景图片';
+  @override String get url => 'URL';
+  @override String get fileUpload => '文件上传';
+  @override String get imageUrl => '图片URL';
+  @override String get uploadImage => '上传图片';
+  @override String get removeMemberFromBoard => '从看板中移除成员？';
+   @override String get members => '成员';
+@override String get sendToMail => '发送到邮箱';
+@override String get send => '发送';
+@override String get download => '下载';
+@override String get payslipsNotAvailable => '没有可用的工资单';
+@override String get tableView => '表格视图';
+@override String get timeTracker => '时间跟踪';
+@override String get start => '开始';
+@override String get pause => '暂停';
+@override String get resume => '继续';
+@override String get complete => '完成';
+@override String get generateTimeSheet => '生成工时表';
+@override String get generateAndSubmit => '生成并提交';
+@override String get noTimeRunsFound => '未找到记录';
+@override String get active => '进行中';
+@override String get runId => '运行ID';
+@override String get segment => '段';
+@override String get timeRunId => '时间运行ID';
+@override String get sequence => '序号';
+@override String get end => '结束';
+@override String get noEventsFound => '未找到事件';
+@override String get event => '事件';
+@override String get occurred => '发生';
+@override String get periodType => '周期类型';
+@override String get periodTypeIsRequired => '周期类型为必填项';
+@override String get timeSheetRequestForm => '工时表申请表';
+@override String get dateRange => '日期范围';
+@override String get lineItem => '条目';
+@override String get addLine => '添加行';
+@override String get addTimer => '添加计时器';
+@override String get timeSheetPendingApprovals => '待审批的工时表';
+@override String get employees => '员工';
+@override String get employeeGroups => '员工组';
+@override String get timesheetRequisitionId => '工时表申请ID';
+@override String get areaName => '区域名称';
+@override String get eventType => '事件类型';
+@override String get plannedStartDate => '计划开始日期';
+@override String get plannedEndDate => '计划结束日期';
+@override String get actualStartDate => '实际开始日期';
+@override String get actualEndDate => '实际结束日期';
+@override String get addTimeSheets => '添加工时表';
+@override String get started => '开始';
+@override String get ended => '结束';
+@override String get eventTypeOccurred => '事件类型';
+@override String get details => '详情';
+@override String get viewDetails => '查看详情';
+@override String get segmentId => '段ID';
+@override String get segmentSequence => '段序号';
+@override String get startTime => '开始时间';
+@override String get endTime => '结束时间';
+@override String get durationInHours => '持续时间（小时）';
+@override String get endEvent => '结束事件';
+@override String get updateDetails => '更新详情';
+@override String get editSegment => '编辑段';
 
 }

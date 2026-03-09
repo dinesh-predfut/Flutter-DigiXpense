@@ -1,4 +1,4 @@
-import 'package:digi_xpense/data/models.dart' show RoleItem;
+import 'package:diginexa/data/models.dart' show RoleItem;
 import 'package:flutter/material.dart';
 // import 'role_item.dart';
 
@@ -14,7 +14,7 @@ class RoleCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

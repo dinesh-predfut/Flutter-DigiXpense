@@ -13,7 +13,57 @@ class AppLocalizationsFr extends AppLocalizations {
   String get myDashboard => 'Mon tableau de bord';
   @override
   String get login => 'Connexion';
-
+@override
+  String get punchInOut => 'Pointage Entrée/Sortie';
+  
+  @override
+  String get punchInOutList => 'Liste de pointage';
+  
+  @override
+  String get myTeamAttendance => 'Présence de mon équipe';
+  
+  @override
+  String get timesheets => 'Feuilles de temps';
+  
+  @override
+  String get myTeamTimesheets => 'Feuilles de temps de mon équipe';
+  
+  @override
+  String get payroll => 'Paie';
+  
+  @override
+  String get myPayslips => 'Mes bulletins de paie';
+  
+  @override
+  String get allPayslips => 'Tous les bulletins de paie';
+   
+  @override
+  String get leaveCancellation => 'Annulation de congé';
+   // New strings
+  @override
+  String get fullyCancel => 'Annulation complète';
+  
+  @override
+  String get partialCancel => 'Annulation partielle';
+  
+  @override
+  String get cardView => 'Vue carte';
+  
+  @override
+  String get calendarView => 'Vue calendrier';
+  
+  @override
+  String get month => 'Mois';
+  
+  @override
+  String get week => 'Semaine';
+  
+  @override
+  String get day => 'Jour';
+  @override
+  String get myTimesheets => 'Mes feuilles de temps';
+  @override
+  String get board => 'Tableau';
   @override
   String get setting => 'Paramètres';
   @override
@@ -969,4 +1019,207 @@ String get languageId => 'ID de la langue';
       'Les jours saisis ne peuvent pas dépasser les jours alloués';
   @override
   String get pleaseEnterValidNumber => 'Veuillez entrer un nombre valide';
+   @override String get wouldYouLikeToPunch => 'Voulez-vous pointer?';
+  
+  @override String get punchOut => 'Pointer Sortie';
+  
+  @override String get punchIn => 'Pointer Entrée';
+  
+  @override String get status => 'Statut';
+  
+  @override String get lastSession => 'Dernière Session';
+  
+  @override String get lastIn => 'Dernière Entrée';
+  
+  @override String get lastOut => 'Dernière Sortie';
+  
+  @override String get totalTime => 'Temps Total';
+  
+  @override String get selfieVerification => 'Vérification par selfie';
+  
+  @override String get retake => 'Reprendre';
+  
+  @override String get currentLocation => 'Emplacement actuel';
+  
+  @override String get myLocation => 'Ma position';
+    @override String get myAttendanceList => 'Ma Liste de Présence';
+  @override String get totalHours => 'Heures Totales';
+  @override String get transactionId => 'ID de Transaction';
+  @override String get punchInTime => 'Heure d\'Entrée';
+  @override String get punchOutTime => 'Heure de Sortie';
+  @override String get totalDuration => 'Durée Totale';
+  @override String get captureType => 'Type de Capture';
+  @override String get punchInGeofenceId => 'ID Géorepérage d\'Entrée';
+  @override String get punchOutGeofenceId => 'ID Géorepérage de Sortie';
+  @override String get isRegularized => 'Est Régularisé';
+  @override String get punchInLocation => 'Emplacement d\'Entrée';
+  @override String get punchOutLocation => 'Emplacement de Sortie';
+   @override String get viewTeamMemberAttendance => 'Voir la présence des membres de l\'équipe';
+  @override String get viewAttendanceTransaction => 'Voir la transaction de présence';
+  @override String get fetchingLocation => 'Récupération de la localisation...';
+  
+  @override String get locationPermissionDenied => 'Permission de localisation refusée';
+  
+  @override String get failedToFetchLocation => 'Échec de la récupération de la localisation';
+  
+  @override String get cameraPermissionDenied => 'Permission de caméra refusée';
+  
+  
+  @override String get punchFailed => 'Pointage échoué. Veuillez réessayer.';
+  
+  @override String get punchedInSuccessfully => 'Pointage d\'entrée réussi!';
+  
+  @override String get punchedOutSuccessfully => 'Pointage de sortie réussi!';
+  
+  @override String get noPreviousSession => 'Aucune session précédente';
+  
+  @override String get locationNotAvailable => 'Emplacement non disponible';
+  
+  @override String get takeSelfie => 'Prendre un selfie';
+  
+  @override String get boardDashboard => 'Tableau de bord du conseil';
+  @override String get createBoard => 'Créer un conseil';
+  @override String get boardName => 'Nom du conseil';
+  @override String get boardTemplate => 'Modèle de conseil';
+  @override String get referenceName => 'Nom de référence';
+  @override String get boardTaskDetails => 'Détails de la tâche du conseil';
+  @override String get taskName => 'Nom de la tâche';
+  @override String get enterTaskName => 'Entrez le nom de la tâche';
+  @override String get selectTags => 'Sélectionner une/des étiquette(s)';
+  @override String get tagId => 'ID de l\'étiquette';
+  @override String get tagName => 'Nom de l\'étiquette';
+  @override String get selectUsers => 'Sélectionner un/des utilisateur(s)';
+  @override String get estimatedHours => 'Heures estimées';
+  @override String get cardType => 'Type de carte';
+  @override String get priority => 'Priorité';
+  @override String get low => 'Faible';
+  @override String get high => 'Élevée';
+  @override String get medium => 'Moyenne';
+  @override String get urgent => 'Urgent';
+  @override String get actualHours => 'Heures réelles';
+  @override String get version => 'Version';
+  @override String get parentTask => 'Tâche parente';
+  @override String get taskId => 'ID de la tâche';
+  @override String get selectDependency => 'Sélectionner une dépendance';
+  @override String get checklist => 'Liste de contrôle';
+  @override String get addItem => 'Ajouter un élément';
+  @override String get showInCard => 'Afficher dans la carte';
+  @override String get enterNotes => 'Entrez des notes';
+  @override String get addAttachment => 'Ajouter une pièce jointe';
+  @override String get posting => 'Publication...';
+  @override String get comment => 'Commentaire';
+  @override String get noCommentsYet => 'Pas encore de commentaires';
+  @override String get grid => 'Grille';
+  @override String get boardSettings => 'Paramètres du conseil';
+  @override String get addShelf => 'Ajouter une étagère';
+  @override String get addTask => 'Ajouter une tâche';
+  @override String get noTasksFound => 'Aucune tâche trouvée';
+  @override String get deleteTask => 'Supprimer la tâche';
+  @override String get noDueDate => 'Pas de date d\'échéance';
+  @override String get shelfName => 'Nom de l\'étagère';
+  @override String get searchTasksUsersTags => 'Rechercher des tâches, utilisateurs, étiquettes...';
+  @override String get assigned => 'Assigné';
+  @override String get editShelf => 'Modifier l\'étagère';
+  @override String get areYouSureDeleteTask => 'Êtes-vous sûr de vouloir supprimer cette tâche?';
+  @override String get dueDate => 'Date d\'échéance';
+  @override String get addBoardMembers => 'Ajouter des membres du conseil';
+@override String get sendToMail => 'Envoyer par e-mail';
+@override String get send => 'Envoyer';
+@override String get download => 'Télécharger';
+@override String get payslipsNotAvailable => 'Fiches de paie non disponibles';
+@override String get tableView => 'Vue tableau';
+@override String get timeTracker => 'Suivi du temps';
+@override String get start => 'Démarrer';
+@override String get eventType => 'Type d’événement';
+@override String get periodType => 'Type de période';
+@override String get periodTypeIsRequired => 'Le type de période est requis';
+@override String get timeSheetRequestForm => 'Formulaire de demande de feuille de temps';
+@override String get dateRange => 'Plage de dates';
+@override String get lineItem => 'Élément';
+@override String get addLine => 'Ajouter une ligne';
+@override String get addTimer => 'Ajouter un minuteur';
+@override String get timeSheetPendingApprovals => 'Approbations de feuilles de temps en attente';
+@override String get employees => 'Employés';
+@override String get employeeGroups => 'Groupes d’employés';
+@override String get timesheetRequisitionId => 'ID de demande de feuille de temps';
+
+@override String get pause => 'Pause';
+@override String get resume => 'Reprendre';
+@override String get complete => 'Terminer';
+@override String get generateTimeSheet => 'Générer la feuille de temps';
+@override String get generateAndSubmit => 'Générer et soumettre';
+@override String get noTimeRunsFound => 'Aucun enregistrement trouvé';
+@override String get active => 'ACTIF';
+@override String get runId => 'ID d’exécution';
+@override String get segment => 'Segment';
+@override String get timeRunId => 'ID du temps';
+@override String get sequence => 'Séquence';
+@override String get end => 'Fin';
+@override String get noEventsFound => 'Aucun événement trouvé';
+@override String get event => 'Événement';
+@override String get occurred => 'Survenu';
+@override String get started => 'Commencé';
+@override String get ended => 'Terminé';
+@override String get eventTypeOccurred => 'Type d’événement survenu';
+@override String get details => 'Détails';
+@override String get viewDetails => 'Voir les détails';
+@override String get segmentId => 'ID du segment';
+@override String get segmentSequence => 'Séquence du segment';
+@override String get startTime => 'Heure de début';
+@override String get endTime => 'Heure de fin';
+@override String get durationInHours => 'Durée en heures';
+@override String get endEvent => 'Événement de fin';
+@override String get updateDetails => 'Mettre à jour les détails';
+@override String get editSegment => 'Modifier le segment';
+
+  // ... ALL previous strings remain
+  @override
+String get timeDetails => 'Détails du temps';
+@override String get branchEmployees => 'Employés de la succursale';
+@override String get departmentEmployees => 'Employés du département';
+@override
+String get myLeaveCancellations => 'Mes annulations de congé';
+@override String get viewType => 'Type de vue';
+@override String get leaveFullCancellation => 'Annulation complète du congé';
+@override String get reasonForCancellation => 'Raison de l’annulation';
+@override String get pleaseEnterCancellationReason => 'Veuillez saisir la raison de l’annulation';
+@override String get leavePartialCancellation => 'Annulation partielle du congé';
+  // NEW - Board Creation & Management
+ @override String get visibilityOfYourBoard => 'Visibilité de votre conseil';
+  @override String get public => 'Public';
+  @override String get visibleToEveryone => 'Visible par tous';
+  @override String get private => 'Privé';
+  @override String get onlySelectedUsers => 'Seulement les utilisateurs sélectionnés';
+  @override String get enterBoardName => 'Entrez le nom du conseil';
+  @override String get boardNameIsRequired => 'Le nom du conseil est requis';
+  @override String get selectTemplate => 'Sélectionner un modèle';
+  @override String get pleaseSelectATemplate => 'Veuillez sélectionner un modèle';
+  @override String get templateIsRequired => 'Le modèle est requis';
+  @override String get selectGroups => 'Sélectionner des groupes';
+  @override String get areYouSureDeleteBoard => 'Êtes-vous sûr de vouloir supprimer ce conseil?';
+  @override String get thisActionCannotBeUndone => 'Cette action ne peut pas être annulée.';
+  @override String get deleteBoard => 'Supprimer le conseil';
+@override String get boardOwnerName => 'Nom du propriétaire du conseil';
+  @override String get defaultSortingOrder => 'Ordre de tri par défaut';
+  @override String get byAssignee => 'Par assigné';
+  @override String get enableTimeTracking => 'Activer le suivi du temps';
+  @override String get referenceType => 'Type de référence';
+  @override String get boardTheme => 'Thème du conseil';
+  @override String get plannedStartDate => 'Date de début prévue';
+@override String get plannedEndDate => 'Date de fin prévue';
+@override String get actualStartDate => 'Date de début réelle';
+@override String get actualEndDate => 'Date de fin réelle';
+@override String get addTimeSheets => 'Ajouter des feuilles de temps';
+  @override String get areaName => 'Nom de la zone';
+  @override String get dark => 'Sombre';
+  @override String get light => 'Clair';
+  @override String get systemDefault => 'Par défaut du système';
+  @override String get backgroundImage => 'Image de fond';
+  @override String get url => 'URL';
+  @override String get fileUpload => 'Téléchargement de fichier';
+  @override String get imageUrl => 'URL de l\'image';
+  @override String get uploadImage => 'Télécharger une image';
+  @override String get removeMemberFromBoard => 'Retirer le membre du conseil?';
+  @override String get selfiePlaceholder => 'Ajouter un selfie';
+   @override String get members => 'Membres';
 }

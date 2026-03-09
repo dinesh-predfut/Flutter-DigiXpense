@@ -1,13 +1,14 @@
 import 'dart:async';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
-import 'package:digi_xpense/main.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:diginexa/main.dart';
+import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -36,7 +37,7 @@ class ExpenseCreationForm extends StatefulWidget {
 
 class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     with TickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   final controllerItems = Get.put(Controller());
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
@@ -55,6 +56,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   bool setQuality = true;
   bool clearField = false;
   bool allowMultSelect = false;
+  bool allowCashAd = false;
   bool _showTaxAmountError = false;
   bool showItemizeDetails = false;
   bool _isTyping = false;
@@ -82,13 +84,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     // controller.fetchPaidto();
 
     itemizeControllers.add(Controller());
-    controller.configuration();
     controller.isManualEntryMerchant = false;
     _loadSettings();
     _featureFuture = controller.getAllFeatureStates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-          _initializeUnits();
-
+      _initializeUnits();
+      controller.loadSequenceModules();
       controller.configuration();
       controller.clearFormFields();
       // Safe to update observables here
@@ -125,6 +126,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     if (settings != null) {
       setState(() {
         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        allowCashAd = settings.allowCashAdvAgainstExpenseReg;
         print("allowDocAttachments$allowMultSelect");
         // isLoading = false;
       });
@@ -140,7 +142,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       controller.cashAdvanceListDropDown.addAll(newItems); // ✅ Append here
       print("cashAdvanceListDropDown${controller.cashAdvanceListDropDown}");
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      // Get.snackbar('Error', e.toString());
     }
   }
 
@@ -689,7 +691,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         field['FieldName'] != 'Location' &&
                         field['FieldName'] != 'Refrence Id' &&
                         field['FieldName'] != 'Is Billable' &&
-                        field['FieldName'] != 'is Reimbursible',
+                        field['FieldName'] != 'Is Reimbursible',
                   )
                   .map((field) {
                     final String label = field['FieldName'];
@@ -756,7 +758,19 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
+                                    //  Expanded(
+                                    //   // flex: 4,
+                                    //   child: SingleChildScrollView(
+                                    //     scrollDirection: Axis.horizontal,
+                                    //     child: Text(
+                                    //       '',
+                                    //       style: const TextStyle(fontSize: 10),
+                                    //     ),
+                                    //   ),
+                                    // ),
+                                    SizedBox(width: 10),
                                     Expanded(
                                       // flex: 4,
                                       child: SingleChildScrollView(
@@ -845,15 +859,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 //   horizontal: 16,
                                 // ),
                                 decoration: BoxDecoration(
-                                  color: isMatch
-                                      ? Colors.blue.withOpacity(
-                                          0.15,
-                                        ) // Highlight color on match
-                                      : null,
+                                  
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
                                   children: [
+                                    SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
                                         tax.taxGroup,
@@ -1393,44 +1404,98 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Obx(
-                    () => SwitchListTile(
-                      title: Text(
-                        loc.isReimbursable,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: controller.isReimbursiteCreate.value,
-                      activeThumbColor: Colors.green,
-                      inactiveThumbColor: Colors.grey.shade400,
-                      inactiveTrackColor: Colors.grey.shade300,
-                      onChanged: (val) {
-                        controller.isReimbursiteCreate.value = val;
-                        controllerItems.isReimbursiteCreate.value = val;
-                      },
-                    ),
-                  ),
-                  Obx(
-                    () => SwitchListTile(
-                      title: Text(
-                        loc.isBillable,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: controllerItems.isBillable.value,
-                      activeThumbColor: Colors.blue,
-                      inactiveThumbColor: Colors.grey.shade400,
-                      inactiveTrackColor: Colors.grey.shade300,
-                      onChanged: (val) {
-                        controller.isBillable.value = val;
-                        controllerItems.isBillable.value = val;
-                      },
-                    ),
-                  ),
+                  ...controllerItems.configList
+                      .where(
+                        (field) =>
+                            field['IsEnabled'] == true &&
+                            field['FieldName'] != 'Location' &&
+                            field['FieldName'] != 'Refrence Id' &&
+                            field['FieldName'] != 'Tax Group' &&
+                            field['FieldName'] != 'Tax Amount' &&
+                            field['FieldName'] != 'Project Id',
+                      )
+                      .map((field) {
+                        final String label = field['FieldName'];
+                        final bool isMandatory = field['IsMandatory'] ?? false;
+
+                        Widget inputField;
+
+                        if (label == 'Is Billable') {
+                          inputField = Obx(
+                            () => SwitchListTile(
+                              title: Text(
+                                loc.isBillable,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              value: controllerItems.isBillable.value,
+                              activeThumbColor: Colors.blue,
+                              inactiveThumbColor: Colors.grey.shade400,
+                              inactiveTrackColor: Colors.grey.shade300,
+                              onChanged: (val) {
+                                controller.isBillable.value = val;
+                                controllerItems.isBillable.value = val;
+                              },
+                            ),
+                          );
+                        } else if (label == 'Is Reimbursible') {
+                          inputField = Obx(() {
+                            // ✅ Force value to false if not enabled
+                            if (!controllerItems.isReimbursableEnabled.value &&
+                                controller.isReimbursiteCreate.value) {
+                              controller.isReimbursiteCreate.value = false;
+                              controllerItems.isReimbursiteCreate.value = false;
+                            }
+
+                            return SwitchListTile(
+                              title: Text(
+                                loc.isReimbursable,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              value: controller.isReimbursiteCreate.value,
+                              activeThumbColor: Colors.green,
+                              inactiveThumbColor: Colors.grey.shade400,
+                              inactiveTrackColor: Colors.grey.shade300,
+
+                              onChanged:
+                                  controllerItems.isReimbursableEnabled.value
+                                  ? (val) {
+                                      controller.isReimbursiteCreate.value =
+                                          val;
+                                      controllerItems
+                                              .isReimbursiteCreate
+                                              .value =
+                                          val;
+                                    }
+                                  : null, // ✅ disabled when false
+                            );
+                          });
+                        } else {
+                          inputField = TextField(
+                            decoration: InputDecoration(
+                              labelText: '$label${isMandatory ? " *" : ""}',
+                              border: const OutlineInputBorder(),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // const SizedBox(height: 8),
+                            inputField,
+                            // const SizedBox(height: 16),
+                            // const SizedBox(height: 20),
+                          ],
+                        );
+                      })
+                      .toList(),
+
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
@@ -1461,224 +1526,229 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         const Spacer(),
                         ElevatedButton(
                           onPressed: () {
-                           if(showItemizeDetails){
+                            if (showItemizeDetails) {
                               if (_validateCurrentItemizeForm()) {
-                              setState(() {
-                                controller.showQuantityError.value = false;
-                                controller.showUnitAmountError.value = false;
-                                _showUnitError = false;
-                                controller.showTaxAmountError.value = false;
-                              });
+                                setState(() {
+                                  controller.showQuantityError.value = false;
+                                  controller.showUnitAmountError.value = false;
+                                  _showUnitError = false;
+                                  controller.showTaxAmountError.value = false;
+                                });
 
-                              bool isValid = true;
+                                bool isValid = true;
 
-                              if (controller.selectedCategoryId.isEmpty) {
-                                setState(
-                                  () =>
-                                      controller.showPaidForError.value = true,
-                                );
-                                isValid = false;
-                              }
-
-                              if (_itemizeCount >= 1) {
-                                print(
-                                  "controller.unitAmount.text${_itemizeCount}",
-                                );
-
-                                if (controller.quantity.text.isEmpty) {
+                                if (controller.selectedCategoryId.isEmpty) {
                                   setState(
-                                    () => controller.showQuantityError.value =
+                                    () => controller.showPaidForError.value =
                                         true,
                                   );
                                   isValid = false;
                                 }
-                                if (showItemizeDetails) {
-                                  if (controller.unitAmount.text.isEmpty) {
+
+                                if (_itemizeCount >= 1) {
+                                  print(
+                                    "controller.unitAmount.text${_itemizeCount}",
+                                  );
+
+                                  if (controller.quantity.text.isEmpty) {
+                                    setState(
+                                      () => controller.showQuantityError.value =
+                                          true,
+                                    );
+                                    isValid = false;
+                                  }
+                                  if (showItemizeDetails) {
+                                    if (controller.unitAmount.text.isEmpty) {
+                                      setState(
+                                        () =>
+                                            controller
+                                                    .showUnitAmountError
+                                                    .value =
+                                                true,
+                                      );
+                                      isValid = false;
+                                    }
+
+                                    if (controller.selectedunit == null) {
+                                      setState(() => _showUnitError = true);
+                                      isValid = false;
+                                    }
+                                  }
+                                  final taxAmountMandatory = isFieldMandatory(
+                                    'Tax Amount',
+                                  );
+                                  // Validate other mandatory fields
+                                  if (controller.taxAmount.text.isEmpty &&
+                                      taxAmountMandatory) {
                                     setState(
                                       () =>
-                                          controller.showUnitAmountError.value =
+                                          controller.showTaxAmountError.value =
                                               true,
                                     );
                                     isValid = false;
                                   }
-
-                                  if (controller.selectedunit == null) {
-                                    setState(() => _showUnitError = true);
-                                    isValid = false;
-                                  }
                                 }
-                                final taxAmountMandatory = isFieldMandatory(
-                                  'Tax Amount',
+
+                                // Validate Project Id if mandatory
+                                final projectIdMandatory = isFieldMandatory(
+                                  'Project Id',
                                 );
-                                // Validate other mandatory fields
-                                if (controller.taxAmount.text.isEmpty &&
-                                    taxAmountMandatory) {
+
+                                print("projectIdMandatory$projectIdMandatory");
+                                print(
+                                  "projectIdMandatory${controller.selectedProject == null}",
+                                );
+                                if (projectIdMandatory &&
+                                    controller.selectedProject == null) {
                                   setState(
-                                    () => controller.showTaxAmountError.value =
+                                    () => controller.showProjectError.value =
                                         true,
                                   );
                                   isValid = false;
-                                }
-                              }
-
-                              // Validate Project Id if mandatory
-                              final projectIdMandatory = isFieldMandatory(
-                                'Project Id',
-                              );
-
-                              print("projectIdMandatory$projectIdMandatory");
-                              print(
-                                "projectIdMandatory${controller.selectedProject == null}",
-                              );
-                              if (projectIdMandatory &&
-                                  controller.selectedProject == null) {
-                                setState(
-                                  () =>
-                                      controller.showProjectError.value = true,
-                                );
-                                isValid = false;
-                              } else {
-                                setState(
-                                  () =>
-                                      controller.showProjectError.value = false,
-                                );
-                              }
-
-                              print('isValid$isValid');
-                              print('isValid${itemizeControllers.length}');
-                              if (isValid) {
-                                if (showItemizeDetails) {
-                                  controllerItems.finalItems =
-                                      itemizeControllers
-                                          .map((c) => c.toExpenseItemModel())
-                                          .toList();
-                                  _nextStep();
-                                  FocusScope.of(context).unfocus();
                                 } else {
-                                  _nextStep();
-                                  FocusScope.of(context).unfocus();
+                                  setState(
+                                    () => controller.showProjectError.value =
+                                        false,
+                                  );
                                 }
+
+                                print('isValid$isValid');
+                                print('isValid${itemizeControllers.length}');
+                                if (isValid) {
+                                  if (showItemizeDetails) {
+                                    controllerItems.finalItems =
+                                        itemizeControllers
+                                            .map((c) => c.toExpenseItemModel())
+                                            .toList();
+                                    _nextStep();
+                                    FocusScope.of(context).unfocus();
+                                  } else {
+                                    _nextStep();
+                                    FocusScope.of(context).unfocus();
+                                  }
+                                }
+                              } else {
+                                Fluttertoast.showToast(
+                                  msg: "Please check all Field",
+                                  toastLength: Toast.LENGTH_SHORT,
+                                  gravity: ToastGravity.BOTTOM,
+                                  backgroundColor: Colors.red,
+                                  textColor: Colors.white,
+                                  fontSize: 16.0,
+                                );
                               }
                             } else {
-                              Fluttertoast.showToast(
-                                msg: "Please check all Field",
-                                toastLength: Toast.LENGTH_SHORT,
-                                gravity: ToastGravity.BOTTOM,
-                                backgroundColor: Colors.red,
-                                textColor: Colors.white,
-                                fontSize: 16.0,
-                              );
-                            }
-                           }
-                          else{
                               if (validateExpenseForm()) {
-                              setState(() {
-                                controller.showQuantityError.value = false;
-                                controller.showUnitAmountError.value = false;
-                                _showUnitError = false;
-                                controller.showTaxAmountError.value = false;
-                              });
+                                setState(() {
+                                  controller.showQuantityError.value = false;
+                                  controller.showUnitAmountError.value = false;
+                                  _showUnitError = false;
+                                  controller.showTaxAmountError.value = false;
+                                });
 
-                              bool isValid = true;
+                                bool isValid = true;
 
-                              if (controller.selectedCategoryId.isEmpty) {
-                                setState(
-                                  () =>
-                                      controller.showPaidForError.value = true,
-                                );
-                                isValid = false;
-                              }
-
-                              if (_itemizeCount >= 1) {
-                                print(
-                                  "controller.unitAmount.text${_itemizeCount}",
-                                );
-
-                                if (controller.quantity.text.isEmpty) {
+                                if (controller.selectedCategoryId.isEmpty) {
                                   setState(
-                                    () => controller.showQuantityError.value =
+                                    () => controller.showPaidForError.value =
                                         true,
                                   );
                                   isValid = false;
                                 }
-                                if (showItemizeDetails) {
-                                  if (controller.unitAmount.text.isEmpty) {
+
+                                if (_itemizeCount >= 1) {
+                                  print(
+                                    "controller.unitAmount.text${_itemizeCount}",
+                                  );
+
+                                  if (controller.quantity.text.isEmpty) {
+                                    setState(
+                                      () => controller.showQuantityError.value =
+                                          true,
+                                    );
+                                    isValid = false;
+                                  }
+                                  if (showItemizeDetails) {
+                                    if (controller.unitAmount.text.isEmpty) {
+                                      setState(
+                                        () =>
+                                            controller
+                                                    .showUnitAmountError
+                                                    .value =
+                                                true,
+                                      );
+                                      isValid = false;
+                                    }
+
+                                    if (controller.selectedunit == null) {
+                                      setState(() => _showUnitError = true);
+                                      isValid = false;
+                                    }
+                                  }
+                                  final taxAmountMandatory = isFieldMandatory(
+                                    'Tax Amount',
+                                  );
+                                  // Validate other mandatory fields
+                                  if (controller.taxAmount.text.isEmpty &&
+                                      taxAmountMandatory) {
                                     setState(
                                       () =>
-                                          controller.showUnitAmountError.value =
+                                          controller.showTaxAmountError.value =
                                               true,
                                     );
                                     isValid = false;
                                   }
-
-                                  if (controller.selectedunit == null) {
-                                    setState(() => _showUnitError = true);
-                                    isValid = false;
-                                  }
                                 }
-                                final taxAmountMandatory = isFieldMandatory(
-                                  'Tax Amount',
+
+                                // Validate Project Id if mandatory
+                                final projectIdMandatory = isFieldMandatory(
+                                  'Project Id',
                                 );
-                                // Validate other mandatory fields
-                                if (controller.taxAmount.text.isEmpty &&
-                                    taxAmountMandatory) {
+
+                                print("projectIdMandatory$projectIdMandatory");
+                                print(
+                                  "projectIdMandatory${controller.selectedProject == null}",
+                                );
+                                if (projectIdMandatory &&
+                                    controller.selectedProject == null) {
                                   setState(
-                                    () => controller.showTaxAmountError.value =
+                                    () => controller.showProjectError.value =
                                         true,
                                   );
                                   isValid = false;
-                                }
-                              }
-
-                              // Validate Project Id if mandatory
-                              final projectIdMandatory = isFieldMandatory(
-                                'Project Id',
-                              );
-
-                              print("projectIdMandatory$projectIdMandatory");
-                              print(
-                                "projectIdMandatory${controller.selectedProject == null}",
-                              );
-                              if (projectIdMandatory &&
-                                  controller.selectedProject == null) {
-                                setState(
-                                  () =>
-                                      controller.showProjectError.value = true,
-                                );
-                                isValid = false;
-                              } else {
-                                setState(
-                                  () =>
-                                      controller.showProjectError.value = false,
-                                );
-                              }
-
-                              print('isValid$isValid');
-                              print('isValid${itemizeControllers.length}');
-                              if (isValid) {
-                                if (showItemizeDetails) {
-                                  controllerItems.finalItems =
-                                      itemizeControllers
-                                          .map((c) => c.toExpenseItemModel())
-                                          .toList();
-                                  _nextStep();
-                                  FocusScope.of(context).unfocus();
                                 } else {
-                                  _nextStep();
-                                  FocusScope.of(context).unfocus();
+                                  setState(
+                                    () => controller.showProjectError.value =
+                                        false,
+                                  );
                                 }
+
+                                print('isValid$isValid');
+                                print('isValid${itemizeControllers.length}');
+                                if (isValid) {
+                                  if (showItemizeDetails) {
+                                    controllerItems.finalItems =
+                                        itemizeControllers
+                                            .map((c) => c.toExpenseItemModel())
+                                            .toList();
+                                    _nextStep();
+                                    FocusScope.of(context).unfocus();
+                                  } else {
+                                    _nextStep();
+                                    FocusScope.of(context).unfocus();
+                                  }
+                                }
+                              } else {
+                                Fluttertoast.showToast(
+                                  msg: "Please check all Field",
+                                  toastLength: Toast.LENGTH_SHORT,
+                                  gravity: ToastGravity.BOTTOM,
+                                  backgroundColor: Colors.red,
+                                  textColor: Colors.white,
+                                  fontSize: 16.0,
+                                );
                               }
-                            } else {
-                              Fluttertoast.showToast(
-                                msg: "Please check all Field",
-                                toastLength: Toast.LENGTH_SHORT,
-                                gravity: ToastGravity.BOTTOM,
-                                backgroundColor: Colors.red,
-                                textColor: Colors.white,
-                                fontSize: 16.0,
-                              );
                             }
-                          }
                           },
                           style: OutlinedButton.styleFrom(
                             backgroundColor: AppColors.gradientEnd,
@@ -1901,6 +1971,33 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Obx(() {
+                                  if (controller.isSequenceLoading.value) {
+                                    return const SizedBox(); // or loader
+                                  }
+
+                                  final hideField = controller.hasModule(
+                                    "Expense",
+                                  );
+
+                                  if (hideField) {
+                                    return const SizedBox.shrink(); // ✅ hide
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      TextFormField(
+                                        controller:
+                                            controller.expenseIdController,
+                                        decoration: InputDecoration(
+                                          labelText: '${loc.expenseId} *',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  );
+                                }),
+
                                 InkWell(
                                   onTap: () async {
                                     await _selectDate(context);
@@ -2163,71 +2260,76 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 .toList(),
                           );
                         }),
-                        const SizedBox(height: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MultiSelectMultiColumnDropdownField<
-                              CashAdvanceDropDownModel
-                            >(
-                              labelText: loc.cashAdvanceRequest,
-                              controller: controller.cashAdvanceIds,
-                              items: controller.cashAdvanceListDropDown,
-                              isMultiSelect: allowMultSelect ?? false,
-                              selectedValue: controller.singleSelectedItem,
-                              selectedValues: controller.multiSelectedItems,
-                              // selectedValue: controller.selectedLocation,
-                              // enabled: controller.isEditModePerdiem,
-                              // controller: controller.locationController,
-                              // ignore: unnecessary_string_interpolations
-                              searchValue: (proj) => '${proj.cashAdvanceReqId}',
-                              displayText: (proj) => proj.cashAdvanceReqId,
-                              validator: (proj) => proj == null
-                                  ? loc.pleaseSelectCashAdvanceField
-                                  : null,
-                              onChanged: (item) {
-                                controller.singleSelectedItem = item;
-                              },
-                              onMultiChanged: (items) {
-                                controller.multiSelectedItems.assignAll(items);
-                              },
-                              columnHeaders: [loc.requestId, loc.requestDate],
-                              rowBuilder: (proj, searchQuery) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 16,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(proj.cashAdvanceReqId),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          controller.formattedDate(
-                                            proj.requestDate,
+                        if (allowCashAd) const SizedBox(height: 14),
+                        if (allowCashAd)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MultiSelectMultiColumnDropdownField<
+                                CashAdvanceDropDownModel
+                              >(
+                                labelText: loc.cashAdvanceRequest,
+                                controller: controller.cashAdvanceIds,
+                                items: controller.cashAdvanceListDropDown,
+                                isMultiSelect: allowMultSelect ?? false,
+                                selectedValue: controller.singleSelectedItem,
+                                selectedValues: controller.multiSelectedItems,
+                                dropdownMaxHeight: 300,
+                                // selectedValue: controller.selectedLocation,
+                                // enabled: controller.isEditModePerdiem,
+                                // controller: controller.locationController,
+                                // ignore: unnecessary_string_interpolations
+                                searchValue: (proj) =>
+                                    '${proj.cashAdvanceReqId}',
+                                displayText: (proj) => proj.cashAdvanceReqId,
+                                validator: (proj) => proj == null
+                                    ? loc.pleaseSelectCashAdvanceField
+                                    : null,
+                                onChanged: (item) {
+                                  controller.singleSelectedItem = item;
+                                },
+                                onMultiChanged: (items) {
+                                  controller.multiSelectedItems.assignAll(
+                                    items,
+                                  );
+                                },
+                                columnHeaders: [loc.requestId, loc.requestDate],
+                                rowBuilder: (proj, searchQuery) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(proj.cashAdvanceReqId),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            controller.formattedDate(
+                                              proj.requestDate,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                            // if (selectReferenceIDError != null)
-                            //   Padding(
-                            //     padding: const EdgeInsets.only(
-                            //       left: 8.0,
-                            //       bottom: 8,
-                            //     ),
-                            //     child: Text(
-                            //       selectReferenceIDError.toString(),
-                            //       style: const TextStyle(color: Colors.red),
-                            //     ),
-                            //   ),
-                          ],
-                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              // if (selectReferenceIDError != null)
+                              //   Padding(
+                              //     padding: const EdgeInsets.only(
+                              //       left: 8.0,
+                              //       bottom: 8,
+                              //     ),
+                              //     child: Text(
+                              //       selectReferenceIDError.toString(),
+                              //       style: const TextStyle(color: Colors.red),
+                              //     ),
+                              //   ),
+                            ],
+                          ),
                         const SizedBox(height: 14),
                         Text(
                           loc.paidWith,
@@ -2237,17 +2339,35 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
                         // Paid With Radio Buttons
                         Obx(() {
-                          // if (controller.paidWith == null &&
-                          //     controller.paymentMethods.isNotEmpty) {
-                          //   controller.paidWith =
-                          //       controller.paymentMethods.first.paymentMethodId;
-                          //   controller.paymentMethodeID =
-                          //       controller.paymentMethods.first.paymentMethodId;
-                          // }
+                          /// ✅ SHOW LOADER
+                          if (controller.isPaymentMethodsLoading.value) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          /// ✅ SHOW EMPTY STATE
+                          if (controller.paymentMethods.isEmpty) {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                AppLocalizations.of(context)!.noDataFound,
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            );
+                          }
+
+                          /// ✅ SHOW LIST
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Payment methods list
                               ...List.generate(
                                 controller.paymentMethods.length,
                                 (index) {
@@ -2284,17 +2404,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                     child: RadioListTile<String>(
                                       title: Row(
                                         children: [
-                                          Icon(
-                                            icons[index % icons.length],
-                                            color: Colors.black,
-                                          ),
+                                          Icon(icons[index % icons.length]),
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
                                               method.paymentMethodName,
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                              ),
                                             ),
                                           ),
                                         ],
@@ -2302,97 +2416,62 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                       value: method.paymentMethodId,
                                       groupValue:
                                           controller.paidWithCashAdvance.value,
-                                      onChanged: (String? value) {
-                                        // print(value);
-                                        loadAndAppendCashAdvanceList();
-                                        setState(() {
-                                          if (controller
-                                                  .paidWithCashAdvance
-                                                  .value ==
-                                              value) {
-                                            // Unselect if same item clicked
-                                            controller
-                                                    .paidWithCashAdvance
-                                                    .value =
-                                                null;
-                                            controller
-                                                    .paymentMethodeIDCashAdvance
-                                                    .value =
-                                                null;
-                                          } else {
-                                            controller
-                                                    .paidWithCashAdvance
-                                                    .value =
-                                                value;
-                                            controller.paidWithController.text =
-                                                value!;
-                                            controller
-                                                    .paymentMethodeIDCashAdvance
-                                                    .value =
-                                                value;
-                                          }
-                                        });
+
+                                      /// ❌ REMOVE setState — GetX handles it
+                                      onChanged: (value) {
+                                        if (controller
+                                                .paidWithCashAdvance
+                                                .value ==
+                                            value) {
+                                          controller.paidWithCashAdvance.value =
+                                              null;
+                                          controller
+                                                  .paymentMethodeIDCashAdvance
+                                                  .value =
+                                              null;
+                                        } else {
+                                          controller.paidWithCashAdvance.value =
+                                              value;
+                                          controller
+                                                  .paymentMethodeIDCashAdvance
+                                                  .value =
+                                              value;
+                                          controller
+                                                  .isReimbursableEnabled
+                                                  .value =
+                                              method.reimbursible;
+                                        }
                                       },
+
                                       contentPadding: EdgeInsets.zero,
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
-                                      tileColor: Colors.transparent,
                                     ),
                                   );
                                 },
                               ),
 
-                              // Error message below the list
                               const SizedBox(height: 8),
-                              // Small red button to clear selection
-                              if (controller.paidWithCashAdvance.value !=
-                                      null &&
-                                  controller
-                                      .paidWithCashAdvance
-                                      .value!
-                                      .isNotEmpty)
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      controller.paidWithCashAdvance.value = "";
-                                      controller
-                                              .paymentMethodeIDCashAdvance
-                                              .value =
-                                          "";
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
-                                      minimumSize: const Size(
-                                        60,
-                                        30,
-                                      ), // Small size
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      loc.clear,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
-                                    ),
+
+                              /// ✅ CLEAR BUTTON
+                              if (controller.paidWithCashAdvance.value != null)
+                                ElevatedButton(
+                                  onPressed: () {
+                                    controller.paidWithCashAdvance.value = null;
+                                    controller
+                                            .paymentMethodeIDCashAdvance
+                                            .value =
+                                        null;
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    minimumSize: const Size(60, 30),
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.clear,
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
-                              // if (paidwithError.value != null)
-                              //   Padding(
-                              //     padding:
-                              //         const EdgeInsets.only(left: 8.0, bottom: 8),
-                              //     child: Text(
-                              //       paidwithError.value!,
-                              //       style: const TextStyle(color: Colors.red),
-                              //     ),
-                              //   ),
                             ],
                           );
                         }),
@@ -2517,7 +2596,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   bool _isSubmitAttempted = false;
   final FocusNode _focusNode = FocusNode();
   final PhotoViewController _photoViewController = PhotoViewController();
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
 
@@ -2547,7 +2626,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',
@@ -2561,8 +2640,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
 
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
-      // Add cropped image to RxList
-      // Optionally call controller.sendUploadedFileToServer here if needed
+      // controller.imageFiles.add(croppedImage);
+
+      // ✅ Check feature states before deciding what to do next
+      final featureStates = await controller.getAllFeatureStates();
+
       return croppedImage;
     }
 
@@ -2664,6 +2746,66 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     );
   }
 
+  Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
+
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
+  }
+
   Widget _buildImageArea() {
     final loc = AppLocalizations.of(context)!;
 
@@ -2686,124 +2828,318 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: () => {
-            if (controller.imageFiles.isEmpty)
-              {_pickImage(ImageSource.gallery)},
-          },
-          child: Container(
-            width:
-                MediaQuery.of(context).size.width * 0.9, // 90% of screen width
-            height:
-                MediaQuery.of(context).size.height *
-                0.3, // 30% of screen height
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey, // border color
-                width: 2, // border thickness
+        Obx(() {
+          return GestureDetector(
+            onTap: _pickFile,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(
-                12,
-              ), // optional rounded corners
-            ),
-            child: Obx(() {
-              if (controller.imageFiles.isEmpty) {
-                return Center(child: Text(loc.tapToUploadDocs));
-              } else {
-                return Stack(
-                  children: [
-                    PageView.builder(
-                      controller: _pageController,
-                      itemCount: controller.imageFiles.length,
-                      onPageChanged: (index) {
-                        controller.currentIndex.value = index;
-                      },
-                      itemBuilder: (_, index) {
-                        final file = controller.imageFiles[index];
-                        return GestureDetector(
-                          onTap: () => _showFullImage(file, index),
-                          child: Container(
-                            alignment: Alignment.center,
-                            margin: const EdgeInsets.all(8),
-                            width: 100,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.deepPurple),
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(
-                                image: FileImage(file),
-                                fit: BoxFit.cover,
+
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                             onTap: () =>
+    controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Positioned(
-                      bottom: 40,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Obx(
-                          () => Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    // Positioned(
-                    //   top: 40,
-                    //   right: 20,
-                    //   child: IconButton(
-                    //     icon: const Icon(Icons.close,
-                    //         color: Colors.white),
-                    //     onPressed: () =>
-                    //         Navigator.pop(context),
-                    //   ),
-                    // ),
-                    // Positioned(
-                    //   bottom: 16,
-                    //   right: 16,
-                    //   child: GestureDetector(
-                    //     onTap: () => _pickImage(ImageSource.gallery),
-                    //     child: Container(
-                    //       decoration: BoxDecoration(
-                    //         color: Colors.deepPurple,
-                    //         shape: BoxShape.circle,
-                    //         border: Border.all(color: Colors.white, width: 2),
-                    //       ),
-                    //       padding: const EdgeInsets.all(8),
-                    //       child: const Icon(
-                    //         Icons.add,
-                    //         color: Colors.white,
-                    //         size: 28,
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
-                  ],
-                );
-              }
-            }),
-          ),
-        ),
+            ),
+          );
+        }),
       ],
     );
   }
+void _showFilePreview(File file, int index) {
+  final path = file.path.toLowerCase();
+  final isImage = controller.isImage(path);
 
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withOpacity(0.9),
+    builder: (_) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          children: [
+
+            /// ✅ FILE PREVIEW
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+
+                child: isImage
+                    /// IMAGE ZOOM VIEW
+                    ? PhotoView(
+                        imageProvider: FileImage(file),
+                        backgroundDecoration:
+                            const BoxDecoration(
+                          color: Colors.black,
+                        ),
+                      )
+
+                    /// PDF / DOC / EXCEL VIEW
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            controller.isPdf(path)
+                                ? Icons.picture_as_pdf
+                                : controller.isExcel(path)
+                                    ? Icons.table_chart
+                                    : Icons.insert_drive_file,
+                            size: 90,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            file.path.split('/').last,
+                            style: const TextStyle(
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+
+            /// ✅ CLOSE BUTTON
+            Positioned(
+              top: 30,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 30,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+
+            /// ✅ ACTION BUTTONS
+            if (controller.isEnable.value)
+              Positioned(
+                top: 90,
+                right: 20,
+                child: Column(
+                  children: [
+
+                    /// ✅ OPEN FILE
+                    FloatingActionButton.small(
+                      heroTag: "open_$index",
+                      backgroundColor: Colors.blue,
+                      child: const Icon(Icons.open_in_new),
+                      onPressed: () {
+                        Navigator.pop(context);
+                         controller.openFile(context, file, index);
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    if (isImage)
+                      FloatingActionButton.small(
+                        heroTag: "edit_$index",
+                        backgroundColor:
+                            Colors.deepPurple,
+                        child: const Icon(Icons.edit),
+                        onPressed: () async {
+                          final cropped =
+                              await _cropImage(file);
+
+                          if (cropped != null) {
+                            controller
+                                .imageFiles[index] =
+                                cropped;
+
+                            Navigator.pop(context);
+
+                            _showFilePreview(
+                                cropped, index);
+                          }
+                        },
+                      ),
+
+                    const SizedBox(height: 12),
+
+                    /// ✅ DELETE
+                    FloatingActionButton.small(
+                      heroTag: "delete_$index",
+                      backgroundColor: Colors.red,
+                      child:
+                          const Icon(Icons.delete),
+                      onPressed: () {
+                        Navigator.pop(context);
+
+                        controller.imageFiles
+                            .removeAt(index);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
+}
   @override
   void initState() {
     super.initState();
@@ -2849,7 +3185,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.upload_file),
                       label: Text(loc.upload),
-                      onPressed: () => _pickImage(ImageSource.gallery),
+                      onPressed: () => _pickFile
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
@@ -2920,8 +3256,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         Expanded(
                           child: Obx(() {
                             return SearchableMultiColumnDropdownField<Currency>(
-                              alignLeft: -210,
-                              dropdownWidth: 200,
+                              alignLeft: -110,
+                              dropdownWidth: 400,
                               labelText: "${loc.currency} *",
                               columnHeaders: [
                                 '${loc.code} ',
@@ -2976,22 +3312,22 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                 controller.fetchExchangeRate();
                               },
                               controller: controller.currencyDropDowncontroller,
-                             rowBuilder: (c, searchQuery) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                            horizontal: 16,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(child: Text(c.code)),
-                                              Expanded(child: Text(c.name)),
-                                              Expanded(child: Text(c.symbol)),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    );
+                              rowBuilder: (c, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text(c.code)),
+                                      Expanded(child: Text(c.name)),
+                                      Expanded(child: Text(c.symbol)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
                           }),
                         ),
                         const SizedBox(width: 10),
@@ -3187,7 +3523,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                 .any((loading) => loading);
 
                             return SizedBox(
-                              width: 300,
+                               width: double.infinity,
                               height: 48,
                               child: ElevatedButton(
                                 onPressed:

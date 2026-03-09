@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -44,7 +44,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   late Future<List<ExpenseHistory>> historyFuture;
   String? selectedPaidTo;
   String? statusApproval;
@@ -56,7 +56,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   bool showReferenceID = false;
   bool showReimbursible = false;
   bool isBillable = false;
-
+  bool allowCashAd = false;
   bool _showHistory = false;
   bool allowMultSelect = false;
   int _currentIndex = 0;
@@ -99,7 +99,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      calculateAmounts(widget.items!.exchRate.toString());
+      calculateAmounts(widget.items.exchRate.toString());
       controller.fetchExpenseDocImage(widget.items.recId);
       controller.fetchPaidto();
       controller.fetchPaidwith();
@@ -112,20 +112,20 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
       _loadSettings();
     });
-    historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+    historyFuture = controller.fetchExpenseHistory(widget.items.recId);
     final formatted = DateFormat(
       'dd/MM/yyyy',
-    ).format(widget.items!.receiptDate);
-    controller.selectedDate = widget.items!.receiptDate;
-    statusApproval = widget.items!.approvalStatus;
+    ).format(widget.items.receiptDate);
+    controller.selectedDate = widget.items.receiptDate;
+    statusApproval = widget.items.approvalStatus;
     receiptDateController.text = formatted;
-    if (widget.items != null && widget.items!.paymentMethod != null) {
-      controller.paymentMethodID = widget.items!.paymentMethod.toString();
+    if (widget.items != null && widget.items.paymentMethod != null) {
+      controller.paymentMethodID = widget.items.paymentMethod.toString();
     }
-    if (widget.items!.approvalStatus == "Approved") {
+    if (widget.items.approvalStatus == "Approved") {
       controller.isEnable.value = false;
     }
-    expenseIdController.text = widget.items!.expenseId.toString();
+    expenseIdController.text = widget.items.expenseId.toString();
     receiptDateController.text = formatted;
     if (widget.items?.merchantId == null) {
       //  // print("merchantIdfalse");
@@ -141,34 +141,34 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     //  // print('--- AccountingDistributions Added ---');
     controller.referenceID.text =
         widget.items?.referenceNumber?.toString() ?? '';
-    if (widget.items != null && widget.items!.paymentMethod != null) {
-      controller.paidWithController.text = widget.items!.paymentMethod!;
+    if (widget.items != null && widget.items.paymentMethod != null) {
+      controller.paidWithController.text = widget.items.paymentMethod!;
     } else {
       controller.paidWithController.text = '';
     }
 
     selectedPaidWith = paidWithOptions.first;
-    controller.paidAmount.text = widget.items!.totalAmountTrans.toStringAsFixed(
+    controller.paidAmount.text = widget.items.totalAmountTrans.toStringAsFixed(
       2,
     );
-    controller.unitAmount.text = widget.items!.totalAmountTrans.toStringAsFixed(
+    controller.unitAmount.text = widget.items.totalAmountTrans.toStringAsFixed(
       2,
     );
-    controller.unitRate.text = widget.items!.exchRate.toStringAsFixed(2);
+    controller.unitRate.text = widget.items.exchRate.toStringAsFixed(2);
     controller.cashAdvReqIds = widget.items.cashAdvReqId;
-    controller.amountINR.text = widget.items!.totalAmountReporting
+    controller.amountINR.text = widget.items.totalAmountReporting
         .toStringAsFixed(2);
-    controller.expenseID = widget.items!.expenseId;
+    controller.expenseID = widget.items.expenseId;
     controller.recID =
-        widget.items!.recId ?? widget.items!.unprocessedRecId ?? null;
+        widget.items.recId ?? widget.items.unprocessedRecId ?? null;
 
-    controller.isBillableCreate = widget.items!.isBillable;
-    if (widget.items!.merchantId == null) {
-      controller.manualPaidToController.text = widget.items!.merchantName!;
+    controller.isBillableCreate = widget.items.isBillable;
+    if (widget.items.merchantId == null) {
+      controller.manualPaidToController.text = widget.items.merchantName!;
     } else {
       controller.paidToController.text = widget.items.merchantName!;
     }
-    controller.currencyDropDowncontroller.text = widget.items!.currency
+    controller.currencyDropDowncontroller.text = widget.items.currency
         .toString();
 
     _initializeItemizeControllers();
@@ -176,7 +176,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     projectConfig = controller.getFieldConfig("Project Id");
     taxGroupConfig = controller.getFieldConfig("Tax Group");
     taxAmountConfig = controller.getFieldConfig("Tax Amount");
-    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
+    isReimbursibleConfig = controller.getFieldConfig("Is Reimbursible");
     isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
     isBillableConfig = controller.getFieldConfig("Is Billable");
     isLocationConfig = controller.getFieldConfig("Location");
@@ -228,167 +228,141 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   }
 
   bool _validateForm() {
-    bool isValid = true;
+    String? firstError;
 
-    if (_validateRequiredField(
-          expenseIdController.text,
-          AppLocalizations.of(context)!.expenseId,
-          true,
-        ) !=
-        null) {
-      isValid = false;
-    }
-
-    if (_validateDateField(
-          receiptDateController.text,
-          AppLocalizations.of(context)!.receiptDate,
-          true,
-        ) !=
-        null) {
-      isValid = false;
+    void check(String? error) {
+      if (error != null && firstError == null) {
+        firstError = error;
+      }
     }
 
     if (!controller.isManualEntryMerchant) {
-      if (_validateRequiredField(
-            controller.paidToController.text,
-            AppLocalizations.of(context)!.selectMerchant,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateRequiredField(
+          controller.paidToController.text,
+          AppLocalizations.of(context)!.selectMerchant,
+          true,
+        ),
+      );
     } else {
-      if (_validateRequiredField(
-            controller.manualPaidToController.text,
-            AppLocalizations.of(context)!.enterMerchantName,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateRequiredField(
+          controller.manualPaidToController.text,
+          AppLocalizations.of(context)!.enterMerchantName,
+          true,
+        ),
+      );
     }
 
-    if (_validateRequiredField(
-          controller.paidWithController.text,
-          AppLocalizations.of(context)!.paidWith,
-          true,
-        ) !=
-        null) {
-      isValid = false;
-    }
+    // check(_validateRequiredField(
+    //   controller.paidWithController.text,
+    //   AppLocalizations.of(context)!.paidWith,
+    //   true,
+    // ));
 
-    if (_validateNumericField(
-          controller.paidAmount.text,
-          AppLocalizations.of(context)!.paidAmount,
-          true,
-        ) !=
-        null) {
-      isValid = false;
-    }
+    check(
+      _validateNumericField(
+        controller.paidAmount.text,
+        AppLocalizations.of(context)!.paidAmount,
+        true,
+      ),
+    );
 
-    if (_validateRequiredField(
-          controller.currencyDropDowncontroller.text,
-          AppLocalizations.of(context)!.currency,
-          true,
-        ) !=
-        null) {
-      isValid = false;
-    }
+    check(
+      _validateRequiredField(
+        controller.currencyDropDowncontroller.text,
+        AppLocalizations.of(context)!.currency,
+        true,
+      ),
+    );
 
-    if (_validateNumericField(
-          controller.unitRate.text,
-          AppLocalizations.of(context)!.rate,
-          true,
-        ) !=
-        null) {
-      isValid = false;
-    }
+    check(
+      _validateNumericField(
+        controller.unitRate.text,
+        AppLocalizations.of(context)!.rate,
+        true,
+      ),
+    );
 
     if (isRefrenceIDConfig.isEnabled && isRefrenceIDConfig.isMandatory) {
-      if (_validateRequiredField(
-            controller.referenceID.text,
-            AppLocalizations.of(context)!.referenceId,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateRequiredField(
+          controller.referenceID.text,
+          AppLocalizations.of(context)!.referenceId,
+          true,
+        ),
+      );
     }
 
     for (int i = 0; i < itemizeControllers.length; i++) {
-      final itemController = itemizeControllers[i];
+      final item = itemizeControllers[i];
 
       if (projectConfig.isEnabled && projectConfig.isMandatory) {
-        if (_validateRequiredField(
-              itemController.projectDropDowncontroller.text,
-              AppLocalizations.of(context)!.projectId,
-              true,
-            ) !=
-            null) {
-          isValid = false;
-        }
+        check(
+          _validateRequiredField(
+            item.projectDropDowncontroller.text,
+            "Item ${i + 1} Project",
+            true,
+          ),
+        );
       }
 
-      if (_validateRequiredField(
-            itemController.categoryController.text,
-            AppLocalizations.of(context)!.paidFor,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateRequiredField(
+          item.categoryController.text,
+          "Item ${i + 1} Category",
+          true,
+        ),
+      );
 
-      if (_validateRequiredField(
-            itemController.uomId.text,
-            AppLocalizations.of(context)!.unit,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateRequiredField(item.uomId.text, "Item ${i + 1} Unit", true),
+      );
 
-      if (_validateNumericField(
-            itemController.quantity.text,
-            AppLocalizations.of(context)!.quantity,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateNumericField(
+          item.quantity.text,
+          "Item ${i + 1} Quantity",
+          true,
+        ),
+      );
 
-      if (_validateNumericField(
-            itemController.unitPriceTrans.text,
-            AppLocalizations.of(context)!.unitAmount,
-            true,
-          ) !=
-          null) {
-        isValid = false;
-      }
+      check(
+        _validateNumericField(
+          item.unitPriceTrans.text,
+          "Item ${i + 1} Unit Amount",
+          true,
+        ),
+      );
 
       if (taxGroupConfig.isEnabled && taxGroupConfig.isMandatory) {
-        if (_validateRequiredField(
-              itemController.taxGroupController.text,
-              AppLocalizations.of(context)!.taxGroup,
-              true,
-            ) !=
-            null) {
-          isValid = false;
-        }
+        check(
+          _validateRequiredField(
+            item.taxGroupController.text,
+            "Item ${i + 1} Tax Group",
+            true,
+          ),
+        );
       }
 
       if (taxAmountConfig.isEnabled && taxAmountConfig.isMandatory) {
-        if (_validateNumericField(
-              itemController.taxAmount.text,
-              AppLocalizations.of(context)!.taxAmount,
-              true,
-            ) !=
-            null) {
-          isValid = false;
-        }
+        check(
+          _validateNumericField(
+            item.taxAmount.text,
+            "Item ${i + 1} Tax Amount",
+            true,
+          ),
+        );
       }
     }
 
-    return isValid;
+    /// ✅ SHOW ERROR
+    if (firstError != null) {
+      print("Validation Error${firstError!}");
+      return false;
+    }
+
+    return true;
   }
 
   Future<void> _initializeData() async {
@@ -416,6 +390,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     if (settings != null) {
       setState(() {
         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        allowCashAd = settings.allowCashAdvAgainstExpenseReg;
         //  // print("allowDocAttachments$allowMultSelect");
       });
     }
@@ -434,7 +409,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
       itemController.lineAmountINR.text = lineAmountInINR.toStringAsFixed(2);
 
-      widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+      widget.items.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
     }
 
     setState(() {});
@@ -487,9 +462,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   }
 
   void _initializeItemizeControllers() {
-    if (widget.items!.expenseTrans.isEmpty) {
+    if (widget.items.expenseTrans.isEmpty) {
       //  // print("expenseTransCalling");
-      final item = widget.items!;
+      final item = widget.items;
       final controller = Controller();
 
       controller.projectDropDowncontroller.text = item.projectId ?? '';
@@ -513,7 +488,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       _addItemize();
       return;
     }
-    itemizeControllers = widget.items!.expenseTrans.map((item) {
+    itemizeControllers = widget.items.expenseTrans.map((item) {
       final controller = Controller();
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
@@ -562,7 +537,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       }
       return controller;
     }).toList();
-    _itemizeCount = widget.items!.expenseTrans.length;
+    _itemizeCount = widget.items.expenseTrans.length;
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
@@ -576,21 +551,23 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
     if (controller.paymentMethods.isNotEmpty) {
       controller.selectedPaidWith = controller.paymentMethods.firstWhere(
-        (e) => e.paymentMethodId == widget.items!.paymentMethod,
+        (e) => e.paymentMethodId == widget.items.paymentMethod,
         orElse: () => controller.paymentMethods.first,
       );
+      controller.isReimbursableEnabled.value =
+          controller.selectedPaidWith!.reimbursible;
     }
 
     if (controller.project.isNotEmpty) {
       controller.selectedProject = controller.project.firstWhere(
-        (e) => e.code == widget.items!.projectId,
+        (e) => e.code == widget.items.projectId,
         orElse: () => controller.project.first,
       );
     }
 
     if (controller.currencies.isNotEmpty) {
       controller.selectedCurrency.value = controller.currencies.firstWhere(
-        (e) => e.code == widget.items!.currency,
+        (e) => e.code == widget.items.currency,
         orElse: () => controller.currencies.first,
       );
     }
@@ -610,7 +587,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       final unitPrice =
           double.tryParse(itemController.unitPriceTrans.text) ?? 0.0;
 
-      widget.items!.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
+      widget.items.expenseTrans[i] = itemController.toExpenseItemUpdateModel();
     }
   }
 
@@ -633,7 +610,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           accountingDistributions: [],
         );
 
-        widget.items!.expenseTrans.add(newItem);
+        widget.items.expenseTrans.add(newItem);
 
         final newController = Controller();
 
@@ -662,9 +639,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       setState(() {
         showItemizeDetails = false;
       });
-    } else if (index >= 0 && index < widget.items!.expenseTrans.length) {
+    } else if (index >= 0 && index < widget.items.expenseTrans.length) {
       setState(() {
-        widget.items!.expenseTrans.removeAt(index);
+        widget.items.expenseTrans.removeAt(index);
         itemizeControllers.removeAt(index);
         _itemizeCount--;
         if (_selectedItemizeIndex >= _itemizeCount) {
@@ -698,6 +675,65 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     } finally {
       controller.isImageLoading.value = false;
     }
+  }
+Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
+
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
   }
 
   @override
@@ -769,25 +805,21 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
           ),
           actions: [
             if (widget.isReadOnly &&
-                widget.items != null &&
-                widget.items!.approvalStatus != "Approved" &&
-                widget.items!.approvalStatus != "Cancelled" &&
-                widget.items!.approvalStatus != "Pending")
-              if (widget.isReadOnly &&
-                  widget.items != null &&
-                  widget.items!.expenseStatus == "Draft")
-                Obx(() {
-                  return IconButton(
-                    icon: Icon(
-                      controller.isEnable.value
-                          ? Icons.remove_red_eye
-                          : Icons.edit_document,
-                    ),
-                    onPressed: () {
-                      controller.isEnable.value = !controller.isEnable.value;
-                    },
-                  );
-                }),
+                widget.items.approvalStatus != "Approved" &&
+                widget.items.approvalStatus != "Cancelled" &&
+                widget.items.approvalStatus != "Pending")
+              Obx(() {
+                return IconButton(
+                  icon: Icon(
+                    controller.isEnable.value
+                        ? Icons.remove_red_eye
+                        : Icons.edit_document,
+                  ),
+                  onPressed: () {
+                    controller.isEnable.value = !controller.isEnable.value;
+                  },
+                );
+              }),
           ],
         ),
         body: Obx(() {
@@ -839,70 +871,182 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         Obx(() {
                           return Stack(
                             children: [
-                              GestureDetector(
-                                onTap: () {
+                               Obx(() {
+          return GestureDetector(
+            onTap: () {
                                   if (controller.imageFiles.isEmpty &&
                                       controller.isEnable.value &&
                                       !controller.isLoadingviewImage.value) {
-                                    _pickImage(ImageSource.gallery);
+                                    _pickFile();
                                   }
                                 },
-                                child: Container(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.9,
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.3,
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.grey,
-                                      width: 2,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Obx(() {
-                                    if (controller.imageFiles.isEmpty) {
-                                      return Center(
-                                        child: Text(
-                                          AppLocalizations.of(
-                                            context,
-                                          )!.tapToUploadDocs,
-                                        ),
-                                      );
-                                    }
+           
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
 
-                                    return PageView.builder(
-                                      controller: _pageController,
-                                      itemCount: controller.imageFiles.length,
-                                      onPageChanged: (index) {
-                                        controller.currentIndex.value = index;
-                                      },
-                                      itemBuilder: (_, index) {
-                                        final file =
-                                            controller.imageFiles[index];
-                                        return GestureDetector(
-                                          onTap: () =>
-                                              _showFullImage(file, index),
-                                          child: Container(
-                                            margin: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: Colors.deepPurple,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              image: DecorationImage(
-                                                image: FileImage(file),
-                                                fit: BoxFit.cover,
-                                              ),
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                             onTap: () =>
+    controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
                                             ),
                                           ),
-                                        );
-                                      },
-                                    );
-                                  }),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
                                 ),
                               ),
+                            ),
+                          ),
+                        ),
 
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
+                              
                               // 🔥 CIRCULAR LOADER OVERLAY
                               if (controller.isLoadingviewImage.value)
                                 Positioned.fill(
@@ -942,21 +1086,11 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                           label: "${AppLocalizations.of(context)!.expenseId} *",
                           controller: expenseIdController,
                           isReadOnly: false,
-                          validator: (value) => _validateRequiredField(
-                            controller.paidWithController.text,
-                            AppLocalizations.of(context)!.expenseId,
-                            true,
-                          ),
                         ),
                         buildDateField(
                           '${AppLocalizations.of(context)!.receiptDate} *',
                           receiptDateController,
                           isReadOnly: !controller.isEnable.value,
-                          validator: (value) => _validateDateField(
-                            value!,
-                            AppLocalizations.of(context)!.receiptDate,
-                            true,
-                          ),
                         ),
                         SizedBox(height: 10),
                         Column(
@@ -1077,7 +1211,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                               ),
                           ],
                         ),
+                           if(allowCashAd)
                         const SizedBox(height: 12),
+                        if(allowCashAd)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1092,6 +1228,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                       )!.cashAdvanceRequest,
                                       items: controller.cashAdvanceListDropDown,
                                       isMultiSelect: allowMultSelect ?? false,
+                                      dropdownMaxHeight: 300,
                                       selectedValue:
                                           controller.singleSelectedItem,
                                       selectedValues:
@@ -1178,6 +1315,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                       p!.paymentMethodId;
                                   controller.paidWithController.text =
                                       p.paymentMethodId;
+                                  controller.isReimbursableEnabled.value =
+                                      p.reimbursible;
                                 });
                               },
                               controller: controller.paidWithController,
@@ -1435,7 +1574,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                     itemController.lineAmountINR.text =
                                         lineAmountInINR.toStringAsFixed(2);
 
-                                    widget.items!.expenseTrans[i] =
+                                    widget.items.expenseTrans[i] =
                                         itemController
                                             .toExpenseItemUpdateModel();
                                   }
@@ -1484,9 +1623,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             ListView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              itemCount: widget.items!.expenseTrans.length,
+                              itemCount: widget.items.expenseTrans.length,
                               itemBuilder: (context, index) {
-                                final item = widget.items!.expenseTrans[index];
+                                final item = widget.items.expenseTrans[index];
                                 final itemController =
                                     itemizeControllers[index];
                                 return Card(
@@ -1514,7 +1653,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                               children: [
                                                 if (controller.isEnable.value &&
                                                     widget
-                                                            .items!
+                                                            .items
                                                             .expenseTrans
                                                             .length >
                                                         1)
@@ -1597,7 +1736,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       field['FieldName'] !=
                                                           'Is Billable' &&
                                                       field['FieldName'] !=
-                                                          'is Reimbursible',
+                                                          'Is Reimbursible',
                                                 )
                                                 .map((field) {
                                                   final String label =
@@ -1655,7 +1794,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                               .text = p!
                                                               .code;
                                                           widget
-                                                                  .items!
+                                                                  .items
                                                                   .expenseTrans[index] =
                                                               itemController
                                                                   .toExpenseItemUpdateModel();
@@ -1735,7 +1874,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                                   .selectedTax =
                                                               tax;
                                                           widget
-                                                                  .items!
+                                                                  .items
                                                                   .expenseTrans[index] =
                                                               itemController
                                                                   .toExpenseItemUpdateModel();
@@ -1879,7 +2018,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                           .selectedCategoryId =
                                                       p!.categoryId;
                                                   widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index] =
                                                       itemController
                                                           .toExpenseItemUpdateModel();
@@ -1927,7 +2066,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                               onChanged: (value) {
                                                 setState(() {
                                                   widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index] =
                                                       itemController
                                                           .toExpenseItemUpdateModel();
@@ -1970,7 +2109,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                   itemController.uomId.text =
                                                       tax!.code;
                                                   widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index] =
                                                       itemController
                                                           .toExpenseItemUpdateModel();
@@ -2030,7 +2169,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     .calculateLineAmounts(
                                                       itemController,
                                                       widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index],
                                                     );
                                                 _calculateTotalLineAmount(
@@ -2038,7 +2177,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 ).toStringAsFixed(2);
                                                 setState(() {
                                                   widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index] =
                                                       itemController
                                                           .toExpenseItemUpdateModel();
@@ -2079,7 +2218,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     );
                                                 setState(() {
                                                   widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index] =
                                                       itemController
                                                           .toExpenseItemUpdateModel();
@@ -2098,7 +2237,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     .calculateLineAmounts(
                                                       itemController,
                                                       widget
-                                                          .items!
+                                                          .items
                                                           .expenseTrans[index],
                                                     );
                                               },
@@ -2126,9 +2265,23 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       field['IsEnabled'] ==
                                                           true &&
                                                       field['FieldName'] ==
-                                                          'is Reimbursible',
+                                                          'Is Reimbursible',
                                                 )
                                                 .map((field) {
+                                                  if (!controller
+                                                          .isReimbursableEnabled
+                                                          .value &&
+                                                      itemController
+                                                          .isReimbursiteCreate
+                                                          .value) {
+                                                    itemController
+                                                            .isReimbursable =
+                                                        false;
+                                                    controller
+                                                            .isReimbursiteCreate
+                                                            .value =
+                                                        false;
+                                                  }
                                                   return Column(
                                                     crossAxisAlignment:
                                                         CrossAxisAlignment
@@ -2206,8 +2359,11 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                               .isReimbursable,
                                                           onChanged:
                                                               controller
-                                                                  .isEnable
-                                                                  .value
+                                                                      .isEnable
+                                                                      .value &&
+                                                                  controller
+                                                                      .isReimbursableEnabled
+                                                                      .value
                                                               ? (val) {
                                                                   setState(() {
                                                                     itemController
@@ -2217,7 +2373,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                                             .isReimbursite =
                                                                         val;
                                                                     widget
-                                                                        .items!
+                                                                        .items
                                                                         .expenseTrans[index] = itemController
                                                                         .toExpenseItemUpdateModel();
                                                                   });
@@ -2341,7 +2497,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                                               .isBillableCreate =
                                                                           val;
                                                                       widget
-                                                                          .items!
+                                                                          .items
                                                                           .expenseTrans[index] = itemController
                                                                           .toExpenseItemUpdateModel();
                                                                     });
@@ -2547,7 +2703,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         ),
                         const SizedBox(height: 20),
                         if (controller.isEnable.value &&
-                            widget.items!.approvalStatus == "Rejected" &&
+                            widget.items.approvalStatus == "Rejected" &&
                             widget.isReadOnly)
                           Obx(() {
                             final isResubmitLoading =
@@ -2582,7 +2738,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             true,
                                           );
                                           controller.addToFinalItems(
-                                            widget.items!,
+                                            widget.items,
                                           );
                                           if (widget.items.unprocessedRecId !=
                                               null) {
@@ -2592,7 +2748,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                   true,
                                                   true,
                                                   widget
-                                                      .items!
+                                                      .items
                                                       .unprocessedRecId!,
                                                 )
                                                 .whenComplete(() {
@@ -2613,7 +2769,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     true,
                                                     true,
                                                     widget
-                                                        .items!
+                                                        .items
                                                         .unprocessedRecId!,
                                                   )
                                                   .whenComplete(() {
@@ -2628,14 +2784,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                   });
                                             } else {
                                               controller.addToFinalItems(
-                                                widget.items!,
+                                                widget.items,
                                               );
                                               controller
                                                   .saveinviewPageGeneralExpense(
                                                     context,
                                                     true,
                                                     true,
-                                                    widget.items!.recId!,
+                                                    widget.items.recId!,
                                                   )
                                                   .whenComplete(() {
                                                     controller.setButtonLoading(
@@ -2671,7 +2827,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                           const SizedBox(height: 20),
 
                         if (controller.isEnable.value &&
-                            widget.items!.approvalStatus == "Rejected" &&
+                            widget.items.approvalStatus == "Rejected" &&
                             widget.isReadOnly)
                           Row(
                             children: [
@@ -2696,14 +2852,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 true,
                                               );
                                               controller.addToFinalItems(
-                                                widget.items!,
+                                                widget.items,
                                               );
                                               controller
                                                   .saveinviewPageGeneralExpense(
                                                     context,
                                                     false,
                                                     false,
-                                                    widget.items!.recId!,
+                                                    widget.items.recId!,
                                                   )
                                                   .whenComplete(() {
                                                     controller.setButtonLoading(
@@ -2753,7 +2909,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             ],
                           )
                         else if (controller.isEnable.value &&
-                            widget.items!.approvalStatus == "Created" &&
+                            widget.items.approvalStatus == "Created" &&
                             widget.isReadOnly) ...[
                           Obx(() {
                             final isSubmitLoading =
@@ -2788,14 +2944,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             true,
                                           );
                                           controller.addToFinalItems(
-                                            widget.items!,
+                                            widget.items,
                                           );
                                           controller
                                               .saveinviewPageGeneralExpense(
                                                 context,
                                                 true,
                                                 false,
-                                                widget.items!.recId!,
+                                                widget.items.recId!,
                                               )
                                               .whenComplete(() {
                                                 controller.setButtonLoading(
@@ -2853,14 +3009,14 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 true,
                                               );
                                               controller.addToFinalItems(
-                                                widget.items!,
+                                                widget.items,
                                               );
                                               controller
                                                   .saveinviewPageGeneralExpense(
                                                     context,
                                                     false,
                                                     false,
-                                                    widget.items!.recId!,
+                                                    widget.items.recId!,
                                                   )
                                                   .whenComplete(() {
                                                     controller.setButtonLoading(
@@ -2920,7 +3076,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                         ],
 
                         if (widget.isReadOnly &&
-                            widget.items!.approvalStatus == "Pending")
+                            widget.items.approvalStatus == "Pending")
                           Row(
                             children: [
                               Obx(() {
@@ -2938,7 +3094,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             controller
                                                 .cancelExpense(
                                                   context,
-                                                  widget.items!.recId
+                                                  widget.items.recId
                                                       .toString(),
                                                 )
                                                 .whenComplete(() {

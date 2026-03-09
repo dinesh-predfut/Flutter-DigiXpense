@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:digi_xpense/core/constant/Parames/params.dart' show Params;
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
+import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show FilteringTextInputFormatter, TextInputFormatter;
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:intl_phone_field/intl_phone_field.dart' show IntlPhoneField;
 import 'package:photo_view/photo_view.dart' show PhotoView;
 
@@ -34,17 +35,25 @@ class ViewEditLeavePage extends StatefulWidget {
 }
 
 class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
-  final Controller controller = Get.find<Controller>();
+  final controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
-
+  // late final Controller controller;
   @override
   void initState() {
     super.initState();
+    // controller = Get.find();
     // print("leavestart${widget.leaveRequest?.leaveCancelId.isEmpty}");
-    print("leavestart${widget.leaveRequest?.approvalStatus}");
+    controller.loadSequenceModules();
 
-    _initLeaveScreen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      //  controller.uploadedImages.value.clear();
+      _initLeaveScreen();
+      if (widget.leaveRequest?.approvalStatus == "Pending" &&
+          widget.leaveRequest?.stepType != "Approval") {
+        controller.leaveField.value = true;
+      }
+    });
   }
 
   Future<void> _initLeaveScreen() async {
@@ -52,30 +61,23 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
     controller.isLoading.value = true;
 
     try {
-      /// 🔥 HEAVY APIs → RUN IN PARALLEL
       await Future.wait([
         controller.leaveconfiguration(),
         controller.fetchProjectName(),
         controller.fetchLocation(),
-      ]);
-
-      /// 🔁 LIGHT APIs → RUN IN PARALLEL
-      await Future.wait([
         loadLeaveAnalytics(),
         loadEmployee(),
         controller.fetchUsers(),
       ]);
 
       controller.markInitialized();
-
-      /// 📄 EXISTING LEAVE REQUEST
+      controller.isLoading.value = false;
       if (widget.leaveRequest != null) {
         await Future.wait([
-        
           Future(
             () => controller.loadExistingLeaveRequest(widget.leaveRequest!),
           ),
-            // controller.fetchExpenseDocImage(widget.leaveRequest!.recId),
+          controller.fetchExpenseDocImage(widget.leaveRequest!.recId),
         ]);
       } else {
         controller.leaveField.value = true;
@@ -92,13 +94,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       Params.employeeId,
       Params.userToken,
     );
-    print("resultLeave$result");
+
     controller.leaveCodes.assignAll(result);
   }
 
   Future<void> loadEmployee() async {
     final result = await controller.fetchEmployees();
-    print("resultEmployee$result");
+
     controller.employees.assignAll(result);
   }
 
@@ -163,11 +165,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        controller.leaveField.value = false;
-        if (!controller.leaveField.value) {
-          controller.resetForm();
-          return true;
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.leaveField.value = false;
+        });
+        // if (!controller.leaveField.value) {
+        //   controller.resetForm();
+        //   return true;
+        // }
 
         final shouldExit = await showDialog<bool>(
           context: context,
@@ -193,6 +197,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
         );
 
         if (shouldExit ?? false) {
+          controller.resetForm();
           controller.clearFormFields();
           controller.leaveField.value = false;
           controller.isLoadingviewImage.value = false;
@@ -205,9 +210,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       child: Scaffold(
         appBar: AppBar(
           title: Obx(() {
-            final isLeave = controller.leaveField.value;
-
+            final isLeave = !controller.leaveField.value;
             return Text(
+              // AppLocalizations.of(context)!.newLeaveRequest
               widget.leaveRequest != null
                   ? (isLeave
                         ? AppLocalizations.of(context)!.newLeaveRequest
@@ -257,6 +262,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               default:
                 buttonColor = Colors.grey;
             }
+          }
+          if (controller.isFullPageLoading.value) {
+            return Stack(children: [const SkeletonLoaderPage()]);
           }
           return controller.isLoading.value
               ? const SkeletonLoaderPage()
@@ -309,7 +317,36 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                 ),
                               ],
                             ),
+                          if (widget.leaveRequest == null)
+                            Obx(() {
+                              final hideField = controller.hasModule("Leave");
 
+                              if (controller.isSequenceLoading.value) {
+                                return const SizedBox(); // loader or empty
+                              }
+
+                              if (widget.leaveRequest == null) {
+                                if (hideField) {
+                                  return const SizedBox.shrink(); // hide field
+                                }
+                              }
+
+                              // if (widget.leaveRequest == null) {
+                              //   return const SizedBox.shrink(); // hide when no request
+                              // }
+
+                              return Column(
+                                children: [
+                                  _buildTextField(
+                                    label:
+                                        "${AppLocalizations.of(context)!.leaveRequisitionId} *",
+                                    controller: controller.leaveIdcontroller,
+                                    isReadOnly: true,
+                                  ),
+                                  // const SizedBox(height: 16),
+                                ],
+                              );
+                            }),
                           if (widget.leaveRequest != null)
                             const SizedBox(height: 16),
                           if (widget.leaveRequest != null)
@@ -337,6 +374,21 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               isReadOnly: false,
                             ),
 
+                          if (widget.leaveRequest != null)
+                            _buildTextField(
+                              label:
+                                  "${AppLocalizations.of(context)!.employeeName} *",
+                              controller: controller.employeeName,
+                              isReadOnly: false,
+                            ),
+
+                          if (widget.leaveRequest != null)
+                            _buildTextField(
+                              label:
+                                  "${AppLocalizations.of(context)!.employeeId} *",
+                              controller: controller.employeeIdController,
+                              isReadOnly: false,
+                            ),
                           // Leave Code *
                           SearchableMultiColumnDropdownField<LeaveAnalytics>(
                             enabled: controller.leaveField.value,
@@ -357,10 +409,30 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               }
                               return null;
                             },
-                            onChanged: (code) {
+                            onChanged: (code) async {
                               controller.selectedLeaveCode.value = code;
                               controller.leaveCodeController.text =
                                   code?.leaveCode ?? '';
+                              if (controller.leaveCodeController.text.isEmpty)
+                                return;
+                              await controller.createLeaveTransactions(
+                                employeeId: Params.employeeId,
+                                fromDate:
+                                    controller
+                                        .startDate
+                                        .value
+                                        ?.millisecondsSinceEpoch ??
+                                    DateTime.now().millisecondsSinceEpoch,
+                                toDate:
+                                    controller
+                                        .endDate
+                                        .value
+                                        ?.millisecondsSinceEpoch ??
+                                    DateTime.now().millisecondsSinceEpoch,
+                                leaveCode: controller.leaveCodeController.text,
+                              );
+
+                              controller.calculateTotalDays();
                             },
                             controller: controller.leaveCodeController,
                             rowBuilder: (code, searchQuery) {
@@ -378,9 +450,14 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               );
                             },
                           ),
+                          SizedBox(height: 16),
 
-                          const SizedBox(height: 16),
-
+                          _buildConfigurableField(
+                            fieldName: 'Delegated authority/Reliever',
+                            builder: (isEnabled, isMandatory) {
+                              return SizedBox(height: 16);
+                            },
+                          ),
                           // Reliever
                           _buildConfigurableField(
                             fieldName: 'Delegated authority/Reliever',
@@ -401,7 +478,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                 selectedValue:
                                     controller.selectedReliever.value,
                                 searchValue: (emp) => '${emp.id}',
-                                displayText: (emp) => emp.firstName,
+                                displayText: (emp) =>
+                                    '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
                                 validator: isMandatory
                                     ? (value) {
                                         if (controller
@@ -416,7 +494,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                 onChanged: (emp) {
                                   controller.selectedReliever.value = emp;
                                   controller.relieverController.text =
-                                      emp?.firstName ?? '';
+                                      emp?.id ?? '';
                                 },
                                 controller: controller.relieverController,
                                 rowBuilder: (emp, searchQuery) {
@@ -430,7 +508,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                         Expanded(child: Text(emp.id)),
                                         Expanded(
                                           child: Text(
-                                            '${emp.firstName}${emp.middleName}${emp.lastName}',
+                                            '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
                                           ),
                                         ),
                                       ],
@@ -440,8 +518,14 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               );
                             },
                           ),
-
-                          const SizedBox(height: 16),
+                          // Project
+                          _buildConfigurableField(
+                            fieldName: AppLocalizations.of(context)!.projectId,
+                            builder: (isEnabled, isMandatory) {
+                              return SizedBox(height: 16);
+                            },
+                          ),
+                          // const SizedBox(height: 16),
 
                           // Project
                           _buildConfigurableField(
@@ -493,6 +577,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                     ),
                                     child: Row(
                                       children: [
+                                        SizedBox(width: 10),
                                         Expanded(child: Text(proj.name)),
                                         Expanded(child: Text(proj.code)),
                                       ],
@@ -503,7 +588,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             },
                           ),
 
-                          const SizedBox(height: 16),
+                          // const SizedBox(height: 16),
 
                           // Dates * (Always required)
                           TextFormField(
@@ -708,7 +793,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             },
                           ),
 
-                          const SizedBox(height: 8),
+                          // const SizedBox(height: 8),
 
                           // Comments *
                           TextFormField(
@@ -717,7 +802,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             maxLines: 3,
                             decoration: InputDecoration(
                               labelText:
-                                  '${AppLocalizations.of(context)!.comments} *',
+                                  '${AppLocalizations.of(context)!.enterNotes} *',
                               border: const OutlineInputBorder(),
                               alignLabelWithHint: true,
                             ),
@@ -733,7 +818,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           ),
 
                           const SizedBox(height: 16),
-
+                          _buildConfigurableField(
+                            fieldName: 'Availability during leave',
+                            builder: (isEnabled, isMandatory) {
+                              return SizedBox(height: 16);
+                            },
+                          ),
                           // Availability During Leave
                           _buildConfigurableField(
                             fieldName: 'Availability during leave',
@@ -792,8 +882,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             },
                           ),
 
-                          const SizedBox(height: 16),
-
+                          // const SizedBox(height: 16),
+                          _buildConfigurableField(
+                            fieldName: 'OutOfOfficeMessage',
+                            builder: (isEnabled, isMandatory) {
+                              return SizedBox(height: 16);
+                            },
+                          ),
                           // Out of Office Message
                           _buildConfigurableField(
                             fieldName: 'OutOfOfficeMessage',
@@ -828,8 +923,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             },
                           ),
 
-                          const SizedBox(height: 16),
-
+                          // const SizedBox(height: 16),
+                          _buildConfigurableField(
+                            fieldName: 'Notify HR',
+                            builder: (isEnabled, isMandatory) {
+                              return SizedBox(height: 16);
+                            },
+                          ),
                           // Notify HR Checkbox
                           _buildConfigurableField(
                             fieldName: 'Notify HR',
@@ -878,9 +978,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             },
                           ),
 
-                          const SizedBox(height: 16),
-                          const SizedBox(height: 16),
-
+                          // const SizedBox(height: 16),
                           Text(
                             AppLocalizations.of(context)!.uploadAttachments,
                             style: const TextStyle(
@@ -897,7 +995,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               children: [
                                 /// Upload Box
                                 InkWell(
-                                  onTap: widget.isReadOnly
+                                  onTap: !controller.leaveField.value
                                       ? null
                                       : controller.pickImages,
                                   child: Container(
@@ -909,7 +1007,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                         style: BorderStyle.solid,
                                       ),
                                       borderRadius: BorderRadius.circular(8),
-                                      color: Colors.grey.shade50,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
                                     ),
                                     child: Column(
                                       children: [
@@ -965,7 +1065,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                               ),
                                             ),
 
-                                            /// Remove icon
                                             if (controller.leaveField.value)
                                               Positioned(
                                                 top: 4,
@@ -1084,9 +1183,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                       /// Day type column (ALWAYS Expanded)
                                       Expanded(
                                         child: leaveDay.noOfDays == 0
-                                            ? Text(
+                                            ? const Text(
                                                 "Non Working Day",
-                                                style: TextStyle(fontSize: 14),
+                                                style: TextStyle(fontSize: 12),
                                               )
                                             : SearchableMultiColumnDropdownField<
                                                 String
@@ -1100,15 +1199,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                                   context,
                                                 )!.dayType,
                                                 items: [
-                                                  AppLocalizations.of(
-                                                    context,
-                                                  )!.fullDay,
-                                                  AppLocalizations.of(
-                                                    context,
-                                                  )!.firstHalf,
-                                                  AppLocalizations.of(
-                                                    context,
-                                                  )!.secondHalf,
+                                                  'Full Day',
+                                                  'First Half',
+                                                  'Second Half',
                                                 ],
                                                 selectedValue:
                                                     leaveDay.dayType.value,
@@ -1116,10 +1209,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                                 displayText: (option) => option,
                                                 onChanged: (option) {
                                                   leaveDay.dayType.value =
-                                                      option ??
-                                                      AppLocalizations.of(
-                                                        context,
-                                                      )!.fullDay;
+                                                      option!;
                                                   controller
                                                       .calculateTotalDays();
                                                 },
@@ -1144,6 +1234,40 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                                 ],
                                               ),
                                       ),
+
+                                      const SizedBox(width: 12),
+
+                                      /// New Status button column
+                                      if (leaveDay.approvalStatus != null &&
+                                          widget.leaveRequest!.approvalStatus !=
+                                              "Created")
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: () {
+                                              // Optionally handle button click
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              side: const BorderSide(
+                                                color: Colors.blue,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                            ),
+                                            child: Text(
+                                              leaveDay.approvalStatus ??
+                                                  'Pending',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 );
@@ -1174,7 +1298,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           if (controller.leaveField.value || widget.isReadOnly)
                             _buildActionButtons(),
                           if (widget.status) _buildActionButtons(),
-
+                          if (widget.leaveRequest?.requestType ==
+                              "LeaveCancellation" || widget.leaveRequest!.leaveStatus == "Approved"  )
+                            _buildViewModeButtonsCancelation(),
                           if (widget.isReadOnly &&
                               widget.leaveRequest != null &&
                               widget.leaveRequest?.approvalStatus !=
@@ -1215,7 +1341,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 children: [
                   /// TITLE
                   Text(
-                    "Leave Partial Cancellation",
+                    AppLocalizations.of(context)!.leavePartialCancellation,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1229,8 +1355,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   TextField(
                     controller: reasonController,
                     maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: "Reason for cancellation",
+                    decoration: InputDecoration(
+                      labelText:
+                          "${AppLocalizations.of(context)!.reasonForCancellation} *",
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -1257,49 +1384,68 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   ),
 
                                   const SizedBox(width: 12),
+                                  Expanded(
+                                    child: leaveDay.isHoliday == true
+                                        ? const Text(
+                                            "Non Working Day",
+                                            style: TextStyle(fontSize: 12),
+                                          )
+                                        : SearchableMultiColumnDropdownField<
+                                            String
+                                          >(
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            )!.dayType,
+                                            items: [
+                                              'FullDay',
+                                              'FirstHalf',
+                                              'SecondHalf',
+                                            ],
+                                            selectedValue:
+                                                leaveDay.dayType.value,
+                                            searchValue: (option) => option,
+                                            displayText: (option) => option,
+                                            onChanged: (option) {
+                                              leaveDay.dayType.value =
+                                                  option ??
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.fullDay;
+                                              controller.calculateTotalDays();
+
+                                              /// track modified only
+                                              if (option !=
+                                                  leaveDay.originalDayType) {
+                                                controller.modifiedDays[leaveDay
+                                                        .recId!] =
+                                                    option!;
+                                              } else {
+                                                controller.modifiedDays.remove(
+                                                  leaveDay.recId,
+                                                );
+                                              }
+                                            },
+                                            rowBuilder: (option, searchQuery) {
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 12,
+                                                      horizontal: 16,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(option),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                            columnHeaders: const ['Day Type'],
+                                          ),
+                                  ),
 
                                   /// DAY TYPE
-                                  Expanded(
-                                    child:
-                                        SearchableMultiColumnDropdownField<
-                                          String
-                                        >(
-                                          enabled: !leaveDay.isHoliday,
-                                          labelText: "Select",
-                                          items: const [
-                                            'FullDay',
-                                            'FirstHalf',
-                                            'SecondHalf',
-                                          ],
-                                          selectedValue:
-                                              leaveDay.dayTypeLeave.value,
-                                          searchValue: (o) => o,
-                                          displayText: (o) => o,
-                                          onChanged: (value) {
-                                            if (value == null) return;
-
-                                            leaveDay.dayTypeLeave.value = value;
-                                            controller.calculateTotalDays();
-
-                                            /// track modified only
-                                            if (value !=
-                                                leaveDay.originalDayType) {
-                                              controller.modifiedDays[leaveDay
-                                                      .recId!] =
-                                                  value;
-                                            } else {
-                                              controller.modifiedDays.remove(
-                                                leaveDay.recId,
-                                              );
-                                            }
-                                          },
-                                          rowBuilder: (option, _) => Padding(
-                                            padding: const EdgeInsets.all(12),
-                                            child: Text(option),
-                                          ),
-                                          columnHeaders: const ['Day Type'],
-                                        ),
-                                  ),
                                 ],
                               ),
                             );
@@ -1319,7 +1465,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             controller.resetForm();
                             Navigator.pop(context);
                           },
-                          child: const Text("Cancel"),
+                          child: Text(AppLocalizations.of(context)!.cancel),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1343,7 +1489,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               reason: reason,
                             );
                           },
-                          child: const Text("Save"),
+                          child: Text(AppLocalizations.of(context)!.save),
                         ),
                       ),
                     ],
@@ -1389,57 +1535,41 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
     // Add null checks
     if (widget.leaveRequest == null) return const SizedBox.shrink();
 
-    final stepType = widget.leaveRequest!.approvalStatus;
-    if (stepType == "Pending") {
-      controller.leaveField.value = true;
-    }
+    final stepType = widget.leaveRequest!.stepType;
+
     if (stepType == null || stepType.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
-        if (stepType == "Pending")
+        if (stepType == "Review")
           Row(
             children: [
-              Obx(() {
-                final isUpdateLoading =
-                    controller.buttonLoaders['update'] ?? false;
-                final isUpdateAcceptLoading =
-                    controller.buttonLoaders['update_accept'] ?? false;
-                final isRejectLoading =
-                    controller.buttonLoaders['reject'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any(
-                  (loading) => loading,
-                );
+              /// ================= UPDATE =================
+              Expanded(
+                child: Obx(() {
+                  final isLoading = controller.buttonLoaders['update'] ?? false;
 
-                return Expanded(
-                  child: ElevatedButton(
-                    onPressed:
-                        (isUpdateLoading ||
-                            isUpdateAcceptLoading ||
-                            isRejectLoading ||
-                            isAnyLoading)
+                  return ElevatedButton(
+                    onPressed: isLoading
                         ? null
-                        : () {
+                        : () async {
                             if (_formKey.currentState!.validate()) {
                               controller.setButtonLoading('update', true);
-                              controller
-                                  .submitApprovalLeaveRequest(
-                                    context,
-                                    false,
-                                    widget.leaveRequest!.workitemrecid!,
-                                  )
-                                  .whenComplete(() {
-                                    controller.setButtonLoading(
-                                      'update',
-                                      false,
-                                    );
-                                  });
+                              try {
+                                await controller.submitApprovalLeaveRequest(
+                                  context,
+                                  false,
+                                  widget.leaveRequest!.workitemrecid!,
+                                );
+                              } finally {
+                                controller.setButtonLoading('update', false);
+                              }
                             }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 3, 20, 117),
                     ),
-                    child: isUpdateLoading
+                    child: isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
@@ -1452,55 +1582,45 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             AppLocalizations.of(context)!.update,
                             style: const TextStyle(color: Colors.white),
                           ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
 
               const SizedBox(width: 12),
 
-              Obx(() {
-                final isUpdateLoading =
-                    controller.buttonLoaders['update'] ?? false;
-                final isUpdateAcceptLoading =
-                    controller.buttonLoaders['update_accept'] ?? false;
-                final isRejectLoading =
-                    controller.buttonLoaders['reject'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any(
-                  (loading) => loading,
-                );
+              /// ================= UPDATE & ACCEPT =================
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['update_accept'] ?? false;
 
-                return Expanded(
-                  child: ElevatedButton(
-                    onPressed:
-                        (isUpdateAcceptLoading ||
-                            isUpdateLoading ||
-                            isRejectLoading ||
-                            isAnyLoading)
+                  return ElevatedButton(
+                    onPressed: isLoading
                         ? null
-                        : () {
+                        : () async {
                             if (_formKey.currentState!.validate()) {
                               controller.setButtonLoading(
                                 'update_accept',
                                 true,
                               );
-                              controller
-                                  .submitApprovalLeaveRequest(
-                                    context,
-                                    true,
-                                    widget.leaveRequest!.workitemrecid!,
-                                  )
-                                  .whenComplete(() {
-                                    controller.setButtonLoading(
-                                      'update_accept',
-                                      false,
-                                    );
-                                  });
+                              try {
+                                await controller.submitApprovalLeaveRequest(
+                                  context,
+                                  true,
+                                  widget.leaveRequest!.workitemrecid!,
+                                );
+                              } finally {
+                                controller.setButtonLoading(
+                                  'update_accept',
+                                  false,
+                                );
+                              }
                             }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 3, 20, 117),
                     ),
-                    child: isUpdateAcceptLoading
+                    child: isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
@@ -1513,46 +1633,41 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             AppLocalizations.of(context)!.updateAndAccept,
                             style: const TextStyle(color: Colors.white),
                           ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ],
           ),
 
-        if (stepType == "Pending") const SizedBox(height: 12),
+        if (stepType == "Review") const SizedBox(height: 12),
 
-        if (stepType == "Pending")
+        if (stepType == "Review")
           Row(
             children: [
-              Obx(() {
-                final isUpdateLoading =
-                    controller.buttonLoaders['update'] ?? false;
-                final isUpdateAcceptLoading =
-                    controller.buttonLoaders['update_accept'] ?? false;
-                final isRejectLoading =
-                    controller.buttonLoaders['reject'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any(
-                  (loading) => loading,
-                );
-
-                return Expanded(
-                  child: ElevatedButton(
-                    onPressed:
-                        (isRejectLoading ||
-                            isUpdateLoading ||
-                            isUpdateAcceptLoading ||
-                            isAnyLoading)
+              /// ================= REJECT =================
+              Expanded(
+                child: Obx(() {
+                  final isLoading = controller.buttonLoaders['reject'] ?? false;
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (loading) => loading == true,
+                  );
+                  return ElevatedButton(
+                    onPressed: isLoading || isAnyLoading
                         ? null
-                        : () {
+                        : () async {
                             if (_formKey.currentState!.validate()) {
                               controller.setButtonLoading('reject', true);
-                              showActionPopup(context, "Reject");
+                              try {
+                                showActionPopup(context, "Reject");
+                              } finally {
+                                controller.setButtonLoading('reject', false);
+                              }
                             }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 238, 20, 20),
                     ),
-                    child: isRejectLoading
+                    child: isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
@@ -1565,12 +1680,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             AppLocalizations.of(context)!.reject,
                             style: const TextStyle(color: Colors.white),
                           ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
 
               const SizedBox(width: 12),
 
+              /// ================= CLOSE =================
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
@@ -1584,7 +1700,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ],
           ),
 
-        if (stepType == "Approved")
+        if (stepType == "Approval")
           Row(
             children: [
               Obx(() {
@@ -1660,7 +1776,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ],
           ),
 
-        if (stepType == "Approved")
+        if (stepType == "Approval")
           Row(
             children: [
               Obx(() {
@@ -1795,7 +1911,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.comments,
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -1850,12 +1966,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               return;
                             }
 
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (ctx) =>
-                                  const Center(child: SkeletonLoaderPage()),
-                            );
+                            // showDialog(
+                            //   context: context,
+                            //   barrierDismissible: false,
+                            //   builder: (ctx) =>
+                            //       const Center(child: SkeletonLoaderPage()),
+                            // );
 
                             final success = await controller
                                 .postApprovalActionLeavel(
@@ -1876,17 +1992,14 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
                             if (success) {
                               controller.setButtonLoading('reject', false);
+
                               Navigator.pushNamed(
                                 context,
                                 AppRoutes.leavePendingApprovals,
                               );
                               controller.isApprovalEnable.value = false;
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Failed to submit action'),
-                                ),
-                              );
+                              controller.setButtonLoading('reject', false);
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -1912,15 +2025,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
     return Column(
       children: [
         if (widget.leaveRequest != null) ...[
+          // REJECTED - RESUBMIT BUTTON
           if (controller.leaveField.value &&
               widget.leaveRequest?.approvalStatus == "Rejected" &&
               widget.isReadOnly)
             Obx(() {
-              final isResubmitLoading =
-                  controller.buttonLoaders['resubmit'] ?? false;
-              final isAnyLoading = controller.buttonLoaders.values.any(
-                (loading) => loading,
-              );
+              final isResubmitLoading = controller.isButtonLoading('resubmit');
+              final isAnyLoading = controller.isAnyButtonLoading();
 
               return SizedBox(
                 width: double.infinity,
@@ -1934,18 +2045,29 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   ),
                   onPressed: (isResubmitLoading || isAnyLoading)
                       ? null
-                      : () {
+                      : () async {
                           if (_formKey.currentState!.validate()) {
-                            controller.submitLeaveRequest(context, true, true);
+                            controller.setButtonLoading('resubmit', true);
+                            try {
+                              await controller.submitLeaveRequest(
+                                context,
+                                true,
+                                true,
+                              );
+                              controller.uploadedImages.clear();
+                              controller.fileItems.clear();
+                            } finally {
+                              controller.setButtonLoading('resubmit', false);
+                            }
                           }
                         },
                   child: isResubmitLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          height: 24,
+                          width: 24,
                           child: CircularProgressIndicator(
                             color: Colors.white,
-                            strokeWidth: 2,
+                            strokeWidth: 3,
                           ),
                         )
                       : Text(
@@ -1961,29 +2083,34 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
           if (controller.leaveField.value) const SizedBox(height: 20),
 
+          // REJECTED - UPDATE & CANCEL BUTTONS
           if (controller.leaveField.value &&
               widget.leaveRequest?.approvalStatus == "Rejected" &&
               widget.isReadOnly)
             Row(
               children: [
                 Obx(() {
-                  final isUpdateLoading =
-                      controller.buttonLoaders['update'] ?? false;
-                  final isAnyLoading = controller.buttonLoaders.values.any(
-                    (loading) => loading,
-                  );
+                  final isUpdateLoading = controller.isButtonLoading('update');
+                  final isAnyLoading = controller.isAnyButtonLoading();
 
                   return Expanded(
                     child: ElevatedButton(
                       onPressed: (isUpdateLoading || isAnyLoading)
                           ? null
-                          : () {
+                          : () async {
                               if (_formKey.currentState!.validate()) {
-                                controller.submitLeaveRequest(
-                                  context,
-                                  false,
-                                  false,
-                                );
+                                controller.setButtonLoading('update', true);
+                                try {
+                                  await controller.submitLeaveRequest(
+                                    context,
+                                    false,
+                                    false,
+                                  );
+                                  controller.uploadedImages.clear();
+                                  controller.fileItems.clear();
+                                } finally {
+                                  controller.setButtonLoading('update', false);
+                                }
                               }
                             },
                       style: ElevatedButton.styleFrom(
@@ -1991,11 +2118,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                       ),
                       child: isUpdateLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              height: 24,
+                              width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.white,
-                                strokeWidth: 2,
+                                strokeWidth: 3,
                               ),
                             )
                           : Text(
@@ -2014,140 +2141,119 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
                     ),
-                    child: Text(AppLocalizations.of(context)!.cancel),
+                    child: Text(AppLocalizations.of(context)!.close),
                   ),
                 ),
-              ],
-            )
-          else if (controller.leaveField.value &&
-              widget.leaveRequest?.approvalStatus == "Created" &&
-              widget.isReadOnly) ...[
-            /// ---------------- Submit Button ----------------
-            Obx(() {
-              final isSubmitLoading =
-                  controller.buttonLoaders['submit'] ?? false;
-              final isAnyLoading = controller.buttonLoaders.values.any(
-                (l) => l,
-              );
-
-              return SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    backgroundColor: const Color.fromARGB(255, 26, 2, 110),
-                  ),
-                  onPressed: (isSubmitLoading || isAnyLoading)
-                      ? null
-                      : () {
-                          if (_formKey.currentState!.validate()) {
-                            controller.submitLeaveRequest(context, true, false);
-                          }
-                        },
-                  child: isSubmitLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(
-                          AppLocalizations.of(context)!.submit,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              );
-            }),
-
-            const SizedBox(height: 12),
-
-            /// ---------------- Save & Cancel Buttons ----------------
-            Row(
-              children: [
-                /// Save Button
-                Obx(() {
-                  final isSaveLoading =
-                      controller.buttonLoaders['saveGE'] ?? false;
-                  final isSubmitLoading =
-                      controller.buttonLoaders['submit'] ?? false;
-                  final isAnyLoading = controller.buttonLoaders.values.any(
-                    (l) => l,
-                  );
-
-                  return Expanded(
-                    child: ElevatedButton(
-                      onPressed:
-                          (isSaveLoading || isSubmitLoading || isAnyLoading)
-                          ? null
-                          : () {
-                              if (_formKey.currentState!.validate()) {
-                                controller.submitLeaveRequest(
-                                  context,
-                                  false,
-                                  false,
-                                );
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E7503),
-                      ),
-                      child: isSaveLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              AppLocalizations.of(context)!.save,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                    ),
-                  );
-                }),
-
-                const SizedBox(width: 12),
-
-                /// Cancel Button
-                Obx(() {
-                  final isAnyLoading = controller.buttonLoaders.values.any(
-                    (l) => l,
-                  );
-
-                  return Expanded(
-                    child: ElevatedButton(
-                      onPressed: isAnyLoading
-                          ? null
-                          : () {
-                              controller.chancelButton(context);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                      ),
-                      child: Text(AppLocalizations.of(context)!.cancel),
-                    ),
-                  );
-                }),
               ],
             ),
-          ],
+
+          // CREATED - SUBMIT/SAVE/CANCEL BUTTONS
+          if (controller.leaveField.value &&
+              widget.leaveRequest?.approvalStatus == "Created" &&
+              widget.isReadOnly)
+            Column(
+              children: [
+                /// SUBMIT BUTTON
+                Obx(() {
+                  final isSubmitLoading = controller.isButtonLoading('submit');
+                  final isAnyLoading = controller.isAnyButtonLoading();
+
+                  return CustomLoaderButton(
+                    text: AppLocalizations.of(context)!.submit,
+                    isLoading: isSubmitLoading,
+                    disabled: isAnyLoading,
+                    width: double.infinity,
+                    height: 52,
+                    borderRadius: BorderRadius.circular(30),
+                    backgroundColor: const Color.fromARGB(255, 29, 1, 128),
+                    onPressed: () async {
+                      if (!_formKey.currentState!.validate()) return;
+
+                      controller.setButtonLoading('submit', true);
+
+                      try {
+                        await controller.submitLeaveRequest(
+                          context,
+                          true,
+                          false,
+                        );
+                        controller.uploadedImages.clear();
+                        controller.fileItems.clear();
+                      } finally {
+                        controller.setButtonLoading('submit', false);
+                      }
+                    },
+                  );
+                }),
+
+                const SizedBox(height: 12),
+
+                /// SAVE & CANCEL BUTTONS
+                Row(
+                  children: [
+                    /// SAVE BUTTON
+                    Obx(() {
+                      final isSaveLoading = controller.isButtonLoading('save');
+                      final isAnyLoading = controller.isAnyButtonLoading();
+
+                      return Expanded(
+                        child: CustomLoaderButton(
+                          text: AppLocalizations.of(context)!.save,
+                          isLoading: isSaveLoading,
+                          disabled: isAnyLoading,
+                          backgroundColor: const Color(0xFF1E7503),
+                          height: 52,
+                          onPressed: () async {
+                            if (!_formKey.currentState!.validate()) return;
+
+                            controller.setButtonLoading('save', true);
+
+                            try {
+                              await controller.submitLeaveRequest(
+                                context,
+                                false,
+                                false,
+                              );
+                              controller.uploadedImages.clear();
+                              controller.fileItems.clear();
+                            } finally {
+                              controller.setButtonLoading('save', false);
+                            }
+                          },
+                        ),
+                      );
+                    }),
+
+                    const SizedBox(width: 12),
+
+                    /// CANCEL BUTTON
+                    Expanded(
+                      child: CustomLoaderButton(
+                        text: AppLocalizations.of(context)!.close,
+                        isLoading: false,
+                        disabled: false,
+                        backgroundColor: Colors.grey,
+                        height: 52,
+                        onPressed: () {
+                          controller.clearTimeSheetForm();
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+          // APPROVED - FULL/PARTIAL CANCEL BUTTONS
           if (widget.isReadOnly &&
               widget.leaveRequest!.approvalStatus == "Approved" &&
+              widget.leaveRequest!.leaveStatus == "Approved" ||  widget.leaveRequest!.leaveStatus == "PartiallyCancelled" &&
               widget.leaveRequest?.leaveCancelId == null)
             Row(
               children: [
                 Obx(() {
-                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
+                  final isLoading = controller.isButtonLoading('cancel');
                   return Expanded(
                     child: ElevatedButton(
                       onPressed: isLoading
@@ -2155,21 +2261,20 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           : () {
                               _showFullCancelDialog(context);
                             },
-
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE99797),
                       ),
                       child: isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              height: 24,
+                              width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.red,
-                                strokeWidth: 2,
+                                strokeWidth: 3,
                               ),
                             )
-                          : const Text(
-                              "Fully Cancel",
+                          : Text(
+                              AppLocalizations.of(context)!.fullyCancel,
                               style: TextStyle(color: Colors.red),
                             ),
                     ),
@@ -2177,29 +2282,33 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 }),
                 const SizedBox(width: 12),
                 Obx(() {
-                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
+                  final isLoading = controller.isButtonLoading('cancel');
                   return Expanded(
                     child: ElevatedButton(
                       onPressed: isLoading
                           ? null
-                          : () {
+                          : () async {
                               controller.setButtonLoading('cancel', true);
-                              _openPartialCancelPopup(context);
+                              try {
+                                _openPartialCancelPopup(context);
+                              } finally {
+                                controller.setButtonLoading('cancel', false);
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE99797),
                       ),
                       child: isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              height: 24,
+                              width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.red,
-                                strokeWidth: 2,
+                                strokeWidth: 3,
                               ),
                             )
-                          : const Text(
-                              "Partial Cancel",
+                          : Text(
+                              AppLocalizations.of(context)!.partialCancel,
                               style: TextStyle(color: Colors.red),
                             ),
                     ),
@@ -2207,90 +2316,40 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 }),
               ],
             ),
+
+          // APPROVED WITH CANCEL ID
           if (widget.isReadOnly &&
               widget.leaveRequest!.approvalStatus == "Approved" &&
+              widget.leaveRequest?.requestType != "LeaveCancellation" &&
               widget.leaveRequest?.leaveCancelId?.isNotEmpty == true)
             Row(
               children: [
-                Obx(() {
-                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
-                  return Expanded(
-                    child: ElevatedButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              controller.submitExpenseCancel(
-                                contextRecId: widget.leaveRequest!.recId,
-                              );
-                            },
-
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE99797),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.red,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              " Cancel",
-                              style: TextStyle(color: Colors.red),
-                            ),
-                    ),
-                  );
-                }),
                 const SizedBox(width: 12),
-                Obx(() {
-                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
-                  return Expanded(
-                    child: ElevatedButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              controller.setButtonLoading('cancel', false);
-                              controller.resetForm();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          156,
-                          155,
-                          155,
-                        ),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.red,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              "Close",
-                              style: TextStyle(
-                                color: Color.fromARGB(255, 10, 10, 10),
-                              ),
-                            ),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
                     ),
-                  );
-                }),
+                    child: const Text("Closes"),
+                  ),
+                ),
               ],
             ),
+
+          // APPROVED WITHOUT CANCEL ID - CLOSE BUTTON
           if (widget.isReadOnly &&
-              widget.leaveRequest!.approvalStatus == "Approved" &&
+              widget.leaveRequest!.approvalStatus == "Approved"  &&
+              widget.leaveRequest?.requestType == "LeaveCancellation" &&
               widget.leaveRequest?.leaveCancelId == null)
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      controller.resetForm();
+                      Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
@@ -2301,40 +2360,38 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               ],
             ),
 
+          // PENDING - CANCEL/CLOSE BUTTONS
           if (widget.isReadOnly &&
               widget.leaveRequest?.approvalStatus == "Pending")
             Row(
               children: [
                 Obx(() {
-                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
+                  final isLoading = controller.isButtonLoading('cancel');
                   return Expanded(
                     child: ElevatedButton(
                       onPressed: isLoading
                           ? null
-                          : () {
+                          : () async {
                               controller.setButtonLoading('cancel', true);
-                              controller
-                                  .leavecancelExpense(
-                                    context,
-                                    widget.leaveRequest!.recId.toString(),
-                                  )
-                                  .whenComplete(() {
-                                    controller.setButtonLoading(
-                                      'cancel',
-                                      false,
-                                    );
-                                  });
+                              try {
+                                await controller.leavecancelExpense(
+                                  context,
+                                  widget.leaveRequest!.recId.toString(),
+                                );
+                              } finally {
+                                controller.setButtonLoading('cancel', false);
+                              }
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE99797),
                       ),
                       child: isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              height: 24,
+                              width: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.red,
-                                strokeWidth: 2,
+                                strokeWidth: 3,
                               ),
                             )
                           : const Text(
@@ -2348,7 +2405,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      controller.chancelButton(context);
+                      Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
@@ -2361,44 +2418,47 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
           const SizedBox(height: 28),
         ] else ...[
-          Obx(
-            () => SizedBox(
+          // NEW LEAVE REQUEST - SUBMIT BUTTON
+          Obx(() {
+            final isSubmitLoading = controller.isButtonLoading('submit');
+            final isAnyLoading = controller.isAnyButtonLoading();
+
+            return CustomLoaderButton(
+              text: AppLocalizations.of(context)!.submit,
+              isLoading: isSubmitLoading,
+              disabled: isAnyLoading,
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: controller.isButtonLoading('submit')
-                    ? null
-                    : () {
-                        if (_formKey.currentState!.validate()) {
-                          controller.submitLeaveRequest(context, true, false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  backgroundColor: const Color.fromARGB(255, 29, 1, 128),
-                ),
-                child: controller.isButtonLoading('submit')
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        AppLocalizations.of(context)!.submit,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ),
-          ),
+              height: 48,
+              borderRadius: BorderRadius.circular(8),
+              backgroundColor: const Color.fromARGB(255, 29, 1, 128),
+              onPressed: () async {
+                /// ✅ Form validation
+                if (!_formKey.currentState!.validate()) return;
+
+                /// ✅ Check requested days
+                if (controller.totalRequestedDays.value == 0) {
+                  Fluttertoast.showToast(
+                    msg: "Requested days cannot be zero",
+                    backgroundColor: Colors.red[100],
+                    textColor: Colors.red[800],
+                  );
+
+                  return;
+                }
+
+                /// ✅ Start loading
+                controller.setButtonLoading('submit', true);
+
+                try {
+                  await controller.submitLeaveRequest(context, true, false);
+                  controller.uploadedImages.clear();
+                  controller.fileItems.clear();
+                } finally {
+                  controller.setButtonLoading('submit', false);
+                }
+              },
+            );
+          }),
 
           const SizedBox(height: 12),
 
@@ -2406,62 +2466,50 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             children: [
               // Save as Draft Button
               Expanded(
-                child: Obx(
-                  () => ElevatedButton(
-                    onPressed: controller.isButtonLoading('save')
-                        ? null
-                        : () {
-                            controller.submitLeaveRequest(
-                              context,
-                              false,
-                              false,
-                            );
-                          },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFF1E7503),
-                    ),
-                    child: controller.isButtonLoading('saveDraft')
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            AppLocalizations.of(context)!.save,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ),
-                ),
+                child: Obx(() {
+                  final isSaveLoading = controller.isButtonLoading('saveDraft');
+                  final isAnyLoading = controller.isAnyButtonLoading();
+
+                  return CustomLoaderButton(
+                    text: AppLocalizations.of(context)!.save,
+                    isLoading: isSaveLoading,
+                    disabled: isAnyLoading,
+                    height: 52,
+                    backgroundColor: const Color(0xFF1E7503),
+                    onPressed: () async {
+                      if (!_formKey.currentState!.validate()) return;
+
+                      controller.setButtonLoading('saveDraft', true);
+                      try {
+                        await controller.submitLeaveRequest(
+                          context,
+                          false,
+                          false,
+                        );
+                        controller.uploadedImages.clear();
+                        controller.fileItems.clear();
+                      } finally {
+                        controller.setButtonLoading('saveDraft', false);
+                      }
+                    },
+                  );
+                }),
               ),
 
               const SizedBox(width: 12),
 
               // Cancel Button
               Expanded(
-                child: ElevatedButton(
+                child: CustomLoaderButton(
+                  text: AppLocalizations.of(context)!.close,
+                  isLoading: false,
+                  disabled: false,
+                  backgroundColor: Colors.grey,
+                  height: 52,
                   onPressed: () {
                     controller.resetForm();
                     Navigator.pop(context);
                   },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.grey,
-                  ),
-                  child: Text(
-                    AppLocalizations.of(context)!.cancel,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -2484,7 +2532,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
-            "Leave Full Cancellation",
+            AppLocalizations.of(context)!.leaveFullCancellation,
             style: TextStyle(
               color: theme.primaryColor,
               fontWeight: FontWeight.bold,
@@ -2496,8 +2544,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               TextField(
                 controller: reasonController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: "Reason for cancellation",
+                decoration: InputDecoration(
+                  labelText:
+                      "${AppLocalizations.of(context)!.reasonForCancellation} *",
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -2508,7 +2557,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text("Cancel"),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             ElevatedButton(
               onPressed: () {
@@ -2545,7 +2594,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 //   controller.setButtonLoading('cancel', false);
                 // });
               },
-              child: const Text("Save"),
+              child: Text(AppLocalizations.of(context)!.save),
             ),
           ],
         );
@@ -2570,6 +2619,56 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildViewModeButtonsCancelation() {
+    return Row(
+      children: [
+        if (widget.leaveRequest!.cancellationApprovalStatus == "Pending")
+          Obx(() {
+            final isLoading = controller.buttonLoaders['cancel'] ?? false;
+            return Expanded(
+              child: ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        controller.setButtonLoading('cancel', true);
+                        controller
+                            .submitExpenseCancel(
+                              contextRecId: widget.leaveRequest!.recId,
+                            )
+                            .whenComplete(() {
+                              controller.setButtonLoading('cancel', false);
+                            });
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE99797),
+                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.red,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text("Cancel", style: TextStyle(color: Colors.red)),
+              ),
+            );
+          }),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+            child: const Text("Close"),
+          ),
+        ),
       ],
     );
   }
@@ -2625,6 +2724,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 }
 
 // Add to your main.dart or wherever you initialize GetX
-void initializeControllers() {
+void initializecontroller() {
   Get.put(Controller());
 }

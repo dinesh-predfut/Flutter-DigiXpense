@@ -44,6 +44,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get localizationPreferences => 'Localization & Preferences';
   @override
   String get timeZone => 'Time Zone';
+  @override String get periodType => 'Period Type';
+@override String get periodTypeIsRequired => 'Period Type is required';
+@override String get timeSheetRequestForm => 'Timesheet Request Form';
+@override String get dateRange => 'Date Range';
+@override String get lineItem => 'Line Item';
+@override String get addLine => 'Add Line';
+@override String get addTimer => 'Add Timer';
+@override String get myTeamTimesheets => 'My Team Timesheets';
+@override String get timeSheetPendingApprovals => 'Timesheet Pending Approvals';
+
   @override
   String get defaultPayment => 'Default Payment';
   @override
@@ -74,7 +84,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
   @override
   String get dashboard => 'Dashboard';
+  @override
+  String get punchInOut => 'Punch In/Out';
 
+  @override
+  String get punchInOutList => 'Punch In/Out List';
+
+  @override
+  String get myTeamAttendance => 'My Team Attendance';
+
+  @override
+  String get timesheets => 'Timesheets';
+  @override
+  String get viewTeamMemberAttendance => 'View Team Member Attendance';
+  @override
+  String get viewAttendanceTransaction => 'View Attendance Transaction';
+ @override String get employees => 'Employees';
+@override String get employeeGroups => 'Employee Groups';
+@override String get timesheetRequisitionId => 'Timesheet Requisition ID';
+
+
+  @override
+  String get payroll => 'Payroll';
+
+  @override
+  String get myPayslips => 'My Payslips';
+
+  @override
+  String get allPayslips => 'All Payslips';
+  @override
+  String get leaveCancellation => 'Leave Cancellation';
+  @override
+  String get fullyCancel => 'Fully Cancel';
+
+  @override
+  String get partialCancel => 'Partial Cancel';
+
+  @override
+  String get cardView => 'Card View';
+
+  @override
+  String get calendarView => 'Calendar View';
+
+  @override
+  String get month => 'Month';
+
+  @override
+  String get week => 'Week';
+
+  @override
+  String get day => 'Day';
+  @override
+  String get myTimesheets => 'My Timesheets';
+  @override
+  String get board => 'Board';
   @override
   String get myDashboard => 'My Dashboard';
   @override
@@ -96,7 +159,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expense => 'Expense';
 
   @override
-  String get approvals => 'Approvals';
+  String get approvals => 'Approve';
 
   @override
   String get mail => 'Mail';
@@ -145,7 +208,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailHub => 'Email Hub';
 
   @override
-  String get approvalHub => 'Approval Hub';
+  String get approvalHub => 'Approvals';
 
   @override
   String get reports => 'Reports';
@@ -251,7 +314,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get lineAmountInInr => 'Line Amount in INR';
   @override
-  String get accountDistribution => 'Account Distribution';
+  String get accountDistribution => 'Accounting Distribution';
   @override
   String get totalAmount => 'Total Amount:';
   @override
@@ -307,6 +370,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zoomOut => 'Zoom Out';
   @override
   String get edit => 'Edit';
+  @override String get eventType => 'Event Type';
+@override String get sendToMail => 'Send to Mail';
+@override String get send => 'Send';
+@override String get download => 'Download';
+@override String get payslipsNotAvailable => 'Payslips not available';
+@override String get tableView => 'Table View';
+@override String get timeTracker => 'Time Tracker';
+@override String get start => 'Start';
+@override String get pause => 'Pause';
+@override String get resume => 'Resume';
+@override String get complete => 'Complete';
+@override String get generateTimeSheet => 'Generate Timesheet';
+@override String get generateAndSubmit => 'Generate & Submit';
+@override String get noTimeRunsFound => 'No Time Runs Found';
+@override String get active => 'ACTIVE';
+@override String get runId => 'Run ID';
+@override String get segment => 'Segment';
+@override String get timeRunId => 'Time Run ID';
+@override String get sequence => 'Sequence';
+@override String get end => 'End';
+@override String get noEventsFound => 'No Events Found';
+@override String get event => 'Event';
+@override String get occurred => 'Occurred';
+@override String get started => 'Started';
+@override String get ended => 'Ended';
+@override String get eventTypeOccurred => 'Event Type Occurred';
+@override String get details => 'Details';
+@override String get viewDetails => 'View Details';
+@override String get segmentId => 'Segment ID';
+@override String get segmentSequence => 'Segment Sequence';
+@override String get startTime => 'Start Time';
+@override String get endTime => 'End Time';
+@override String get durationInHours => 'Duration in Hours';
+@override String get endEvent => 'End Event';
+@override String get updateDetails => 'Update Details';
+@override String get editSegment => 'Edit Segment';
+
   @override
   String get receiptDate => 'Receipt Date';
   @override
@@ -381,23 +481,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get unread => 'Unread';
   @override
-String get exitWarning => 'You will lose any unsaved data. Do you want to exit?';
-@override
-String get duplicateReceiptWarning => 'This receipt appears to be a duplicate. Do you want to continue?';
+  String get exitWarning =>
+      'You will lose any unsaved data. Do you want to exit?';
+  @override
+  String get duplicateReceiptWarning =>
+      'This receipt appears to be a duplicate. Do you want to continue?';
 
-@override
-String get continueText => 'Continue';
+  @override
+  String get continueText => 'Continue';
 
-@override
-String get duplicateReceiptDetected => 'Duplicate Receipt Detected';
+  @override
+  String get duplicateReceiptDetected => 'Duplicate Receipt Detected';
 
-@override
-String get extractingReceipt => 'We are extracting your Receipt';
-@override
-String get pleaseWait => 'Please wait...';
+  @override
+  String get extractingReceipt => 'We are extracting your Receipt';
+  @override
+  String get pleaseWait => 'Please wait...';
 
-@override
-String get exitForm => 'Exit Form';
+  @override
+  String get exitForm => 'Exit Form';
   @override
   String get allNotifications => 'All Notifications';
   @override
@@ -433,73 +535,114 @@ String get exitForm => 'Exit Form';
   String get cropImage => 'Crop Image';
   @override
   String get referenceId => 'Reference';
-  @override String get reliever => 'Reliever';
-@override String get department => 'Department';
-@override String get dates => 'Dates';
-@override String get notifyingUsers => 'Notifying Users';
-@override String get contactNumber => 'Contact Number';
-@override String get availabilityDuringLeave => 'Availability During Leave';
-@override String get availability => 'Availability';
-@override String get outOfOfficeMessage => 'Out of Office Message';
-@override String get notifyHR => 'Notify HR';
-@override String get notifyTeamMembers => 'Notify Team Members';
-@override String get paidLeave => 'Paid Leave';
-@override String get totalDays => 'Total Days';
-@override String get saveAsDraft => 'Save as Draft';
-@override String get editLeaveRequest => 'Edit Leave Request';
-@override String get newLeaveRequest => 'View Leave Request';
-@override
-String get newCreateLeaveRequest => 'Create Leave Request';
+  @override
+  String get reliever => 'Reliever';
+  @override
+  String get department => 'Department';
+  @override
+  String get dates => 'Dates';
+  @override
+  String get notifyingUsers => 'Notifying Users';
+  @override
+  String get contactNumber => 'Contact Number';
+  @override
+  String get availabilityDuringLeave => 'Availability During Leave';
+  @override
+  String get availability => 'Availability';
+  @override
+  String get outOfOfficeMessage => 'Out of Office Message';
+  @override
+  String get notifyHR => 'Notify HR';
+  @override
+  String get notifyTeamMembers => 'Notify Team Members';
+  @override
+  String get paidLeave => 'Paid Leave';
+  @override
+  String get totalDays => 'Total Days';
+  @override
+  String get saveAsDraft => 'Save as Draft';
+  @override
+  String get editLeaveRequest => 'Edit Leave Request';
+  @override
+  String get newLeaveRequest => 'View Leave Request';
+  @override
+  String get newCreateLeaveRequest => 'Create Leave Request';
 
-@override String get leaveRequisitionId => 'Leave Requisition ID';
-@override String get delegatedAuthority => 'Delegated authority/Reliever';
-@override String get locationDuringLeave => 'Location during leave';
-@override String get availableForUrgentMatters => 'Available For Urgent Matters';
-@override String get notAvailable => 'Not Available';
-@override String get dayType => 'Day Type';
-@override String get fullDay => 'Full Day';
-@override String get firstHalf => 'First Half';
-@override String get secondHalf => 'Second Half';
-@override String get myTeamLeaveDashboard => 'My Team Leave Dashboard';
-@override String get noEventsFor => 'No events for';
-@override String get duration => 'Duration';
+  @override
+  String get leaveRequisitionId => 'Leave Requisition ID';
+  @override
+  String get delegatedAuthority => 'Delegated authority/Reliever';
+  @override
+  String get locationDuringLeave => 'Location during leave';
+  @override
+  String get availableForUrgentMatters => 'Available For Urgent Matters';
+  @override
+  String get notAvailable => 'Not Available';
+  @override
+  String get dayType => 'Day Type';
+  @override
+  String get fullDay => 'Full Day';
+  @override
+  String get firstHalf => 'First Half';
+  @override
+  String get secondHalf => 'Second Half';
+  @override
+  String get myTeamLeaveDashboard => 'My Team Leave Dashboard';
+  @override
+  String get noEventsFor => 'No events for';
+  @override
+  String get duration => 'Duration';
 
-@override String get mon => 'Mon';
-@override String get tue => 'Tue';
-@override String get wed => 'Wed';
-@override String get thu => 'Thu';
-@override String get fri => 'Fri';
-@override String get sat => 'Sat';
-@override String get sun => 'Sun';
+  @override
+  String get mon => 'Mon';
+  @override
+  String get tue => 'Tue';
+  @override
+  String get wed => 'Wed';
+  @override
+  String get thu => 'Thu';
+  @override
+  String get fri => 'Fri';
+  @override
+  String get sat => 'Sat';
+  @override
+  String get sun => 'Sun';
 
-@override String get noLeaveData => 'No Leave Data';
-@override String get remaining => 'Remaining';
-@override String get outOf => 'Out of';
-@override String get balance => 'Balance';
-String get addLeaveRequest => 'Add Leave Request';
-@override String get leaveRequisition => 'Leave Requisition';
-@override String get myLeave => 'My Leave';
-@override String get myTeamLeave => 'My Team Leave';
-@override String get myTeamLeaveCancellation => 'My Team Leave Cancellation';
+  @override
+  String get noLeaveData => 'No Leave Data';
+  @override
+  String get remaining => 'Remaining';
+  @override
+  String get outOf => 'Out of';
+  @override
+  String get balance => 'Balance';
+  String get addLeaveRequest => 'Add Leave Request';
+  @override
+  String get leaveRequisition => 'Leaves Requisition';
+  @override
+  String get myLeave => 'My Leaves';
+  @override
+  String get myTeamLeave => 'My Team Leaves';
+  @override
+  String get myTeamLeaveCancellation => 'My Team Leave Cancellations';
 
-@override
-String get appliedDate => 'Applied Date';
+  @override
+  String get appliedDate => 'Applied Date';
 
-@override
-String get ofLeave => 'of Leave';
+  @override
+  String get ofLeave => 'of Leave';
 
-@override
-String get total => 'Total';
+  @override
+  String get total => 'Total';
 
-
-@override
-String get days => 'Days';
+  @override
+  String get days => 'Days';
 
   @override
   String get pleaseSelectMerchant => 'Please select a merchant';
   @override
   String get pleaseEnterMerchantName => 'Please enter a merchant name';
-@override
+  @override
   String get leaveCode => 'Leave Code';
   @override
   String get createPerDiem => 'Create Per Diem';
@@ -694,17 +837,20 @@ String get days => 'Days';
   String get cashAdvanceRequisitionId => 'Cash Advance Requisition ID';
   @override
   String get totalEstimatedAmountInInr => 'Total Estimated Amount In INR';
-   @override
+  @override
   String get totalEstimatedAmountIn => 'Total Estimated Amount ';
   @override
-String get employeeName => 'Employee Name';
-@override
-String get justification => 'Justification';
-@override
-String get uploadFileOrDragDrop => 'Upload a file or drag and drop';
-
-@override
-String get uploadAttachments => 'Attachments';
+  String get employeeName => 'Employee Name';
+  @override
+  String get justification => 'Justification';
+  @override
+  String get uploadFileOrDragDrop => 'Upload a file';
+@override String get leaveFullCancellation => 'Leave Full Cancellation';
+@override String get reasonForCancellation => 'Reason for cancellation';
+@override String get pleaseEnterCancellationReason => 'Please enter cancellation reason';
+@override String get leavePartialCancellation => 'Leave Partial Cancellation';
+  @override
+  String get uploadAttachments => 'Attachments';
 
   @override
   String get search => 'Search';
@@ -937,29 +1083,267 @@ String get uploadAttachments => 'Attachments';
   @override
   String get paymentId => 'Payment ID';
   @override
-String get justificationRequired => 'Justification Required';
+  String get justificationRequired => 'Justification Required';
 
-@override
-String get enterJustification => 'Enter Justification';
+  @override
+  String get enterJustification => 'Enter Justification';
 
-@override
-String get pleaseEnterJustification => 'Please enter justification';
+  @override
+  String get pleaseEnterJustification => 'Please enter justification';
 
-@override
-String get somethingWentWrong => 'Something went wrong:';
-@override
-String get timezoneName => 'Timezone Name';
+  @override
+  String get somethingWentWrong => 'Something went wrong:';
+  @override
+  String get timezoneName => 'Timezone Name';
 
-@override
-String get timezoneCode => 'Timezone Code';
+  @override
+  String get timezoneCode => 'Timezone Code';
 
-@override
-String get timezoneId => 'Timezone Id';
+  @override
+  String get timezoneId => 'Timezone Id';
 
-@override
-String get languageName => 'Language Name';
+  @override
+  String get languageName => 'Language Name';
 
-@override
-String get languageId => 'Language Id';
+  @override
+  String get languageId => 'Language Id';
+  @override
+  String get wouldYouLikeToPunch => 'Would you like to Punch in?';
+  @override
+  String get punchOut => 'PunchOut Time';
+  @override
+  String get punchIn => 'PunchIn Time';
+  @override
+  String get status => 'Status';
+  @override
+  String get lastSession => 'Last Session';
+  @override
+  String get lastIn => 'Last In';
+  @override
+  String get lastOut => 'Last Out';
+  @override
+  String get totalTime => 'Total Time';
+  @override
+  String get selfieVerification => 'Selfie Verification';
+  @override
+  String get retake => 'Retake';
+  @override
+  String get currentLocation => 'Current Location';
+  @override
+  String get myLocation => 'My Location';
+  @override
+  String get fetchingLocation => 'Fetching location...';
+  @override
+  String get locationPermissionDenied => 'Location permission denied';
+  @override
+  String get failedToFetchLocation => 'Failed to fetch location';
+  @override
+  String get cameraPermissionDenied => 'Camera permission denied';
+  @override
+  String get punchFailed => 'Punch failed. Please try again.';
+  @override
+  String get punchedInSuccessfully => 'Punched In successfully!';
+  @override
+  String get punchedOutSuccessfully => 'Punched Out successfully!';
+  @override
+  String get noPreviousSession => 'No previous session';
+  @override
+  String get locationNotAvailable => 'Location not available';
+  @override
+  String get takeSelfie => 'Take Selfie';
+  @override
+  String get selfiePlaceholder => 'Add selfie';
+  @override
+  String get myAttendanceList => 'My Attendance List';
+  @override
+  String get totalHours => 'Total Hours';
+  @override
+  String get transactionId => 'Transaction ID';
+  @override
+  String get punchInTime => 'Punch In Time';
+  @override
+  String get punchOutTime => 'Punch Out Time';
+  @override
+  String get totalDuration => 'Total Duration';
+  @override
+  String get captureType => 'Capture Type';
+  @override
+  String get punchInGeofenceId => 'Punch In Geofence ID';
+  @override
+  String get punchOutGeofenceId => 'Punch Out Geofence ID';
+  @override
+  String get isRegularized => 'Is Regularized';
+  @override
+  String get punchInLocation => 'Punch In Location';
+  @override
+  String get punchOutLocation => 'Punch Out Location';
+  @override
+  String get boardDashboard => 'Board Dashboard';
+  @override
+  String get createBoard => 'Create Board';
+  @override
+  String get boardName => 'Board Name';
+  @override
+  String get boardTemplate => 'Board Template';
+  @override
+  String get referenceName => 'Reference Type';
+  @override
+  String get boardTaskDetails => 'Board Task Details';
+  @override String get areaName => 'Area Name';
+  @override
+  String get taskName => 'Task Name';
+  @override
+  String get enterTaskName => 'Enter task name';
+  @override
+  String get selectTags => 'Select Tag(s)';
+  @override
+  String get tagId => 'Tag ID';
+  @override
+  String get tagName => 'Tag Name';
+  @override
+  String get selectUsers => 'Select User(s)';
+  @override
+  String get estimatedHours => 'Estimated Hours';
+  @override
+  String get cardType => 'Card Type';
+  @override
+  String get priority => 'Priority';
+  @override
+  String get low => 'Low';
+  @override String get plannedStartDate => 'Planned Start Date';
+@override String get plannedEndDate => 'Planned End Date';
+@override String get actualStartDate => 'Actual Start Date';
+@override String get actualEndDate => 'Actual End Date';
+@override String get addTimeSheets => 'Add Timesheets';
+  @override
+  String get high => 'High';
+  @override
+  String get medium => 'Medium';
+  @override
+  String get urgent => 'Urgent';
+  @override
+  String get actualHours => 'Actual Hours';
+  @override
+  String get version => 'Version';
+  @override
+  String get parentTask => 'Parent Task';
+  @override
+  String get taskId => 'Task ID';
+  @override
+  String get selectDependency => 'Select Dependency';
+  @override
+  String get checklist => 'Checklist';
+  @override
+  String get addItem => 'Add item';
+  @override
+  String get showInCard => 'Show in Card';
+  @override
+  String get enterNotes => 'Enter notes';
+  @override
+  String get addAttachment => 'Add Attachment';
+  @override
+  String get posting => 'Posting...';
+  @override
+  String get comment => 'Comment';
+  @override
+  String get noCommentsYet => 'No comments yet';
+  @override
+  String get grid => 'Grid';
+  @override
+  String get boardSettings => 'Board Settings';
+  @override
+  String get addShelf => 'Add Shelf';
+  @override
+  String get addTask => 'Add Task';
+  @override
+  String get noTasksFound => 'No Tasks Found';
+  @override
+  String get deleteTask => 'Delete task';
+  @override
+  String get noDueDate => 'No Due Date';
+  @override
+  String get shelfName => 'Shelf Name';
+  @override
+  String get searchTasksUsersTags => 'Search tasks, users, tags...';
+  @override
+  String get assigned => 'Assigned';
+  @override
+  String get editShelf => 'Edit Shelf';
+  @override
+  String get areYouSureDeleteTask =>
+      'Are you sure you want to delete this task?';
+  @override
+  String get dueDate => 'Due Date';
 
+  @override
+  String get visibilityOfYourBoard => 'Visibility Of YourBoard';
+  @override
+  String get public => 'Public';
+  @override
+  String get visibleToEveryone => 'visible To Everyone';
+  @override
+String get myLeaveCancellations => 'My Leave Cancellations';
+  @override
+String get timeDetails => 'Time Details';
+@override String get branchEmployees => 'Branch Employees';
+@override String get departmentEmployees => 'Department Employees';
+@override String get viewType => 'View Type';
+  @override
+  String get private => 'Private';
+  @override
+  String get onlySelectedUsers => 'Only selected users';
+  @override
+  String get enterBoardName => 'Enter board name';
+  @override
+  String get boardNameIsRequired => 'Board name is required';
+  @override
+  String get selectTemplate => 'Select template';
+  @override
+  String get pleaseSelectATemplate => 'Please select a template';
+  @override
+  String get templateIsRequired => 'Template is required';
+  @override
+  String get selectGroups => 'Select groups';
+  @override
+  String get areYouSureDeleteBoard =>
+      'Are you sure you want to delete this board?';
+  @override
+  String get thisActionCannotBeUndone => 'This action cannot be undone.';
+  @override
+  String get deleteBoard => 'Delete board';
+
+  @override
+  String get addBoardMembers => 'Add Board Members';
+  @override
+  String get boardOwnerName => 'Board Owner Name';
+  @override
+  String get defaultSortingOrder => 'Default Sorting Order';
+  @override
+  String get byAssignee => 'By Assignee';
+  @override
+  String get enableTimeTracking => 'Enable Time Tracking';
+  @override
+  String get referenceType => 'Reference Type';
+  @override
+  String get boardTheme => 'Board Theme';
+  @override
+  String get dark => 'Dark';
+  @override
+  String get light => 'Light';
+  @override
+  String get systemDefault => 'System Default';
+  @override
+  String get backgroundImage => 'Background Image';
+  @override
+  String get url => 'URL';
+  @override
+  String get fileUpload => 'File Upload';
+  @override
+  String get imageUrl => 'Image URL';
+  @override
+  String get uploadImage => 'Upload Image';
+  @override
+  String get removeMemberFromBoard => 'Remove Member from board?';
+  @override
+  String get members => 'Members';
 }

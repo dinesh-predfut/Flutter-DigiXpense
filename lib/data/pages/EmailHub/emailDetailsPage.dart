@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:ui' as ui;
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:get/get.dart';
@@ -13,7 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:digi_xpense/data/models.dart';
+import 'package:diginexa/data/models.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -29,7 +29,7 @@ class EmailDetailPage extends StatefulWidget {
 
 class _EmailDetailPageState extends State<EmailDetailPage> {
   final RxList<MailAttachment> attachments = <MailAttachment>[].obs;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
   @override
   void initState() {
@@ -387,7 +387,7 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             IconButton(
-                icon: const Icon(Icons.share_rounded), onPressed: () => {
+                icon: const Icon(Icons.remove_red_eye_outlined), onPressed: () => {
                   if(widget.email.emailStatus == "SuccessfullyProcessed"){
 controller.fetchSecificExpenseItemEmailHub(
                                     context, widget.email.refRecId,true,"InProgress")

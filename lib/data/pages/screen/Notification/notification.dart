@@ -1,6 +1,6 @@
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +14,7 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage>
     with TickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   late TabController _tabController;
 
   @override

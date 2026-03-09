@@ -1,16 +1,17 @@
 import 'dart:async';
-import 'package:digi_xpense/core/constant/Parames/params.dart' show Params;
-import 'package:digi_xpense/data/models.dart'
+import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/data/models.dart'
     show BoardTemplate, Employee, EmployeeGroup;
-import 'package:digi_xpense/data/service.dart' show Controller;
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart' show Controller;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 
 // Model for Template
 
@@ -30,18 +31,24 @@ class CreateEditBoardPage extends StatefulWidget {
 }
 
 class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final List<String> _tabTitles = ['Employees', 'Employees Groups'];
+  late final List<String> _tabTitles = [
+    AppLocalizations.of(context)!.employees,
+    AppLocalizations.of(context)!.employeeGroups,
+  ];
   int _selectedTabIndex = 0;
   @override
   void initState() {
     super.initState();
-    controller.fetchTemplates();
     loadEmployee();
     controller.fetchEmployeeGroups();
+     controller.fetchTemplates();
     if (widget.isEditMode && widget.existingBoard != null) {
+      
       WidgetsBinding.instance.addPostFrameCallback((_) {
+       
+
         controller.loadExistingBoard(widget.existingBoard!);
       });
     }
@@ -55,142 +62,187 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.isEditMode ? 'Edit Board' : 'Create Board'),
-        actions: [
-          if (widget.isEditMode)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _showDeleteConfirmation(context),
-            ),
-        ],
-      ),
-      body: Obx(() {
-        final theme = Theme.of(context);
-        final primaryColor = theme.primaryColor;
-        return controller.isLoading.value
-            ? const Center(child: SkeletonLoaderPage())
-            : Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Visibility Toggle
-                      _buildVisibilityToggle(),
+    return WillPopScope(
+      onWillPop: () async {
+        // if (!controller.isEnable.value) {
+        //   controller.resetFormBoard();
+        //   return true;
+        // }
 
-                      const SizedBox(height: 20),
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.exitForm),
+            content: Text(AppLocalizations.of(context)!.exitWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(AppLocalizations.of(context)!.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (shouldExit ?? false) {
+          controller.resetFormBoard();
+          controller.isEnable.value = false;
+          controller.isLoadingviewImage.value = false;
 
-                      // Board Name *
-                      _buildBoardNameField(),
+          Navigator.pushNamed(context, AppRoutes.boardDashboard);
+          return true;
+        }
 
-                      const SizedBox(height: 16),
+        return false;
+      },
+      child: Scaffold(
+        // backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text(
+            widget.isEditMode
+                ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.board}'
+                : AppLocalizations.of(context)!.createBoard,
+          ),
+          actions: [
+            if (widget.isEditMode)
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () => _showDeleteConfirmation(context),
+              ),
+          ],
+        ),
+        body: Obx(() {
+          final theme = Theme.of(context);
+          final primaryColor = theme.primaryColor;
+          return controller.isLoading.value
+              ? const Center(child: SkeletonLoaderPage())
+              : Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Visibility Toggle
+                        _buildVisibilityToggle(),
 
-                      // Description
-                      _buildDescriptionField(),
+                        const SizedBox(height: 20),
 
-                      const SizedBox(height: 16),
+                        // Board Name *
+                        _buildBoardNameField(),
 
-                      // Reference Type
-                      _buildReferenceTypeField(),
+                        const SizedBox(height: 16),
 
-                      const SizedBox(height: 16),
+                        // Description
+                        _buildDescriptionField(),
 
-                      // Reference ID
-                      // if (controller.selectedReferenceType.value.isNotEmpty)
-                      _buildReferenceIdField(),
+                        const SizedBox(height: 16),
 
-                      const SizedBox(height: 20),
+                        // Reference Type
+                        _buildReferenceTypeField(),
 
-                      // Board Template *
-                      _buildTemplateField(),
+                        const SizedBox(height: 16),
 
-                      // const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Container(
-                          height: 45,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey[300]!),
-                          ),
-                          child: Row(
-                            children: List.generate(_tabTitles.length, (index) {
-                              return Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedTabIndex = index;
-                                      // if(index == 1){
-                                      //   controller.selectedEmployees.clear();
-                                      // }
-                                      // else{
-                                      //  controller.selectedGroups.clear();
-                                      // }
-                                    });
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: _selectedTabIndex == index
-                                          ? theme.primaryColor
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow: _selectedTabIndex == index
-                                          ? [
-                                              BoxShadow(
-                                                color: theme.primaryColor
-                                                    .withOpacity(0.3),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ]
-                                          : [],
-                                    ),
-                                    margin: const EdgeInsets.all(4),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        _tabTitles[index],
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: _selectedTabIndex == index
-                                              ? Colors.white
-                                              : Colors.grey[700],
+                        // Reference ID
+                        // if (controller.selectedReferenceType.value.isNotEmpty)
+                        _buildReferenceIdField(),
+
+                        const SizedBox(height: 20),
+
+                        // Board Template *
+                        _buildTemplateField(),
+
+                        // const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Container(
+                            height: 45,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Row(
+                              children: List.generate(_tabTitles.length, (
+                                index,
+                              ) {
+                                return Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedTabIndex = index;
+                                        // if(index == 1){
+                                        //   controller.selectedEmployees.clear();
+                                        // }
+                                        // else{
+                                        //  controller.selectedGroups.clear();
+                                        // }
+                                      });
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: _selectedTabIndex == index
+                                            ? theme.primaryColor
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: _selectedTabIndex == index
+                                            ? [
+                                                BoxShadow(
+                                                  color: theme.primaryColor
+                                                      .withOpacity(0.3),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ]
+                                            : [],
+                                      ),
+                                      margin: const EdgeInsets.all(4),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _tabTitles[index],
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: _selectedTabIndex == index
+                                                ? Colors.white
+                                                : Colors.grey[700],
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              }),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 30),
-                      if (_selectedTabIndex == 0) _buildEmployeeSelection(),
-                      if (_selectedTabIndex == 0) const SizedBox(height: 20),
+                        const SizedBox(height: 30),
+                        if (_selectedTabIndex == 0) _buildEmployeeSelection(),
+                        if (_selectedTabIndex == 0) const SizedBox(height: 20),
 
-                      // Employee Groups Selection
-                      if (_selectedTabIndex == 1)
-                        _buildEmployeeGroupSelection(),
+                        // Employee Groups Selection
+                        if (_selectedTabIndex == 1)
+                          _buildEmployeeGroupSelection(),
 
-                      const SizedBox(height: 32),
+                        const SizedBox(height: 32),
 
-                      // Action Buttons
-                      _buildActionButtons(),
-                      SizedBox(height: 30),
-                    ],
+                        // Action Buttons
+                        _buildActionButtons(),
+                        SizedBox(height: 30),
+                      ],
+                    ),
                   ),
-                ),
-              );
-      }),
+                );
+        }),
+      ),
     );
   }
 
@@ -202,7 +254,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Visibility of your board *',
+              '${AppLocalizations.of(context)!.visibilityOfYourBoard} *',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.primary,
@@ -213,8 +265,8 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
               children: [
                 Expanded(
                   child: _buildVisibilityOption(
-                    title: 'Public',
-                    subtitle: 'Visible to everyone',
+                    title: AppLocalizations.of(context)!.public,
+                    subtitle: AppLocalizations.of(context)!.visibleToEveryone,
                     isSelected: controller.isPublic.value,
                     onTap: () => controller.isPublic.value = true,
                   ),
@@ -222,8 +274,8 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildVisibilityOption(
-                    title: 'Private',
-                    subtitle: 'Only selected users',
+                    title: AppLocalizations.of(context)!.private,
+                    subtitle: AppLocalizations.of(context)!.onlySelectedUsers,
                     isSelected: !controller.isPublic.value,
                     onTap: () => controller.isPublic.value = false,
                   ),
@@ -287,32 +339,39 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
   }
 
   Widget _buildBoardNameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: controller.boardNameController,
-          decoration: InputDecoration(
-            labelText: 'Board Name *',
-            hintText: 'Enter board name',
-            border: const OutlineInputBorder(),
-            errorText: controller.showBoardNameError.value
-                ? 'Board name is required'
-                : null,
+    return Obx(
+      () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: controller.boardNameController,
+            decoration: InputDecoration(
+              labelText: '${AppLocalizations.of(context)!.boardName} *',
+              hintText: AppLocalizations.of(context)!.enterBoardName,
+              border: const OutlineInputBorder(),
+
+              errorText: controller.showBoardNameError.value
+                  ? AppLocalizations.of(context)!.boardNameIsRequired
+                  : null,
+            ),
+
+            onChanged: (value) {
+              /// ✅ remove error instantly while typing
+              if (value.trim().isNotEmpty) {
+                controller.showBoardNameError.value = false;
+              }
+            },
+
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                controller.showBoardNameError.value = true;
+                return '';
+              }
+              return null;
+            },
           ),
-          onChanged: (value) {
-            if (value.isNotEmpty) {
-              controller.showBoardNameError.value = false;
-            }
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Board name is required';
-            }
-            return null;
-          },
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -323,9 +382,9 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
         TextFormField(
           controller: controller.descriptionController,
           maxLines: 2,
-          decoration: const InputDecoration(
-            hintText: 'Enter description',
-            labelText: "Description",
+          decoration: InputDecoration(
+            hintText: AppLocalizations.of(context)!.description,
+            labelText: AppLocalizations.of(context)!.description,
             border: OutlineInputBorder(),
           ),
         ),
@@ -339,7 +398,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
       children: [
         Obx(() {
           return SearchableMultiColumnDropdownField<String>(
-            labelText: 'Reference type',
+            labelText: AppLocalizations.of(context)!.referenceName,
             items: controller.referenceTypes,
             selectedValue: controller.selectedReferenceType.value,
             searchValue: (type) => type,
@@ -358,7 +417,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                 child: Text(type),
               );
             },
-            columnHeaders: const ['Type'],
+            columnHeaders: [AppLocalizations.of(context)!.type],
           );
         }),
       ],
@@ -372,7 +431,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
         const SizedBox(height: 8),
         Obx(() {
           return SearchableMultiColumnDropdownField<Map<String, dynamic>>(
-            labelText: 'Reference',
+            labelText: AppLocalizations.of(context)!.referenceId,
             items: controller.referenceList,
             enabled: !controller.isLoadingReference.value,
             selectedValue: controller.selectedReference.value,
@@ -461,7 +520,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Select Template *',
+                '${AppLocalizations.of(context)!.selectTemplate} *',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -501,7 +560,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      'Please select a template',
+                      AppLocalizations.of(context)!.pleaseSelectATemplate,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                         fontSize: 12,
@@ -519,7 +578,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              'Template is required',
+              AppLocalizations.of(context)!.templateIsRequired,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.error,
                 fontSize: 12,
@@ -658,19 +717,28 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
           }
 
           return MultiSelectMultiColumnDropdownField<Employee>(
+            key: ValueKey(controller.employeeDropdownRefresh.value),
+
             enabled: true,
-            labelText: 'Select User(s)',
+            labelText: AppLocalizations.of(context)!.selectUsers,
             items: controller.employees,
             selectedValues: controller.selectedEmployees,
             isMultiSelect: true,
             dropdownMaxHeight: 300,
 
-            searchValue: (emp) => '${emp.id} ${emp.fullName} ',
+            searchValue: (emp) => '${emp.id} ${emp.fullName}',
             displayText: (emp) => emp.fullName,
+
             onMultiChanged: (employees) {
               controller.selectedEmployees.assignAll(employees);
             },
-            columnHeaders: const ['Employee ID', 'Name', 'Department'],
+
+            columnHeaders: [
+              AppLocalizations.of(context)!.employeeId,
+              AppLocalizations.of(context)!.employeeName,
+              AppLocalizations.of(context)!.department,
+            ],
+
             rowBuilder: (emp, searchQuery) {
               return Padding(
                 padding: const EdgeInsets.symmetric(
@@ -681,12 +749,12 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                   children: [
                     Expanded(child: Text(emp.id)),
                     Expanded(child: Text(emp.fullName)),
-                    // Expanded(child: Text(emp.depo ?? 'N/A')),
                   ],
                 ),
               );
             },
-            onChanged: (emp) {}, // Not used for multi-select
+
+            onChanged: (_) {},
           );
         }),
 
@@ -733,6 +801,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
 
                   onDeleted: () {
                     controller.selectedEmployees.remove(emp);
+                    controller.employeeDropdownRefresh.value++;
                   },
                 );
               }).toList(),
@@ -748,60 +817,64 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        // Remove Obx wrapper since there are no observable variables inside
-        MultiSelectMultiColumnDropdownField<EmployeeGroup>(
-          enabled: true,
-          labelText: 'Select Groups',
-          items: controller.employeeGroups,
-          selectedValues: controller.selectedGroups,
-          isMultiSelect: true,
-          searchValue: (group) => '${group.name} ${group.description ?? ""}',
-          displayText: (group) => group.name,
-          dropdownMaxHeight: 300,
-          onMultiChanged: (groups) {
-            controller.selectedGroups.assignAll(groups);
+        Obx(() {
+          return MultiSelectMultiColumnDropdownField<EmployeeGroup>(
+            key: ValueKey(controller.groupDropdownRefresh.value),
 
-            // Add group members to selected employees
-            for (final group in groups) {
-              for (final member in group.members) {
-                if (!controller.selectedEmployees.any(
-                  (e) => e.id == member.id,
-                )) {
-                  controller.selectedEmployees.add(member);
+            enabled: true,
+            labelText: AppLocalizations.of(context)!.selectGroups,
+            items: controller.employeeGroups,
+            selectedValues: controller.selectedGroups,
+            isMultiSelect: true,
+            dropdownMaxHeight: 300,
+
+            searchValue: (group) => '${group.name} ${group.description ?? ""}',
+
+            displayText: (group) => group.name,
+
+            onMultiChanged: (groups) {
+              controller.selectedGroups.assignAll(groups);
+
+              /// Add members automatically
+              for (final group in groups) {
+                for (final member in group.members) {
+                  if (!controller.selectedEmployees.any(
+                    (e) => e.id == member.id,
+                  )) {
+                    controller.selectedEmployees.add(member);
+                  }
                 }
               }
-            }
-          },
-          columnHeaders: const ['Group Name', 'Description'],
-          rowBuilder: (group, searchQuery) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      group.id,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+
+              /// ✅ refresh dropdown
+              controller.groupDropdownRefresh.value++;
+            },
+
+            columnHeaders: [
+              AppLocalizations.of(context)!.group,
+              AppLocalizations.of(context)!.description,
+            ],
+
+            rowBuilder: (group, searchQuery) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(group.id)),
+                    Expanded(
+                      child: Text(group.description ?? 'No description'),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      group.description ?? 'No description',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-          onChanged: (group) {}, // Not used for multi-select
-        ),
+                  ],
+                ),
+              );
+            },
+
+            onChanged: (_) {},
+          );
+        }),
 
         // Show selected groups
         Obx(() {
@@ -819,29 +892,22 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                   label: Text(group.name),
                   onDeleted: () {
                     controller.selectedGroups.remove(group);
-                    // Remove group members from selected employees
+
+                    /// Remove group members safely
                     for (final member in group.members) {
-                      if (controller.selectedEmployees.any(
-                        (e) => e.id == member.id,
-                      )) {
-                        // Check if member is not in any other selected group
-                        bool isInOtherGroup = false;
-                        for (final otherGroup in controller.selectedGroups) {
-                          if (otherGroup != group &&
-                              otherGroup.members.any(
-                                (e) => e.id == member.id,
-                              )) {
-                            isInOtherGroup = true;
-                            break;
-                          }
-                        }
-                        if (!isInOtherGroup) {
-                          controller.selectedEmployees.removeWhere(
-                            (e) => e.id == member.id,
-                          );
-                        }
+                      bool existsInOtherGroup = controller.selectedGroups.any(
+                        (g) => g.members.any((e) => e.id == member.id),
+                      );
+
+                      if (!existsInOtherGroup) {
+                        controller.selectedEmployees.removeWhere(
+                          (e) => e.id == member.id,
+                        );
                       }
                     }
+
+                    /// ✅ instant dropdown sync
+                    controller.groupDropdownRefresh.value++;
                   },
                 );
               }).toList(),
@@ -880,7 +946,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                       ),
                     )
                   : Text(
-                      'Cancel',
+                      AppLocalizations.of(context)!.cancel,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -901,7 +967,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
               onPressed: isLoading
                   ? null
                   : () {
-                      if (_formKey.currentState!.validate()) {
+                      if (controller.validateBoardForm()) {
                         controller.submitForm(context);
                       }
                     },
@@ -919,7 +985,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
                       ),
                     )
                   : Text(
-                      'Save',
+                      AppLocalizations.of(context)!.save,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -937,14 +1003,12 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Board'),
-        content: const Text(
-          'Are you sure you want to delete this board? This action cannot be undone.',
-        ),
+        title: Text(AppLocalizations.of(context)!.deleteBoard),
+        content: Text(AppLocalizations.of(context)!.areYouSureDeleteBoard),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -952,7 +1016,10 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
               Navigator.pop(context);
               Navigator.pop(context, true); // Return success
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(
+              AppLocalizations.of(context)!.delete,
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),

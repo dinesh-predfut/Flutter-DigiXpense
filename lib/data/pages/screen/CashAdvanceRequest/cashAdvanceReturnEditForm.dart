@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -40,6 +41,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   TextEditingController merhantName = TextEditingController();
   final PhotoViewController _photoViewController = PhotoViewController();
   String? paidToError;
+  bool isLoading = true;
   late Future<Map<String, bool>> _featureFuture;
   bool _showUnitAmountError = false;
   bool _showLocationError = false;
@@ -83,7 +85,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
     projectConfig = controller.getFieldConfig("Project Id");
     taxGroupConfig = controller.getFieldConfig("Tax Group");
     taxAmountConfig = controller.getFieldConfig("Tax Amount");
-    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
+    isReimbursibleConfig = controller.getFieldConfig("Is Reimbursible");
     isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
     isBillableConfig = controller.getFieldConfig("Is Billable");
     isLocationConfig = controller.getFieldConfig("Location");
@@ -102,7 +104,9 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       controller.fetchExpenseDocImage(widget.items!.recId);
       print("widget.items!.stepType == " "${widget.items!.stepType}");
       historyFuture = controller.cashadvanceTracking(widget.items!.recId);
-
+  setState(() {
+    isLoading = true;
+  });
 
     final timestamp = widget.items!.requestDate;
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -147,7 +151,8 @@ controller.requestedPercentage.text =
     controller.expenseID = widget.items!.referenceId;
     controller.recID = widget.items!.recId;
 
-    _initializeItemizeControllers();
+     _initializeItemizeControllers();
+    
         });
   }
 
@@ -268,6 +273,9 @@ controller.currencyDropDowncontrollerCA2.text =
     for (int i = 0; i < itemizeControllers.length; i++) {
       _itemizeFormKeys[i] = GlobalKey<FormState>();
     }
+     setState(() {
+    isLoading = false;
+  });
   }
 
   void _initializeControllerAsyncData(
@@ -575,13 +583,13 @@ controller.requestedPercentage.text = maxPercentage.toString();
       isValid = false;
     }
 
-    if (controller.imageFiles.isEmpty) {
-      Fluttertoast.showToast(
-        msg: "Please upload at least one receipt image",
-        backgroundColor: Colors.red,
-      );
-      isValid = false;
-    }
+    // if (controller.imageFiles.isEmpty) {
+    //   Fluttertoast.showToast(
+    //     msg: "Please upload at least one receipt image",
+    //     backgroundColor: Colors.red,
+    //   );
+    //   isValid = false;
+    // }
 
     return isValid;
   }
@@ -609,7 +617,64 @@ controller.requestedPercentage.text = maxPercentage.toString();
     }
     return null;
   }
+Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
 
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+   
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
+  }
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -716,6 +781,181 @@ controller.requestedPercentage.text = maxPercentage.toString();
                 Obx(() {
   return Stack(
     children: [
+       Obx(() {
+          return GestureDetector(
+            onTap: _pickFile,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                             onTap: () =>
+    controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                               onTap: () {
+          if (controller.imageFiles.isEmpty &&
+              controller.isEnable.value &&
+              !controller.isLoadingviewImage.value) {
+            _pickFile;
+          }
+        },
+                             
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
       GestureDetector(
         onTap: () {
           if (controller.imageFiles.isEmpty &&
@@ -789,9 +1029,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
 }),
 
                       const SizedBox(height: 20),
-                      Text(AppLocalizations.of(context)!.receiptDetails,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
+                    
                       _buildTextField(
                         label: "${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *",
                         controller: expenseIdController,
@@ -834,6 +1072,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 child: Row(
                                   children: [
+                                    const SizedBox(width: 8),
                                     Expanded(child: Text(p.name)),
                                     Expanded(child: Text(p.id)),
                                   ],
@@ -857,7 +1096,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 4),
+                          
                           SearchableMultiColumnDropdownField<PaymentMethodModel>(
                             enabled: controller.isEnable.value,
                             labelText: AppLocalizations.of(context)!.paidWith,
@@ -890,6 +1129,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                               );
                             },
                           ),
+                          const SizedBox(height: 4),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -903,7 +1143,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
 
                               if (label == 'Refrence Id') {
                                 inputFields = _buildTextField(
-                                  label: AppLocalizations.of(context)!.referenceId,
+                                  label: '${AppLocalizations.of(context)!.referenceId} ${isMandatory ? "*" : ""}',
                                   controller: controller.referenceID,
                                   isReadOnly: controller.isEnable.value,
                                   validator: (value) => isRefrenceIDConfig.isMandatory
@@ -929,6 +1169,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                               );
                             })
                             .toList(),
+                            const SizedBox(height: 4),
                       TextFormField(
                         controller: controller.estimatedamountINR,
                         enabled: false,
@@ -961,13 +1202,16 @@ controller.requestedPercentage.text = maxPercentage.toString();
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               Text(
-                                "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.expense}",
+                                "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.details}",
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
-                          ListView.builder(
+                          
+                          isLoading
+    ? const Center(child: CircularProgressIndicator())
+    :ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: widget.items!.cshCashAdvReqTrans.length,
@@ -1020,7 +1264,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             ...controller.configListAdvance
-                                                .where((field) => field['IsEnabled'] == true && field['FieldName'] != 'Location' && field['FieldName'] != 'Refrence Id' && field['FieldName'] != 'Is Billable' && field['FieldName'] != 'is Reimbursible')
+                                                .where((field) => field['IsEnabled'] == true && field['FieldName'] != 'Location' && field['FieldName'] != 'Refrence Id' && field['FieldName'] != 'Is Billable' && field['FieldName'] != 'Is Reimbursible')
                                                 .map((field) {
                                                   final String label = field['FieldName'];
                                                   final bool isMandatory = field['IsMandatory'] ?? false;
@@ -2690,7 +2934,7 @@ controller.requestedPercentage.text = maxPercentage.toString();
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.comments,
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),

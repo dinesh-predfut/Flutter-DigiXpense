@@ -1,11 +1,11 @@
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -24,13 +24,13 @@ class HubCreatePerDiemPage extends StatefulWidget {
 
 class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
     with SingleTickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   bool _showProjectError = false;
   bool _showLocationError = false;
   late final int workitemrecid;
   bool allowMultSelect = false;
   late Future<List<ExpenseHistory>> historyFuture;
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +47,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
       }
 
       historyFuture = controller.fetchExpenseHistory(widget.item!.recId);
-      controller.split =
-          (widget.item!.accountingDistributions ?? []).map((dist) {
+      controller.split = (widget.item!.accountingDistributions ?? []).map((
+        dist,
+      ) {
         return AccountingSplit(
           paidFor: dist.dimensionValueId ?? '',
           percentage: dist.allocationFactor ?? 0.0,
@@ -67,10 +68,12 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
       });
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+        controller.isLoading.value=true;
       controller.fetchLocation();
       controller.fetchCustomFields();
       controller.configuration();
       await _initializeData();
+      controller.fetchExchangeRatePerdiem();
     });
   }
 
@@ -136,11 +139,13 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
   }
 
   Future<void> _initializeData() async {
+  
     final now = DateTime.now();
     final formatted = formatDate(now);
 
     controller.fromDateController.text = formatted;
     controller.toDateController.text = formatted;
+    controller.fetchExchangeRatePerdiem();
     if (widget.item == null) {
       await controller.fetchPerDiemRates();
     }
@@ -150,7 +155,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
       print("Its Called ");
       final item = widget.item!;
       controller.isManualEntry = false;
-      
+
       try {
         final matchedProject = controller.project.firstWhere(
           (p) => p.code == item.projectId,
@@ -165,25 +170,31 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
         final matchedLocation = controller.location.firstWhere(
           (l) => l.location == item.location,
         );
-        controller.selectedLocationController = matchedLocation.city;
+        controller.selectedLocationController = item.location!;
         controller.locationController.text = matchedLocation.location;
       } catch (e) {
         print("No matching location found for: ${item.location}");
       }
-
-      controller.fromDateController.text = DateFormat('dd-MMM-yyyy')
-          .format(DateTime.fromMillisecondsSinceEpoch(item.fromDate));
-      controller.toDateController.text = DateFormat('dd-MMM-yyyy')
-          .format(DateTime.fromMillisecondsSinceEpoch(item.toDate));  
+controller.exchangeamountInController.text=item.totalAmountReporting.toString();
+      controller.fromDateController.text = DateFormat(
+        'dd-MMM-yyyy',
+      ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate));
+      controller.toDateController.text = DateFormat(
+        'dd-MMM-yyyy',
+      ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate));
       controller.expenseIdController.text = item.expenseId;
       controller.employeeIdController.text = item.employeeId!;
-      controller.amountInController.text = item.totalAmountTrans.toString();
+      controller.employeeName.text = item.employeeName ?? "";
+      controller.amountInController.text = item.totalAmountReporting.toString();
       controller.purposeController.text = item.description ?? '';
       historyFuture = controller.fetchExpenseHistory(item.recId);
       controller.allocationLines = item.allocationLines;
       controller.accountingDistributions = item.accountingDistributions;
+      
       controller.fetchPerDiemRates();
+          controller.fetchExchangeRatePerdiem();
     }
+     controller.isLoading.value=false;
   }
 
   String formatDate(DateTime date) {
@@ -192,49 +203,69 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
 
   @override
   Widget build(BuildContext context) {
-     final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context)!;
     return WillPopScope(
       onWillPop: () async {
         controller.clearFormFieldsPerdiem();
         controller.isEditModePerdiem = false;
         return true;
-      }, 
+      },
       child: Scaffold(
         body: Obx(() {
+          //  if (controller.isLoading.value) {
+          //         return const Padding(
+          //           padding: EdgeInsets.symmetric(vertical: 40),
+          //           child: Center(child: SkeletonLoaderPage()),
+          //         );
+          //       }
           return Container(
-                  decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            loc.perDiemDetails,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: 
+               Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        loc.perDiemDetails,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                        const SizedBox(height: 20),
-                        if (widget.item != null)
-                          buildTextField("${loc.expenseId}*",
-                              controller.expenseIdController,
-                              readOnly: true),
-                        if (widget.item != null)
-                          buildTextField("${loc.employeeId} *",
-                              controller.employeeIdController,
-                              readOnly: true),
-                        ...controller.configList
-                            .where((field) =>
-                                field['FieldName'] == 'Project Id' &&
-                                field['IsEnabled'] == true)
-                            .map((field) {
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (widget.item != null)
+                      buildTextField(
+                        "${loc.expenseId}*",
+                        controller.expenseIdController,
+                        readOnly: true,
+                      ),
+                    if (widget.item != null)
+                      buildTextField(
+                        "${loc.employeeId} *",
+                        controller.employeeIdController,
+                        readOnly: true,
+                      ),
+                    buildTextField(
+                      "${loc.employeeName} *",
+                      controller.employeeName,
+                      readOnly: true,
+                    ),
+                    ...controller.configList
+                        .where(
+                          (field) =>
+                              field['FieldName'] == 'Project Id' &&
+                              field['IsEnabled'] == true,
+                        )
+                        .map((field) {
                           final String label = field['FieldName'];
                           final bool isMandatory =
                               field['IsMandatory'] ?? false;
@@ -247,10 +278,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                               SearchableMultiColumnDropdownField<Project>(
                                 labelText:
                                     '${loc.projectId} ${isMandatory ? "*" : ""}',
-                                columnHeaders: [
-                                  loc.projectName,
-                                  loc.projectId
-                                ],
+                                columnHeaders: [loc.projectName, loc.projectId],
                                 enabled: controller.isEditModePerdiem,
                                 controller: controller.projectIdController,
                                 items: controller.project,
@@ -271,9 +299,12 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                 rowBuilder: (proj, searchQuery) {
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
                                     child: Row(
                                       children: [
+                                        SizedBox(width: 10),
                                         Expanded(child: Text(proj.name)),
                                         Expanded(child: Text(proj.code)),
                                       ],
@@ -287,7 +318,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                   child: Text(
                                     loc.pleaseSelectProject,
                                     style: const TextStyle(
-                                        color: Colors.red, fontSize: 12),
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -301,20 +334,22 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                               const SizedBox(height: 16),
                             ],
                           );
-                        }).toList(),
-                        ...controller.configList
-                            .where((field) =>
-                                field['FieldName'] == 'Location' &&
-                                field['IsEnabled'] == true)
-                            .map((field) {
+                        })
+                        .toList(),
+                    ...controller.configList
+                        .where(
+                          (field) =>
+                              field['FieldName'] == 'Location' &&
+                              field['IsEnabled'] == true,
+                        )
+                        .map((field) {
                           final bool isMandatory =
                               field['IsMandatory'] ?? false;
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SearchableMultiColumnDropdownField<
-                                  LocationModel>(
+                              SearchableMultiColumnDropdownField<LocationModel>(
                                 labelText:
                                     '${loc.location} ${isMandatory ? "*" : ""}',
                                 items: controller.location,
@@ -323,24 +358,22 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                 controller: controller.locationController,
                                 searchValue: (proj) => proj.location,
                                 displayText: (proj) => proj.location,
-                                validator: (proj) =>
-                                    isMandatory && proj == null
-                                        ? loc.selectLocale
-                                        : null,
+                                validator: (proj) => isMandatory && proj == null
+                                    ? loc.selectLocale
+                                    : null,
                                 onChanged: (proj) {
                                   controller.selectedLocation = proj;
                                   controller.fetchPerDiemRates();
                                   loadAndAppendCashAdvanceList();
                                   field['Error'] = null;
                                 },
-                                columnHeaders: [
-                                  loc.location,
-                                  loc.country
-                                ],
+                                columnHeaders: [loc.location, loc.country],
                                 rowBuilder: (proj, searchQuery) {
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
                                     child: Row(
                                       children: [
                                         Expanded(child: Text(proj.location)),
@@ -356,643 +389,781 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                   child: Text(
                                     loc.pleaseSelectLocation,
                                     style: const TextStyle(
-                                        color: Colors.red, fontSize: 12),
-                                  ),
-                                ),
-                            ],
-                          );
-                        }).toList(),
-                        const SizedBox(height: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MultiSelectMultiColumnDropdownField<
-                                CashAdvanceDropDownModel>(
-                              labelText: loc.cashAdvanceRequest,
-                              controller: controller.cashAdvanceIds,
-                              items: controller.cashAdvanceListDropDown,
-                              isMultiSelect: allowMultSelect ?? false,
-                              selectedValue: controller.singleSelectedItem,
-                              selectedValues: controller.multiSelectedItems,
-                              enabled: controller.isEditModePerdiem,
-                              searchValue: (proj) =>
-                                  '${proj.cashAdvanceReqId}',
-                              displayText: (proj) => proj.cashAdvanceReqId,
-                              validator: (proj) => proj == null
-                                  ? loc.pleaseSelectCashAdvanceField
-                                  : null,
-                              onChanged: (item) {},
-                              onMultiChanged: (items) {},
-                              columnHeaders: [
-                                loc.requestId,
-                                loc.requestDate
-                              ],
-                              rowBuilder: (proj, searchQuery) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 12, horizontal: 16),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                          child: Text(proj.cashAdvanceReqId)),
-                                      Expanded(
-                                        child: Text(
-                                            controller.formattedDate(
-                                                proj.requestDate)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            buildDateField("${loc.fromDate} *",
-                                controller.fromDateController, true,
-                                enabled: controller.isEditModePerdiem),
-                            buildDateField("${loc.toDate} *",
-                                controller.toDateController, false,
-                                enabled: controller.isEditModePerdiem),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: buildTextField(
-                                    "${loc.noOfDays}*",
-                                    controller.daysController,
-                                    readOnly: true,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                if (widget.item == null ||
-                                    controller.isEditModePerdiem)
-                                  SizedBox(
-                                    width: 50,
-                                    child: stylishSettingsButton(
-                                      onPressed: () {
-                                        _showSettingsPopup();
-                                      },
+                                      color: Colors.red,
+                                      fontSize: 12,
                                     ),
                                   ),
-                              ],
+                                ),
+                              const SizedBox(height: 14),
+                            ],
+                          );
+                        })
+                        .toList(),
+
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MultiSelectMultiColumnDropdownField<
+                          CashAdvanceDropDownModel
+                        >(
+                          labelText: loc.cashAdvanceRequest,
+                          controller: controller.cashAdvanceIds,
+                          items: controller.cashAdvanceListDropDown,
+                          isMultiSelect: allowMultSelect ?? false,
+                          selectedValue: controller.singleSelectedItem,
+                          selectedValues: controller.multiSelectedItems,
+                          enabled: controller.isEditModePerdiem,
+                          searchValue: (proj) => '${proj.cashAdvanceReqId}',
+                          displayText: (proj) => proj.cashAdvanceReqId,
+                          validator: (proj) => proj == null
+                              ? loc.pleaseSelectCashAdvanceField
+                              : null,
+                          onChanged: (item) {},
+                          onMultiChanged: (items) {},
+                          columnHeaders: [loc.requestId, loc.requestDate],
+                          rowBuilder: (proj, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(proj.cashAdvanceReqId)),
+                                  Expanded(
+                                    child: Text(
+                                      controller.formattedDate(
+                                        proj.requestDate,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        buildDateField(
+                          "${loc.fromDate} *",
+                          controller.fromDateController,
+                          true,
+                          enabled: controller.isEditModePerdiem,
+                        ),
+                        buildDateField(
+                          "${loc.toDate} *",
+                          controller.toDateController,
+                          false,
+                          enabled: controller.isEditModePerdiem,
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: buildTextField(
+                                "${loc.noOfDays}*",
+                                controller.daysController,
+                                readOnly: true,
+                              ),
                             ),
-                            buildTextField(
-                                "${loc.perDiem}*", controller.perDiemController,
-                                readOnly: true),
-                            buildTextField(
-                                "${loc.totalAmount} ${controller.exchangeCurrencyCode.text}*",
-                                controller.exchangeamountInController,
-                                readOnly: true),
-                            buildTextField(loc.totalAmountInInr,
-                                controller.amountInController,
-                                readOnly: true),
-                            buildTextField(
-                                loc.purpose, controller.purposeController,
-                                readOnly: !controller.isEditModePerdiem),
-                            Obx(() {
-                              return Column(
-                                children:
-                                    controller.customFields.map((field) {
-                                  final String label =
-                                      field['FieldLabel'] ??
-                                          field['FieldName'];
-                                  final bool isMandatory =
-                                      field['IsMandatory'] ?? false;
+                            const SizedBox(width: 8),
+                            if (widget.item == null ||
+                                controller.isEditModePerdiem)
+                              SizedBox(
+                                width: 50,
+                                child: stylishSettingsButton(
+                                  onPressed: () {
+                                    _showSettingsPopup();
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                        buildTextField(
+                          "${loc.perDiem}*",
+                          controller.perDiemController,
+                          readOnly: true,
+                        ),
+                        buildTextField(
+                          "${loc.totalAmount} ${controller.exchangeCurrencyCode.text}*",
+                          controller.exchangeamountInController,
+                          readOnly: true,
+                        ),
+                        buildTextField(
+                          loc.totalAmountInInr,
+                          controller.amountInController,
+                          readOnly: true,
+                        ),
+                        buildTextField(
+                          loc.purpose,
+                          controller.purposeController,
+                          readOnly: !controller.isEditModePerdiem,
+                        ),
+                        Obx(() {
+                          return Column(
+                            children: controller.customFields.map((field) {
+                              final String label =
+                                  field['FieldLabel'] ?? field['FieldName'];
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
 
-                                  Widget inputField;
+                              Widget inputField;
 
-                                  if (field['FieldType'] == 'List') {
-                                    inputField =
-                                        DropdownButtonFormField<String>(
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                      ),
-                                      value: field['SelectedValue'],
-                                      items: (field['Options']
-                                                  as List<dynamic>?)
-                                              ?.map((option) {
-                                            return DropdownMenuItem<String>(
-                                              value: option.toString(),
-                                              child: Text(option.toString()),
-                                            );
-                                          }).toList() ??
-                                          [],
-                                      onChanged: (value) {
-                                        field['SelectedValue'] = value;
-                                        controller.customFields.refresh();
-                                      },
+                              if (field['FieldType'] == 'List') {
+                                inputField = DropdownButtonFormField<String>(
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        '$label${isMandatory ? " *" : ""}',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  value: field['SelectedValue'],
+                                  items:
+                                      (field['Options'] as List<dynamic>?)?.map(
+                                        (option) {
+                                          return DropdownMenuItem<String>(
+                                            value: option.toString(),
+                                            child: Text(option.toString()),
+                                          );
+                                        },
+                                      ).toList() ??
+                                      [],
+                                  onChanged: (value) {
+                                    field['SelectedValue'] = value;
+                                    controller.customFields.refresh();
+                                  },
+                                );
+                              } else {
+                                inputField = TextField(
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        '$label${isMandatory ? " *" : ""}',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  onChanged: (value) {
+                                    field['EnteredValue'] = value;
+                                    controller.customFields.refresh();
+                                  },
+                                );
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: inputField,
+                              );
+                            }).toList(),
+                          );
+                        }),
+
+                        if (controller.isEditModePerdiem)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  final double lineAmount =
+                                      double.tryParse(
+                                        controller.amountInController.text,
+                                      ) ??
+                                      0.0;
+
+                                  if (controller.split.isEmpty &&
+                                      controller
+                                          .accountingDistributions
+                                          .isNotEmpty) {
+                                    controller.split.assignAll(
+                                      controller.accountingDistributions.map((
+                                        e,
+                                      ) {
+                                        return AccountingSplit(
+                                          paidFor: e!.dimensionValueId,
+                                          percentage: e.allocationFactor,
+                                          amount: e.transAmount,
+                                        );
+                                      }).toList(),
                                     );
-                                  } else {
-                                    inputField = TextField(
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                        controller.customFields.refresh();
-                                      },
+                                  } else if (controller.split.isEmpty) {
+                                    controller.split.add(
+                                      AccountingSplit(percentage: 100.0),
                                     );
                                   }
 
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 8),
-                                    child: inputField,
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(16),
+                                      ),
+                                    ),
+                                    builder: (context) => Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(
+                                          context,
+                                        ).viewInsets.bottom,
+                                        left: 16,
+                                        right: 16,
+                                        top: 24,
+                                      ),
+                                      child: SingleChildScrollView(
+                                        child: AccountingDistributionWidget(
+                                          splits: controller.split,
+                                          lineAmount: lineAmount,
+                                          onChanged: (i, updatedSplit) {
+                                            if (!mounted) return;
+                                            controller.split[i] = updatedSplit;
+                                          },
+                                          onDistributionChanged: (newList) {
+                                            if (!mounted) return;
+                                            controller.accountingDistributions
+                                                .clear();
+                                            controller.accountingDistributions
+                                                .addAll(newList);
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                   );
-                                }).toList(),
-                              );
-                            }),
-
-                            if (controller.isEditModePerdiem)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      final double lineAmount =
-                                          double.tryParse(controller
-                                                  .amountInController
-                                                  .text) ??
-                                              0.0;
-
-                                      if (controller.split.isEmpty &&
-                                          controller.accountingDistributions
-                                              .isNotEmpty) {
-                                        controller.split.assignAll(
-                                          controller.accountingDistributions
-                                              .map((e) {
-                                            return AccountingSplit(
-                                              paidFor: e!.dimensionValueId,
-                                              percentage: e.allocationFactor,
-                                              amount: e.transAmount,
-                                            );
-                                          }).toList(),
-                                        );
-                                      } else if (controller.split.isEmpty) {
-                                        controller.split.add(
-                                            AccountingSplit(
-                                                percentage: 100.0));
-                                      }
-
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        shape: const RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.vertical(
-                                              top: Radius.circular(16)),
-                                        ),
-                                        builder: (context) => Padding(
-                                          padding: EdgeInsets.only(
-                                            bottom: MediaQuery.of(context)
-                                                .viewInsets
-                                                .bottom,
-                                            left: 16,
-                                            right: 16,
-                                            top: 24,
-                                          ),
-                                          child: SingleChildScrollView(
-                                            child:
-                                                AccountingDistributionWidget(
-                                              splits: controller.split,
-                                              lineAmount: lineAmount,
-                                              onChanged: (i, updatedSplit) {
-                                                if (!mounted) return;
-                                                controller.split[i] =
-                                                    updatedSplit;
-                                              },
-                                              onDistributionChanged:
-                                                  (newList) {
-                                                if (!mounted) return;
-                                                controller
-                                                    .accountingDistributions
-                                                    .clear();
-                                                controller
-                                                    .accountingDistributions
-                                                    .addAll(newList);
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Text(loc.accountDistribution),
-                                  ),
-                                ],
+                                },
+                                child: Text(loc.accountDistribution),
                               ),
-                            if (widget.item != null)
-                              const SizedBox(height: 10),
-                            if (widget.item != null)
-                              _buildSection(
-                                title: loc.trackingHistory,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  FutureBuilder<List<ExpenseHistory>>(
-                                    future: historyFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const Center(
-                                            child: CircularProgressIndicator());
-                                      }
-
-                                     
-                  if (snapshot.hasError) {
-                    return Center(child: Text("No Data Available Please Skip Next"));
-                  }
-
-                                      final historyList = snapshot.data!;
-                                      if (historyList.isEmpty) {
-                                        return Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(16),
-                                            child: Text(
-                                              loc.noHistoryMessage,
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                  color: Colors.grey),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      print("historyList: $historyList");
-                                      return ListView.builder(
-                                        shrinkWrap: true,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        itemCount: historyList.length,
-                                        itemBuilder: (context, index) {
-                                          final item = historyList[index];
-                                          print("Trackingitem: $item");
-                                          return _buildTimelineItem(
-                                            item,
-                                            index == historyList.length - 1,
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: 20),
-                            const SizedBox(height: 20),
-
-                    if (widget.item != null &&
-                        widget.item!.stepType == "Review") ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoadingUpdate =
-                                  controller.buttonLoaders['update'] ?? false;
-                              bool isAnyLoading = controller
-                                  .buttonLoaders.values
-                                  .any((loading) => loading == true);
-
-                              return ElevatedButton(
-                                onPressed: (isLoadingUpdate || isAnyLoading)
-                                    ? null
-                                    : () async {
-                                        controller.setButtonLoading(
-                                            'update', true);
-                                        try {
-                                          if (validateForm()) {
-                                            await controller
-                                                .hubperdiemApprovalReview(
-                                              context,
-                                              false,
-                                              widget.item!.workitemrecid,
-                                              widget.item!.recId.toString(),
-                                              widget.item!.expenseId.toString(),
-                                            );
-                                          } else {
-                                            print("Validation failed");
-                                          }
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'update', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 3, 20, 117),
-                                ),
-                                child: isLoadingUpdate
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        AppLocalizations.of(context)!.update,
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
-                              );
-                            }),
+                            ],
                           ),
-                          const SizedBox(width: 12),
+                        if (widget.item != null) const SizedBox(height: 10),
+                        if (widget.item != null)
+                          _buildSection(
+                            title: loc.trackingHistory,
+                            children: [
+                              const SizedBox(height: 12),
+                              FutureBuilder<List<ExpenseHistory>>(
+                                future: historyFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
 
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoadingAccept =
-                                  controller.buttonLoaders['updateAccept'] ??
-                                      false;
-                              bool isAnyLoading = controller
-                                  .buttonLoaders.values
-                                  .any((loading) => loading == true);
-
-                              return ElevatedButton(
-                                onPressed: (isLoadingAccept || isAnyLoading)
-                                    ? null
-                                    : () async {
-                                        controller.setButtonLoading(
-                                            'updateAccept', true);
-                                        try {
-                                          await controller
-                                              .hubperdiemApprovalReview(
-                                            context,
-                                            true,
-                                            widget.item!.workitemrecid,
-                                            widget.item!.recId.toString(),
-                                            widget.item!.expenseId.toString(),
-                                          );
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'updateAccept', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 3, 20, 117),
-                                ),
-                                child: isLoadingAccept
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    :  Text(
-                                        AppLocalizations.of(context)!.updateAndAccept,
-                                        style: const TextStyle(color: Colors.white),
+                                  if (snapshot.hasError) {
+                                    return Center(
+                                      child: Text(
+                                        "No Data Available Please Skip Next",
                                       ),
-                              );
-                            }),
+                                    );
+                                  }
+
+                                  final historyList = snapshot.data!;
+                                  if (historyList.isEmpty) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          loc.noHistoryMessage,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  print("historyList: $historyList");
+                                  return ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: historyList.length,
+                                    itemBuilder: (context, index) {
+                                      final item = historyList[index];
+                                      print("Trackingitem: $item");
+                                      return _buildTimelineItem(
+                                        item,
+                                        index == historyList.length - 1,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 20),
+                        const SizedBox(height: 20),
+
+                        if (widget.item != null &&
+                            widget.item!.stepType == "Review") ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoadingUpdate =
+                                      controller.buttonLoaders['update'] ??
+                                      false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders
+                                      .values
+                                      .any((loading) => loading == true);
+
+                                  return ElevatedButton(
+                                    onPressed: (isLoadingUpdate || isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                              'update',
+                                              true,
+                                            );
+                                            try {
+                                              if (validateForm()) {
+                                                await controller
+                                                    .hubperdiemApprovalReview(
+                                                      context,
+                                                      false,
+                                                      widget
+                                                          .item!
+                                                          .workitemrecid,
+                                                      widget.item!.recId
+                                                          .toString(),
+                                                      widget.item!.expenseId
+                                                          .toString(),
+                                                    );
+                                              } else {
+                                                print("Validation failed");
+                                              }
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'update',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
+                                      ),
+                                    ),
+                                    child: isLoadingUpdate
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.update,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 12),
+
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoadingAccept =
+                                      controller
+                                          .buttonLoaders['updateAccept'] ??
+                                      false;
+                                  bool isAnyLoading = controller
+                                      .buttonLoaders
+                                      .values
+                                      .any((loading) => loading == true);
+
+                                  return ElevatedButton(
+                                    onPressed: (isLoadingAccept || isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                              'updateAccept',
+                                              true,
+                                            );
+                                            try {
+                                              await controller
+                                                  .hubperdiemApprovalReview(
+                                                    context,
+                                                    true,
+                                                    widget.item!.workitemrecid,
+                                                    widget.item!.recId
+                                                        .toString(),
+                                                    widget.item!.expenseId
+                                                        .toString(),
+                                                  );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'updateAccept',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
+                                      ),
+                                    ),
+                                    child: isLoadingAccept
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.updateAndAccept,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoading =
+                                      controller.buttonLoaders['reject'] ??
+                                      false;
+                                  return ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                              'reject',
+                                              true,
+                                            );
+                                            try {
+                                              showActionPopup(
+                                                context,
+                                                "Reject",
+                                              );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'reject',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        238,
+                                        20,
+                                        20,
+                                      ),
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.reject,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    controller.skipCurrentItem(
+                                      widget.item!.workitemrecid!,
+                                      context,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey,
+                                  ),
+                                  child: Text(
+                                    AppLocalizations.of(context)!.skip,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoading =
-                                  controller.buttonLoaders['reject'] ?? false;
-                              return ElevatedButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () async {
-                                        controller.setButtonLoading(
-                                            'reject', true);
-                                        try {
-                                          showActionPopup(context, "Reject");
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'reject', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 238, 20, 20),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(AppLocalizations.of(context)!.reject,
-                                        style: const TextStyle(color: Colors.white)),
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                controller.skipCurrentItem(
-                                    widget.item!.workitemrecid!, context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey),
-                              child: Text(
-                                AppLocalizations.of(context)!.skip,
+  const SizedBox(height: 20),
+                        if (widget.item != null &&
+                            widget.item!.stepType == "Approval") ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoading =
+                                      controller.buttonLoaders['approve'] ??
+                                      false;
+                                  return ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'approve',
+                                              true,
+                                            );
+                                            try {
+                                              showActionPopup(
+                                                context,
+                                                "Approve",
+                                              );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'approve',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        30,
+                                        117,
+                                        3,
+                                      ),
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.approve,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
                               ),
+                              const SizedBox(width: 12),
+
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoading =
+                                      controller.buttonLoaders['reject'] ??
+                                      false;
+                                  return ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'reject',
+                                              true,
+                                            );
+                                            try {
+                                              showActionPopup(
+                                                context,
+                                                "Reject",
+                                              );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'reject',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        238,
+                                        20,
+                                        20,
+                                      ),
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.reject,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  bool isLoading =
+                                      controller.buttonLoaders['escalate'] ??
+                                      false;
+                                  return ElevatedButton(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () {
+                                            controller.setButtonLoading(
+                                              'escalate',
+                                              true,
+                                            );
+                                            try {
+                                              showActionPopup(
+                                                context,
+                                                "Escalate",
+                                              );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'escalate',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        3,
+                                        20,
+                                        117,
+                                      ),
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            )!.escalate,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(width: 12),
+
+                              Expanded(
+                                child: Obx(() {
+                                  final isLoadingClose =
+                                      controller
+                                          .buttonLoaders['close_review'] ??
+                                      false;
+                                  final isAnyLoading = controller
+                                      .buttonLoaders
+                                      .values
+                                      .any((loading) => loading == true);
+
+                                  return ElevatedButton(
+                                    onPressed: (isLoadingClose || isAnyLoading)
+                                        ? null
+                                        : () async {
+                                            controller.setButtonLoading(
+                                              'close_review',
+                                              true,
+                                            );
+                                            try {
+                                              controller.skipCurrentItem(
+                                                widget.item!.workitemrecid!,
+                                                context,
+                                              );
+                                            } finally {
+                                              controller.setButtonLoading(
+                                                'close_review',
+                                                false,
+                                              );
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey,
+                                    ),
+                                    child: isLoadingClose
+                                        ? const CircularProgressIndicator(
+                                            color: Colors.black,
+                                            strokeWidth: 2,
+                                          )
+                                        : Text(
+                                            AppLocalizations.of(context)!.skip,
+                                          ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+
+                        if (!controller.isEditModePerdiem)
+                          ElevatedButton(
+                            onPressed: () => controller.chancelButton(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                            ),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(color: Colors.black),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-
-                    if (widget.item != null &&
-                        widget.item!.stepType == "Approval") ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoading =
-                                  controller.buttonLoaders['approve'] ?? false;
-                              return ElevatedButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () {
-                                        controller.setButtonLoading(
-                                            'approve', true);
-                                        try {
-                                          showActionPopup(context, "Approve");
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'approve', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 30, 117, 3),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        AppLocalizations.of(context)!.approve,
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 12),
-
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoading =
-                                  controller.buttonLoaders['reject'] ?? false;
-                              return ElevatedButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () {
-                                        controller.setButtonLoading(
-                                            'reject', true);
-                                        try {
-                                          showActionPopup(context, "Reject");
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'reject', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 238, 20, 20),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        AppLocalizations.of(context)!.reject,
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Obx(() {
-                              bool isLoading =
-                                  controller.buttonLoaders['escalate'] ?? false;
-                              return ElevatedButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () {
-                                        controller.setButtonLoading(
-                                            'escalate', true);
-                                        try {
-                                          showActionPopup(context, "Escalate");
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'escalate', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color.fromARGB(255, 3, 20, 117),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        AppLocalizations.of(context)!.escalate,
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(width: 12),
-
-                          Expanded(
-                            child: Obx(() {
-                              final isLoadingClose =
-                                  controller.buttonLoaders['close_review'] ??
-                                      false;
-                              final isAnyLoading = controller
-                                  .buttonLoaders.values
-                                  .any((loading) => loading == true);
-
-                              return ElevatedButton(
-                                onPressed: (isLoadingClose || isAnyLoading)
-                                    ? null
-                                    : () async {
-                                        controller.setButtonLoading(
-                                            'close_review', true);
-                                        try {
-                                          controller.skipCurrentItem(
-                                              widget.item!.workitemrecid!,
-                                              context);
-                                        } finally {
-                                          controller.setButtonLoading(
-                                              'close_review', false);
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey,
-                                ),
-                                child: isLoadingClose
-                                    ? const CircularProgressIndicator(
-                                        color: Colors.black,
-                                        strokeWidth: 2,
-                                      )
-                                    : Text(
-                                        AppLocalizations.of(context)!.skip,
-                                      ),
-                              );
-                            }),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    if (!controller.isEditModePerdiem)
-                      ElevatedButton(
-                        onPressed: () => controller.chancelButton(context),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey),
-                        child: const Text("Cancel",
-                            style: TextStyle(color: Colors.black)),
-                      )
+                      ],
+                    ),
                   ],
-                ),
-              ])
-            ));
-        }))
-      );
+                )
+              
+            ),
+          );
+        }),
+      ),
+    );
   }
 
-  Widget buildTextField(String label, TextEditingController controller,
-      {bool readOnly = false}) {
+  Widget buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
@@ -1008,28 +1179,70 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
   }
 
   Widget buildDateField(
-      String label, TextEditingController controllers, bool showDatePickerOnTap,
-      {bool enabled = true}) {
+    String label,
+    TextEditingController controllers,
+    bool isFromDate, {
+    bool enabled = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: GestureDetector(
         onTap: enabled
             ? () async {
+                DateTime initialDate = DateTime.now();
+
+                if (controllers.text.trim().isNotEmpty) {
+                  try {
+                    initialDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controllers.text.trim());
+                  } catch (_) {}
+                }
+
+                DateTime firstDate = DateTime(2000);
+                DateTime lastDate = DateTime.now();
+
+                if (!isFromDate &&
+                    controller.fromDateController.text.isNotEmpty) {
+                  try {
+                    firstDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controller.fromDateController.text.trim());
+                  } catch (_) {}
+                }
+
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateFormat('dd-MMM-yyyy')
-                      .parseStrict(controllers.text.trim()),
+                  initialDate: initialDate,
                   firstDate: DateTime(2000),
                   lastDate: DateTime.now(),
+                  
                 );
+
                 if (picked != null) {
-                  if (showDatePickerOnTap) {
-                    controller.selectedDate = picked;
+                  if (!isFromDate &&
+                      controller.fromDateController.text.isNotEmpty) {
+                    final fromDate = DateFormat(
+                      'dd-MMM-yyyy',
+                    ).parseStrict(controller.fromDateController.text.trim());
+                    if (picked.isBefore(fromDate)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "To Date cannot be earlier than From Date.",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                   }
-                  controller.selectedDate = picked;
+
                   controllers.text = formatDate(picked);
+                  await controller.fetchPerDiemRates();
+                  controller.fetchExchangeRatePerdiem();
+
                   if (controller.locationController.text.isNotEmpty) {
-                    controller.fetchPerDiemRates();
+                    loadAndAppendCashAdvanceList();
                   }
                 }
               }
@@ -1041,7 +1254,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
             decoration: InputDecoration(
               labelText: label,
               filled: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               suffixIcon: const Icon(Icons.calendar_today),
             ),
           ),
@@ -1060,7 +1275,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
             title: Text(
               title,
@@ -1073,8 +1290,13 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),
@@ -1131,10 +1353,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                       Obx(
                         () => SearchableMultiColumnDropdownField<User>(
                           labelText: '${loc.user} *',
-                          columnHeaders: [
-                            loc.userName,
-                            loc.userId,
-                          ],
+                          columnHeaders: [loc.userName, loc.userId],
                           items: controller.userList,
                           selectedValue: controller.selectedUser.value,
                           searchValue: (user) =>
@@ -1149,7 +1368,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                           rowBuilder: (user, searchQuery) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
                               child: Row(
                                 children: [
                                   Expanded(child: Text(user.userName)),
@@ -1163,10 +1384,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 16),
-                    Text(
-                      loc.comments,
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                    Text('${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
@@ -1187,7 +1405,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                             width: 2,
                           ),
                         ),
-                        errorText: isCommentError ? 'Comment is required.' : null,
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
                       ),
                       onChanged: (value) {
                         if (isCommentError && value.trim().isNotEmpty) {
@@ -1200,7 +1420,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                           onPressed: () {
+                          onPressed: () {
                             controller.closeField();
                             Navigator.pop(context);
                           },
@@ -1218,19 +1438,22 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(
-                                child: SkeletonLoaderPage(),
-                              ),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
-                            final success = await controller.approvalHubpostApprovalAction(
+                            final success = await controller
+                                .approvalHubpostApprovalAction(
+                                  context,
+                                  workitemrecid: [workitemrecid!],
+                                  decision: status,
+                                  comment: commentController.text,
+                                );
+
+                            if (Navigator.of(
                               context,
-                              workitemrecid: [workitemrecid!],
-                              decision: status,
-                              comment: commentController.text,
-                            );
-
-                            if (Navigator.of(context, rootNavigator: true).canPop()) {
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
@@ -1238,12 +1461,15 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
 
                             if (success) {
                               Navigator.pushNamed(
-                                  context, AppRoutes.approvalHubMain);
+                                context,
+                                AppRoutes.approvalHubMain,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('Failed to submit action')),
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -1286,8 +1512,10 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -1299,14 +1527,12 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
 
-  Widget stylishSettingsButton({
-    required VoidCallback onPressed,
-  }) {
+  Widget stylishSettingsButton({required VoidCallback onPressed}) {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
@@ -1334,9 +1560,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
     }
     await showModalBottomSheet(
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       context: context,
       builder: (_) {
         return Padding(
@@ -1354,7 +1578,10 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                   children: [
                     const Text(
                       'Allocation Settings',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     if (controller.allocationLines.isNotEmpty)
@@ -1380,7 +1607,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                             backgroundColor: Colors.grey[300],
                             foregroundColor: Colors.black,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                           ),
                           child: const Text('Cancel'),
                         ),
@@ -1390,20 +1619,23 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                               ? () {
                                   for (var data in controller.allocationLines) {
                                     if (controller.setTheAllcationAmount == 0) {
-                                      controller.setTheAllcationAmount =
-                                          data.unitPriceTrans.toInt();
+                                      controller.setTheAllcationAmount = data
+                                          .unitPriceTrans
+                                          .toInt();
                                     }
                                     data.unitPriceTrans =
                                         controller.setTheAllcationAmount *
-                                            data.parsed;
+                                        data.parsed;
                                     data.quantity = data.parsed;
                                   }
 
-                                  double updatedTotal =
-                                      controller.allocationLines.fold(
-                                    0.0,
-                                    (sum, item) => sum + item.unitPriceTrans,
-                                  );
+                                  double updatedTotal = controller
+                                      .allocationLines
+                                      .fold(
+                                        0.0,
+                                        (sum, item) =>
+                                            sum + item.unitPriceTrans,
+                                      );
                                   controller.amountInController.text =
                                       updatedTotal.toStringAsFixed(2);
 
@@ -1415,7 +1647,9 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                                 ? AppColors.gradientEnd
                                 : Colors.grey,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                           ),
                           child: Text(
                             'Save',
@@ -1439,9 +1673,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
   }
 
   bool _isSaveButtonEnabled() {
-    return controller.allocationLines.every(
-      (data) => data.errorText == null,
-    );
+    return controller.allocationLines.every((data) => data.errorText == null);
   }
 
   Widget _buildAllocationCard(AllocationLine data, {bool isPopup = false}) {
@@ -1461,7 +1693,8 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: 'Effective From',
                   value: _formatDate(
-                      DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom)),
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1480,7 +1713,8 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: 'Effective To',
                   value: _formatDate(
-                      DateTime.fromMillisecondsSinceEpoch(data.effectiveTo)),
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveTo),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1496,8 +1730,10 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1515,48 +1751,54 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('No. of Days',
-            style: TextStyle(fontSize: 12, color: Colors.black54)),
+        const Text(
+          'No. of Days',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
         const SizedBox(height: 4),
         SizedBox(
-            width: 110,
-            height: 40,
-            child: TextFormField(
-              initialValue: data.quantity.toString(),
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                filled: true,
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          width: 110,
+          height: 40,
+          child: TextFormField(
+            initialValue: data.quantity.toString(),
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
               ),
-              onChanged: (val) {
-                setState(() {
-                  if (val.isEmpty) {
-                    data.parsed = 0;
-                    data.errorText = "Please enter number of days";
-                  } else {
-                    final parsed = double.tryParse(val);
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onChanged: (val) {
+              setState(() {
+                if (val.isEmpty) {
+                  data.parsed = 0;
+                  data.errorText = "Please enter number of days";
+                } else {
+                  final parsed = double.tryParse(val);
 
-                    if (parsed != null) {
-                      if (parsed < 0) {
-                        data.errorText = "Number of days cannot be negative";
-                      } else if (parsed > data.quantity) {
-                        data.errorText =
-                            "Entered days cannot exceed allocated ${data.quantity} day(s)";
-                      } else {
-                        data.errorText = null;
-                        data.parsed = parsed;
-                      }
+                  if (parsed != null) {
+                    if (parsed < 0) {
+                      data.errorText = "Number of days cannot be negative";
+                    } else if (parsed > data.quantity) {
+                      data.errorText =
+                          "Entered days cannot exceed allocated ${data.quantity} day(s)";
                     } else {
-                      data.errorText = "Please enter a valid number";
+                      data.errorText = null;
+                      data.parsed = parsed;
                     }
+                  } else {
+                    data.errorText = "Please enter a valid number";
                   }
-                  _isSaveButtonEnabled();
-                });
-              },
-            )),
+                }
+                _isSaveButtonEnabled();
+              });
+            },
+          ),
+        ),
         if (data.errorText != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),

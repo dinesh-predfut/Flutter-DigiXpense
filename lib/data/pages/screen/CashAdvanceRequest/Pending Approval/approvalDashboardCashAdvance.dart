@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart';
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -27,15 +28,15 @@ class PendingApprovalDashboardforPending extends StatefulWidget {
 class _PendingApprovalDashboardforPendingState
     extends State<PendingApprovalDashboardforPending>
     with TickerProviderStateMixin {
-  final controllers = Get.put(Controller());
+  // final controllers = Get.put(Controller());
   bool isLoading = false;
-  final Controller controller = Controller();
+  final controller = Get.put(Controller());
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   late Future<List<PendingCashAdvanceApproval>> pendingApprovalcashAdvanse;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
-Rxn<File> profileImage = Rxn<File>();
+  Rxn<File> profileImage = Rxn<File>();
   double _dragOffset = 0;
   final double _maxDragExtent = 600;
   // final Controller controller = Controller();
@@ -111,7 +112,7 @@ Rxn<File> profileImage = Rxn<File>();
       ),
     );
   }
- 
+
   void _toggleOverlay() {
     if (_overlayEntry == null) {
       _overlayEntry = _createOverlayEntry();
@@ -133,7 +134,8 @@ Rxn<File> profileImage = Rxn<File>();
     controller.isEnable.value = false;
     setState(() {});
   }
- void _loadProfileImage() async {
+
+  void _loadProfileImage() async {
     // controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
@@ -142,10 +144,10 @@ Rxn<File> profileImage = Rxn<File>();
       controller.isImageLoading.value = false;
     } else {
       // await controller.getProfilePicture();
-            controller.isImageLoading.value = false;
-
+      controller.isImageLoading.value = false;
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -153,6 +155,7 @@ Rxn<File> profileImage = Rxn<File>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerCashAdvanceApproval.clear();
+      controller.selectedCashAdvanceIds.clear();
     });
     controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty) {
@@ -176,14 +179,16 @@ Rxn<File> profileImage = Rxn<File>();
       controller.isEnable.value = false;
     });
     print("${controller.isEnable.value}isEnable");
-    _loadDataOnce();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchUsers();
+      _loadDataOnce();
       // controller.getProfilePicture();
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
     });
-     _loadProfileImage();
+    _loadProfileImage();
   }
 
   void _openMenu() {
@@ -199,6 +204,7 @@ Rxn<File> profileImage = Rxn<File>();
     WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+        controller.selectedCashAdvanceIds.clear();
         return true; // allow back navigation
       },
       child: Scaffold(
@@ -207,10 +213,10 @@ Rxn<File> profileImage = Rxn<File>();
         resizeToAvoidBottomInset: true,
         drawer: const MyDrawer(),
         body: Obx(() {
-          return controller.isLoadingGE1.value
+          return controller.isLoadingGE2.value
               ? const SkeletonLoaderPage()
               : LayoutBuilder(
-                  builder: (context, constraints) {
+                  builder: (n, constraints) {
                     final isSmallScreen = constraints.maxWidth < 600;
                     final theme = Theme.of(context);
                     final primaryColor = theme.primaryColor;
@@ -226,7 +232,8 @@ Rxn<File> profileImage = Rxn<File>();
                                 children: [
                                   Stack(
                                     children: [
-                                     if (primaryColor != const Color(0xFF1e4db7) )
+                                      if (primaryColor !=
+                                          const Color(0xFF1e4db7))
                                         Container(
                                           width: double.infinity,
                                           decoration: BoxDecoration(
@@ -245,121 +252,209 @@ Rxn<File> profileImage = Rxn<File>();
                                             ),
                                           ),
                                           padding: const EdgeInsets.fromLTRB(
-                                            6,
+                                            0,
                                             40,
-                                            6,
+                                            0,
                                             16,
                                           ),
                                           child: Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
                                             children: [
-                                              IconButton(
-                                                onPressed: _openMenu,
-                                                icon: Icon(
-                                                  Icons.menu,
-                                                  color: Colors.black,
-                                                  size: 20,
-                                                ),
-                                                // Optional: Add custom background or shape
-                                                style: IconButton.styleFrom(
-                                                  // backgroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
+                                              Flexible(
+                                                flex: 4,
+                                                child: Row(
+                                                  children: [
+                                                    IconButton(
+                                                      onPressed: _openMenu,
+                                                      icon: Icon(
+                                                        Icons.menu,
+                                                        color: Colors.black,
+                                                        size: 20,
+                                                      ),
+                                                      style: IconButton.styleFrom(
+                                                        // backgroundColor: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
                                                         ),
-                                                  ),
-                                                  padding: const EdgeInsets.all(
-                                                    8,
-                                                  ),
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              5,
+                                                            ),
+                                                      ),
+                                                    ),
+
+                                                    // Logo
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                      child: Image.asset(
+                                                        'assets/XpenseWhite.png',
+                                                        width: isSmallScreen
+                                                            ? 60
+                                                            : 80,
+                                                        height: isSmallScreen
+                                                            ? 30
+                                                            : 40,
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
 
-                                              // Logo
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                child: Image.asset(
-                                                  'assets/XpenseWhite.png',
-                                                  width: isSmallScreen
-                                                      ? 80
-                                                      : 100,
-                                                  height: isSmallScreen
-                                                      ? 30
-                                                      : 40,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
+                                              const Spacer(),
+                                              Flexible(
+                                                flex: 9,
+                                                child: SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.start,
+                                                    children: [
+                                                      const LanguageDropdown(),
 
-                                              // Actions
-                                              Row(
-                                                children: [
-                                                  const LanguageDropdown(),
-                                                  _buildNotificationBadge(),
-                                                  _buildProfileAvatar(),
-                                                ],
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.fingerprint,
+                                                          color: Colors.white,
+                                                        ),
+                                                        onPressed: () {
+                                                          Navigator.pushNamed(
+                                                            context,
+                                                            AppRoutes
+                                                                .punchScreen,
+                                                          );
+                                                        },
+                                                      ),
+
+                                                      _buildNotificationBadge(),
+                                                      _buildProfileAvatar(),
+                                                    ],
+                                                  ),
+                                                ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      if (primaryColor == const Color(0xFF1e4db7) )
-                                       Container(
-                              width: double.infinity,
-                              height: 100,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/Vector.png'),
-                                  fit: BoxFit.cover,
-                                ),
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
-                                ),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    onPressed: _openMenu,
-                                    icon: Icon(
-                                      Icons.menu,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    // Optional: Add custom background or shape
-                                    style: IconButton.styleFrom(
-                                      // backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                  ),
+                                      if (primaryColor ==
+                                          const Color(0xFF1e4db7))
+                                        Container(
+                                          width: double.infinity,
+                                          height: 100,
+                                          decoration: const BoxDecoration(
+                                            image: DecorationImage(
+                                              image: AssetImage(
+                                                'assets/Vector.png',
+                                              ),
+                                              fit: BoxFit.cover,
+                                            ),
+                                            borderRadius: BorderRadius.only(
+                                              bottomLeft: Radius.circular(10),
+                                              bottomRight: Radius.circular(10),
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.fromLTRB(
+                                            0,
+                                            40,
+                                            0,
+                                            16,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Flexible(
+                                                flex: 4,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.start,
+                                                  children: [
+                                                    IconButton(
+                                                      onPressed: _openMenu,
+                                                      icon: Icon(
+                                                        Icons.menu,
+                                                        color: Colors.black,
+                                                        size: 20,
+                                                      ),
+                                                      style: IconButton.styleFrom(
+                                                        // backgroundColor: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                        ),
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              5,
+                                                            ),
+                                                      ),
+                                                    ),
 
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.asset(
-                                      'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
-                                      height: isSmallScreen ? 30 : 40,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
+                                                    // Logo
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                      child: Image.asset(
+                                                        'assets/XpenseWhite.png',
+                                                        width: isSmallScreen
+                                                            ? 60
+                                                            : 80,
+                                                        height: isSmallScreen
+                                                            ? 30
+                                                            : 40,
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
 
-                                  // Actions
-                                  Row(
-                                    children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                                              const Spacer(),
+                                              Flexible(
+                                                flex: 9,
+                                                child: SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceEvenly,
+                                                    children: [
+                                                      const LanguageDropdown(),
+
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.fingerprint,
+                                                          color: Colors.white,
+                                                        ),
+                                                        onPressed: () {
+                                                          Navigator.pushNamed(
+                                                            context,
+                                                            AppRoutes
+                                                                .punchScreen,
+                                                          );
+                                                        },
+                                                      ),
+
+                                                      _buildNotificationBadge(),
+                                                      _buildProfileAvatar(),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   const SizedBox(height: 15),
@@ -422,9 +517,71 @@ Rxn<File> profileImage = Rxn<File>();
                             ),
                           ),
                         ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 16, left: 16),
+                            child: Obx(() {
+                              final isDisabled =
+                                  controller.selectedCashAdvanceIds.isEmpty;
 
+                              return Container(
+                                height: 47,
+                                width: 140,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDisabled
+                                      ? Colors.grey
+                                      : Theme.of(context).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: PopupMenuButton<String>(
+                                  enabled: !isDisabled, // ✅ disables click
+                                  onSelected: (value) {
+                                    if (value == "approve") {
+                                      showActionPopup(context, "Approve");
+                                    } else if (value == "reject") {
+                                      showActionPopup(context, "Reject");
+                                    }
+                                  },
+                                  itemBuilder: (context) => const [
+                                    PopupMenuItem(
+                                      value: "approve",
+                                      child: Text("Approval"),
+                                    ),
+                                    PopupMenuItem(
+                                      value: "reject",
+                                      child: Text("Reject"),
+                                    ),
+                                  ],
+                                  child: const Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Bulk Action",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+
+                        // ------------------ Expense Type Dropdown ------------------
                         SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.60,
+                          height: MediaQuery.of(context).size.height * 0.50,
                           child: Obx(() {
                             if (controller.isLoadingGE1.value) {
                               return const SkeletonLoaderPage();
@@ -432,7 +589,6 @@ Rxn<File> profileImage = Rxn<File>();
 
                             final expenses =
                                 controller.pendingApprovalcashAdvanse;
-                            print("expenses$expenses");
                             final filteredExpenses = expenses.where((item) {
                               final query = controller.searchQuery.value;
                               if (query.isEmpty) return true;
@@ -443,10 +599,8 @@ Rxn<File> profileImage = Rxn<File>();
                                     query,
                                   );
                             }).toList();
-                            if (expenses.isEmpty) {
-                              return const Center(
-                                child: Text("No Pending Approvals found"),
-                              );
+                            if (filteredExpenses.isEmpty) {
+                              return const CommonNoDataWidget();
                             }
 
                             return ListView.builder(
@@ -458,13 +612,16 @@ Rxn<File> profileImage = Rxn<File>();
                                 return Dismissible(
                                   key: ValueKey(item.referenceId),
                                   background: _buildSwipeActionLeft(isLoading),
-                                  secondaryBackground: _buildSwipeActionRight(),
+                                  // secondaryBackground: _buildSwipeActionRight(),
                                   confirmDismiss: (direction) async {
-                                    if (item.approvalStatus == "Created" &&
-                                        direction ==
-                                            DismissDirection.startToEnd) {
+                                    if (direction ==
+                                        DismissDirection.startToEnd) {
                                       setState(() => isLoading = true);
-
+                                      controller 
+                                          .fetchSpecificCashAdvanceApprovalItem(
+                                            context,
+                                            item.workitemrecid,
+                                          );
                                       // if (item.expenseType == "PerDiem") {
                                       //   controller.fetchSecificPerDiemItemApproval(
                                       //       context, item.workitemrecid);
@@ -484,42 +641,6 @@ Rxn<File> profileImage = Rxn<File>();
 
                                       setState(() => isLoading = false);
                                       return false;
-                                    } else {
-                                      final shouldDelete = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text('Delete?'),
-                                          content: Text(
-                                            'Delete "${item.requisitionId}"?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(false),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            ElevatedButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                              ),
-                                              child: const Text('Delete'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-
-                                      if (shouldDelete == true) {
-                                        setState(() => isLoading = true);
-                                        await controller.deleteExpense(
-                                          item.recId,
-                                        );
-                                        setState(() => isLoading = false);
-                                        return true; // This will remove the item from UI
-                                      }
-
-                                      return false;
                                     }
                                   },
                                   child: _buildCard(item, context),
@@ -534,6 +655,205 @@ Rxn<File> profileImage = Rxn<File>();
                 );
         }),
       ),
+    );
+  }
+
+  void showActionPopup(BuildContext context, String status) {
+    final TextEditingController commentController = TextEditingController();
+    bool isCommentError = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: MediaQuery.of(context).viewInsets,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppLocalizations.of(context)!.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (status == "Escalate") ...[
+                      Text(
+                        '${AppLocalizations.of(context)!.selectUser}*',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${AppLocalizations.of(context)!.user} *',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.userName,
+                            AppLocalizations.of(context)!.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(user.userName)),
+                                  Expanded(child: Text(user.userId)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.teal,
+                            width: 2,
+                          ),
+                        ),
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        if (isCommentError && value.trim().isNotEmpty) {
+                          setState(() => isCommentError = false);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
+                          child: Text(AppLocalizations.of(context)!.close),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final comment = commentController.text.trim();
+                            if (status != "Approve" && comment.isEmpty) {
+                              setState(() => isCommentError = true);
+                              return;
+                            }
+
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
+                            );
+                            print(
+                              "Sending IDs: ${controller.selectedExpenseIds}",
+                            );
+
+                            final success = await controller
+                                .postApprovalActioncashAdvance(
+                                  context,
+                                  workitemrecid:
+                                      controller.selectedCashAdvanceIds.value,
+                                  decision: status,
+                                  comment: commentController.text,
+                                );
+
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+
+                            if (!context.mounted) return;
+
+                            if (success) {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.approvalDashboardForDashboard,
+                              );
+                              controller.isApprovalEnable.value = false;
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to submit action'),
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(status),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -573,7 +893,7 @@ Rxn<File> profileImage = Rxn<File>();
     );
   }
 
- Widget _buildProfileAvatar() {
+  Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(context, AppRoutes.personalInfo);
@@ -624,27 +944,27 @@ Rxn<File> profileImage = Rxn<File>();
                     ),
 
                     /// Loader Overlay
-                    if (controller.isImageLoading.value)
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
@@ -654,7 +974,6 @@ Rxn<File> profileImage = Rxn<File>();
       ),
     );
   }
-
 
   Widget _buildStyledCard(ManageExpensesCard card) {
     final theme = Theme.of(context);
@@ -791,161 +1110,166 @@ Rxn<File> profileImage = Rxn<File>();
       ),
     );
   }
-}
 
-Widget _buildSwipeActionLeft(bool isLoading) {
-  return Container(
-    alignment: Alignment.centerLeft,
-    color: Colors.blue.shade100,
-    padding: const EdgeInsets.only(left: 20),
-    child: Row(
-      children: [
-        if (isLoading)
-          const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+  Widget _buildSwipeActionLeft(bool isLoading) {
+    final loc = AppLocalizations.of(context)!;
+    return Container(
+      alignment: Alignment.centerLeft,
+      color: Colors.blue.shade100,
+      padding: const EdgeInsets.only(left: 20),
+      child: Row(
+        children: [
+          if (isLoading)
+            const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            )
+          else
+            const Icon(Icons.remove_red_eye, color: Colors.blue),
+          const SizedBox(width: 8),
+          Text(
+            isLoading ? loc.loading : loc.view,
+            style: const TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
             ),
-          )
-        else
-          const Icon(Icons.remove_red_eye, color: Colors.blue),
-        const SizedBox(width: 8),
-        Text(
-          isLoading ? 'Loading...' : 'View',
-          style: const TextStyle(
-            color: Colors.blue,
-            fontWeight: FontWeight.bold,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
+    final controller = Get.put(Controller());
+    final id = item.workitemrecid;
+
+    return Obx(() {
+      final isSelected = controller.selectedCashAdvanceIds.contains(id);
+
+      return Dismissible(
+        key: ValueKey('cash_$id'),
+        direction: DismissDirection.horizontal,
+
+        confirmDismiss: (direction) async {
+          
+          controller.fetchSpecificCashAdvanceApprovalItem(
+            context,
+            item.workitemrecid,
+          );
+          return false; // prevent actual dismiss
+        },
+
+        background: _swipeBg(Icons.arrow_forward, Alignment.centerLeft),
+        secondaryBackground: _swipeBg(Icons.arrow_back, Alignment.centerRight),
+
+        child: GestureDetector(
+          onLongPress: () => controller.toggleSelectionCashAdvance(id),
+
+          onTap: () {
+            if (controller.selectedCashAdvanceIds.isNotEmpty) {
+              controller.toggleSelectionCashAdvance(id);
+            } else {
+              controller.fetchSpecificCashAdvanceApprovalItem(
+                context,
+                item.workitemrecid,
+              );
+            }
+          },
+
+          child: Card(
+            color: isSelected ? Colors.blue.shade50 : null,
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isSelected ? Colors.blue : Colors.transparent,
+                width: isSelected ? 2 : 0,
+              ),
+            ),
+
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        item.requisitionId,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        DateFormat('dd-MM-yyyy').format(
+                          DateTime.fromMillisecondsSinceEpoch(item.requestDate),
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  /// Category
+                  Text(
+                    item.expenseCategoryId?.toString() ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  /// Status + Amount
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          item.stepType,
+                          style: const TextStyle(
+                            color: Color.fromARGB(255, 1, 90, 4),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+
+                      Text(
+                        item.totalRequestedAmountInReporting.toStringAsFixed(2),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-      ],
-    ),
-  );
-}
-
-Widget _buildSwipeActionRight() {
-  return Container(
-    alignment: Alignment.centerRight,
-    color: const Color.fromARGB(255, 115, 142, 229),
-    padding: const EdgeInsets.only(right: 20),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Delete',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(width: 8),
-        Icon(Icons.delete, color: Colors.white),
-      ],
-    ),
-  );
-}
-
-Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
-  // print("itemxxx ${item.expenseType}");
-  final controller = Get.put(Controller());
-  return GestureDetector(
-    onTap: () {
-      controller.fetchSpecificCashAdvanceApprovalItem(
-        context,
-        item.workitemrecid,
       );
-      // if (item.expenseType == "PerDiem") {
-      //   controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
-      // } else if (item.expenseType == "General Expenses") {
-      //   print("Expenses${item.recId}");
-      //   controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-      //   controller.fetchExpenseHistory(item.recId);
-      // } else if (item.expenseType == "Mileage") {
-      //   print("Expenses${item.recId}");
-      //   controller.fetchMileageDetailsApproval(context, item.workitemrecid);
-      // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-      // controller.fetchExpenseHistory(item.recId);
-      // } else {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
-      //   );
-      // }
-    },
-    child: Card(
-      // color: const Color.fromARGB(218, 245, 244, 244),
-      // shadowColor: const Color.fromARGB(255, 82, 78, 78),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: ID + Date
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  item.requisitionId,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  DateFormat('dd-MM-yyyy').format(
-                    DateTime.fromMillisecondsSinceEpoch(item.requestDate),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    // color: Color.fromARGB(255, 41, 41, 41),
-                  ),
-                ),
-              ],
-            ),
+    });
+  }
 
-            const SizedBox(height: 4),
-
-            // Category
-            Text(
-              (item.expenseCategoryId == null)
-                  ? ''
-                  : item.expenseCategoryId.toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 6),
-
-            // Status and Amount
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  // color: Colors.green[200],
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    item.stepType,
-                    style: const TextStyle(
-                      color: Color.fromARGB(255, 1, 90, 4),
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${item.totalRequestedAmountInReporting}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
+  Widget _swipeBg(IconData icon, Alignment align) {
+    return Container(
+      alignment: align,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: Colors.blue.shade50,
+      child: Icon(icon, color: Colors.blue),
+    );
+  }
 }

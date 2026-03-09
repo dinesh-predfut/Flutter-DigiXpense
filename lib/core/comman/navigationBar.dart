@@ -1,9 +1,11 @@
 import 'dart:io';
 
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:file_picker/file_picker.dart'
+    show FilePickerResult, FilePicker, FileType;
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -36,14 +38,85 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
   bool? showPerDiem;
   bool? showMileage;
   bool? showCashAdvans;
-  bool? digiScanEnable;
-  final controller = Get.put(Controller());
+
+final Controller controller = Get.put(Controller());
   final PhotoViewController _photoViewController = PhotoViewController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 200),
   );
+  Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          await _cropImage(file);
+
+          // if (croppedFile != null) {
+          //   final croppedImage = File(croppedFile.path);
+
+          //   await _processSelectedFile(croppedImage);
+          // }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+        setState(() {
+        controller.imageFiles.add(file);
+      });
+      /// ✅ AutoScan Enabled → Upload directly
+      // ignore: use_build_context_synchronously
+      await controller.sendUploadedFileToServer(context, file);
+      
+    } else {
+      /// ✅ AutoScan Disabled → Navigate
+      // ignore: use_build_context_synchronously
+      Navigator.pushNamed(
+        context,
+        AppRoutes.autoScan,
+        arguments: {'imageFile': file, 'apiResponse': {}},
+      );
+    }
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -106,11 +179,12 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
 
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
-
+      controller.imageFiles.add(croppedImage);
+    
       // ✅ Check feature states before deciding what to do next
       final featureStates = await controller.getAllFeatureStates();
 
-      if (digiScanEnable!) {
+      if (controller.digiScanEnable!) {
         // ✅ AutoScan enabled → upload directly
         // ignore: use_build_context_synchronously
         await controller.sendUploadedFileToServer(context, croppedImage);
@@ -155,7 +229,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
       showExpense = expense;
       showPerDiem = perDiem;
       showMileage = mileage;
-      digiScanEnable = digiScan;
+      controller.digiScanEnable = digiScan;
     });
     print("digiScan$digiScan");
   }
@@ -216,7 +290,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                     backgroundColor: primaryColor,
                     onPressed: () {
                       controller.imageFiles.clear();
-                      _pickImage(ImageSource.gallery);
+                      _pickFile();
                     },
                     child: const Icon(
                       Icons.photo,
@@ -304,7 +378,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
               onPressed: () {
                 setState(() {
                   _isFabOpen = !_isFabOpen;
-                  _isAddFabOpen = false; 
+                  _isAddFabOpen = false;
                 });
               },
               child: Icon(
@@ -331,7 +405,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
       constraints: const BoxConstraints(minWidth: 140), // ✅ equal width
       child: FloatingActionButton.extended(
         heroTag: tag,
-        backgroundColor:  Theme.of(context).colorScheme.secondary,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         onPressed: () {
           Navigator.pushNamed(context, route);
         },
@@ -405,7 +479,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
                 } else {
                   if (context.mounted) {
                     Fluttertoast.showToast(
-                      msg: "This feature is disabled",
+                      msg: "AI Analytics feature is not subscribed or activated for the organization",
                       toastLength: Toast.LENGTH_SHORT,
                       gravity: ToastGravity.BOTTOM,
                       backgroundColor: const Color.fromARGB(255, 250, 1, 1),

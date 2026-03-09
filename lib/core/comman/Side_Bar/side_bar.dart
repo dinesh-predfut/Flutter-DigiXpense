@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/theme/theme.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
@@ -30,18 +30,21 @@ class _MyDrawerState extends State<MyDrawer>
   bool? showBoard;
   bool? showCashAdvans;
   bool? showTimesheet;
+  bool? punchInOut;
   bool? showLeaveMenu;
   bool? showEmail;
   bool? enablePayRoll;
   bool isFeatureLoading = true;
 
   bool isProfileLoaded = false;
-
+  bool isPayRoles = false;
   // Auto-open ExpansionTile
   bool isExpenseExpanded = false;
+  bool isSheet = false;
   bool isCashExpanded = false;
   bool isReportsExpanded = false;
   bool isLeave = false;
+  bool isPunchInOut = false;
   late AnimationController _animationController;
 
   @override
@@ -76,6 +79,10 @@ class _MyDrawerState extends State<MyDrawer>
     enablePayRoll = await controller.isFeatureEnabled("EnablePayRoll");
     showEmail = await controller.isFeatureEnabled("EnableEmailForwording");
     showLeaveMenu = await controller.isFeatureEnabled("EnableLeaveRequisition");
+    showTimesheet = await controller.isFeatureEnabled("EnableTimesheet");
+    punchInOut = await controller.isFeatureEnabled(
+      "EnableAttendanceRequisition",
+    );
     print("EnableExpenseMenu$showExpense");
     print("EnableshowCashAdvance$showCashAdvance");
     print("EnableshowBoard$showBoard");
@@ -109,31 +116,93 @@ class _MyDrawerState extends State<MyDrawer>
 
     selectedMenu = prefs.getString('selectedMenu') ?? '';
 
-    // Auto-expand ExpansionTiles
     isExpenseExpanded = [
       'My Expenses',
       'My Team Expenses',
       'Pending Approvals',
       'UnProcessed',
     ].contains(selectedMenu);
-
+    isSheet = [
+      'My TimeSheets',
+      'My Team TimeSheets',
+      'Pending Approvals Sheet',
+    ].contains(selectedMenu);
     isCashExpanded = [
       'My Cash Advances',
       'My Team Cash Advances',
-      'Pending Approvals',
+      'Cash Advance Pending Approval',
     ].contains(selectedMenu);
     isLeave = [
-      'My Leave',
-      'My Team Leave',
-      'Pending Approvals',
-      'Cancellation Leave',
+      'My Leaves',
+      'My Team Leaves',
+      'Leave Pending Approvals',
+      'Leave Cancellation',
     ].contains(selectedMenu);
+    isPunchInOut = [
+      'Punch In/Out',
+      'Punch In/Out List',
+      'My Team Attendance',
+    ].contains(selectedMenu);
+    isPayRoles = ['My Payslips', 'All Payslips'].contains(selectedMenu);
     isReportsExpanded = ['Reports', 'Expenses Reports'].contains(selectedMenu);
 
     setState(() => isProfileLoaded = true);
   }
 
   // ========================= Drawer Item ========================= //
+  Widget _buildBoldDrawerItem({
+    required String title,
+    required IconData icon,
+    required String menuKey,
+    VoidCallback? onTap,
+  }) {
+    final theme = Theme.of(context);
+    final bool isActive = selectedMenu == menuKey;
+
+    return SlideTransition(
+      position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero)
+          .animate(
+            CurvedAnimation(
+              parent: _animationController,
+              curve: Curves.easeOutBack,
+            ),
+          ),
+
+      /// ⭐ Wrap with Container to control full-width background
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        decoration: BoxDecoration(
+          color: isActive
+              ? theme.colorScheme.secondary.withOpacity(0.2)
+              : Colors.transparent, // Default background
+          borderRadius: BorderRadius.circular(10),
+        ),
+
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          leading: Icon(
+            icon,
+            color: isActive ? theme.colorScheme.secondary : null,
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              color: isActive ? theme.colorScheme.secondary : null,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          onTap: () async {
+            setState(() => selectedMenu = menuKey);
+
+            final prefs = await SharedPreferences.getInstance();
+            prefs.setString('selectedMenu', menuKey);
+
+            onTap?.call();
+          },
+        ),
+      ),
+    );
+  }
 
   Widget _buildDrawerItem({
     required String title,
@@ -155,7 +224,7 @@ class _MyDrawerState extends State<MyDrawer>
 
       /// ⭐ Wrap with Container to control full-width background
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         decoration: BoxDecoration(
           color: isActive
               ? theme.colorScheme.secondary.withOpacity(0.2)
@@ -166,7 +235,7 @@ class _MyDrawerState extends State<MyDrawer>
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
           leading: Icon(
-            icon,
+            null,
             color: isActive ? theme.colorScheme.secondary : null,
           ),
           title: Text(
@@ -224,27 +293,27 @@ class _MyDrawerState extends State<MyDrawer>
                 ),
 
                 /// Loader Overlay
-                if (controller.isImageLoading.value)
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.4),
-                    ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                // if (controller.isImageLoading.value)
+                //   Container(
+                //     width: 60,
+                //     height: 60,
+                //     decoration: BoxDecoration(
+                //       shape: BoxShape.circle,
+                //       color: Colors.black.withOpacity(0.4),
+                //     ),
+                //     child: const Center(
+                //       child: SizedBox(
+                //         width: 22,
+                //         height: 22,
+                //         child: CircularProgressIndicator(
+                //           strokeWidth: 2.5,
+                //           valueColor: AlwaysStoppedAnimation<Color>(
+                //             Colors.white,
+                //           ),
+                //         ),
+                //       ),
+                //     ),
+                //   ),
               ],
             ),
           ),
@@ -357,7 +426,7 @@ class _MyDrawerState extends State<MyDrawer>
           ),
 
           // -------------------- Dashboard -------------------- //
-          _buildDrawerItem(
+          _buildBoldDrawerItem(
             title: loc.dashboard,
             icon: Icons.home_outlined,
             menuKey: "Dashboard",
@@ -366,84 +435,249 @@ class _MyDrawerState extends State<MyDrawer>
 
           // -------------------- EXPENSE -------------------- //
           if (showExpense == true)
-            ExpansionTile(
-              initiallyExpanded: isExpenseExpanded,
-              leading: Icon(Icons.person_outline),
-              title: Text(loc.expense),
-              children: [
-                _buildDrawerItem(
-                  title: loc.myExpenses,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myExpenses,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.generalExpense),
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isExpenseExpanded,
+                leading: Icon(Icons.person_outline),
+                title: Text(
+                  loc.expense,
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                _buildDrawerItem(
-                  title: loc.myTeamExpenses,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myTeamExpenses,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.myTeamExpenseDashboard,
+                children: [
+                  _buildDrawerItem(
+                    title: loc.myExpenses,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myExpenses,
+                    onTap: () =>
+                        Navigator.pushNamed(context, AppRoutes.generalExpense),
                   ),
-                ),
-                _buildDrawerItem(
-                  title: loc.pendingApprovals,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.pendingApprovals,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.approvalDashboard),
-                ),
-                _buildDrawerItem(
-                  title: loc.unProcessed,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.unProcessed,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.unProcessed),
-                ),
-              ],
+                  _buildDrawerItem(
+                    title: loc.myTeamExpenses,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myTeamExpenses,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.myTeamExpenseDashboard,
+                    ),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.pendingApprovals,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.pendingApprovals,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.approvalDashboard,
+                    ),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.unProcessed,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.unProcessed,
+                    onTap: () =>
+                        Navigator.pushNamed(context, AppRoutes.unProcessed),
+                  ),
+                ],
+              ),
             ),
 
           // -------------------- CASH ADVANCE -------------------- //
           if (showCashAdvance == true)
-            ExpansionTile(
-              initiallyExpanded: isCashExpanded,
-              leading: Icon(Icons.money_outlined),
-              title: Text(loc.cashAdvance),
-              children: [
-                _buildDrawerItem(
-                  title: loc.myCashAdvances,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myCashAdvances,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.cashAdvanceRequestDashboard,
-                  ),
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isCashExpanded,
+                leading: Icon(Icons.money_outlined),
+                title: Text(
+                  loc.cashAdvance,
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                _buildDrawerItem(
-                  title: loc.myTeamCashAdvances,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myTeamCashAdvances,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.myTeamcashAdvanceDashboard,
+                children: [
+                  _buildDrawerItem(
+                    title: loc.myCashAdvances,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myCashAdvances,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.cashAdvanceRequestDashboard,
+                    ),
                   ),
-                ),
-                _buildDrawerItem(
-                  title: loc.pendingApprovals,
-                  icon: Icons.arrow_right,
-                  menuKey: "Cash Advance Pending Approval",
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.approvalDashboardForDashboard,
+                  _buildDrawerItem(
+                    title: loc.myTeamCashAdvances,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myTeamCashAdvances,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.myTeamcashAdvanceDashboard,
+                    ),
                   ),
-                ),
-              ],
+                  _buildDrawerItem(
+                    title: loc.pendingApprovals,
+                    icon: Icons.arrow_right,
+                    menuKey: "Cash Advance Pending Approval",
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.approvalDashboardForDashboard,
+                    ),
+                  ),
+                ],
+              ),
             ),
 
           // -------------------- EMAIL HUB -------------------- //
-          if (showEmail == true)
-            _buildDrawerItem(
+          if (showLeaveMenu == true)
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isLeave,
+                leading: Icon(Icons.work_off),
+                title: Text(
+                  loc.leaveRequisition,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                children: [
+                  _buildDrawerItem(
+                    title: loc.myLeave,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myLeave,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.leaveDashboard),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.myTeamLeave,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myTeamLeave,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
+                    },
+                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.pendingApprovals,
+                    icon: Icons.arrow_right,
+                    menuKey: "Leave Pending Approvals",
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.leavePendingApprovals,
+                      ),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.leaveCancellation,
+                    icon: Icons.arrow_right,
+                    menuKey: 'Leave Cancellation',
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.leaveCancellation),
+                    },
+                  ),
+                ],
+              ),
+            ),
+            if (showTimesheet == true)
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isSheet,
+                leading: Icon(Icons.calendar_month),
+                title: Text(
+                  loc.timesheets,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                children: [
+                  _buildDrawerItem(
+                    title: loc.myTimesheets,
+                    icon: Icons.arrow_right,
+                    menuKey: 'My TimeSheets',
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.timeSheetDashboard,
+                      ),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.myTeamTimesheets,
+                    icon: Icons.arrow_right,
+                    menuKey: 'My Team TimeSheets',
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.myTeamimeSheetRequestPage,
+                      ),
+                    },
+                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.pendingApprovals,
+                    icon: Icons.arrow_right,
+                    menuKey: 'Pending Approvals Sheet',
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.timeSheetPendingDashboard,
+                      ),
+                    },
+                  ),
+                ],
+              ),
+            ),
+             
+          if (enablePayRoll == true)
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isPayRoles,
+                leading: Icon(Icons.note),
+                title: Text(
+                  loc.payroll,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                children: [
+                  _buildDrawerItem(
+                    title: loc.myPayslips,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myPayslips,
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.mypaySlipDashboard,
+                      ),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.allPayslips,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.allPayslips,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.paySlipDashboard),
+                      // Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
+                    },
+                  ),
+                ],
+              ),
+            ),
+             if (showBoard == true)
+            _buildBoldDrawerItem(
+              title: loc.board,
+              icon: Icons.dashboard,
+              menuKey: loc.board,
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.boardDashboard),
+            ),
+            if (showEmail == true)
+            _buildBoldDrawerItem(
               title: loc.emailHub,
               icon: Icons.mail_outline,
               menuKey: loc.emailHub,
@@ -452,7 +686,7 @@ class _MyDrawerState extends State<MyDrawer>
             ),
 
           // -------------------- APPROVAL HUB -------------------- //
-          _buildDrawerItem(
+          _buildBoldDrawerItem(
             title: loc.approvalHub,
             icon: Icons.calendar_today,
             menuKey: loc.approvalHub,
@@ -461,141 +695,84 @@ class _MyDrawerState extends State<MyDrawer>
           ),
 
           // -------------------- REPORTS -------------------- //
-          ExpansionTile(
-            initiallyExpanded: isReportsExpanded,
-            leading: Icon(Icons.person_outline),
-            title: Text(loc.reports),
-            children: [
-              _buildDrawerItem(
-                title: loc.reports,
-                icon: Icons.arrow_right,
-                menuKey: loc.reports,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+          Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent, // ✅ removes line
+            ),
+            child: ExpansionTile(
+              initiallyExpanded: isReportsExpanded,
+              leading: Icon(Icons.person_outline),
+              title: Text(
+                loc.reports,
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              _buildDrawerItem(
-                title: loc.expensesReports,
-                icon: Icons.arrow_right,
-                menuKey: loc.expensesReports,
-                onTap: () =>
-                    Navigator.pushNamed(context, AppRoutes.reportWizardParent),
-              ),
-            ],
+              children: [
+                _buildDrawerItem(
+                  title: loc.reports,
+                  icon: Icons.arrow_right,
+                  menuKey: loc.reports,
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                ),
+                _buildDrawerItem(
+                  title: loc.expensesReports,
+                  icon: Icons.arrow_right,
+                  menuKey: loc.expensesReports,
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.reportWizardParent,
+                  ),
+                ),
+              ],
+            ),
           ),
-          if (showLeaveMenu == true)
-            ExpansionTile(
-              initiallyExpanded: isLeave,
-              leading: Icon(Icons.work_off),
-              title: Text(loc.leaveRequisition),
-              children: [
-                _buildDrawerItem(
-                  title: loc.myLeave,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myLeave,
-                  onTap: () => {
-                    Navigator.pushNamed(context, AppRoutes.leaveDashboard),
-                  },
+          if (punchInOut == true)
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isPunchInOut,
+                leading: Icon(Icons.fingerprint),
+                title: Text(
+                  loc.punchInOut,
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                _buildDrawerItem(
-                  title: loc.myTeamLeave,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.myTeamLeave,
-                  onTap: () => {
-                    Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
-                  },
-                  // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                ),
-                _buildDrawerItem(
-                  title: loc.pendingApprovals,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.pendingApprovals,
-                  onTap: () => {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.leavePendingApprovals,
-                    ),
-                  },
-                ),
-                _buildDrawerItem(
-                  title: "Cancellation Leave",
-                  icon: Icons.arrow_right,
-                  menuKey: "Cancellation Leave",
-                  onTap: () => {
-                    Navigator.pushNamed(context, AppRoutes.leaveCancellation),
-                  },
-                ),
-              ],
+                children: [
+                  _buildDrawerItem(
+                    title: loc.punchInOut,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.punchInOut,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.punchScreen),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.punchInOutList,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.punchInOutList,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.myAttendanceList),
+                    },
+                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.myTeamAttendance,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myTeamAttendance,
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.myTeamPunchInOutList,
+                      ),
+                    },
+                  ),
+                ],
+              ),
             ),
-             if (showTimesheet == true)
-            ExpansionTile(
-              initiallyExpanded: isLeave,
-              leading: Icon(Icons.calendar_month),
-              title: Text("Times Sheets"),
-              children: [
-                _buildDrawerItem(
-                  title: "My TimeSheets",
-                  icon: Icons.arrow_right,
-                  menuKey: "My TimeSheets",
-                  onTap: () => {
-                    Navigator.pushNamed(context, AppRoutes.timeSheetDashboard),
-                  },
-                ),
-                _buildDrawerItem(
-                  title: "My Team TimeSheets",
-                  icon: Icons.arrow_right,
-                  menuKey: "My Team TimeSheets",
-                  onTap: () => {
-                    // Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
-                  },
-                  // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                ),
-                _buildDrawerItem(
-                  title: loc.pendingApprovals,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.pendingApprovals,
-                  onTap: () => {
-                    // Navigator.pushNamed(
-                    //   context,
-                    //   AppRoutes.leavePendingApprovals,
-                    // ),
-                  },
-                ),
-               
-              ],
-            ),
-          if (enablePayRoll == true)
-            ExpansionTile(
-              initiallyExpanded: isLeave,
-              leading: Icon(Icons.note),
-              title: Text("Payroll"),
-              children: [
-                _buildDrawerItem(
-                  title: "My Payslips",
-                  icon: Icons.arrow_right,
-                  menuKey: "My Payslips",
-                  onTap: () => {
-                    Navigator.pushNamed(context, AppRoutes.paySlipDashboard),
-                  },
-                ),
-                _buildDrawerItem(
-                  title: "All Payslips",
-                  icon: Icons.arrow_right,
-                  menuKey: "All Payslips",
-                  onTap: () => {
-                    // Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
-                  },
-                ),
-              ],
-            ),
-          if (showBoard == true)
-            _buildDrawerItem(
-              title: "Board",
-              icon: Icons.dashboard,
-              menuKey: "Board",
-              onTap: () =>
-                  Navigator.pushNamed(context, AppRoutes.boardDashboard),
-            ),
-
+         
+         
+          
           // -------------------- SETTINGS -------------------- //
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -605,14 +782,14 @@ class _MyDrawerState extends State<MyDrawer>
             ),
           ),
 
-          _buildDrawerItem(
+          _buildBoldDrawerItem(
             title: loc.settings,
             icon: Icons.settings_outlined,
             menuKey: loc.settings,
             onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
           ),
 
-          _buildDrawerItem(
+          _buildBoldDrawerItem(
             title: loc.help,
             icon: Icons.help_outline,
             menuKey: loc.help,
@@ -620,34 +797,62 @@ class _MyDrawerState extends State<MyDrawer>
           ),
 
           // -------------------- LOGOUT -------------------- //
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: Text(loc.logout, style: const TextStyle(color: Colors.red)),
-            onTap: () {
-              _showLogoutConfirmation(context, () async {
-                await controller.logout();
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('token');
-                await prefs.remove('employeeId');
-                await prefs.remove('userId');
-                await prefs.remove('refresh_token');
-                await prefs.remove('userName');
-                await prefs.remove('profileImagePath');
-                prefs.setString('last_route', 'Login');
+          Obx(
+            () => ListTile(
+              leading: controller.isLogoutLoading.value
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout, color: Colors.red),
 
-                final themeNotifier = Provider.of<ThemeNotifier>(
-                  context,
-                  listen: false,
-                );
-                await themeNotifier.clearTheme();
+              title: Text(
+                controller.isLogoutLoading.value
+                    ? "Logging out..."
+                    : loc.logout,
+                style: const TextStyle(color: Colors.red),
+              ),
 
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  AppRoutes.signin,
-                  (route) => false,
-                );
-              });
-            },
+              // ✅ Disable second click
+              onTap: controller.isLogoutLoading.value
+                  ? null
+                  : () {
+                      _showLogoutConfirmation(context, () async {
+                        controller.isLogoutLoading.value = true;
+
+                        try {
+                          await controller.logout();
+
+                          final prefs = await SharedPreferences.getInstance();
+
+                          await prefs.remove('token');
+                          await prefs.remove('employeeId');
+                          await prefs.remove('userId');
+                          await prefs.remove('refresh_token');
+                          await prefs.remove('userName');
+                          await prefs.remove('profileImagePath');
+
+                          prefs.setString('last_route', 'Login');
+
+                          final themeNotifier = Provider.of<ThemeNotifier>(
+                            context,
+                            listen: false,
+                          );
+
+                          await themeNotifier.clearTheme();
+
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            AppRoutes.signin,
+                            (route) => false,
+                          );
+                        } finally {
+                          controller.isLogoutLoading.value = false;
+                        }
+                      });
+                    },
+            ),
           ),
 
           const SizedBox(height: 100),

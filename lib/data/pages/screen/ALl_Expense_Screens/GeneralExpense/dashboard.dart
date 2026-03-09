@@ -1,18 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../models.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 
 class GeneralExpenseDashboard extends StatefulWidget {
   const GeneralExpenseDashboard({super.key});
@@ -24,7 +25,7 @@ class GeneralExpenseDashboard extends StatefulWidget {
 
 class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     with TickerProviderStateMixin {
-  late final Controller controller;
+     final controller = Get.find<Controller>();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -47,10 +48,8 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   @override
   void initState() {
     super.initState();
-    controller = Get.find(); // Use existing controller
     loadFuture();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
       _loadProfileImage();
@@ -60,8 +59,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     // Load data
     // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
-    controller.getPersonalDetails(context);
-    controller.fetchMileageRates();
     controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
@@ -81,6 +78,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+          controller.getPersonalDetails(context);
+    controller.fetchMileageRates();
+
       controller.fetchGetallGExpense().then((_) {
         controller.isLoadingGE1.value = false;
       });
@@ -92,7 +92,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     //    controller.selectedExpenseType = "All Expenses".obs;
     //     controller.selectedStatusDropDown = "Un Reported".obs;
     //     controller.selectedStatus = "Un Reported";});
-   
+
     final prefs = await SharedPreferences.getInstance();
     //  final prefs = await SharedPreferences.getInstance();
     // ignore: use_build_context_synchronously
@@ -115,7 +115,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   }
 
   void loadFuture() async {
-
     showExpense = await controller.isFeatureEnabled('EnableExpense');
     showPerDiem = await controller.isFeatureEnabled('EnablePerdiem');
     print("EnableExpense$showExpense");
@@ -181,8 +180,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         key: _scaffoldKey,
         resizeToAvoidBottomInset: true,
         drawer: const MyDrawer(),
-        body: 
-        LayoutBuilder(
+        body: LayoutBuilder(
           builder: (context, constraints) {
             final isSmallScreen = constraints.maxWidth < 600;
             final theme = Theme.of(context);
@@ -205,101 +203,161 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                         ],
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          onPressed: _openMenu,
-                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                          style: IconButton.styleFrom(
-                            // backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        Flexible(
+                          flex: 4,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
+
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
+                                ),
+
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
                             ),
-                            padding: const EdgeInsets.all(5),
                           ),
-                        ),
-
-                        // Logo
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
                         ),
                       ],
                     ),
                   ),
                 if (primaryColor == const Color(0xFF1e4db7))
-                 Container(
-                              width: double.infinity,
-                              height: 100,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/Vector.png'),
+                  Container(
+                    width: double.infinity,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/Vector.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
                                   fit: BoxFit.cover,
                                 ),
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
+
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    onPressed: _openMenu,
-                                    icon: Icon(
-                                      Icons.menu,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    // Optional: Add custom background or shape
-                                    style: IconButton.styleFrom(
-                                      // backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                  ),
 
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.asset(
-                                      'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
-                                      height: isSmallScreen ? 30 : 40,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-
-                                  // Actions
-                                  Row(
-                                    children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -476,14 +534,13 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               value: controller.selectedExpenseType.value,
                               isExpanded: true,
                               underline: SizedBox(),
-                              dropdownColor:
-                                  theme.colorScheme.primary,
+                              dropdownColor: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(10),
                               style: TextStyle(
-            fontSize: 12,
-            // color: theme.colorScheme.secondary, // ACTIVE VALUE COLOR
-          ),
-                             icon: Icon(
+                                fontSize: 12,
+                                // color: theme.colorScheme.secondary, // ACTIVE VALUE COLOR
+                              ),
+                              icon: Icon(
                                 Icons.arrow_drop_down,
                                 color: theme.colorScheme.primary,
                               ),
@@ -509,11 +566,16 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                         value,
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: controller.selectedExpenseType.value == value
-                      ? Theme.of(
-                                context,
-                              ).colorScheme.secondary // ACTIVE DROPDOWN ITEM COLOR
-                      : Colors.white, // popup text color
+                                          color:
+                                              controller
+                                                      .selectedExpenseType
+                                                      .value ==
+                                                  value
+                                              ? Theme.of(context)
+                                                    .colorScheme
+                                                    .secondary // ACTIVE DROPDOWN ITEM COLOR
+                                              : Colors
+                                                    .white, // popup text color
                                         ),
                                       ),
                                     );
@@ -536,7 +598,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                             () => DropdownButton<String>(
                               value: controller.selectedStatusDropDown.value,
                               isExpanded: true,
-underline: const SizedBox(),
+                              underline: const SizedBox(),
                               dropdownColor: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(10),
                               style: TextStyle(
@@ -558,26 +620,30 @@ underline: const SizedBox(),
                                   controller.fetchGetallGExpense();
                                 }
                               },
-                              items: statusOptions
-                                  .map<DropdownMenuItem<String>>((
-                                    String value,
-                                  ) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      enabled: true,
-                                      child: Text(
-                                        value,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          
-                                          color: controller.selectedStatusDropDown.value == value
-                      ? theme.colorScheme.secondary // ACTIVE DROPDOWN ITEM COLOR
-                      : Colors.white, // popup text color
-                                        ),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
+                              items: statusOptions.map<DropdownMenuItem<String>>((
+                                String value,
+                              ) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  enabled: true,
+                                  child: Text(
+                                    value,
+                                    style: TextStyle(
+                                      fontSize: 12,
+
+                                      color:
+                                          controller
+                                                  .selectedStatusDropDown
+                                                  .value ==
+                                              value
+                                          ? theme
+                                                .colorScheme
+                                                .secondary // ACTIVE DROPDOWN ITEM COLOR
+                                          : Colors.white, // popup text color
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
                         ),
@@ -593,7 +659,7 @@ underline: const SizedBox(),
                     return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredExpenses.isEmpty
-                        ? Center(child: Text(loc.noExpensesFound))
+                        ? const CommonNoDataWidget()
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: controller.filteredExpenses.length,
@@ -626,12 +692,20 @@ underline: const SizedBox(),
                                         item.recId,
                                       );
                                     } else if (item.expenseType == "Mileage") {
-                                      Navigator.pushNamed(
+                                      controller.fetchMileageDetails(
                                         context,
-                                        AppRoutes.mileageExpense,
+                                        item.recId,
+                                        true,
                                       );
                                     }
-
+                                    if (item.expenseType ==
+                                        "CashAdvanceReturn") {
+                                      controller.fetchSecificCashAdvanceReturn(
+                                        context,
+                                        item.recId,
+                                        true,
+                                      );
+                                    }
                                     setState(() => isLoading = false);
                                     return false;
                                   } else if (item.approvalStatus == "Created") {
@@ -775,28 +849,28 @@ underline: const SizedBox(),
                             ),
                     ),
 
-                    /// Loader Overlay
-                    if (controller.isImageLoading.value)
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
@@ -806,7 +880,6 @@ underline: const SizedBox(),
       ),
     );
   }
-
 
   Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
     final theme = Theme.of(context);
@@ -962,14 +1035,14 @@ underline: const SizedBox(),
   }
 
   Widget _buildStyledCard(GExpense item, BuildContext context) {
-    final controller = Get.put(Controller());
+    // final controller = Get.find<Controller>();
     final loc = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: () {
         if (item.expenseType == "PerDiem") {
           controller.fetchSecificPerDiemItem(context, item.recId, false);
         } else if (item.expenseType == "General Expenses") {
-          print("Expenses${item.recId}");
+     
           controller.fetchSecificExpenseItem(context, item.recId, true);
           controller.fetchExpenseHistory(item.recId);
         } else if (item.expenseType == "Mileage") {

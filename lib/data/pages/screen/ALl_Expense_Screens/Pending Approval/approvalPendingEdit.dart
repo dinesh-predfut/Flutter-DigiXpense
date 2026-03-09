@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -49,7 +50,7 @@ class _ApprovalViewEditExpensePageState
 
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   late Future<List<ExpenseHistory>> historyFuture;
   late PageController _pageController;
   String? selectedPaidTo;
@@ -158,7 +159,7 @@ class _ApprovalViewEditExpensePageState
     controller.employeeIdController.text = widget.items!.employeeName!;
     controller.employeeName.text = widget.items!.employeeId!;
         controller.justificationnotes.text = widget.items!.justificateNotes!;
-
+    controller.approvalamountINR.text = widget.items!.totalAmountReporting.toStringAsFixed(2);
     controller.amountINR.text = widget.items!.totalAmountReporting
         .toStringAsFixed(2);
     controller.expenseID = widget.items!.expenseId;
@@ -173,13 +174,16 @@ class _ApprovalViewEditExpensePageState
     }
     controller.currencyDropDowncontroller.text = widget.items!.currency
         .toString();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
 
     _initializeItemizeControllers();
-    _initializeData();
+        _initializeData();
+
+    });
     projectConfig = controller.getFieldConfig("Project Id");
     taxGroupConfig = controller.getFieldConfig("Tax Group");
     taxAmountConfig = controller.getFieldConfig("Tax Amount");
-    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
+    isReimbursibleConfig = controller.getFieldConfig("Is Reimbursible");
     isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
     isBillableConfig = controller.getFieldConfig("Is Billable");
     isLocationConfig = controller.getFieldConfig("Location");
@@ -555,7 +559,7 @@ Future<void> _initializeControllerData() async {
       controller.taxGroupController.text = item.taxGroup!;
       controller.categoryController.text = item.expenseCategoryId;
       controller.uomId.text = item.uomId;
-      controller.isReimbursite = item.isReimbursable;
+      controller.isReimbursable = item.isReimbursable;
       controller.isBillable.value = item.isBillable;
       controller.split = (item.accountingDistributions ?? []).map((dist) {
         return AccountingSplit(
@@ -638,7 +642,7 @@ Future<void> _initializeControllerData() async {
         newController.categoryController.text = newItem.expenseCategoryId;
         newController.uomId.text = newItem.uomId;
         newController.taxGroupController.text = newItem.taxGroup ?? '';
-        newController.isReimbursite = newItem.isReimbursable;
+        newController.isReimbursable = newItem.isReimbursable;
         newController.isBillableCreate = newItem.isBillable;
 
         if (controller.project.isNotEmpty) {
@@ -762,7 +766,64 @@ Future<void> _initializeControllerData() async {
       controller.isImageLoading.value = false;
     }
   }
+Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
 
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
+  }
   @override
   Widget build(BuildContext context) {
     Color buttonColor;
@@ -872,121 +933,175 @@ Future<void> _initializeControllerData() async {
                             ],
                           ),
                         const SizedBox(height: 5),
-                        GestureDetector(
-                          onTap: !controller.isEnable.value
-                              ? null
-                              : () => _pickImage(ImageSource.gallery),
-                          child: Container(
-                            width: MediaQuery.of(context).size.width * 0.9,
-                            height: MediaQuery.of(context).size.height * 0.3,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey, width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Obx(() {
-                              if (controller.imageFiles.isEmpty) {
-                                return Center(
-                                  child: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.tapToUploadDocs,
-                                  ),
-                                );
-                              } else {
-                                return Stack(
-                                  children: [
-                                    PageView.builder(
-                                      controller: _pageController,
-                                      itemCount: controller.imageFiles.length,
-                                      onPageChanged: (index) {
-                                        controller.currentIndex.value = index;
-                                      },
-                                      itemBuilder: (_, index) {
-                                        final file =
-                                            controller.imageFiles[index];
-                                        return GestureDetector(
-                                          onTap: () =>
-                                              _showFullImage(file, index),
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            margin: const EdgeInsets.all(8),
-                                            width: 100,
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: Colors.deepPurple,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              image: DecorationImage(
-                                                image: FileImage(file),
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                         Obx(() {
+          return GestureDetector(
+            onTap: _pickFile,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
 
-                                    Positioned(
-                                      bottom: 40,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Obx(
-                                          () => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 8,
-                                              horizontal: 16,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(
-                                                0.5,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                             onTap: () =>
+    controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
                                         ),
-                                      ),
-                                    ),
-                                    if (controller.isEnable.value)
-                                      Positioned(
-                                        bottom: 16,
-                                        right: 16,
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              _pickImage(ImageSource.gallery),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.deepPurple,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
                                             padding: const EdgeInsets.all(8),
-                                            child: const Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 28,
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
                                             ),
                                           ),
-                                        ),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
-                                  ],
-                                );
-                              }
-                            }),
+                              ),
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
+
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
+                       
                         const SizedBox(height: 20),
                         Text(
                           AppLocalizations.of(context)!.receiptDetails,
@@ -1673,7 +1788,7 @@ Future<void> _initializeControllerData() async {
                                                       field['FieldName'] !=
                                                           'Is Billable' &&
                                                       field['FieldName'] !=
-                                                          'is Reimbursible',
+                                                          'Is Reimbursible',
                                                 )
                                                 .map((field) {
                                                   final String label =
@@ -2287,7 +2402,7 @@ Future<void> _initializeControllerData() async {
                                                       field['IsEnabled'] ==
                                                           true &&
                                                       field['FieldName'] ==
-                                                          'is Reimbursible',
+                                                          'Is Reimbursible',
                                                 )
                                                 .map((field) {
                                                   return Column(
@@ -3467,7 +3582,7 @@ Future<void> _initializeControllerData() async {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.comments,
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),

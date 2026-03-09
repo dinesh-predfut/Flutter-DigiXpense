@@ -1,9 +1,9 @@
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -22,7 +22,7 @@ class HubMileageFirstFrom extends StatefulWidget {
 
 class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     with SingleTickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<List<ExpenseHistory>>? historyFuture;
   bool _showProjectError = false;
   bool allowMultSelect = false;
@@ -397,6 +397,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                                           vertical: 12, horizontal: 16),
                                       child: Row(
                                         children: [
+                                          SizedBox(width: 10,),
                                           Expanded(child: Text(proj.name)),
                                           Expanded(child: Text(proj.code)),
                                         ],

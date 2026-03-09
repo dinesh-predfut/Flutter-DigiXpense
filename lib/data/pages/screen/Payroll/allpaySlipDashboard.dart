@@ -1,0 +1,625 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart'
+    show GExpense, ManageExpensesCard, PayslipAnalyticsCard, PayrollsTeams;
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+
+class Payslip_Dashboard extends StatefulWidget {
+  const Payslip_Dashboard({super.key});
+
+  @override
+  State<Payslip_Dashboard> createState() => _Payslip_DashboardState();
+}
+
+class _Payslip_DashboardState extends State<Payslip_Dashboard>
+    with TickerProviderStateMixin {
+  final Controller controller = Get.find<Controller>();
+  bool isLoading = true;
+  Rxn<File> profileImage = Rxn<File>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+  void _loadProfileImage() async {
+    // controller.isImageLoading.value = true;
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('selectedMenu', 'All Payslips');
+    final path = prefs.getString('profileImagePath');
+    if (path != null && File(path).existsSync()) {
+      profileImage.value = File(path);
+      controller.isImageLoading.value = false;
+    } else {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+
+    controller.fetchNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.getPersonalDetails(context);
+      loadPayrolls();
+          _loadProfileImage();
+    });
+  }
+
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  Future<void> loadPayrolls() async {
+    controller.filteredPayrollList.clear();
+    controller.selectedPayslipIds.value = [];
+    controller.isPayrollLoading.value = true;
+     controller.payslipSearchQuery.value = '';
+    try {
+      final result = await controller.fetchPayrollHeaders();
+      controller.payrollList.assignAll(result);
+    } finally {
+      controller.isPayrollLoading.value = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        return true;
+      },
+      child: Scaffold(
+        // backgroundColor: const Color(0xFFF7F7F7),
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        drawer: const MyDrawer(),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 600;
+            final theme = Theme.of(context);
+            final primaryColor = theme.primaryColor;
+            return Column(
+              children: [
+             if (primaryColor != const Color(0xFF1e4db7))
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor,
+                          primaryColor.withOpacity(
+                            0.7,
+                          ), // Lighter primary color
+                        ],
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const LanguageDropdown(),
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                if (primaryColor == const Color(0xFF1e4db7))
+                  Container(
+                    width: double.infinity,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/Vector.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child:Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              const LanguageDropdown(),
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                    ), // Like margin-left
+                    child: Text(
+                      AppLocalizations.of(context)!.payroll,
+                      style: const TextStyle(
+                        // color: AppColors.gradientEnd, // Text color
+                        fontSize: 16, // font-size
+                        fontWeight: FontWeight.bold, // font-weight: bold
+                        fontFamily: 'Roboto',
+                        letterSpacing: 0.5,
+                        // height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: TextField(
+                    onChanged: (value) {
+                      controller.payslipSearchQuery.value = value;
+                    },
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(context)!.search,
+                      prefixIcon: const Icon(Icons.search),
+                      // suffixIcon: Obx(
+                      //   () => controller.payslipSearchQuery.value.isNotEmpty
+                      //       ? IconButton(
+                      //           icon: const Icon(Icons.clear),
+                      //           onPressed: () {
+                      //             controller.payslipSearchQuery.value = '';
+                      //           },
+                      //         )
+                      //       : const SizedBox(),
+                      // ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        // borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Obx(() {
+                          final count = controller.selectedPayslipIds.length;
+
+                          return ElevatedButton.icon(
+                            onPressed: count == 0
+                                ? null
+                                : () async {
+                                    final selected = controller
+                                        .getSelectedPayslips(
+                                          controller.payrollList,
+                                        );
+
+                                    await controller.emailPayslips();
+                                  },
+                            icon: const Icon(Icons.email),
+                            label: Text(
+                              count == 0 ? AppLocalizations.of(context)!.sendToMail : "${AppLocalizations.of(context)!.send} ($count)",
+                            ),
+                          );
+                        }),
+                      ),
+
+                      const SizedBox(width: 12), // 👈 space between buttons
+
+                      Expanded(
+                        child: Obx(() {
+                          final count = controller.selectedPayslipIds.length;
+
+                          return ElevatedButton.icon(
+                            onPressed: count == 0
+                                ? null
+                                : () async {
+                                    final selected = controller
+                                        .getSelectedPayslips(
+                                          controller.payrollList,
+                                        );
+
+                                    await controller.downloadPayslips(selected);
+                                  },
+                            icon: const Icon(Icons.download),
+                            label: Text(
+                              count == 0 ? AppLocalizations.of(context)!.download : "${AppLocalizations.of(context)!.download} ($count)",
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // const SizedBox(height: 8),
+                Expanded(
+                  child: Obx(() {
+                    if (controller.isPayrollLoading.value) {
+                      return const SkeletonLoaderPage(); // Full list skeleton
+                    }
+
+                    if (controller.filteredPayrollList.isEmpty) {
+                      return  const CommonNoDataWidget();
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: controller.filteredPayrollList.length,
+                      itemBuilder: (context, index) {
+                        final item = controller.filteredPayrollList[index];
+                        return _buildPayrollStyledCard(item, context);
+                      },
+                    );
+                  }),
+                ),
+
+                // 🔹 Expense List (Flexible height)
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.notification),
+        ),
+        Obx(() {
+          final count = controller.unreadNotifications.length;
+          if (count == 0) return const SizedBox();
+          return Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  fontSize: 8,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
+      child: Obx(
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
+                    ),
+
+                    /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPayrollStyledCard(PayrollsTeams item, BuildContext context) {
+    final controller = Get.put(Controller());
+
+    return Obx(() {
+      final isSelected = controller.isSelected(item.recId.toString());
+
+      return GestureDetector(
+        onLongPress: () => controller.toggleSelection(item.recId.toString()),
+
+        onTap: () {
+          if (controller.selectedPayslipIds.isNotEmpty) {
+            controller.toggleSelection(item.recId.toString());
+            return;
+          }
+
+          /// 👉 OPEN PAYSLIP DETAILS / PDF
+          // controller.openPayslipDetails(context, item.recId);
+        },
+
+        child: Card(
+          color: isSelected ? Colors.blue.shade50 : null,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// TOP ROW
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.employeeName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          item.paymentDate != null
+                              ? DateFormat(
+                                  'dd-MM-yyyy',
+                                ).format(item.paymentDate!)
+                              : '',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// EMPLOYEE ID
+                    Text(
+                      '${AppLocalizations.of(context)!.employeeId}: ${item.employeeId}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// BOTTOM ROW
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.type,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        // Text(
+                        //   item.source,
+                        //   style: const TextStyle(fontWeight: FontWeight.bold),
+                        // ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              /// ✅ CHECKBOX
+              Positioned(
+                top: 20,
+                right: 6,
+                child: Checkbox(
+                  value: isSelected,
+                  onChanged: (_) =>
+                      controller.toggleSelection(item.recId.toString()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}

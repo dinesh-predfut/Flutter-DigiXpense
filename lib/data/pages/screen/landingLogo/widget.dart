@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:flutter/services.dart';
 
@@ -86,7 +86,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                "Welcome to digiXpense",
+                "Welcome to diginexa",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,

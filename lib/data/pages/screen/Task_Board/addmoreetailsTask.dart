@@ -1,10 +1,10 @@
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -16,11 +16,12 @@ import 'package:dio/dio.dart';
 class TaskDetailsPage extends StatefulWidget {
   final int taskRecId;
   final String bordeId;
-  final bool mainAccess; 
+  final bool mainAccess;
   const TaskDetailsPage({
     Key? key,
     required this.taskRecId,
-    required this.bordeId, required this.mainAccess,
+    required this.bordeId,
+    required this.mainAccess,
   }) : super(key: key);
 
   @override
@@ -30,6 +31,7 @@ class TaskDetailsPage extends StatefulWidget {
 class _TaskDetailsPageState extends State<TaskDetailsPage> {
   final _formKey = GlobalKey<FormState>();
   final Controller controller = Get.find<Controller>();
+  Map<String, String?> dynamicFieldValues = {};
 
   List<ChecklistItem> checklist = [];
   bool showChecklistOnCard = false;
@@ -50,8 +52,10 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
   DateTime? _startDate;
   DateTime? _dueDate;
+  DateTime? plannedStartDate;
+  DateTime? plannedEndDate;
   DateTime? _estimatedDate;
-
+  String riskLevel = 'Low';
   String _priority = 'Low';
   String _status = 'Upcoming';
   String? _cardType;
@@ -131,14 +135,14 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     setState(() {});
 
     try {
-      await Future.wait([
+      Future.wait([
         loadtags(),
         loadMembers(),
         fetchCardTypes(),
         loadTasks(),
         loadChecklist(),
+        controller.fetchTaskConfig(widget.taskRecId),
       ]);
-
       _taskDetails = await controller.fetchTaskDetails(
         widget.taskRecId,
         context,
@@ -152,10 +156,12 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       _status = _taskDetails!.status;
       taskId.text = _taskDetails!.taskId;
       _showNotes = _taskDetails!.showNotes ?? false;
-      _showList = _taskDetails!.showChecklist ?? false;
-      _startDate = _taskDetails!.startDate;
-      _dueDate = _taskDetails!.dueDate;
-
+      showChecklistOnCard = _taskDetails!.showChecklist ?? false;
+      _startDate = _taskDetails!.actualStartDate;
+      _dueDate = _taskDetails!.actualEndDate;
+      plannedEndDate = _taskDetails!.plannedEndDate;
+      plannedStartDate = _taskDetails!.plannedStartDate;
+      actualHours.text = _taskDetails!.actualHours.toString();
       estimatedHours.text = _taskDetails!.estimatedHours?.toString() ?? "0";
 
       final cardId = _taskDetails!.cardType?.trim();
@@ -165,18 +171,27 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       }
 
       controller.selectedMembers.clear();
-      for (final name in _taskDetails!.assignedTo) {
+      for (final assigned in _taskDetails!.assignedTo) {
         final user = controller.boardMembers.firstWhereOrNull(
-          (u) => u.userName.trim() == name.trim(),
+          (u) => u.userName == assigned.employeeName,
         );
-        if (user != null) controller.selectedMembers.add(user);
-      }
 
+        if (user != null) {
+          controller.selectedMembers.add(user);
+        }
+      }
+      dynamicFieldValues.clear();
+
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      // for (final field in controller.taskConfig.value?.taskData ?? []) {
+      //   dynamicFieldValues[field.fieldName] = field.value;
+      // }
+      // });
       controller.userIdController.text = controller.selectedMembers
           .map((e) => e.userId)
           .join(', ');
 
-      controller.selectedTags.clear();
+      // controller.selectedTags.clear();
       for (final tag in _taskDetails!.tagId) {
         final matched = controller.taskTags.firstWhereOrNull(
           (t) => t.tagId == tag.tagId,
@@ -185,23 +200,23 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       }
 
       controller.selectedDependency.clear();
-      final dependent = _taskDetails!.dependent;
-      if (dependent != null && dependent.trim().isNotEmpty) {
-        final ids = dependent.split(',').map((e) => e.trim());
-        for (final id in ids) {
-          final task = controller.tasksValue.firstWhereOrNull(
-            (t) => t.taskId.trim() == id,
-          );
-          if (task != null) controller.selectedDependency.add(task);
-        }
-      }
+      // final dependent = _taskDetails!.dependent;
+      // if (dependent != null && dependent.trim().isNotEmpty) {
+      //   final ids = dependent.split(',').map((e) => e.trim());
+      //   for (final id in ids) {
+      //     final task = controller.tasksValue.firstWhereOrNull(
+      //       (t) => t.taskId.trim() == id,
+      //     );
+      //     if (task != null) controller.selectedDependency.add(task);
+      //   }
+      // }
 
-      final parentId = _taskDetails!.parentTaskId?.trim();
-      controller.selectTast.value = parentId == null
-          ? null
-          : controller.tasksValue.firstWhereOrNull(
-              (t) => t.taskId.trim() == parentId,
-            );
+      // final parentId = _taskDetails!.parentTaskId?.trim();
+      // controller.selectTast.value = parentId == null
+      //     ? null
+      //     : controller.tasksValue.firstWhereOrNull(
+      //         (t) => t.taskId.trim() == parentId,
+      //       );
     } finally {
       _loading = false;
       setState(() {});
@@ -269,80 +284,94 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// TASK NAME
-                _section('Task Name *'),
+                _section('${AppLocalizations.of(context)!.taskName} *'),
                 TextFormField(
                   controller: _taskNameController,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  decoration: _inputDecoration('Enter task name'),
+                  decoration: _inputDecoration(
+                    AppLocalizations.of(context)!.enterTaskName,
+                  ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
                 /// TAGS
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    MultiSelectMultiColumnDropdownField<TagModel>(
-                      enabled: true,
-                      labelText: 'Select Tag(s)',
-                      items: controller.taskTags,
-                      selectedValues: controller.selectedTags,
-                      isMultiSelect: true,
-                      searchValue: (tag) => '${tag.tagId} ${tag.tagName}',
-                      displayText: (tag) => tag.tagName,
-                      onMultiChanged: (tags) {
-                        controller.selectedTags.assignAll(tags);
-                      },
-                      columnHeaders: const ['Tag ID', 'Tag Name'],
-                      rowBuilder: (tag, searchQuery) {
-                        Color tagColor;
-                        try {
-                          tagColor = Color(
-                            int.parse(
-                              '0xFF${tag.tagColor.replaceAll('#', '')}',
-                            ),
-                          );
-                        } catch (_) {
-                          tagColor = Colors.grey;
-                        }
+                    /// ✅ DROPDOWN
+                    Obx(() {
+                      return MultiSelectMultiColumnDropdownField<TagModel>(
+                        key: ValueKey(controller.tagDropdownRefresh.value),
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 16,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(tag.tagId)),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                    horizontal: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tagColor.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    tag.tagName,
-                                    style: TextStyle(
-                                      color: tagColor,
-                                      fontWeight: FontWeight.bold,
+                        enabled: true,
+                        labelText: AppLocalizations.of(context)!.selectTags,
+                        items: controller.taskTags,
+                        selectedValues: controller.selectedTags,
+                        isMultiSelect: true,
+
+                        searchValue: (tag) => '${tag.tagId} ${tag.tagName}',
+                        displayText: (tag) => tag.tagName,
+
+                        onMultiChanged: (tags) {
+                          controller.selectedTags.assignAll(tags);
+                        },
+
+                        columnHeaders: [
+                          AppLocalizations.of(context)!.tagId,
+                          AppLocalizations.of(context)!.tagName,
+                        ],
+
+                        rowBuilder: (tag, searchQuery) {
+                          Color tagColor;
+
+                          try {
+                            tagColor = Color(
+                              int.parse(
+                                '0xFF${tag.tagColor.replaceAll('#', '')}',
+                              ),
+                            );
+                          } catch (_) {
+                            tagColor = Colors.grey;
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(tag.tagId)),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                      horizontal: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: tagColor.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      tag.tagName,
+                                      style: TextStyle(
+                                        color: tagColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (tag) {},
-                    ),
+                              ],
+                            ),
+                          );
+                        },
 
-                    const SizedBox(height: 12),
+                        onChanged: (_) {},
+                      );
+                    }),
 
-                    /// Selected tags as chips
+                    /// ✅ SELECTED TAG CHIPS
                     Obx(
                       () => Wrap(
                         spacing: 8,
@@ -366,8 +395,12 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                               color: tagColor,
                               fontWeight: FontWeight.bold,
                             ),
+
                             onDeleted: () {
                               controller.selectedTags.remove(tag);
+
+                              /// ✅ instant dropdown sync
+                              controller.tagDropdownRefresh.value++;
                             },
                           );
                         }).toList(),
@@ -375,42 +408,52 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 24),
-
-                /// ASSIGN TO
+                const SizedBox(height: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    /// 🔽 MULTI SELECT DROPDOWN
-                    MultiSelectMultiColumnDropdownField<BoardMember>(
-                      enabled: true,
-                      labelText: 'Select User(s)',
-                      items: controller.boardMembers,
-                      selectedValues: controller.selectedMembers,
-                      isMultiSelect: true,
-                      searchValue: (emp) => '${emp.userId} ${emp.userName}',
-                      displayText: (emp) => emp.userName,
-                      onMultiChanged: (employees) {
-                        controller.selectedMembers.assignAll(employees);
-                      },
-                      columnHeaders: const ['Employee ID', 'Name'],
-                      rowBuilder: (emp, searchQuery) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(emp.userId)),
-                              Expanded(child: Text(emp.userName)),
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (emp) {},
-                    ),
+                    Obx(() {
+                      return MultiSelectMultiColumnDropdownField<BoardMember>(
+                        key: ValueKey(controller.memberDropdownRefresh.value),
+
+                        enabled: true,
+                        labelText: AppLocalizations.of(context)!.selectUsers,
+                        items: controller.boardMembers,
+                        selectedValues: controller.selectedMembers,
+                        isMultiSelect: true,
+
+                        searchValue: (emp) => '${emp.userId} ${emp.userName}',
+                        displayText: (emp) => emp.userName,
+
+                        onMultiChanged: (employees) {
+                          controller.selectedMembers.assignAll(employees);
+                        },
+
+                        controller: controller.userIdController,
+
+                        columnHeaders: [
+                          AppLocalizations.of(context)!.employeeId,
+                          AppLocalizations.of(context)!.name,
+                        ],
+
+                        rowBuilder: (emp, searchQuery) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(emp.userId)),
+                                Expanded(child: Text(emp.userName)),
+                              ],
+                            ),
+                          );
+                        },
+
+                        onChanged: (_) {},
+                      );
+                    }),
 
                     const SizedBox(height: 12),
 
@@ -422,11 +465,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         children: controller.selectedMembers.map((emp) {
                           /// Initials
                           final names = emp.userName.split(' ');
-                          final initials = names
-                              .where((n) => n.isNotEmpty)
-                              .map((n) => n[0])
-                              .join()
-                              .toUpperCase();
+                          final initials = names.isNotEmpty
+                              ? (names.first[0] + names.last[0]).toUpperCase()
+                              : '';
 
                           /// Color from userId
                           final color = Color(
@@ -448,15 +489,15 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                                 ),
                               ),
 
-                              /// ❌ DELETE BUTTON
                               Positioned(
-                                top: -4,
+                                top: -6,
                                 right: -4,
                                 child: GestureDetector(
                                   onTap: () {
                                     controller.selectedMembers.removeWhere(
                                       (e) => e.userId == emp.userId,
                                     );
+                                    controller.memberDropdownRefresh.value++;
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.all(2),
@@ -479,77 +520,172 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                     ),
                   ],
                 ),
+                if (controller.selectedMembers.isNotEmpty)
+                  const SizedBox(height: 8),
+                _datePicker(
+                  AppLocalizations.of(context)!.plannedStartDate,
+                  plannedStartDate,
+                  (d) {
+                    if (plannedEndDate != null && d.isAfter(plannedEndDate!)) {
+                      _showDateError(
+                        context,
+                        "Start date cannot be after end date",
+                      );
+                      return;
+                    }
+                    setState(() => plannedStartDate = d);
+                  },
+                ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+
+                _datePicker(
+                  AppLocalizations.of(context)!.plannedEndDate,
+                  plannedEndDate,
+                  (d) {
+                    if (plannedStartDate != null &&
+                        d.isBefore(plannedStartDate!)) {
+                      _showDateError(
+                        context,
+                        "End date cannot be before start date",
+                      );
+                      return;
+                    }
+                    setState(() => plannedEndDate = d);
+                  },
+                ),
+
+                const SizedBox(height: 12),
+                TextFormField(
+                  keyboardType: TextInputType.number,
+                  controller: estimatedHours,
+                  decoration: _inputDecoration('Estimated Hours'),
+                  // validator: (v) {
+                  //   if (mandatory && (v == null || v.isEmpty)) {
+                  //     return 'Required';
+                  //   }
+                  //   return null;
+                  // },
+                ),
+                const SizedBox(height: 12),
+
+                /// ASSIGN TO
+
+                // const SizedBox(height: 12),
 
                 /// DATES
-                Row(
-                  children: [
-                    Expanded(
-                      child: _datePicker(
-                        'Start Date',
-                        _startDate,
-                        (d) => setState(() => _startDate = d),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _datePicker(
-                        'Due Date',
-                        _dueDate,
-                        (d) => setState(() => _dueDate = d),
-                      ),
-                    ),
-                  ],
+                _datePicker(
+                  AppLocalizations.of(context)!.actualStartDate,
+                  _startDate,
+                  (d) {
+                    if (_dueDate != null && d.isAfter(_dueDate!)) {
+                      _showDateError(
+                        context,
+                        "Start date cannot be after end date",
+                      );
+                      return;
+                    }
+                    setState(() => _startDate = d);
+                  },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
-                /// ESTIMATED HOURS
+                _datePicker(
+                  AppLocalizations.of(context)!.actualEndDate,
+                  _dueDate,
+                  (d) {
+                    if (_startDate != null && d.isBefore(_startDate!)) {
+                      _showDateError(
+                        context,
+                        "End date cannot be before start date",
+                      );
+                      return;
+                    }
+                    setState(() => _dueDate = d);
+                  },
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
-                  keyboardType: TextInputType.numberWithOptions(),
-                  controller: estimatedHours,
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
-                  decoration: _inputDecoration('Estimated Hours'),
+                  keyboardType: TextInputType.number,
+                  controller: actualHours,
+                  decoration: _inputDecoration('Actual Hours'),
                 ),
+                const SizedBox(height: 12),
+                //                 /// ESTIMATED HOURS
+                //              Obx(() {
+                //   final cfg = controller.taskConfig.value;
+                // print("cfg?.allowEstimatedHours ${cfg?.allowEstimatedHours }");
+                //   final show = cfg?.allowEstimatedHours ?? false;
+                //   if (!show) return const SizedBox();
 
-                const SizedBox(height: 24),
+                //   final mandatory = cfg?.mandatoryEstimatedHours ?? false;
 
-                /// CARD TYPE
+                //   return TextFormField(
+                //     keyboardType: TextInputType.number,
+                //     controller: estimatedHours,
+                //     decoration: _inputDecoration(
+                //       mandatory ? 'Estimated Hours *' : 'Estimated Hours',
+                //     ),
+                //     validator: (v) {
+                //       if (mandatory && (v == null || v.isEmpty)) {
+                //         return 'Required';
+                //       }
+                //       return null;
+                //     },
+                //   );
+                // }),
+
+                //                 /// CARD TYPE
+                //                 Obx(() {
+                //   final cfg = controller.taskConfig.value;
+
+                //   /// ✅ safe null handling
+                //   final show = cfg?.allowCardTypes ?? false;
+                //   if (!show) return const SizedBox();
+
+                //   final mandatory = cfg?.mandatoryCardTypes ?? false;
+
+                //   return Column(
+                //     children: [
                 SearchableMultiColumnDropdownField<CardTypeModel>(
                   enabled: true,
-                  labelText: "Card Type",
-                  columnHeaders: ["Card Type"],
+                  labelText: AppLocalizations.of(context)!.cardType,
+
+                  columnHeaders: [AppLocalizations.of(context)!.cardType],
+
                   items: controller.cardType,
                   selectedValue: controller.selectedCardType.value,
-                  searchValue: (code) => '${code.cardName} ${code.boardCardId}',
-                  displayText: (code) => code.cardName,
-                  onChanged: (code) {
-                    controller.selectedCardType.value = code;
-                    cardType.text = code?.cardName ?? '';
-                  },
-                  controller: cardType,
-                  rowBuilder: (code, searchQuery) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        children: [Expanded(child: Text(code.cardName))],
-                      ),
-                    );
-                  },
-                ),
 
-                const SizedBox(height: 24),
+                  searchValue: (c) => c.cardName,
+                  displayText: (c) => c.cardName,
+
+                  onChanged: (c) {
+                    controller.selectedCardType.value = c;
+                    cardType.text = c?.cardName ?? '';
+                  },
+
+                  rowBuilder: (c, _) => Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(c.cardName),
+                  ),
+                ),
+                //     ],
+                //   );
+                // }),
+                const SizedBox(height: 12),
 
                 /// PRIORITY
                 SearchableMultiColumnDropdownField<String>(
                   enabled: true,
-                  labelText: "Priority",
-                  columnHeaders: ["Type"],
-                  items: ["Low", "High", "Medium", "Urgent"],
+                  labelText: AppLocalizations.of(context)!.priority,
+                  columnHeaders: [AppLocalizations.of(context)!.type],
+                  items: [
+                    AppLocalizations.of(context)!.low,
+                    AppLocalizations.of(context)!.high,
+                    AppLocalizations.of(context)!.medium,
+                    AppLocalizations.of(context)!.urgent,
+                  ],
                   selectedValue: _priority,
                   searchValue: (code) => code,
                   displayText: (code) => code,
@@ -567,91 +703,134 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   },
                 ),
 
-                const SizedBox(height: 24),
+                //  const SizedBox(height: 12),
 
-                /// ACTUAL HOURS
-                TextFormField(
-                  keyboardType: TextInputType.numberWithOptions(),
-                  controller: actualHours,
-                  decoration: _inputDecoration('Actual Hours'),
+                //   /// VERSION
+                //   TextFormField(
+                //     keyboardType: TextInputType.numberWithOptions(),
+                //     controller: version,
+                //     decoration: _inputDecoration(
+                //       AppLocalizations.of(context)!.version,
+                //     ),
+                //   ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: const [
+                    Icon(Icons.settings, size: 20, color: Colors.blueAccent),
+                    SizedBox(width: 8),
+                    Text(
+                      "Configure Fields",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 24),
-
-                /// VERSION
-                TextFormField(
-                  keyboardType: TextInputType.numberWithOptions(),
-                  controller: version,
-                  decoration: _inputDecoration('Version'),
-                ),
-
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
 
                 /// PARENT TASK
-                SearchableMultiColumnDropdownField<TaskModel>(
-                  enabled: true,
-                  labelText: "Parent Task ",
-                  columnHeaders: ["Task ID", "Task Name"],
-                  items: controller.tasksValue,
-                  selectedValue: controller.selectTast.value,
-                  searchValue: (code) => code.taskName,
-                  displayText: (code) => '${code.taskName} ${code.taskId}',
-                  onChanged: (code) {
-                    controller.selectTast.value = code!;
-                  },
-                  rowBuilder: (code, searchQuery) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(code.taskId)),
-                          Expanded(child: Text(code.taskName)),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                Obx(() {
+                  final fields =
+                      controller.taskFields; // RxList<TaskFieldConfig>
+                  Widget child = const SizedBox();
+                  if (fields.isEmpty) return const SizedBox();
 
-                const SizedBox(height: 24),
+                  return Column(
+                    children: fields.map((field) {
+                      final label = field.fieldLabel ?? field.fieldName;
+                      final mandatory = field.isMandatory ?? false;
 
-                /// DEPENDENCIES
-                MultiSelectMultiColumnDropdownField<TaskModel>(
-                  enabled: true,
-                  labelText: 'Select Dependency',
-                  items: controller.tasksValue,
-                  selectedValues: controller.selectedDependency,
-                  isMultiSelect: true,
-                  searchValue: (emp) => '${emp.taskId} ${emp.taskName}',
-                  displayText: (emp) => emp.taskName,
-                  onMultiChanged: (employees) {
-                    controller.selectedDependency.assignAll(employees);
-                  },
-                  columnHeaders: ["Task ID", "Task Name"],
-                  rowBuilder: (emp, searchQuery) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(emp.taskId)),
-                          Expanded(child: Text(emp.taskName)),
-                        ],
-                      ),
-                    );
-                  },
-                  onChanged: (emp) {},
-                ),
+                      /// =========================
+                      /// LIST TYPE
+                      /// =========================
+                      // if (field.fieldType == "List") {
+                      //   /// Parent Task
+                      //   // if (field.fieldName == "Actual Hours") {
+                      //   //   return SearchableMultiColumnDropdownField<TaskModel>(
+                      //   //     labelText: mandatory ? "$label *" : label,
+                      //   //     items: controller.tasksValue,
+                      //   //     selectedValue: controller.selectTast.value,
+                      //   //     searchValue: (t) => t.taskName,
+                      //   //     displayText: (t) => "${t.taskName} ${t.taskId}",
+                      //   //     onChanged: (t) => controller.selectTast.value = t,
+                      //   //     columnHeaders: const ["Task Id", "Task Name"],
+                      //   //     rowBuilder: (t, _) => Row(
+                      //   //       children: [
+                      //   //         Expanded(child: Text(t.taskId)),
+                      //   //         Expanded(child: Text(t.taskName)),
+                      //   //       ],
+                      //   //     ),
+                      //   //   );
+                      //   // }
 
-                const SizedBox(height: 24),
+                      //   /// Dependency (MultiSelect)
+                      //   if (field.fieldName == "Dependency" &&
+                      //       field.allowMultiSelect == true) {
+                      //     return MultiSelectMultiColumnDropdownField<TaskModel>(
+                      //       labelText: mandatory ? "$label *" : label,
+                      //       items: controller.tasksValue,
+                      //       selectedValues: controller.selectedDependency,
+                      //       isMultiSelect: true,
+                      //       searchValue: (t) => "${t.taskId} ${t.taskName}",
+                      //       displayText: (t) => t.taskName,
+                      //       onMultiChanged: (v) =>
+                      //           controller.selectedDependency.assignAll(v),
+                      //       columnHeaders: const ["Task Id", "Task Name"],
+                      //       rowBuilder: (t, _) => Row(
+                      //         children: [
+                      //           Expanded(child: Text(t.taskId)),
+                      //           Expanded(child: Text(t.taskName)),
+                      //         ],
+                      //       ), onChanged: (TaskModel? p1) {  },
+                      //     );
+                      //   }
+
+                      //   /// Other List Fields (Card Types, Risk Level etc.)
+                      //   return SearchableMultiColumnDropdownField<String>(
+                      //     labelText: mandatory ? "$label *" : label,
+                      //     items: controller.getListValues(field),
+                      //     selectedValue: controller.dynamicValues[field.fieldName],
+                      //     searchValue: (v) => v,
+                      //     displayText: (v) => v,
+                      //     onChanged: (v) =>
+                      //         controller.dynamicValues[field.fieldName] = v,
+                      //     columnHeaders: [label],
+                      //     rowBuilder: (v, _) => Padding(
+                      //       padding: const EdgeInsets.all(12),
+                      //       child: Text(v),
+                      //     ),
+                      //   );
+                      // }
+
+                      /// =========================
+                      /// INTEGER TYPE
+                      /// =========================
+                      if (field.fieldType == "Integer") {
+                        return TextFormField(
+                          decoration: InputDecoration(
+                            labelText: mandatory ? "$label *" : label,
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) =>
+                              controller.dynamicValues[field.fieldName] = v,
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: 12,
+                        ), // 👈 space here
+                        child: child,
+                      );
+                    }).toList(),
+                  );
+                }),
                 Row(
                   children: [
-                    const Text(
-                      'Checklist',
+                    Text(
+                      AppLocalizations.of(context)!.checklist,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
@@ -678,12 +857,19 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
                     const Spacer(),
 
-                    const Text('Show on card'),
-                    Switch(
-                      value: showChecklistOnCard,
-                      onChanged: (val) {
-                        setState(() => showChecklistOnCard = val);
-                      },
+                    Text(AppLocalizations.of(context)!.showInCard),
+                    SizedBox(
+                      height: 24,
+                      child: Transform.scale(
+                        scale: 0.65,
+                        child: Switch(
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          value: showChecklistOnCard,
+                          onChanged: (v) =>
+                              setState(() => showChecklistOnCard = v),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -708,7 +894,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                             child: TextField(
                               controller: checklistControllers[index],
                               decoration: InputDecoration(
-                                hintText: 'Add item',
+                                hintText: AppLocalizations.of(context)!.addItem,
                                 isDense: true,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -755,66 +941,24 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                     });
                   },
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add item'),
+                  label: Text(AppLocalizations.of(context)!.addItem),
                 ),
 
                 const SizedBox(height: 24),
 
                 /// NOTES WITH TOGGLE
                 ///
-                if (_showNotes)
-                  Row(
-                    children: [
-                      const Text(
-                        '',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          const Text(
-                            'Show in Card',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          SizedBox(
-                            height: 24,
-                            child: Transform.scale(
-                              scale: 0.65,
-                              child: Switch(
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                value: _showNotes,
-                                onChanged: (v) =>
-                                    setState(() => _showNotes = v),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                if (_showNotes) const SizedBox(height: 10),
-                if (_showNotes)
-                  TextFormField(
-                    controller: _notesController,
-                    maxLines: 3,
-                    decoration: _inputDecoration('Enter notes'),
-                  ),
-
-                const SizedBox(height: 10),
-
-                /// ATTACHMENTS
                 Row(
                   children: [
                     const Text(
-                      'Attachment',
+                      '',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     Row(
                       children: [
-                        const Text(
-                          'Show in Card',
+                        Text(
+                          AppLocalizations.of(context)!.showInCard,
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         SizedBox(
@@ -824,14 +968,54 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                             child: Switch(
                               materialTapTargetSize:
                                   MaterialTapTargetSize.shrinkWrap,
-                              value: controller.showAttachment,
-                              onChanged: (v) =>
-                                  setState(() => controller.showAttachment = v),
+                              value: _showNotes,
+                              onChanged: (v) => setState(() => _showNotes = v),
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                TextFormField(
+                  controller: _notesController,
+                  maxLines: 3,
+                  decoration: _inputDecoration('Enter notes'),
+                ),
+
+                const SizedBox(height: 10),
+
+                /// ATTACHMENTS
+                Row(
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.attachments,
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    // Row(
+                    //   children: [
+                    //     Text(
+                    //       AppLocalizations.of(context)!.showInCard,
+                    //       style: TextStyle(fontWeight: FontWeight.w600),
+                    //     ),
+                    //     SizedBox(
+                    //       height: 24,
+                    //       child: Transform.scale(
+                    //         scale: 0.65,
+                    //         child: Switch(
+                    //           materialTapTargetSize:
+                    //               MaterialTapTargetSize.shrinkWrap,
+                    //           value: controller.showAttachment,
+                    //           onChanged: (v) =>
+                    //               setState(() => controller.showAttachment = v),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -845,8 +1029,8 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         color: Colors.white,
                         size: 18,
                       ),
-                      label: const Text(
-                        'Add Attachment',
+                      label: Text(
+                        AppLocalizations.of(context)!.addAttachment,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -876,9 +1060,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   }
 
                   if (controller.attachments.isEmpty) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('No attachments'),
+                      child: Text(AppLocalizations.of(context)!.noDataFound),
                     );
                   }
 
@@ -934,7 +1118,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                       controller: _commentController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'Write a comment...',
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -956,7 +1142,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                                 )
                               : const Icon(Icons.send, size: 18),
                           label: Text(
-                            _isCommentPosting ? 'Posting...' : 'Comment',
+                            _isCommentPosting
+                                ? AppLocalizations.of(context)!.posting
+                                : AppLocalizations.of(context)!.comment,
                           ),
                           onPressed: _isCommentPosting
                               ? null
@@ -1002,9 +1190,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   }
 
                   if (controller.commentKanba.isEmpty) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('No comments yet'),
+                      child: Text(AppLocalizations.of(context)!.noCommentsYet),
                     );
                   }
 
@@ -1064,7 +1252,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          _saving ? null : _saveTask(context, widget.mainAccess);
+                          _saving
+                              ? null
+                              : _saveTask(context, widget.mainAccess);
                         },
                         child: _saving
                             ? SizedBox(
@@ -1075,7 +1265,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                                   strokeWidth: 2, // thinner circle
                                 ),
                               )
-                            : const Text('Save'),
+                            : Text(AppLocalizations.of(context)!.save),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1085,7 +1275,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                           _clearTaskForm(),
                           Navigator.pop(context),
                         },
-                        child: const Text('Close'),
+                        child: Text(AppLocalizations.of(context)!.close),
                       ),
                     ),
                   ],
@@ -1109,6 +1299,12 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
           : nameParts[0].toUpperCase();
     }
     return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+  }
+
+  void _showDateError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   Color _generateColorFromName(String name) {
@@ -1234,7 +1430,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         dueDate: _dueDate,
         notes: _notesController.text,
         showNotes: _showNotes,
-        showChecklist: _showList,
+        showChecklist: showChecklistOnCard,
         estimatedHours: double.tryParse(estimatedHours.text) ?? 0,
         status: _status,
         selectedTags: controller.selectedTags,
@@ -1242,11 +1438,15 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         selectedCardType: controller.selectedCardType.value,
         parentTask: controller.selectTast.value,
         selectedDependencies: controller.selectedDependency,
-        actualHours: actualHours.text,
+        actualHours: int.tryParse(actualHours.text.trim()) ?? 0,
         version: version.text,
         dependentDescription: '',
         context: context,
         checkLists: checklist,
+        taskData: dynamicFieldValues,
+        plannedStartDate: plannedStartDate,
+        plannedEndDate: plannedEndDate,
+        riskLevel: riskLevel,
       );
 
       _saving = false;
@@ -1254,23 +1454,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
 
       if (success) {
         _clearTaskForm();
-        
-        Fluttertoast.showToast(
-          msg: 'Task updated successfully',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.green,
-          textColor: Colors.white,
-        );
-      } else {
-        Fluttertoast.showToast(
-          msg: 'Failed to update task',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-        );
-      }
+      } else {}
     } catch (e) {
       _saving = false;
       setState(() {});

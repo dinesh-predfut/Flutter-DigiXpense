@@ -1,19 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart'
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart'
     show GExpense, ManageExpensesCard, PayslipAnalyticsCard, BoardModel;
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 
 class BoardDashboard extends StatefulWidget {
   const BoardDashboard({super.key});
@@ -41,12 +42,12 @@ class _BoardDashboardState extends State<BoardDashboard>
 
     // Load data
     // controller.loadProfilePictureFromStorage();
-    controller.fetchNotifications();
+
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.fetchBoards().then((_) {
         controller.getPersonalDetails(context);
-
+    controller.fetchNotifications();
         controller.isLoadingGE1.value = false;
         _loadProfileImage();
       });
@@ -120,7 +121,7 @@ class _BoardDashboardState extends State<BoardDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                if (primaryColor != const Color(0xFF1e4db7))
+               if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -136,41 +137,74 @@ class _BoardDashboardState extends State<BoardDashboard>
                         ],
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          onPressed: _openMenu,
-                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                          style: IconButton.styleFrom(
-                            // backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.all(5),
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        // Logo
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const LanguageDropdown(),
 
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
-                        ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
                       ],
                     ),
                   ),
@@ -188,41 +222,75 @@ class _BoardDashboardState extends State<BoardDashboard>
                         bottomRight: Radius.circular(10),
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                    child: Row(
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child:Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          onPressed: _openMenu,
-                          icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                          // Optional: Add custom background or shape
-                          style: IconButton.styleFrom(
-                            // backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.all(8),
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              const LanguageDropdown(),
 
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
-                        ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
                       ],
                     ),
                   ),
@@ -234,7 +302,7 @@ class _BoardDashboardState extends State<BoardDashboard>
                       left: 16.0,
                     ), // Like margin-left
                     child: Text(
-                      "Board Dashboard",
+                      AppLocalizations.of(context)!.boardDashboard,
                       style: const TextStyle(
                         // color: AppColors.gradientEnd, // Text color
                         fontSize: 16, // font-size
@@ -277,17 +345,19 @@ class _BoardDashboardState extends State<BoardDashboard>
                 ),
 
                 const SizedBox(height: 8),
-
-                Align(
+Padding(  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+child:   Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.pushNamed(context, AppRoutes.createBoard);
                     },
                     icon: const Icon(Icons.add),
-                    label: Text("Create Board"),
+                    label: Text(AppLocalizations.of(context)!.createBoard),
                   ),
                 ),
+),
+              
                 const SizedBox(height: 8),
 
                 // const SizedBox(height: 8),
@@ -297,7 +367,7 @@ class _BoardDashboardState extends State<BoardDashboard>
                     return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredboardList.isEmpty
-                        ? Center(child: Text(loc.noExpensesFound))
+                        ? const CommonNoDataWidget()
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: controller.filteredboardList.length,
@@ -426,27 +496,27 @@ class _BoardDashboardState extends State<BoardDashboard>
                     ),
 
                     /// Loader Overlay
-                    if (controller.isImageLoading.value)
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
@@ -506,11 +576,11 @@ class _BoardDashboardState extends State<BoardDashboard>
       alignment: Alignment.centerRight,
       color: const Color.fromARGB(255, 115, 142, 229),
       padding: const EdgeInsets.only(right: 20),
-      child: const Row(
+      child:  Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Delete',
+           AppLocalizations.of(context)!.delete,
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           SizedBox(width: 8),
@@ -521,7 +591,7 @@ class _BoardDashboardState extends State<BoardDashboard>
   }
 
   Widget buildBoardCard(BoardModel item, BuildContext context) {
-    final controller = Get.find<Controller>();
+    final controller = Get.put(Controller());
 
     return Obx(() {
       final isSelected = controller.isSelected(item.boardId);
@@ -549,10 +619,10 @@ class _BoardDashboardState extends State<BoardDashboard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    _row("Board Name", item.boardName),
-                    _row("Board Template", item.areaName),
-                    _row("Reference name", item.referenceName),
-                    _row("Reference ID", item.referenceId),
+                    _row(AppLocalizations.of(context)!.boardName, item.boardName),
+                    _row(AppLocalizations.of(context)!.boardTemplate, item.areaName),
+                    _row(AppLocalizations.of(context)!.referenceName, item.referenceName),
+                    _row(AppLocalizations.of(context)!.referenceId, item.referenceId),
                   ],
                 ),
               ),
@@ -562,7 +632,7 @@ class _BoardDashboardState extends State<BoardDashboard>
                 top: 10,
                 right: 12,
                 child: Text(
-                  "${item.boardType} Board",
+                  "${item.boardType} ${AppLocalizations.of(context)!.board}",
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ),

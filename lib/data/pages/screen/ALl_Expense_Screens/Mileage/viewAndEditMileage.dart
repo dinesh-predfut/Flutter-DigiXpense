@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:get/get.dart';
@@ -34,7 +34,7 @@ double calculatedAmountINR = 0;
 double calculatedAmountUSD = 0;
 double totalDistanceKm = 0;
   late GoogleMapController _mapController;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
   final TextEditingController expenseId = TextEditingController();
   final TextEditingController employeeId = TextEditingController();

@@ -1,17 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../models.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 
 class MyTeamCashAdvanceDashboard extends StatefulWidget {
   const MyTeamCashAdvanceDashboard({super.key});
@@ -27,11 +29,9 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
+  Rxn<File> profileImage = Rxn<File>();
   bool isLoading = false;
-  final List<String> statusOptionsmyTeam = [
-    "In Process",
-    "All",
-  ];
+  final List<String> statusOptionsmyTeam = ["In Process", "All"];
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
 
   @override
@@ -41,13 +41,13 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerCashAdvanceMyteams.clear();
-          controller.getProfilePicture();
 
+      loadProfileImage();
     });
     _scrollController = ScrollController();
 
     // Load data
-   
+
     controller.fetchNotifications();
     controller.getPersonalDetails(context);
     // controller.fetchMileageRates();
@@ -76,6 +76,19 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     });
   }
 
+  void loadProfileImage() async {
+    controller.isImageLoading.value = true;
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profileImagePath');
+    if (path != null && File(path).existsSync()) {
+      profileImage.value = File(path);
+      controller.isImageLoading.value = false;
+    } else {
+      // await controller.getProfilePicture();
+      controller.isImageLoading.value = false;
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -99,6 +112,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
   }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -110,7 +124,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
       },
       child: Scaffold(
         // backgroundColor: const Color(0xFFF7F7F7),
-          key: _scaffoldKey,
+        key: _scaffoldKey,
         resizeToAvoidBottomInset: true,
         drawer: const MyDrawer(),
         body: LayoutBuilder(
@@ -119,8 +133,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                // 🔹 Responsive Header
-              if (primaryColor != const Color(0xFF1e4db7) )
+                if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -130,114 +143,175 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                         end: Alignment.bottomRight,
                         colors: [
                           primaryColor,
-                          primaryColor
-                              .withOpacity(0.7), // Lighter primary color
+                          primaryColor.withOpacity(
+                            0.7,
+                          ), // Lighter primary color
                         ],
                       ),
                     ),
-                    padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Logo
-                      IconButton(
-                    onPressed: _openMenu,
-                    icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                    // Optional: Add custom background or shape
-                    style: IconButton.styleFrom(
-                      // backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                  ),
-                
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            'assets/XpenseWhite.png',
-                            width: isSmallScreen ? 80 : 100,
-                            height: isSmallScreen ? 30 : 40,
-                            fit: BoxFit.cover,
+                        Flexible(
+                          flex: 4,
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                        // Actions
-                        Row(
-                          children: [
-                            const LanguageDropdown(),
-                            _buildNotificationBadge(),
-                            _buildProfileAvatar(),
-                          ],
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
+
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
+                                ),
+
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-             if (primaryColor == const Color(0xFF1e4db7) )
-                Container(
-                              width: double.infinity,
-                              height: 100,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/Vector.png'),
+                if (primaryColor == const Color(0xFF1e4db7))
+                  Container(
+                    width: double.infinity,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/Vector.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
+
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
                                   fit: BoxFit.cover,
                                 ),
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
+
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    onPressed: _openMenu,
-                                    icon: Icon(
-                                      Icons.menu,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    // Optional: Add custom background or shape
-                                    style: IconButton.styleFrom(
-                                      // backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                  ),
 
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.asset(
-                                      'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
-                                      height: isSmallScreen ? 30 : 40,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-
-                                  // Actions
-                                  Row(
-                                    children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
                             ),
-                const SizedBox(height: 12),
-                const Align(
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
                     padding: EdgeInsets.only(left: 16.0), // Like margin-left
                     child: Text(
-                      "My Team Cash Advances",
+                      AppLocalizations.of(context)!.myTeamCashAdvances,
                       style: TextStyle(
                         // color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -256,7 +330,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                   height: 140,
                   child: Obx(() {
                     if (controller.manageExpensesCards.isEmpty) {
-                      return  Center(child: Text(loc.pleaseWait));
+                      return Center(child: Text(loc.pleaseWait));
                     }
                     return NotificationListener<UserScrollNotification>(
                       onNotification: (notification) {
@@ -274,7 +348,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                           final card = controller.manageExpensesCards[index];
                           return GestureDetector(
                             onTap: _onUserScroll,
-                            child: _buildCard(card, isSmallScreen),
+                            child: _buildCard(card, isSmallScreen, context),
                           );
                         },
                       ),
@@ -296,8 +370,10 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                       },
                       decoration: InputDecoration(
                         hintText: AppLocalizations.of(context)!.search,
-                        prefixIcon:
-                            const Icon(Icons.search, color: Colors.grey),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -322,47 +398,58 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                       color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Obx(() => DropdownButton<String>(
-                          value: controller
-                              .selectedStatusDropDownmyteamCashAdvance.value,
-                          isExpanded: true,
-                          underline: Container(),
-                          dropdownColor: theme.colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                          icon:  Icon(Icons.arrow_drop_down,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.secondary),
-                          onChanged: (String? newValue) {
-                            if (newValue != null &&
-                                newValue !=
+                    child: Obx(
+                      () => DropdownButton<String>(
+                        value: controller
+                            .selectedStatusDropDownmyteamCashAdvance
+                            .value,
+                        isExpanded: true,
+                        underline: Container(),
+                        dropdownColor: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                        onChanged: (String? newValue) {
+                          if (newValue != null &&
+                              newValue !=
+                                  controller.selectedStatusmyteamCashAdvance) {
+                            controller.selectedStatusmyteamCashAdvance =
+                                newValue;
+                            controller
+                                    .selectedStatusDropDownmyteamCashAdvance
+                                    .value =
+                                newValue; // Update reactive value
+                            controller
+                                .fetchAllmyTeamsCashAdvanse(); // Refetch data
+                          }
+                        },
+                        items: statusOptionsmyTeam.map<DropdownMenuItem<String>>((
+                          String value,
+                        ) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            enabled: true,
+                            child: Text(
+                              value,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
                                     controller
-                                        .selectedStatusmyteamCashAdvance) {
-                              controller.selectedStatusmyteamCashAdvance =
-                                  newValue;
-                              controller.selectedStatusDropDownmyteamCashAdvance
-                                  .value = newValue; // Update reactive value
-                              controller
-                                  .fetchAllmyTeamsCashAdvanse(); // Refetch data
-                            }
-                          },
-                          items: statusOptionsmyTeam
-                              .map<DropdownMenuItem<String>>((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              enabled: true,
-                              child: Text(
-                                value,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: controller.selectedStatusDropDownmyteamCashAdvance.value == value
-                      ? theme.colorScheme.secondary // ACTIVE DROPDOWN ITEM COLOR
-                      : Colors.white, // popup text color
-                                ),
+                                            .selectedStatusDropDownmyteamCashAdvance
+                                            .value ==
+                                        value
+                                    ? theme
+                                          .colorScheme
+                                          .secondary // ACTIVE DROPDOWN ITEM COLOR
+                                    : Colors.white, // popup text color
                               ),
-                            );
-                          }).toList(),
-                        )),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
                 ),
 
@@ -375,23 +462,24 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                     }
                     final List<CashAdvanceRequestHeader> expenses =
                         controller.getAllListCashAdvanseMyteams;
-                    final query =
-                        controller.searchQuery.value.toLowerCase().trim();
+                    final query = controller.searchQuery.value
+                        .toLowerCase()
+                        .trim();
                     final filteredExpenses = query.isEmpty
                         ? expenses
                         : expenses.where((item) {
                             final lowerReqId = item.requisitionId.toLowerCase();
-                            final lowerEmployeeName =
-                                item.employeeName.toLowerCase();
-                            final lowerStatus =
-                                item.approvalStatus.toLowerCase();
+                            final lowerEmployeeName = item.employeeName
+                                .toLowerCase();
+                            final lowerStatus = item.approvalStatus
+                                .toLowerCase();
 
                             return lowerReqId.contains(query) ||
                                 lowerEmployeeName.contains(query) ||
                                 lowerStatus.contains(query);
                           }).toList();
                     if (expenses.isEmpty) {
-                      return const Center(child: Text("No expenses found"));
+                      return const CommonNoDataWidget();
                     }
 
                     return ListView.builder(
@@ -403,45 +491,27 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                         return Dismissible(
                           key: ValueKey(item.referenceId),
                           background: _buildSwipeActionLeft(isLoading),
-                          secondaryBackground: _buildSwipeActionRight(),
+                          secondaryBackground: _buildSwipeActionLeft(isLoading),
                           confirmDismiss: (direction) async {
                             if (direction == DismissDirection.startToEnd) {
                               setState(() => isLoading = true);
+                              controller.fetchSpecificCashAdvanceItem(
+                                context,
+                                item.recId,
+                                false,
+                              );
 
                               setState(() => isLoading = false);
                               return false;
                             } else {
-                              final shouldDelete = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Delete?'),
-                                  content:
-                                      Text('Delete "${item.referenceId}"?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () =>
-                                          Navigator.of(ctx).pop(true),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                      ),
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
+                               setState(() => isLoading = true);
+                              controller.fetchSpecificCashAdvanceItem(
+                                context,
+                                item.recId,
+                                false,
                               );
 
-                              if (shouldDelete == true) {
-                                setState(() => isLoading = true);
-                                await controller.deleteExpense(item.recId);
-                                setState(() => isLoading = false);
-                                return true; // This will remove the item from UI
-                              }
-
+                              setState(() => isLoading = false);
                               return false;
                             }
                           },
@@ -450,7 +520,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                       },
                     );
                   }),
-                )
+                ),
                 // 🔹 Expense List (Flexible height)
               ],
             );
@@ -483,9 +553,10 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
               child: Text(
                 '$count',
                 style: const TextStyle(
-                    fontSize: 8,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
+                  fontSize: 8,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -497,36 +568,92 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
 
   Widget _buildProfileAvatar() {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
-      child: Obx(() => Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
+      child: Obx(
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
+                    ),
+
+                    /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
+                  ],
+                ),
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: controller.isImageLoading.value
-                  ? const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : controller.profileImage.value != null
-                      ? Image.file(
-                          controller.profileImage.value!,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.person, size: 40, color: Colors.white),
-            ),
-          )),
+          ),
+        ),
+      ),
     );
   }
+}
 
-Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
+Widget _buildCard(
+  ManageExpensesCard card,
+  bool isSmallScreen,
+  BuildContext context,
+) {
   final theme = Theme.of(context);
   final primaryColor = theme.primaryColor;
   final onPrimaryColor = theme.colorScheme.onPrimary;
@@ -560,7 +687,7 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
         Icon(_getIconForStatus(card.status), size: 28, color: Colors.white),
         const SizedBox(height: 6),
         Text(
-          _getTitle(card.status),
+          _getTitle(card.status, context),
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
@@ -597,94 +724,95 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
   );
 }
 
-  IconData _getIconForStatus(String status) {
-    switch (status) {
-      case 'Approved Expenses (Total)':
-        return Icons.check_circle; // ✅
-      case 'Expenses In Progress (Total)':
-        return Icons.sync; // 🔄
-      case 'Approved Advances (Total)':
-        return Icons.hourglass_bottom; // ⏳
-      case ' Advances In Progress (Total)':
-        return Icons.bar_chart; // 📊
-      default:
-        return Icons.category; // fallback
-    }
+IconData _getIconForStatus(String status) {
+  switch (status) {
+    case 'Approved Expenses (Total)':
+      return Icons.check_circle; // ✅
+    case 'Expenses In Progress (Total)':
+      return Icons.sync; // 🔄
+    case 'Approved Advances (Total)':
+      return Icons.hourglass_bottom; // ⏳
+    case ' Advances In Progress (Total)':
+      return Icons.bar_chart; // 📊
+    default:
+      return Icons.category; // fallback
   }
+}
 
-  String _getTitle(String status) {
-    switch (status) {
-      case 'Approved Expenses (Total)':
-        return AppLocalizations.of(context)!.approvedExpensesTotal;
-      case 'Expenses In Progress (Total)':
-        return AppLocalizations.of(context)!.expensesInProgressTotal;
-      case 'Approved Advances (Total)':
-        return AppLocalizations.of(context)!.approvedAdvancesTotal;
-      case 'Advances In Progress (Total)':
-        return AppLocalizations.of(context)!.advancesInProgressTotal;
-      default:
-        return status;
-    }
+String _getTitle(String status, context) {
+  switch (status) {
+    case 'Approved Expenses (Total)':
+      return AppLocalizations.of(context)!.approvedExpensesTotal;
+    case 'Expenses In Progress (Total)':
+      return AppLocalizations.of(context)!.expensesInProgressTotal;
+    case 'Approved Advances (Total)':
+      return AppLocalizations.of(context)!.approvedAdvancesTotal;
+    case 'Advances In Progress (Total)':
+      return AppLocalizations.of(context)!.advancesInProgressTotal;
+    default:
+      return status;
   }
+}
 
-  Widget _buildSwipeActionLeft(bool isLoading) {
-    return Container(
-      alignment: Alignment.centerLeft,
-      color: Colors.blue.shade100,
-      padding: const EdgeInsets.only(left: 20),
-      child: Row(
-        children: [
-          if (isLoading)
-            const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-            )
-          else
-            const Icon(Icons.remove_red_eye, color: Colors.blue),
-          const SizedBox(width: 8),
-          Text(
-            isLoading ? 'Loading...' : 'View',
-            style: const TextStyle(
-              color: Colors.blue,
-              fontWeight: FontWeight.bold,
+Widget _buildSwipeActionLeft(bool isLoading) {
+  return Container(
+    alignment: Alignment.centerLeft,
+    color: Colors.blue.shade100,
+    padding: const EdgeInsets.only(left: 20),
+    child: Row(
+      children: [
+        if (isLoading)
+          const SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
+          )
+        else
+          const Icon(Icons.remove_red_eye, color: Colors.blue),
+        const SizedBox(width: 8),
+        Text(
+          isLoading ? 'Loading...' : 'View',
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
-  Widget _buildSwipeActionRight() {
-    return Container(
-      alignment: Alignment.centerRight,
-      color: const Color.fromARGB(255, 115, 142, 229),
-      padding: const EdgeInsets.only(right: 20),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Delete',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(width: 8),
-          Icon(Icons.delete, color: Colors.white),
-        ],
-      ),
-    );
-  }
+Widget _buildSwipeActionRight() {
+  return Container(
+    alignment: Alignment.centerRight,
+    color: const Color.fromARGB(255, 115, 142, 229),
+    padding: const EdgeInsets.only(right: 20),
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Delete',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(width: 8),
+        Icon(Icons.delete, color: Colors.white),
+      ],
+    ),
+  );
+}
 
- Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
+Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
   final theme = Theme.of(context);
   final primaryColor = theme.primaryColor;
   final onPrimaryColor = theme.colorScheme.onPrimary;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
   return GestureDetector(
     onTap: () {
-      controller.fetchSpecificCashAdvanceItem(context, item.recId,false);
+      controller.fetchSpecificCashAdvanceItem(context, item.recId, false);
     },
     child: Card(
       shadowColor: const Color.fromARGB(255, 82, 78, 78),
@@ -703,17 +831,23 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
                   item.requisitionId ?? "",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
+                   Text(
+                  item.requestDate != null
+                      ? DateFormat('dd-MM-yyyy').format(
+                          DateTime.fromMillisecondsSinceEpoch(item.requestDate),
+                        )
+                      : 'No date',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ],
             ),
 
             const SizedBox(height: 4),
 
-            // Category
-            Text(
-              item.expenseCategoryId?.toString() ?? "",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
+          Text(
+                    '${AppLocalizations.of(context)!.employeeId}: ${item.employeeId} | ${AppLocalizations.of(context)!.employeeName}: ${item.employeeName}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
             const SizedBox(height: 6),
 
             // Status and Amount
@@ -722,21 +856,20 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(255, 0, 110, 255),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     item.approvalStatus ?? "",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
                 Text(
-                  item.totalRequestedAmount?.toString() ?? "",
+                  item.totalEstimatedAmountInReporting.toString() ?? "",
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -750,6 +883,4 @@ Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
       ),
     ),
   );
-}
-
 }

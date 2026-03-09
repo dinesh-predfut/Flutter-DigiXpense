@@ -75,7 +75,56 @@ String get personalInformation => 'المعلومات الشخصية';
 String get personalDetails => 'البيانات الشخصية';
 @override
 String get myExpenseTrends => 'اتجاهات مصاريفي';
-
+ @override
+  String get punchInOut => 'تسجيل الحضور/الانصراف';
+  
+  @override
+  String get punchInOutList => 'قائمة تسجيل الحضور/الانصراف';
+  
+  @override
+  String get myTeamAttendance => 'حضور فريقي';
+  
+  @override
+  String get timesheets => 'جداول الوقت';
+  
+  @override
+  String get myTeamTimesheets => 'جداول وقت فريقي';
+  
+  @override
+  String get payroll => 'كشوف المرتبات';
+  
+  @override
+  String get myPayslips => 'إيصالات رواتبي';
+  
+  @override
+  String get allPayslips => 'جميع الإيصالات';
+   @override
+  String get leaveCancellation => 'إلغاء الإجازة';
+   @override
+  String get fullyCancel => 'إلغاء كامل';
+  
+  @override
+  String get partialCancel => 'إلغاء جزئي';
+  
+  @override
+  String get cardView => 'عرض البطاقات';
+  
+  @override
+  String get calendarView => 'عرض التقويم';
+  
+  @override
+  String get month => 'شهر';
+  
+  @override
+  String get week => 'أسبوع';
+  
+  @override
+  String get day => 'يوم';
+  @override
+  String get myTimesheets => 'جداول وقتي';
+  @override
+  String get board => 'اللوحة';
+  
 @override
 String get myExpenseAmountByApprovalStatus => 'مبلغ مصاريفي حسب حالة الموافقة';
 
@@ -618,5 +667,209 @@ String get languageId => 'معرف اللغة';
 @override String get numberOfDaysCannotBeNegative => 'لا يمكن أن يكون عدد الأيام سالبًا';
 @override String get enteredDaysCannotExceedAllocated => 'الأيام المدخلة لا يمكن أن تتجاوز الأيام المخصصة';
 @override String get pleaseEnterValidNumber => 'يرجى إدخال رقم صالح';
+ @override String get wouldYouLikeToPunch => 'هل ترغب في تسجيل الحضور؟';
+  
+  @override String get punchOut => 'تسجيل الانصراف';
+  
+  @override String get punchIn => 'تسجيل الحضور';
+  
+  @override String get status => 'الحالة';
+  
+  @override String get lastSession => 'الجلسة السابقة';
+  
+  @override String get lastIn => 'آخر حضور';
+  
+  @override String get lastOut => 'آخر انصراف';
+  
+  @override String get totalTime => 'إجمالي الوقت';
+  
+  @override String get selfieVerification => 'التحقق بالصورة';
+  
+  @override String get retake => 'إعادة المحاولة';
+  
+  @override String get currentLocation => 'الموقع الحالي';
+  
+  @override String get myLocation => 'موقعي';
+  
+  
+  @override String get fetchingLocation => 'جاري تحديد الموقع...';
+  
+  @override String get locationPermissionDenied => 'تم رفض صلاحية الموقع';
+  
+  @override String get failedToFetchLocation => 'فشل في تحديد الموقع';
+  
+  @override String get cameraPermissionDenied => 'تم رفض صلاحية الكاميرا';
+  
+ 
+  // ... all previous strings remain the same
+  
+  // NEW - Attendance List
+  @override String get myAttendanceList => 'قائمة حضوري';
+  @override String get totalHours => 'إجمالي الساعات';
+  @override String get transactionId => 'معرف المعاملة';
+  @override String get punchInTime => 'وقت تسجيل الحضور';
+  @override String get punchOutTime => 'وقت تسجيل الانصراف';
+  @override String get totalDuration => 'المدة الإجمالية';
+  @override String get captureType => 'نوع الالتقاط';
+  @override String get punchInGeofenceId => 'معرف الجغرافية للحضور';
+  @override String get punchOutGeofenceId => 'معرف الجغرافية للانصراف';
+  @override String get isRegularized => 'هل تم تسويته';
+  @override String get punchInLocation => 'موقع تسجيل الحضور';
+  @override String get punchOutLocation => 'موقع تسجيل الانصراف';
+@override String get viewTeamMemberAttendance => 'عرض حضور أعضاء الفريق';
+  @override String get viewAttendanceTransaction => 'عرض معاملة الحضور';
+  @override String get punchFailed => 'فشل التسجيل. يرجى المحاولة مرة أخرى.';
+  
+  @override String get punchedInSuccessfully => 'تم تسجيل الحضور بنجاح!';
+  
+  @override String get punchedOutSuccessfully => 'تم تسجيل الانصراف بنجاح!';
+  
+  @override String get noPreviousSession => 'لا توجد جلسة سابقة';
+  
+  @override String get locationNotAvailable => 'الموقع غير متوفر';
+  
+  @override String get takeSelfie => 'التقاط صورة';
+  
+  @override String get selfiePlaceholder => 'أضف صورتك';
+   @override String get boardDashboard => 'لوحة تحكم المجلس';
+  @override String get createBoard => 'إنشاء مجلس';
+  @override String get boardName => 'اسم المجلس';
+  @override String get boardTemplate => 'قالب المجلس';
+  @override String get referenceName => 'اسم المرجع';
+  @override String get boardTaskDetails => 'تفاصيل مهمة المجلس';
+  @override String get taskName => 'اسم المهمة';
+  @override String get enterTaskName => 'أدخل اسم المهمة';
+  @override String get selectTags => 'اختيار العلامة(ات)';
+  @override String get tagId => 'معرف العلامة';
+  @override String get tagName => 'اسم العلامة';
+  @override String get selectUsers => 'اختيار المستخدم(ين)';
+  @override String get estimatedHours => 'الساعات المقدرة';
+  @override String get cardType => 'نوع البطاقة';
+  @override String get priority => 'الأولوية';
+  @override String get low => 'منخفض';
+  @override String get high => 'مرتفع';
+  @override String get medium => 'متوسط';
+  @override String get urgent => 'عاجل';
+  @override String get actualHours => 'الساعات الفعلية';
+  @override String get version => 'الإصدار';
+  @override String get parentTask => 'المهمة الرئيسية';
+  @override String get taskId => 'معرف المهمة';
+  @override String get selectDependency => 'اختيار التبعية';
+  @override String get checklist => 'قائمة المراجعة';
+  @override String get addItem => 'إضافة عنصر';
+  @override String get showInCard => 'عرض في البطاقة';
+  @override String get enterNotes => 'أدخل الملاحظات';
+  @override String get addAttachment => 'إضافة مرفق';
+  @override String get posting => 'جاري النشر...';
+  @override String get comment => 'تعليق';
+  @override String get noCommentsYet => 'لا توجد تعليقات بعد';
+  @override String get grid => 'شبكة';
+  @override String get boardSettings => 'إعدادات المجلس';
+  @override String get addShelf => 'إضافة رف';
+  @override String get addTask => 'إضافة مهمة';
+  @override String get noTasksFound => 'لم يتم العثور على مهام';
+  @override String get deleteTask => 'حذف المهمة';
+  @override String get noDueDate => 'لا يوجد تاريخ استحقاق';
+  @override String get shelfName => 'اسم الرف';
+  @override String get searchTasksUsersTags => 'ابحث في المهام، المستخدمين، العلامات...';
+  @override String get assigned => 'مُعيّن';
+  @override String get editShelf => 'تعديل الرف';
+  @override String get areYouSureDeleteTask => 'هل أنت متأكد أنك تريد حذف هذه المهمة؟';
+  @override String get dueDate => 'تاريخ الاستحقاق';
+  @override String get addBoardMembers => 'إضافة أعضاء المجلس';
+   @override String get visibilityOfYourBoard => 'رؤية مجلسك';
+  @override String get public => 'عام';
+  @override String get visibleToEveryone => 'مرئي للجميع';
+  @override String get private => 'خاص';
+  @override String get branchEmployees => 'موظفو الفرع';
+@override String get departmentEmployees => 'موظفو القسم';
+@override String get leaveFullCancellation => 'إلغاء الإجازة بالكامل';
+@override String get reasonForCancellation => 'سبب الإلغاء';
+@override String get pleaseEnterCancellationReason => 'يرجى إدخال سبب الإلغاء';
+@override String get leavePartialCancellation => 'إلغاء جزئي للإجازة';
+@override
+String get myLeaveCancellations => 'إلغاءات إجازاتي';
+@override String get viewType => 'نوع العرض';
+  @override
+String get timeDetails => 'تفاصيل الوقت';
+  @override String get onlySelectedUsers => 'المستخدمون المختارون فقط';
+  @override String get enterBoardName => 'أدخل اسم المجلس';
+  @override String get boardNameIsRequired => 'اسم المجلس مطلوب';
+  @override String get selectTemplate => 'اختر قالباً';
+  @override String get pleaseSelectATemplate => 'الرجاء اختيار قالب';
+  @override String get templateIsRequired => 'القالب مطلوب';
+  @override String get selectGroups => 'اختيار المجموعات';
+  @override String get areYouSureDeleteBoard => 'هل أنت متأكد أنك تريد حذف هذا المجلس؟';
+  @override String get thisActionCannotBeUndone => 'لا يمكن التراجع عن هذا الإجراء.';
+  @override String get deleteBoard => 'حذف المجلس';
+  @override String get boardOwnerName => 'اسم مالك المجلس';
+  @override String get defaultSortingOrder => 'ترتيب الفرز الافتراضي';
+  @override String get byAssignee => 'حسب المكلف';
+  @override String get enableTimeTracking => 'تمكين تتبع الوقت';
+  @override String get referenceType => 'نوع المرجع';
+  @override String get boardTheme => 'مظهر المجلس';
+  @override String get dark => 'داكن';
+  @override String get light => 'فاتح';
+  @override String get systemDefault => 'النظام الافتراضي';
+  @override String get backgroundImage => 'صورة الخلفية';
+  @override String get url => 'رابط';
+  @override String get fileUpload => 'رفع ملف';
+  @override String get imageUrl => 'رابط الصورة';
+  @override String get uploadImage => 'رفع صورة';
+  @override String get removeMemberFromBoard => 'إزالة عضو من المجلس؟';
+    @override String get members => 'الأعضاء';
+@override String get sendToMail => 'إرسال إلى البريد';
+@override String get send => 'إرسال';
+@override String get download => 'تنزيل';
+@override String get payslipsNotAvailable => 'قسائم الراتب غير متوفرة';
+@override String get tableView => 'عرض الجدول';
+@override String get timeTracker => 'متتبع الوقت';
+@override String get start => 'بدء';
+@override String get pause => 'إيقاف مؤقت';
+@override String get resume => 'استئناف';
+@override String get complete => 'إكمال';
+@override String get periodType => 'نوع الفترة';
+@override String get periodTypeIsRequired => 'نوع الفترة مطلوب';
+@override String get timeSheetRequestForm => 'نموذج طلب كشف الوقت';
+@override String get dateRange => 'نطاق التاريخ';
+@override String get lineItem => 'بند';
+@override String get addLine => 'إضافة سطر';
+@override String get addTimer => 'إضافة مؤقت';
+@override String get timeSheetPendingApprovals => 'موافقات كشف الوقت المعلقة';
+@override String get employees => 'الموظفون';
+@override String get employeeGroups => 'مجموعات الموظفين';
+@override String get timesheetRequisitionId => 'معرّف طلب كشف الوقت';
+@override String get areaName => 'اسم المنطقة';
+@override String get eventType => 'نوع الحدث';
+@override String get plannedStartDate => 'تاريخ البدء المخطط';
+@override String get plannedEndDate => 'تاريخ الانتهاء المخطط';
+@override String get actualStartDate => 'تاريخ البدء الفعلي';
+@override String get actualEndDate => 'تاريخ الانتهاء الفعلي';
+@override String get generateTimeSheet => 'إنشاء كشف الوقت';
+@override String get addTimeSheets => 'إضافة جداول الوقت';
+@override String get generateAndSubmit => 'إنشاء وإرسال';
+@override String get noTimeRunsFound => 'لم يتم العثور على سجلات';
+@override String get active => 'نشط';
+@override String get runId => 'معرّف التشغيل';
+@override String get segment => 'جزء';
+@override String get timeRunId => 'معرّف تشغيل الوقت';
+@override String get sequence => 'تسلسل';
+@override String get end => 'نهاية';
+@override String get noEventsFound => 'لم يتم العثور على أحداث';
+@override String get event => 'حدث';
+@override String get occurred => 'حدث';
+@override String get started => 'بدأ';
+@override String get ended => 'انتهى';
+@override String get eventTypeOccurred => 'نوع الحدث';
+@override String get details => 'التفاصيل';
+@override String get viewDetails => 'عرض التفاصيل';
+@override String get segmentId => 'معرّف الجزء';
+@override String get segmentSequence => 'تسلسل الجزء';
+@override String get startTime => 'وقت البدء';
+@override String get endTime => 'وقت الانتهاء';
+@override String get durationInHours => 'المدة بالساعات';
+@override String get endEvent => 'حدث النهاية';
+@override String get updateDetails => 'تحديث التفاصيل';
+@override String get editSegment => 'تعديل الجزء';
 
 }

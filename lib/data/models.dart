@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -40,12 +41,14 @@ class FieldConfiguration {
 
   factory FieldConfiguration.fromJson(Map<String, dynamic> json) {
     return FieldConfiguration(
-      fieldId: json['FieldId'] ?? '',
-      fieldName: json['FieldName'] ?? '',
+      fieldId: json['FieldId']?.toString() ?? '',
+      fieldName: json['FieldName']?.toString() ?? '',
       isEnabled: json['IsEnabled'] == true,
       isMandatory: json['IsMandatory'] == true,
-      functionalArea: json['FunctionalArea'] ?? '',
-      recId: json['RecId'] ?? 0,
+      functionalArea: json['FunctionalArea']?.toString() ?? '',
+      recId: json['RecId'] is int
+          ? json['RecId']
+          : int.tryParse(json['RecId'].toString()) ?? 0,
     );
   }
 }
@@ -2090,6 +2093,7 @@ class ItemizedExpense {
     this.isReimbursable = false,
   });
 }
+
 class LeaveAnalyticsResponse {
   final List<LeaveAnalytics> leaveCodeAnalytics;
   final List<UpcomingHoliday> upcomingHolidays;
@@ -2115,6 +2119,7 @@ class LeaveAnalyticsResponse {
     );
   }
 }
+
 class UpcomingHoliday {
   final String name;
   final String holidayType;
@@ -2157,13 +2162,28 @@ class LastAppliedLeave {
   factory LastAppliedLeave.fromJson(Map<String, dynamic> json) {
     return LastAppliedLeave(
       leaveId: json['LeaveId'] ?? '',
-      applicationDate:
-          DateTime.fromMillisecondsSinceEpoch(json['ApplicationDate']),
+      applicationDate: DateTime.fromMillisecondsSinceEpoch(
+        json['ApplicationDate'],
+      ),
       fromDate: DateTime.fromMillisecondsSinceEpoch(json['FromDate']),
       toDate: DateTime.fromMillisecondsSinceEpoch(json['ToDate']),
       duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
       approvalStatus: json['ApprovalStatus'] ?? '',
       cancellationStatus: json['CancellationStatus'] ?? '',
+    );
+  }
+}
+
+class LeaveAnalyticsFilter {
+  final String leaveCode;
+  final String leaveType;
+
+  LeaveAnalyticsFilter({required this.leaveCode, required this.leaveType});
+
+  factory LeaveAnalyticsFilter.fromJson(Map<String, dynamic> json) {
+    return LeaveAnalyticsFilter(
+      leaveCode: json['LeaveCode'] ?? '',
+      leaveType: json['Description'] ?? '',
     );
   }
 }
@@ -2190,6 +2210,130 @@ class LeaveAnalytics {
       leaveBalance: (json['LeaveBalance'] as num?)?.toDouble() ?? 0.0,
       leaveType: json['LeaveType'] ?? '',
       leaveCodeColor: json['LeaveCodeColor'] ?? '#000000',
+    );
+  }
+}
+
+class TeamLeaveAnalytics {
+  final double noOfDays;
+  final double totalNoOfDays;
+  final String description;
+
+  TeamLeaveAnalytics({
+    required this.noOfDays,
+    required this.totalNoOfDays,
+    required this.description,
+  });
+
+  factory TeamLeaveAnalytics.fromJson(Map<String, dynamic> json) {
+    return TeamLeaveAnalytics(
+      noOfDays: (json['NoOfDays'] ?? 0).toDouble(),
+      totalNoOfDays: (json['TotalNoOfDays'] ?? 0).toDouble(),
+      description: json['Description'] ?? '',
+    );
+  }
+}
+
+class TeamAttendance {
+  final String? transAttendanceId;
+  final String? employeeId;
+  final int? punchInTime;
+  final int? punchOutTime;
+  final String? status;
+  final String? captureMethod;
+  final String? createdBy;
+  final String? modifiedBy;
+  final int? organizationId;
+  final int? recId;
+  final String? shiftId;
+  final String? punchInDevice;
+  final String? punchOutDevice;
+  final bool? isRegularized;
+  final int? createdDatetime;
+  final int? modifiedDatetime;
+  final bool? isActive;
+  final int? subOrganizationId;
+  final List<double>? punchInLocation;
+  final List<double>? punchOutLocation;
+  final String? employeeName;
+  final double? totalDuration;
+  final String? punchInIP;
+  final String? punchOutIP;
+  final String? regularizationId;
+  final String? punchOutGeofenceId;
+  final String? punchOutLocationId;
+  final String? punchInGeofenceId;
+  final String? punchInLocationId;
+
+  TeamAttendance({
+    this.transAttendanceId,
+    this.employeeId,
+    this.punchInTime,
+    this.punchOutTime,
+    this.status,
+    this.captureMethod,
+    this.createdBy,
+    this.modifiedBy,
+    this.organizationId,
+    this.recId,
+    this.shiftId,
+    this.punchInDevice,
+    this.punchOutDevice,
+    this.isRegularized,
+    this.createdDatetime,
+    this.modifiedDatetime,
+    this.isActive,
+    this.subOrganizationId,
+    this.punchInLocation,
+    this.punchOutLocation,
+    this.employeeName,
+    this.totalDuration,
+    this.punchInIP,
+    this.punchOutIP,
+    this.regularizationId,
+    this.punchOutGeofenceId,
+    this.punchOutLocationId,
+    this.punchInGeofenceId,
+    this.punchInLocationId,
+  });
+
+  factory TeamAttendance.fromJson(Map<String, dynamic> json) {
+    return TeamAttendance(
+      transAttendanceId: json['TransAttendanceId'],
+      employeeId: json['EmployeeId'],
+      punchInTime: json['PunchInTime'],
+      punchOutTime: json['PunchOutTime'],
+      status: json['Status'],
+      captureMethod: json['CaptureMethod'],
+      createdBy: json['CreatedBy'],
+      modifiedBy: json['ModifiedBy'],
+      organizationId: json['OrganizationId'],
+      recId: json['RecId'],
+      shiftId: json['ShiftId'],
+      punchInDevice: json['PunchInDevice'],
+      punchOutDevice: json['PunchOutDevice'],
+      isRegularized: json['IsRegularized'],
+      createdDatetime: json['CreatedDatetime'],
+      modifiedDatetime: json['ModifiedDatetime'],
+      isActive: json['IsActive'],
+      subOrganizationId: json['SubOrganizationId'],
+      punchInLocation: json['PunchInLocation'] != null
+          ? List<double>.from(json['PunchInLocation'].map((x) => x.toDouble()))
+          : null,
+      punchOutLocation: json['PunchOutLocation'] != null
+          ? List<double>.from(json['PunchOutLocation'].map((x) => x.toDouble()))
+          : null,
+      employeeName: json['EmployeeName'],
+      totalDuration: json['TotalDuration'] != null
+          ? (json['TotalDuration'] as num).toDouble()
+          : null,
+      punchInIP: json['PunchInIP'],
+      punchOutIP: json['PunchOutIP'],
+      regularizationId: json['RegularizationId'],
+      punchOutGeofenceId: json['PunchOutGeofenceId'],
+      punchOutLocationId: json['PunchOutLocationId'],
+      punchInGeofenceId: json['PunchInGeofenceId'],
+      punchInLocationId: json['PunchInLocationId'],
     );
   }
 }
@@ -2282,6 +2426,7 @@ class LeaveRequest {
   final bool? notifyTeam;
   final bool? isPaidLeave;
   final int totalDays;
+  final int? workitemrecid;
   final int? duration;
   // final String status;
   final int? recId;
@@ -2302,6 +2447,7 @@ class LeaveRequest {
     this.toDateHalfDayValue,
     required this.leaveBalance,
     this.leaveCode,
+    this.workitemrecid,
     this.leaveId,
     this.projectId,
     this.relieverId,
@@ -2343,6 +2489,8 @@ class LeaveRequest {
       "ToDateHalfDay": toDateHalfDay,
       "ToDateHalfDayValue": toDateHalfDayValue,
       "LeaveLocation": location,
+      if (workitemrecid != null) "workitemrecid": workitemrecid,
+
       "ReasonForLeave": comments,
       "FromDateHalfDay": fromDateHalfDay,
       "FromDateHalfDayValue": fromDateHalfDayValue,
@@ -2363,9 +2511,8 @@ class LeaveRequest {
           ? contactNumber
           : null,
       "NotifyingUserIds": (notifyingUsers != null && notifyingUsers!.isNotEmpty)
-    ? notifyingUsers!.join(';')
-    : null,
-
+          ? notifyingUsers!.join(';')
+          : null,
 
       "Duration": totalDays,
       // "ApprovalStatus": approvalStatus,
@@ -2549,6 +2696,99 @@ class LeaveDetailsModel {
   String? get leaveCancelID => leaveCancelId;
   int? get cancellationRECID => cancellationRecId;
   int? get cancellationDATE => cancellationDate;
+  LeaveDetailsModel copyWith({
+    String? leaveId,
+    int? applicationDate,
+    String? reasonForLeave,
+    int? workitemrecid,
+    String? stepType,
+    String? employeeId,
+    String? employeeName,
+    int? fromDate,
+    bool? fromDateHalfDay,
+    String? fromDateHalfDayValue,
+    String? leaveCode,
+    String? reliever,
+    int? toDate,
+    bool? toDateHalfDay,
+    String? toDateHalfDayValue,
+    int? recId,
+    String? projectId,
+    bool? notifyHR,
+    bool? notifyTeamMembers,
+    List<String>? notifyingUserIds,
+    String? outOfOfficeMessage,
+    bool? isLeaveUnPaid,
+    String? emergencyContactNumber,
+    String? availabilityDuringLeave,
+    String? leaveLocation,
+    double? duration,
+    int? leaveBalance,
+    String? approvalStatus,
+    String? leaveDateType,
+    String? calendarId,
+    String? leaveStatus,
+    String? leaveColor,
+    int? cancellationRecId,
+    int? cancellationApplicationDate,
+    String? leaveCancelId,
+    int? cancellationDate,
+    String? reasonForCancellation,
+    String? cancellationApprovalStatus,
+    String? requestType,
+    List<LeaveTransactionforLeave>? leaveTransactions,
+    List<dynamic>? leaveCustomFieldValues,
+  }) {
+    return LeaveDetailsModel(
+      leaveId: leaveId ?? this.leaveId,
+      applicationDate: applicationDate ?? this.applicationDate,
+      reasonForLeave: reasonForLeave ?? this.reasonForLeave,
+      workitemrecid: workitemrecid ?? this.workitemrecid,
+      stepType: stepType ?? this.stepType,
+      employeeId: employeeId ?? this.employeeId,
+      employeeName: employeeName ?? this.employeeName,
+      fromDate: fromDate ?? this.fromDate,
+      fromDateHalfDay: fromDateHalfDay ?? this.fromDateHalfDay,
+      fromDateHalfDayValue: fromDateHalfDayValue ?? this.fromDateHalfDayValue,
+      leaveCode: leaveCode ?? this.leaveCode,
+      reliever: reliever ?? this.reliever,
+      toDate: toDate ?? this.toDate,
+      toDateHalfDay: toDateHalfDay ?? this.toDateHalfDay,
+      toDateHalfDayValue: toDateHalfDayValue ?? this.toDateHalfDayValue,
+      recId: recId ?? this.recId,
+      projectId: projectId ?? this.projectId,
+      notifyHR: notifyHR ?? this.notifyHR,
+      notifyTeamMembers: notifyTeamMembers ?? this.notifyTeamMembers,
+      notifyingUserIds: notifyingUserIds ?? this.notifyingUserIds,
+      outOfOfficeMessage: outOfOfficeMessage ?? this.outOfOfficeMessage,
+      isLeaveUnPaid: isLeaveUnPaid ?? this.isLeaveUnPaid,
+      emergencyContactNumber:
+          emergencyContactNumber ?? this.emergencyContactNumber,
+      availabilityDuringLeave:
+          availabilityDuringLeave ?? this.availabilityDuringLeave,
+      leaveLocation: leaveLocation ?? this.leaveLocation,
+      duration: duration ?? this.duration,
+      leaveBalance: leaveBalance ?? this.leaveBalance,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      leaveDateType: leaveDateType ?? this.leaveDateType,
+      calendarId: calendarId ?? this.calendarId,
+      leaveStatus: leaveStatus ?? this.leaveStatus,
+      leaveColor: leaveColor ?? this.leaveColor,
+      cancellationRecId: cancellationRecId ?? this.cancellationRecId,
+      cancellationApplicationDate:
+          cancellationApplicationDate ?? this.cancellationApplicationDate,
+      leaveCancelId: leaveCancelId ?? this.leaveCancelId,
+      cancellationDate: cancellationDate ?? this.cancellationDate,
+      reasonForCancellation:
+          reasonForCancellation ?? this.reasonForCancellation,
+      cancellationApprovalStatus:
+          cancellationApprovalStatus ?? this.cancellationApprovalStatus,
+      requestType: requestType ?? this.requestType,
+      leaveTransactions: leaveTransactions ?? this.leaveTransactions,
+      leaveCustomFieldValues:
+          leaveCustomFieldValues ?? this.leaveCustomFieldValues,
+    );
+  }
 }
 
 class LeaveTransactionforLeave {
@@ -2624,6 +2864,7 @@ class LeaveTransactionModel {
   final bool leaveSecondHalf;
   final bool isHoliday;
   final int? recId; // required for partial cancellation
+  final String? approvalStatus;
 
   /// =======================
   /// UI / STATE FIELDS
@@ -2650,8 +2891,9 @@ class LeaveTransactionModel {
     required this.originalDayType,
     required this.dayType,
     required this.dayTypeLeave,
+    required this.approvalStatus,
   });
- double get calculatedDays {
+  double get calculatedDays {
     if (noOfDays == 0 || isHoliday) {
       return 0.0;
     }
@@ -2665,6 +2907,7 @@ class LeaveTransactionModel {
         return 1.0;
     }
   }
+
   /// =======================
   /// FROM JSON
   /// =======================
@@ -2692,7 +2935,7 @@ class LeaveTransactionModel {
       leaveSecondHalf: json['LeaveSecondHalf'] ?? false,
       isHoliday: json['IsHoliday'] ?? false,
       recId: json['RecId'], // nullable for create flow
-
+      approvalStatus: json['ApprovalStatus'],
       originalDayType: derivedDayType,
       dayType: derivedDayType.obs,
       dayTypeLeave: derivedDayType.obs,
@@ -2702,10 +2945,10 @@ class LeaveTransactionModel {
     return {
       "EmployeeId": employeeId,
       "TransDate": transDate,
-      "NoOfDays": noOfDays,
+      "NoOfDays": calculatedDays,
       "LeaveCode": leaveCode,
-      "LeaveFirstHalf": leaveFirstHalf,
-      "LeaveSecondHalf": leaveSecondHalf,
+      "LeaveFirstHalf": dayType.value == "First Half" ? true : false,
+      "LeaveSecondHalf": dayType.value == "Second Half" ? true : false,
       "IsHoliday": isHoliday,
       // Include RecId only if it's not null
       if (recId != null) "RecId": recId,
@@ -2724,7 +2967,6 @@ class LeaveTransactionModel {
       dayType.value == 'FirstHalf' || dayType.value == 'SecondHalf';
 
   /// Calculate day value
- 
 
   /// =======================
   /// PARTIAL CANCEL PAYLOAD
@@ -2791,6 +3033,8 @@ class LeaveCancellationModel {
   final String leaveId;
   final int leaveReqId;
   final int applicationDate;
+  final int fromDate;
+  final int toDate;
   final int cancellationDate;
   final String employeeId;
   final String approvalStatus;
@@ -2803,12 +3047,15 @@ class LeaveCancellationModel {
   final int createdDatetime;
   final int modifiedDatetime;
   final int subOrganizationId;
+  final double duration;
   final bool isActive;
   final String stepType;
 
   LeaveCancellationModel({
     required this.leaveCancelId,
     required this.leaveId,
+    required this.fromDate,
+    required this.toDate,
     required this.leaveReqId,
     required this.applicationDate,
     required this.cancellationDate,
@@ -2825,6 +3072,7 @@ class LeaveCancellationModel {
     required this.subOrganizationId,
     required this.isActive,
     required this.stepType,
+    required this.duration,
   });
 
   /// 🔹 FROM JSON
@@ -2832,6 +3080,8 @@ class LeaveCancellationModel {
     return LeaveCancellationModel(
       leaveCancelId: json['LeaveCancelId'] ?? '',
       leaveId: json['LeaveId'] ?? '',
+      fromDate: json['FromDate'] ?? 0,
+      toDate: json['ToDate'] ?? 0,
 
       leaveReqId: json['LeaveReqId'] ?? 0,
       applicationDate: json['ApplicationDate'] ?? 0,
@@ -2841,7 +3091,7 @@ class LeaveCancellationModel {
       createdBy: json['CreatedBy'] ?? '',
       modifiedBy: json['ModifiedBy'] ?? '',
       stepType: json['StepType'] ?? '',
-
+      duration: json['Duration'] ?? 0,
       organizationId: json['OrganizationId'] ?? 0,
       recId: json['RecId'] ?? 0,
       reasonForCancellation: json['ReasonForCancellation'] ?? '',
@@ -3132,7 +3382,8 @@ class AdvanceFilteration {
   factory AdvanceFilteration.fromJson(Map<String, dynamic> json) {
     return AdvanceFilteration(
       matchType: json['matchType'] ?? '',
-      rules: (json['rules'] as List).map((e) => Rule.fromJson(e)).toList(),
+      rules:
+          (json['rules'] as List?)?.map((e) => Rule.fromJson(e)).toList() ?? [],
     );
   }
 }
@@ -4049,6 +4300,50 @@ class ExpenseHistory {
   }
 }
 
+class TimeSheetHistory {
+  final String createdBy;
+  final int createdDatetime;
+  final String eventType;
+  final String modifiedBy;
+  final int modifiedDatetime;
+  final String notes;
+  final int organizationId;
+  final int recId;
+  final int refRecId;
+  final String transLogSource;
+  final String userName;
+
+  TimeSheetHistory({
+    required this.createdBy,
+    required this.createdDatetime,
+    required this.eventType,
+    required this.modifiedBy,
+    required this.modifiedDatetime,
+    required this.notes,
+    required this.organizationId,
+    required this.recId,
+    required this.refRecId,
+    required this.transLogSource,
+    required this.userName,
+  });
+
+  factory TimeSheetHistory.fromJson(Map<String, dynamic> json) {
+    return TimeSheetHistory(
+      createdBy: json['CreatedBy'] ?? '',
+      createdDatetime: json['CreatedDatetime'] ?? 0,
+      eventType: json['EventType'] ?? '',
+      modifiedBy: json['ModifiedBy'] ?? '',
+      modifiedDatetime: json['ModifiedDatetime'] ?? 0,
+      notes: json['Notes'] ?? '',
+      organizationId: json['OrganizationId'] ?? 0,
+      recId: json['RecId'] ?? 0,
+      refRecId: json['RefRecId'] ?? 0,
+      transLogSource: json['TransLogSource'] ?? '',
+      userName: json['UserName'] ?? '',
+    );
+  }
+}
+
 class PaidForModel {
   final String valueName;
   final String dimensionValueId;
@@ -4297,6 +4592,13 @@ class ProjectData {
   final double y;
 
   ProjectData(this.x, this.y);
+}
+
+class ChartDataMult {
+  final String category;
+  final double value;
+
+  ChartDataMult(this.category, this.value);
 }
 
 class ProjectExpense {
@@ -5217,7 +5519,7 @@ class CashAdvanceRequestItemizeFornew {
       "CashAdvReqHeader": 220,
       "ExpenseCategoryId": expenseCategoryId ?? '',
       "Quantity": quantity ?? 1,
-      "UOMId": uomId ?? '',
+      "UOMId": uomId ?? "Uom-004",
       "Percentage": percentage ?? 100,
       "UnitEstimatedAmount": unitEstimatedAmount ?? 0,
       "LineEstimatedCurrency": lineEstimatedCurrency ?? "INR",
@@ -6105,6 +6407,33 @@ class BoardModel {
   }
 }
 
+class LineItemModel {
+  Project? project;
+  BoardModel? board;
+  TaskModelDropDown? task;
+  String? taskName;
+
+  double hours;
+  RxList<TaskModelDropDown> filteredTasks = <TaskModelDropDown>[].obs;
+  List<Map<String, dynamic>> lineCustomFields;
+  // ✅ NON-null reactive fields
+  final RxBool timerRunning;
+  final RxInt elapsedSeconds;
+  RxBool timerCompleted = false.obs;
+  Timer? timer;
+  int? timerStartMillis;
+
+  LineItemModel({
+    this.project,
+    this.board,
+    this.task,
+    this.taskName,
+    this.hours = 0,
+    this.lineCustomFields = const [],
+  }) : timerRunning = false.obs,
+       elapsedSeconds = 0.obs;
+}
+
 class EmployeeGroup {
   final String id;
   final String name;
@@ -6138,38 +6467,48 @@ class TaskDetailModel {
   String taskId;
   String taskName;
   String? notes;
-  bool? showNotes;
-  bool? showChecklist;
-  double? estimatedHours;
+  bool showNotes;
+  bool showChecklist;
+
+  double estimatedHours;
+  double actualHours;
+
   String priority;
   String shelfId;
-  DateTime? startDate;
-  DateTime? dueDate;
-  List<TagModel> tagId;
-  List<String> assignedTo;
   String status;
-  String? parentTaskId;
-  String? dependent;
-  String? cardType;
+  String cardType;
+
+  DateTime? plannedStartDate;
+  DateTime? plannedEndDate;
+  DateTime? actualStartDate;
+  DateTime? actualEndDate;
+
+  Map<String, dynamic> taskData;
+
+  List<TagModel> tagId;
+  List<AssignedUserModel> assignedTo;
+
   int recId;
 
   TaskDetailModel({
     required this.taskId,
     required this.taskName,
     this.notes,
-    this.showNotes,
-    this.showChecklist,
-    this.estimatedHours,
+    required this.showNotes,
+    required this.showChecklist,
+    required this.estimatedHours,
+    required this.actualHours,
     required this.priority,
     required this.shelfId,
-    this.startDate,
-    this.dueDate,
+    required this.status,
+    required this.cardType,
+    this.plannedStartDate,
+    this.plannedEndDate,
+    this.actualStartDate,
+    this.actualEndDate,
+    required this.taskData,
     required this.tagId,
     required this.assignedTo,
-    required this.status,
-    this.parentTaskId,
-    this.dependent,
-    this.cardType,
     required this.recId,
   });
 
@@ -6177,35 +6516,155 @@ class TaskDetailModel {
     return TaskDetailModel(
       taskId: json['TaskId']?.toString() ?? '',
       taskName: json['TaskName']?.toString() ?? '',
-      notes: json['Notes'],
-      showNotes: json['ShowNotes'],
-      showChecklist: json['ShowChecklist'],
+      notes: json['Notes']?.toString(),
+      showNotes: json['ShowNotes'] ?? false,
+      showChecklist: json['ShowChecklist'] ?? false,
+
       estimatedHours: json['EstimatedHours'] != null
-          ? double.tryParse(json['EstimatedHours'].toString())
-          : null,
+          ? double.tryParse(json['EstimatedHours'].toString()) ?? 0
+          : 0,
+
+      actualHours: json['ActualHours'] != null
+          ? double.tryParse(json['ActualHours'].toString()) ?? 0
+          : 0,
+
       priority: json['Priority']?.toString() ?? 'Low',
       shelfId: json['ShelfId']?.toString() ?? '',
-      startDate: json['StartDate'] != null
-          ? DateTime.tryParse(json['StartDate'].toString())
+      status: json['Status']?.toString() ?? '',
+      cardType: json['CardType']?.toString() ?? '',
+
+      // ✅ Convert milliseconds to DateTime
+      plannedStartDate: json['PlannedStartDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.tryParse(json['PlannedStartDate'].toString()) ?? 0,
+            )
           : null,
-      dueDate: json['DueDate'] != null
-          ? DateTime.tryParse(json['DueDate'].toString())
+
+      plannedEndDate: json['PlannedEndDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.tryParse(json['PlannedEndDate'].toString()) ?? 0,
+            )
           : null,
+
+      actualStartDate: json['ActualStartDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.tryParse(json['ActualStartDate'].toString()) ?? 0,
+            )
+          : null,
+
+      actualEndDate: json['ActualEndDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.tryParse(json['ActualEndDate'].toString()) ?? 0,
+            )
+          : null,
+
+      taskData: json['TaskData'] ?? {},
+
       tagId:
-          (json['TagId'] as List?)
-              ?.map((e) => TagModel.fromJson(e as Map<String, dynamic>))
+          (json['TagId'] as List?)?.map((e) => TagModel.fromJson(e)).toList() ??
+          [],
+
+      assignedTo:
+          (json['AssignedTo'] as List?)
+              ?.map((e) => AssignedUserModel.fromJson(e))
               .toList() ??
           [],
-      assignedTo:
-          (json['AssignedTo'] as List?)?.map((e) => e.toString()).toList() ??
-          [],
-      status: json['Status']?.toString() ?? '',
-      parentTaskId: json['ParentTaskId']?.toString(),
-      dependent: json['Dependent']?.toString(),
-      cardType: json['CardType']?.toString(),
+
       recId: json['RecId'] is int
           ? json['RecId']
           : int.tryParse(json['RecId']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+class TimeSheetRangeModel {
+  final String employeeId;
+  final DateTime entryDate;
+  final bool weekend;
+  final bool holiday;
+  final String? dayDescription; // 👈 nullable
+
+  TimeSheetRangeModel({
+    required this.employeeId,
+    required this.entryDate,
+    required this.weekend,
+    required this.holiday,
+    this.dayDescription,
+  });
+
+  factory TimeSheetRangeModel.fromJson(Map<String, dynamic> json) {
+    return TimeSheetRangeModel(
+      employeeId: json['EmployeeId'] as String,
+      entryDate: DateTime.fromMillisecondsSinceEpoch(json['EntryDate']),
+      weekend: json['Weekend'] ?? false,
+      holiday: json['Holiday'] ?? false,
+      dayDescription: json['DayDescription'], // can be null safely
+    );
+  }
+}
+
+class TimeEntryModel {
+  final int entryDate;
+  final int? timeFrom;
+  final int? timeTo;
+  final String totalHours;
+  final bool timerRunning;
+  final String? comment;
+  final String? otHours;
+
+  TimeEntryModel({
+    required this.entryDate,
+    this.timeFrom,
+    this.timeTo,
+    required this.totalHours,
+    this.timerRunning = false,
+    this.comment,
+    this.otHours,
+  });
+
+  TimeEntryModel copyWith({
+    int? entryDate,
+    int? timeFrom,
+    int? timeTo,
+    String? totalHours,
+    bool? timerRunning,
+    String? comment,
+    String? otHours,
+  }) {
+    return TimeEntryModel(
+      entryDate: entryDate ?? this.entryDate,
+      timeFrom: timeFrom ?? this.timeFrom,
+      timeTo: timeTo ?? this.timeTo,
+      totalHours: totalHours ?? this.totalHours,
+      timerRunning: timerRunning ?? this.timerRunning,
+      comment: comment ?? this.comment,
+      otHours: otHours ?? this.otHours,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    "EntryDate": entryDate,
+    "TimeFrom": timeFrom,
+    "TimeTo": timeTo,
+    "TotalHours": totalHours,
+    "TimerRunning": timerRunning,
+    "OTHours": otHours,
+    "Comment": comment,
+  };
+
+  void operator []=(int other, TimeEntryModel value) {}
+}
+
+class AssignedUserModel {
+  final String employeeId;
+  final String employeeName;
+
+  AssignedUserModel({required this.employeeId, required this.employeeName});
+
+  factory AssignedUserModel.fromJson(Map<String, dynamic> json) {
+    return AssignedUserModel(
+      employeeId: json['EmployeeId']?.toString() ?? '',
+      employeeName: json['EmployeeName']?.toString() ?? '',
     );
   }
 }
@@ -6312,12 +6771,31 @@ class ChecklistItem {
   }
 
   Map<String, dynamic> toJson() => {
-        "Description": description,
-        "Status": status,
-        "RecId": recId,
-      };
+    "Description": description,
+    "Status": status,
+    "RecId": recId,
+  };
 }
 
+class TaskModelDropDown {
+  final String taskId;
+  final String taskName;
+  final String boardId;
+
+  TaskModelDropDown({
+    required this.taskId,
+    required this.taskName,
+    required this.boardId,
+  });
+
+  factory TaskModelDropDown.fromJson(Map<String, dynamic> json) {
+    return TaskModelDropDown(
+      taskId: json['TaskId']?.toString() ?? '',
+      taskName: json['TaskName']?.toString() ?? '',
+      boardId: json['BoardId']?.toString() ?? '',
+    );
+  }
+}
 
 class TaskModel {
   final String taskId;
@@ -6372,10 +6850,7 @@ class TaskData {
   final String? version;
   final int? actualHours;
 
-  TaskData({
-    this.version,
-    this.actualHours,
-  });
+  TaskData({this.version, this.actualHours});
 
   factory TaskData.fromJson(Map<String, dynamic> json) {
     return TaskData(
@@ -6391,7 +6866,6 @@ class TaskData {
     return null;
   }
 }
-
 
 class TagModel {
   String tagId;
@@ -6440,31 +6914,60 @@ class CardTypeModel {
 }
 
 class KanbanBoard {
+  /// ✅ REQUIRED
   final String boardId;
   final String boardName;
-  final String? boardTheme; // 👈 ADD THIS
   final List<Shelf> shelfs;
+  final String boardTheme;
+
+  /// 🔹 OPTIONAL
+  final String? boardType;
+  final String? description;
+  final String? referenceId;
+  final int? recId;
+  final String? area;
+  final String? backgroundImageUrl;
+  final String? boardOwnerName;
+  final String? defaultSortingOrder;
 
   KanbanBoard({
     required this.boardId,
     required this.boardName,
-    this.boardTheme,
     required this.shelfs,
+    required this.boardTheme,
+    this.boardType,
+    this.description,
+    this.referenceId,
+    this.recId,
+    this.area,
+    this.backgroundImageUrl,
+    this.boardOwnerName,
+    this.defaultSortingOrder,
   });
-
 
   factory KanbanBoard.fromJson(Map<String, dynamic> json) {
     return KanbanBoard(
-      boardId: json['BoardId'] ?? '',
-      boardName: json['BoardName'] ?? '',
-      boardTheme: json['BoardTheme'],
+      boardId: json['BoardId']?.toString() ?? '',
+      boardName: json['BoardName']?.toString() ?? '',
+      boardTheme: json['BoardTheme']?.toString() ?? 'Light',
+      backgroundImageUrl: json['BackgroundImageUrl'],
+      boardType: json['BoardType'],
+      description: json['Description'],
+      referenceId: json['ReferenceId'],
+      recId: json['RecId'] is int
+          ? json['RecId']
+          : int.tryParse(json['RecId']?.toString() ?? ''),
+      area: json['Area'],
+      boardOwnerName: json['BoardOwnerName'],
+      defaultSortingOrder: json['DefaultSortingOrder'],
       shelfs:
-          (json['Shelfs'] as List<dynamic>?)
-              ?.map((shelfJson) => Shelf.fromJson(shelfJson))
-              .toList() ??
+          (json['Shelfs'] as List?)?.map((e) => Shelf.fromJson(e)).toList() ??
           [],
     );
   }
+
+  /// ✅ Helper
+  bool get isDarkBoard => boardTheme.toLowerCase() == 'dark';
 }
 
 class Shelf {
@@ -6476,6 +6979,7 @@ class Shelf {
   final String colorPallete;
   final List<TaskItem> tasks;
   bool isCollapsed;
+  final String image;
 
   Shelf({
     required this.shelfId,
@@ -6485,6 +6989,7 @@ class Shelf {
     required this.boardId,
     required this.recId,
     required this.tasks,
+    required this.image,
     this.isCollapsed = false,
   });
 
@@ -6493,13 +6998,51 @@ class Shelf {
       shelfId: json['ShelfId'] ?? '',
       shelfName: json['ShelfName'] ?? '',
       sortOrder: json['SortOrder'] ?? 0,
-      colorPallete: json['ColorPallete'] ?? '#FFFFFF', 
+      colorPallete: json['ColorPallete'] ?? '#FFFFFF',
       boardId: json['BoardId'] ?? '',
       recId: json['RecId'] ?? 0,
+      image: json['Image'] ?? '',
       tasks: (json['Tasks'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map((e) => TaskItem.fromJson(e))
           .toList(),
+    );
+  }
+}
+
+class SequenceNumberModel {
+  final String module;
+  final String area;
+
+  SequenceNumberModel({required this.module, required this.area});
+
+  factory SequenceNumberModel.fromJson(Map<String, dynamic> json) {
+    return SequenceNumberModel(
+      module: json['Module'] ?? '',
+      area: json['Area'] ?? '',
+    );
+  }
+}
+
+class TaskChecklist {
+  final String id;
+  final String description;
+  bool status;
+  final int recId;
+
+  TaskChecklist({
+    required this.id,
+    required this.description,
+    required this.status,
+    required this.recId,
+  });
+
+  factory TaskChecklist.fromJson(Map<String, dynamic> json) {
+    return TaskChecklist(
+      id: json['CheckListId'],
+      description: json['Description'],
+      status: json['Status'] ?? false,
+      recId: json['RecId'],
     );
   }
 }
@@ -6516,7 +7059,7 @@ class TaskItem {
   final DateTime? dueDate;
   final DateTime? startDate;
   final String priority;
-  final List<String> assignedTo;
+  final List<AssignedUser> assignedTo;
   final int recId;
   final CardType? cardType;
   final List<Tag> tags;
@@ -6585,7 +7128,9 @@ class TaskItem {
       showChecklist: json['ShowChecklist'] == true,
 
       dueDate: json['DueDate'] != null
-          ? DateTime.tryParse(json['DueDate'].toString())
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.parse(json['DueDate'].toString()),
+            )
           : null,
 
       startDate: json['StartDate'] != null
@@ -6593,9 +7138,11 @@ class TaskItem {
           : null,
 
       priority: json['Priority'] ?? 'Low',
-
       assignedTo: (json['AssignedTo'] is List)
-          ? (json['AssignedTo'] as List).map((e) => e.toString()).toList()
+          ? (json['AssignedTo'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map((e) => AssignedUser.fromJson(e))
+                .toList()
           : [],
 
       recId: json['RecId'] ?? 0,
@@ -6610,24 +7157,82 @@ class TaskItem {
 
       taskDocuments: documents,
 
-      checkLists: json['CheckLists'] is List ? json['CheckLists'] : [],
+      checkLists: (json['CheckLists'] is List)
+          ? (json['CheckLists'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map((e) => TaskChecklist.fromJson(e))
+                .toList()
+          : [],
     );
   }
 }
+
+class TaskFieldConfig {
+  String? taskFieldId;
+  String fieldName;
+  String? fieldLabel;
+  String? description;
+  String? fieldType;
+  String? fieldLinkedTable;
+  bool? allowMultiSelect;
+  bool? isMandatory;
+  dynamic value;
+
+  TaskFieldConfig({
+    this.taskFieldId,
+    required this.fieldName,
+    this.fieldLabel,
+    this.description,
+    this.fieldType,
+    this.fieldLinkedTable,
+    this.allowMultiSelect,
+    this.isMandatory,
+    this.value,
+  });
+
+  factory TaskFieldConfig.fromJson(Map<String, dynamic> json) {
+    return TaskFieldConfig(
+      taskFieldId: json['TaskFieldId'],
+      fieldName: json['FieldName'],
+      fieldLabel: json['FieldLabel'],
+      description: json['Description'],
+      fieldType: json['FieldType'],
+      fieldLinkedTable: json['FieldLinkedTable'],
+      allowMultiSelect: json['AllowMultiSelect'],
+      isMandatory: json['IsMandatory'],
+      value: json['Value'],
+    );
+  }
+}
+
+class AssignedUser {
+  final String employeeId;
+  final String employeeName;
+
+  AssignedUser({required this.employeeId, required this.employeeName});
+
+  factory AssignedUser.fromJson(Map<String, dynamic> json) {
+    return AssignedUser(
+      employeeId: json['EmployeeId'] ?? '',
+      employeeName: json['EmployeeName'] ?? '',
+    );
+  }
+}
+
 class BoardSettings {
   final String boardSettingId;
-  final String boardId;                 // ✅ added
-  final int recId;                      // ✅ added
+  final String boardId; // ✅ added
+  final int recId; // ✅ added
 
   final String boardTheme;
   final String defaultSortingOrder;
   final String boardSettingType;
   final bool timeTrackingEnabled;
-  final bool enableAuditLogs;            // ✅ added
-  final bool isActive;                   // ✅ added
+  final bool enableAuditLogs; // ✅ added
+  final bool isActive; // ✅ added
 
   final String? backgroundImageUrl;
-
+  final String? areaName;
   final String boardName;
   final String? description;
   final String boardOwnerName;
@@ -6646,6 +7251,7 @@ class BoardSettings {
     required this.isActive,
     this.backgroundImageUrl,
     required this.boardName,
+    this.areaName,
     this.description,
     required this.boardOwnerName,
     this.referenceType,
@@ -6667,6 +7273,7 @@ class BoardSettings {
 
       backgroundImageUrl: json['BackgroundImageUrl'],
       boardName: json['BoardName'] ?? '',
+      areaName: json['AreaName'] ?? '',
       description: json['Description'],
       boardOwnerName: json['BoardOwnerName'] ?? '',
       referenceType: json['ReferenceType'],
@@ -6674,8 +7281,6 @@ class BoardSettings {
     );
   }
 }
-
-
 
 class TaskDocument {
   final String attachmentId;
@@ -6868,6 +7473,20 @@ class Report {
     required this.filterRules,
     required this.selectedFields,
   });
+}
+
+class ExternalDocumentType {
+  final String name;
+  final String description;
+
+  ExternalDocumentType({required this.name, required this.description});
+
+  factory ExternalDocumentType.fromJson(Map<String, dynamic> json) {
+    return ExternalDocumentType(
+      name: json['Name'] ?? '',
+      description: json['Description'] ?? '',
+    );
+  }
 }
 
 class FilterRule {
@@ -7404,6 +8023,132 @@ class BoardMember {
     );
   }
 }
+
+class TimesheetModel {
+  final String createdUser;
+  final String employeeId;
+
+  final int fromDate; // millis
+  final String timesheetStatus;
+  final String source;
+  final String createdBy;
+  final String modifiedBy;
+  final int organizationId;
+  final int recId;
+  final String approvalStatus;
+  final int applicationDate; // millis
+  final String employeeName;
+  final String frequency;
+  final int toDate; // millis
+  final String timesheetId;
+  final int createdDatetime; // millis
+  final int modifiedDatetime; // millis
+  final int subOrganizationId;
+  final bool isActive;
+  final int? projectId;
+  final String captureMethod;
+  final String stepType;
+  final int workItemRecId;
+  final String justificationNotes;
+
+  TimesheetModel({
+    required this.createdUser,
+    required this.employeeId,
+    required this.fromDate,
+    required this.timesheetStatus,
+    required this.source,
+    required this.createdBy,
+    required this.modifiedBy,
+    required this.organizationId,
+    required this.recId,
+    required this.approvalStatus,
+    required this.applicationDate,
+    required this.employeeName,
+    required this.frequency,
+    required this.toDate,
+    required this.timesheetId,
+    required this.createdDatetime,
+    required this.modifiedDatetime,
+    required this.subOrganizationId,
+    required this.isActive,
+    this.projectId,
+    required this.captureMethod,
+    required this.stepType,
+    required this.workItemRecId,
+    required this.justificationNotes,
+  });
+
+  factory TimesheetModel.fromJson(Map<String, dynamic> json) {
+    return TimesheetModel(
+      createdUser: json['CreatedUser']?.toString() ?? '',
+      employeeId: json['EmployeeId']?.toString() ?? '',
+      fromDate: _toInt(json['FromDate']),
+      timesheetStatus: json['TimesheetStatus']?.toString() ?? '',
+      source: json['Source']?.toString() ?? '',
+      createdBy: json['CreatedBy']?.toString() ?? '',
+      modifiedBy: json['ModifiedBy']?.toString() ?? '',
+      organizationId: _toInt(json['OrganizationId']),
+      recId: _toInt(json['RecId']),
+      approvalStatus: json['ApprovalStatus']?.toString() ?? '',
+      applicationDate: _toInt(json['ApplicationDate']),
+      employeeName: json['EmployeeName']?.toString() ?? '',
+      frequency: json['Frequency']?.toString() ?? '',
+      toDate: _toInt(json['ToDate']),
+      timesheetId: json['TimesheetId']?.toString() ?? '',
+      createdDatetime: _toInt(json['CreatedDatetime']),
+      modifiedDatetime: _toInt(json['ModifiedDatetime']),
+      subOrganizationId: _toInt(json['SubOrganizationId']),
+      isActive: json['IsActive'] == true || json['IsActive'] == 'true',
+      projectId: json['ProjectId'] == null ? null : _toInt(json['ProjectId']),
+      captureMethod: json['CaptureMethod']?.toString() ?? '',
+      stepType: json['StepType']?.toString() ?? '',
+      workItemRecId: json['workitemrecid'] ?? 0,
+      justificationNotes: json['JustificationNotes']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'CreatedUser': createdUser,
+      'EmployeeId': employeeId,
+      'FromDate': fromDate,
+      'TimesheetStatus': timesheetStatus,
+      'Source': source,
+      'CreatedBy': createdBy,
+      'ModifiedBy': modifiedBy,
+      'OrganizationId': organizationId,
+      'RecId': recId,
+      'ApprovalStatus': approvalStatus,
+      'ApplicationDate': applicationDate,
+      'EmployeeName': employeeName,
+      'Frequency': frequency,
+      'ToDate': toDate,
+      'TimesheetId': timesheetId,
+      'CreatedDatetime': createdDatetime,
+      'ModifiedDatetime': modifiedDatetime,
+      'SubOrganizationId': subOrganizationId,
+      'IsActive': isActive,
+      'ProjectId': projectId,
+      'CaptureMethod': captureMethod,
+      'StepType': stepType,
+      'workitemrecid': workItemRecId,
+      'JustificationNotes': justificationNotes,
+    };
+  }
+
+  /// 🔁 UI helper (optional)
+  DateTime get fromDateTime => DateTime.fromMillisecondsSinceEpoch(fromDate);
+
+  DateTime get toDateTime => DateTime.fromMillisecondsSinceEpoch(toDate);
+}
+
+int _toInt(dynamic value) {
+  if (value == null) return 0;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
+}
+
 class PayrollsTeams {
   final int recId;
   final String employeeId;

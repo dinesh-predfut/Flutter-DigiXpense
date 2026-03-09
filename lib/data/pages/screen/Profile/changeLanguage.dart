@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:digi_xpense/main.dart'; // where LocaleNotifier is defined
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/main.dart'; // where LocaleNotifier is defined
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:digi_xpense/main.dart'; // where LocaleNotifier is defined
+import 'package:diginexa/main.dart'; // where LocaleNotifier is defined
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});

@@ -182,7 +182,7 @@ _overlayEntry = OverlayEntry(
     }
   }
 
-  Widget _buildDropdownContent() {
+  Widget  _buildDropdownContent() {
     List<T> sortedItems = List.from(widget.items);
 
     // Sort based on search query

@@ -1,6 +1,6 @@
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/data/models.dart';
+import 'package:diginexa/data/models.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -32,7 +32,7 @@ class HubMileageStepForm extends StatefulWidget {
 
 class _HubMileageStepFormState extends State<HubMileageStepForm> {
   int currentStep = 0;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
   void _goToNextStep() {
     if (currentStep < 1) {

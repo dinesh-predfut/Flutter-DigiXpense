@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -45,7 +45,7 @@ class _UnprocessEditExpensePageState extends State<UnprocessEditExpensePage>
 Rxn<File> profileImage = Rxn<File>();
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   late Future<List<ExpenseHistory>> historyFuture;
   String? selectedPaidTo;
   String? selectedPaidWith;
@@ -250,7 +250,6 @@ Rxn<File> profileImage = Rxn<File>();
 
   void _initializeItemizeControllers() {
     if (widget.items!.expenseTrans.isEmpty) {
-      print("expenseTransCalling");
       final item = widget.items!;
       final controller = Controller();
 

@@ -1,9 +1,11 @@
 // report_wizard.dart
 import 'dart:convert';
 
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsCreateForm.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart'
+    show AppRoutes;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -36,14 +38,12 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-
-
   void _nextStep() {
-      final List<String> _stepTitles = [
-    AppLocalizations.of(context)!.basicFiltration,
-     AppLocalizations.of(context)!.advancedFiltering,
-     AppLocalizations.of(context)!.applyFilters,
-  ];
+    final List<String> _stepTitles = [
+      AppLocalizations.of(context)!.basicFiltration,
+      AppLocalizations.of(context)!.advancedFiltering,
+      AppLocalizations.of(context)!.applyFilters,
+    ];
     print("_currentStep$_currentStep");
     if (_currentStep == _stepTitles.length - 1) {
       final reportModel = Provider.of<ReportModel>(context, listen: false);
@@ -73,9 +73,11 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
     }
 
     // Validate each group and rule
-    for (int groupIndex = 0;
-        groupIndex < reportModel.filterGroups.length;
-        groupIndex++) {
+    for (
+      int groupIndex = 0;
+      groupIndex < reportModel.filterGroups.length;
+      groupIndex++
+    ) {
       final group = reportModel.filterGroups[groupIndex];
 
       if (group.isEmpty) {
@@ -128,7 +130,7 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
             gravity: ToastGravity.BOTTOM,
             backgroundColor: Colors.red[200],
             textColor: Colors.red[800],
-          );  
+          );
           return false;
         }
 
@@ -179,11 +181,11 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
 
   @override
   Widget build(BuildContext context) {
-      final List<String> _stepTitles = [
-    AppLocalizations.of(context)!.basicFiltration,
-     AppLocalizations.of(context)!.advancedFiltering,
-     AppLocalizations.of(context)!.applyFilters,
-  ];
+    final List<String> _stepTitles = [
+      AppLocalizations.of(context)!.basicFiltration,
+      AppLocalizations.of(context)!.advancedFiltering,
+      AppLocalizations.of(context)!.applyFilters,
+    ];
     final List<Widget> screens = [
       BasicFiltrationScreen(formKey: _formKey, formData: formData),
       AdvancedFilteringScreen(formData: formData),
@@ -194,7 +196,7 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: AppBar(
-          title:  Text(AppLocalizations.of(context)!.expenseReport),
+          title: Text(AppLocalizations.of(context)!.expenseReport),
           centerTitle: true,
         ),
         body: Padding(
@@ -230,23 +232,23 @@ class _ReportWizardParentState extends State<ReportWizardParent> {
                           ? Colors.grey[600]
                           : Colors.grey[300],
                     ),
-                    child:  Text(
+                    child: Text(
                       AppLocalizations.of(context)!.previous,
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
-                  if(_currentStep != _stepTitles.length - 1)
-                  ElevatedButton(
-                    onPressed: _nextStep,
-                    child: Text(
-                      _currentStep == _stepTitles.length - 1
-                          ?AppLocalizations.of(context)!.applyFilters
-                          : AppLocalizations.of(context)!.next,
+                  if (_currentStep != _stepTitles.length - 1)
+                    ElevatedButton(
+                      onPressed: _nextStep,
+                      child: Text(
+                        _currentStep == _stepTitles.length - 1
+                            ? AppLocalizations.of(context)!.applyFilters
+                            : AppLocalizations.of(context)!.next,
+                      ),
                     ),
-                  ),
                 ],
               ),
-               const SizedBox(height: 30),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -261,7 +263,7 @@ class StepTracker extends StatelessWidget {
   final int currentStep;
 
   const StepTracker({Key? key, required this.steps, required this.currentStep})
-      : super(key: key);
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -300,29 +302,32 @@ class StepTracker extends StatelessWidget {
                             color: isCompleted
                                 ? Colors.green
                                 : isActive
-                                    ? Colors.blue
-                                    : Colors.white,
+                                ? Colors.blue
+                                : Colors.white,
                             border: Border.all(
                               color: isCompleted
                                   ? Colors.green
                                   : isActive
-                                      ? Colors.blue
-                                      : Colors.grey,
+                                  ? Colors.blue
+                                  : Colors.grey,
                               width: 2,
                             ),
                           ),
                           child: Center(
                             child: isCompleted
-                                ? const Icon(Icons.check,
-                                    size: 16, color: Colors.white)
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: Colors.white,
+                                  )
                                 : Text(
                                     '${index + 1}',
                                     style: TextStyle(
                                       color: isActive
                                           ? Colors.white
                                           : (isCompleted
-                                              ? Colors.white
-                                              : Colors.blue),
+                                                ? Colors.white
+                                                : Colors.blue),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
@@ -340,8 +345,8 @@ class StepTracker extends StatelessWidget {
                               color: isActive
                                   ? Colors.blue
                                   : isCompleted
-                                      ? Colors.green
-                                      : Colors.grey[600],
+                                  ? Colors.green
+                                  : Colors.grey[600],
                               fontWeight: isActive
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -367,7 +372,6 @@ class CustomDropdownList<T> extends StatelessWidget {
   final String labelText;
   final List<T> items;
   final String Function(T?) displayText;
-  final String? Function(T?)? valueKey;
   final T? selectedValue;
   final void Function(T?)? onChanged;
   final String? hintText;
@@ -375,72 +379,114 @@ class CustomDropdownList<T> extends StatelessWidget {
   final bool isEditable;
 
   const CustomDropdownList({
-    Key? key,
+    super.key,
     required this.labelText,
     required this.items,
     required this.displayText,
-    this.valueKey,
     this.selectedValue,
     this.onChanged,
     this.hintText,
     this.enabled = true,
     this.isEditable = true,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final String? selectedLabel =
-        selectedValue != null ? displayText(selectedValue) : null;
-    final String placeholder = hintText ?? 'Select ${labelText.toLowerCase()}';
+    final String? selectedLabel = selectedValue != null
+        ? displayText(selectedValue)
+        : null;
 
-    return TextFormField(
-      decoration: InputDecoration(
-        labelText: labelText,
-        suffixIcon: const Icon(Icons.arrow_drop_down),
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        hintText: placeholder,
-        filled: !isEditable,
-        fillColor: !isEditable ? Colors.grey[200] : null,
-      ),
-      readOnly: true,
-      enabled: enabled && isEditable,
-      onTap: (enabled && isEditable)
+    return GestureDetector(
+      onTap: enabled && isEditable
           ? () {
-              if (!enabled) return;
               FocusScope.of(context).unfocus();
-              _showPopupMenu(context);
+              _showDropdown(context);
             }
           : null,
-      controller: TextEditingController(text: selectedLabel ?? ''),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: labelText,
+          hintText: hintText ?? "Select ${labelText.toLowerCase()}",
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          filled: !isEditable,
+          fillColor: !isEditable ? Colors.grey[200] : null,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 16,
+          ),
+        ),
+        child: Text(
+          selectedLabel ?? '',
+          style: TextStyle(
+            fontSize: 14,
+            color: selectedLabel == null ? Colors.grey : Colors.black,
+          ),
+        ),
+      ),
     );
   }
 
-  void _showPopupMenu(BuildContext context) {
+  void _showDropdown(BuildContext context) {
     if (items.isEmpty) return;
+
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position =
-        button.localToGlobal(Offset.zero, ancestor: overlay);
-    final double y = position.dy + button.size.height;
 
-    showMenu<T?>(
+    final Offset offset = button.localToGlobal(Offset.zero, ancestor: overlay);
+
+    final RelativeRect position = RelativeRect.fromLTRB(
+      offset.dx,
+      offset.dy + button.size.height,
+      overlay.size.width - offset.dx - button.size.width,
+      0,
+    );
+
+    showMenu<T>(
       context: context,
-      position: RelativeRect.fromLTRB(
-          position.dx, y, position.dx + button.size.width, y + 8),
-      items: items
-          .map((item) =>
-              PopupMenuItem(value: item, child: Text(displayText(item))))
-          .toList(),
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+      position: position,
+      constraints: BoxConstraints(
+        maxHeight: 250,
+        minWidth: button.size.width,
+        maxWidth: button.size.width,
       ),
-      constraints: BoxConstraints(maxHeight: 200, minWidth: button.size.width),
-    ).then((selected) {
-      if (selected != null && onChanged != null) onChanged!(selected);
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 6,
+      items: items.map((item) {
+        final bool isSelected = item == selectedValue;
+
+        return PopupMenuItem<T>(
+          value: item,
+          padding: EdgeInsets.zero,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: isSelected ? Colors.blue.withOpacity(0.08) : null,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    displayText(item),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: isSelected ? Colors.blue : Colors.grey,
+                    ),
+                  ),
+                ),
+                // if (isSelected)
+                //   const Icon(Icons.check, color: Colors.blue, size: 18),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null && onChanged != null) {
+        onChanged!(value);
+      }
     });
   }
 }
@@ -450,9 +496,11 @@ class BasicFiltrationScreen extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final Map<String, dynamic> formData;
 
-  const BasicFiltrationScreen(
-      {Key? key, required this.formKey, required this.formData})
-      : super(key: key);
+  const BasicFiltrationScreen({
+    Key? key,
+    required this.formKey,
+    required this.formData,
+  }) : super(key: key);
 
   @override
   _BasicFiltrationScreenState createState() => _BasicFiltrationScreenState();
@@ -490,6 +538,7 @@ class _BasicFiltrationScreenState extends State<BasicFiltrationScreen> {
       } else {
         reportModel.setToDate(picked, formatted);
       }
+      setState(() {});
     }
   }
 
@@ -497,88 +546,163 @@ class _BasicFiltrationScreenState extends State<BasicFiltrationScreen> {
   Widget build(BuildContext context) {
     final reportModel = Provider.of<ReportModel>(context);
 
-    return Form(
-      key: widget.formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-           Text(AppLocalizations.of(context)!.basicFiltration,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: reportModel.fromDateCtrl,
-            readOnly: true,
-            onTap: () => _selectDate(context, true),
-            decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.fromDate,
-              suffixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    return WillPopScope(
+      onWillPop: () async {
+        final reportModel = Provider.of<ReportModel>(context, listen: false);
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.exitForm),
+            content: Text(AppLocalizations.of(context)!.exitWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child: Text(AppLocalizations.of(context)!.cancel),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(true), // Confirm exit
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit ?? false) {
+          reportModel.clearMISFields();
+          Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+          return true; // allow back navigation
+        }
+
+        return false; // cancel back navigation
+      },
+      child: Form(
+        key: widget.formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.basicFiltration,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            validator: (value) =>
-                value!.isEmpty ? 'From Date is required' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: reportModel.toDateCtrl,
-            readOnly: true,
-            onTap: () => _selectDate(context, false),
-            decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.toDate,
-              suffixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: reportModel.fromDateCtrl,
+              readOnly: true,
+              onTap: () => _selectDate(context, true),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.fromDate,
+                suffixIcon: const Icon(
+                  Icons.calendar_today,
+                  color: Colors.blue,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              validator: (value) => value == null || value.isEmpty
+                  ? 'From Date is required'
+                  : null,
             ),
-            validator: (value) => value!.isEmpty ? 'To Date is required' : null,
-          ),
-          const SizedBox(height: 16),
-          CustomDropdownList<String>(
-            labelText: AppLocalizations.of(context)!.functionalEntity,
-            items: const ['Expense Requisition', 'Cash Advance Requisition'],
-            displayText: (e) => e ?? '',
-            selectedValue: reportModel.functionalArea.isEmpty
-                ? null
-                : reportModel.functionalArea,
-            onChanged: (value) {
-              if (value == null) return;
-              reportModel.updateFunctionalAreaExpenseReport(value);
-            },
-            hintText: AppLocalizations.of(context)!.selectFunctionalEntity,
-          ),
-          const SizedBox(height: 16),
-          CustomDropdownList<dynamic>(
-            labelText: 'Sort By',
-            items: reportModel.allDatasets,
-            displayText: (e) => e ?? '',
-            selectedValue: reportModel.sortBy,
-            onChanged: (value) {
-              if (value != null) {
-                reportModel.sortBy = value;
-                setState(() {});
-              }
-            },
-            hintText: AppLocalizations.of(context)!.selectSortField,
-          ),
-          const SizedBox(height: 16),
-          CustomDropdownList<String>(
-            labelText: 'Sort Order',
-            items: ['Ascending', 'Descending'],
-            displayText: (e) => e ?? '',
-            selectedValue: context.read<ReportModel>().sortOrder == 'asc'
-                ? 'Ascending'
-                : context.read<ReportModel>().sortOrder == 'desc'
-                    ? 'Descending'
-                    : null,
-            onChanged: (value) {
-              if (value != null) {
-                final sortVal = value == 'Ascending' ? 'asc' : 'desc';
-                context.read<ReportModel>().setSortOrder(sortVal);
-              }
-            },
-            hintText: AppLocalizations.of(context)!.selectOrder,
-          ),
-          const SizedBox(height: 40),
-        ],
+
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: reportModel.toDateCtrl,
+              readOnly: true,
+              onTap: () => _selectDate(context, false),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.toDate,
+                suffixIcon: const Icon(
+                  Icons.calendar_today,
+                  color: Colors.blue,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'To Date is required';
+                }
+
+                final reportModel = Provider.of<ReportModel>(
+                  context,
+                  listen: false,
+                );
+
+                if (reportModel.fromDateCtrl.text.isNotEmpty) {
+                  DateTime fromDate = DateFormat(
+                    'dd-MM-yyyy',
+                  ).parse(reportModel.fromDateCtrl.text);
+
+                  DateTime toDate = DateFormat('dd-MM-yyyy').parse(value);
+
+                  if (toDate.isBefore(fromDate)) {
+                    return 'To Date cannot be earlier than From Date';
+                  }
+                }
+
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            CustomDropdownList<String>(
+              labelText: AppLocalizations.of(context)!.functionalEntity,
+              items: const [
+                'Expense Requisition',
+                'Cash Advance Requisition',
+                'Leave Requisition',
+                'TimeSheet Requisition',
+              ],
+              displayText: (e) => e ?? '',
+              selectedValue: reportModel.functionalArea.isEmpty
+                  ? null
+                  : reportModel.functionalArea,
+              onChanged: (value) {
+                // if (value == null) return;
+                reportModel.updateFunctionalAreaExpenseReport(value!);
+              },
+              hintText: AppLocalizations.of(context)!.selectFunctionalEntity,
+            ),
+            const SizedBox(height: 16),
+            CustomDropdownList<dynamic>(
+              labelText: 'Sort By',
+              items: reportModel.allDatasets,
+              displayText: (e) => e ?? '',
+              selectedValue: reportModel.sortBy,
+              onChanged: (value) {
+                if (value != null) {
+                  reportModel.sortBy = value;
+                  setState(() {});
+                }
+              },
+              hintText: AppLocalizations.of(context)!.selectSortField,
+            ),
+            const SizedBox(height: 16),
+            CustomDropdownList<String>(
+              labelText: 'Sort Order',
+              items: ['Ascending', 'Descending'],
+              displayText: (e) => e ?? '',
+              selectedValue: context.read<ReportModel>().sortOrder == 'asc'
+                  ? 'Ascending'
+                  : context.read<ReportModel>().sortOrder == 'desc'
+                  ? 'Descending'
+                  : null,
+              onChanged: (value) {
+                if (value != null) {
+                  final sortVal = value == 'Ascending' ? 'asc' : 'desc';
+                  context.read<ReportModel>().setSortOrder(sortVal);
+                }
+              },
+              hintText: AppLocalizations.of(context)!.selectOrder,
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -589,7 +713,7 @@ class AdvancedFilteringScreen extends StatefulWidget {
   final Map<String, dynamic> formData;
 
   const AdvancedFilteringScreen({Key? key, required this.formData})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _AdvancedFilteringScreenState createState() =>
@@ -630,7 +754,7 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-         Text(
+        Text(
           AppLocalizations.of(context)!.advancedFiltration,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
@@ -667,15 +791,22 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
                     const Spacer(),
                     if (isEditableField && reportModel.filterGroups.length > 1)
                       TextButton.icon(
-                        icon: const Icon(Icons.delete,
-                            color: Colors.red, size: 18),
-                        label:  Text(AppLocalizations.of(context)!.removeGroup,
-                            style: const TextStyle(color: Colors.red)),
+                        icon: const Icon(
+                          Icons.delete,
+                          color: Colors.red,
+                          size: 18,
+                        ),
+                        label: Text(
+                          AppLocalizations.of(context)!.removeGroup,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                         onPressed: () =>
                             reportModel.removeFilterGroup(groupIndex),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                         ),
                       ),
                   ],
@@ -690,7 +821,11 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, ruleIndex) {
                     return _buildFilterRuleCard(
-                        group[ruleIndex], groupIndex, ruleIndex, context);
+                      group[ruleIndex],
+                      groupIndex,
+                      ruleIndex,
+                      context,
+                    );
                   },
                 ),
 
@@ -700,14 +835,17 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
                     onPressed: () =>
                         reportModel.addFilterRuleToGroup(groupIndex),
                     icon: const Icon(Icons.add, size: 16),
-                    label:  Text(AppLocalizations.of(context)!.addNewGroup),
+                    label: Text(AppLocalizations.of(context)!.addNewGroup),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  )
+                  ),
               ],
             );
           },
@@ -720,7 +858,7 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
           ElevatedButton.icon(
             onPressed: () => reportModel.addFilterGroup(),
             icon: const Icon(Icons.group_add, size: 16),
-            label:  Text(AppLocalizations.of(context)!.addNewGroup),
+            label: Text(AppLocalizations.of(context)!.addNewGroup),
           ),
       ],
     );
@@ -728,7 +866,11 @@ class _AdvancedFilteringScreenState extends State<AdvancedFilteringScreen> {
 }
 
 Widget _buildFilterRuleCard(
-    FilterRule rule, int groupIndex, int ruleIndex, BuildContext context) {
+  FilterRule rule,
+  int groupIndex,
+  int ruleIndex,
+  BuildContext context,
+) {
   final reportModel = Provider.of<ReportModel>(context, listen: false);
   List<String> conditionItems;
   if (rule.condition == 'text') {
@@ -741,7 +883,7 @@ Widget _buildFilterRuleCard(
       'Starts With',
       'Ends With',
       'Is Empty',
-      'Is Not Empty'
+      'Is Not Empty',
     ];
   } else {
     conditionItems = [
@@ -752,7 +894,7 @@ Widget _buildFilterRuleCard(
       'Starts With',
       'Ends With',
       'Is Empty',
-      'Is Not Empty'
+      'Is Not Empty',
     ];
   }
   print("rule.column&${rule.column}");
@@ -764,34 +906,45 @@ Widget _buildFilterRuleCard(
           LayoutBuilder(
             builder: (context, constraints) {
               return ConstrainedBox(
-                constraints:
-                    const BoxConstraints(minHeight: 56, maxHeight: 400),
+                constraints: const BoxConstraints(
+                  minHeight: 56,
+                  maxHeight: 400,
+                ),
                 child: IntrinsicHeight(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CustomDropdown(
-                          labelText: AppLocalizations.of(context)!.table,
-                          items: reportModel.tableLabels,
-                          value: rule.table.isEmpty ? null : rule.table,
-                          onChanged: (value) {
-                            if (value != null) {
-                              reportModel.expenseReportselectTableForFilter(
-                                  groupIndex, ruleIndex, value);
-                            }
-                          }),
+                        labelText: AppLocalizations.of(context)!.table,
+                        items: reportModel.tableLabels,
+                        value: rule.table.isEmpty ? null : rule.table,
+                        onChanged: (value) {
+                          if (value != null) {
+                            reportModel.expenseReportselectTableForFilter(
+                              groupIndex,
+                              ruleIndex,
+                              value,
+                            );
+                          }
+                        },
+                      ),
                       const SizedBox(height: 16),
                       if (rule.availableColumns.isNotEmpty)
                         CustomDropdown(
-                            labelText: AppLocalizations.of(context)!.column,
-                            items: rule.availableColumns,
-                            value: rule.column,
-                            onChanged: (value) {
-                              print('valuevalue$value');
-                              reportModel.updateFilterRule(
-                                  groupIndex, ruleIndex, 'column', value);
-                            }),
+                          labelText: AppLocalizations.of(context)!.column,
+                          items: rule.availableColumns,
+                          value: rule.column,
+                          onChanged: (value) {
+                            print('valuevalue$value');
+                            reportModel.updateFilterRule(
+                              groupIndex,
+                              ruleIndex,
+                              'column',
+                              value,
+                            );
+                          },
+                        ),
                       if (rule.column.isNotEmpty) const SizedBox(height: 16),
                       if (rule.column.isNotEmpty)
                         CustomDropdown(
@@ -824,25 +977,36 @@ Widget _buildFilterRuleCard(
                             initialValue: rule.value,
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.value,
-                              hintText: AppLocalizations.of(context)!.enterValueToMatch,
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterValueToMatch,
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (value) {
                               reportModel.updateFilterRule(
-                                  groupIndex, ruleIndex, 'value', value);
+                                groupIndex,
+                                ruleIndex,
+                                'value',
+                                value,
+                              );
                             },
                           ),
                         ),
@@ -857,28 +1021,39 @@ Widget _buildFilterRuleCard(
                                 : '',
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.from,
-                              hintText: AppLocalizations.of(context)!.enterStartingValue,
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterStartingValue,
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (val) {
                               var list = [...rule.inBetweenValues];
                               if (list.length < 2) list = ['', ''];
                               list[0] = val;
-                              reportModel.updateFilterRule(groupIndex,
-                                  ruleIndex, 'inBetweenValues', list);
+                              reportModel.updateFilterRule(
+                                groupIndex,
+                                ruleIndex,
+                                'inBetweenValues',
+                                list,
+                              );
                             },
                           ),
                         ),
@@ -891,28 +1066,39 @@ Widget _buildFilterRuleCard(
                                 : '',
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.to,
-                              hintText: AppLocalizations.of(context)!.enterEndingValue,
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterEndingValue,
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide:
-                                    BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (val) {
                               var list = [...rule.inBetweenValues];
                               if (list.length < 2) list = ['', ''];
                               list[1] = val;
-                              reportModel.updateFilterRule(groupIndex,
-                                  ruleIndex, 'inBetweenValues', list);
+                              reportModel.updateFilterRule(
+                                groupIndex,
+                                ruleIndex,
+                                'inBetweenValues',
+                                list,
+                              );
                             },
                           ),
                         ),
@@ -921,17 +1107,26 @@ Widget _buildFilterRuleCard(
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton.icon(
-                          icon: const Icon(Icons.delete,
-                              color: Colors.red, size: 18),
-                          label:  Text(AppLocalizations.of(context)!.removeRule,
-                              style: const TextStyle(color: Colors.red)),
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          label: Text(
+                            AppLocalizations.of(context)!.removeRule,
+                            style: const TextStyle(color: Colors.red),
+                          ),
                           onPressed: () {
                             reportModel.removeFilterRuleFromGroup(
-                                groupIndex, ruleIndex);
+                              groupIndex,
+                              ruleIndex,
+                            );
                           },
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                           ),
                         ),
                       ),
@@ -969,11 +1164,16 @@ class AndOrToggleButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: value == 'AND' ? Colors.green : Colors.grey.shade200,
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(20),
+              ),
             ),
-            child: Text(AppLocalizations.of(context)!.and,
-                style: TextStyle(
-                    color: value == 'AND' ? Colors.white : Colors.black)),
+            child: Text(
+              AppLocalizations.of(context)!.and,
+              style: TextStyle(
+                color: value == 'AND' ? Colors.white : Colors.black,
+              ),
+            ),
           ),
         ),
         GestureDetector(
@@ -982,11 +1182,16 @@ class AndOrToggleButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: value == 'OR' ? Colors.blue : Colors.grey.shade200,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(20),
+              ),
             ),
-            child: Text(AppLocalizations.of(context)!.or,
-                style: TextStyle(
-                    color: value == 'OR' ? Colors.white : Colors.black)),
+            child: Text(
+              AppLocalizations.of(context)!.or,
+              style: TextStyle(
+                color: value == 'OR' ? Colors.white : Colors.black,
+              ),
+            ),
           ),
         ),
       ],
@@ -997,7 +1202,7 @@ class AndOrToggleButton extends StatelessWidget {
 class ApplyFiltersScreen extends StatefulWidget {
   final Map<String, dynamic> formData;
   const ApplyFiltersScreen({Key? key, required this.formData})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<ApplyFiltersScreen> createState() => _ApplyFiltersScreenState();
@@ -1031,11 +1236,15 @@ class _ApplyFiltersScreenState extends State<ApplyFiltersScreen> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: CheckboxListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        title: Text(title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
         subtitle: subtitle != null
-            ? Text(subtitle,
-                style: const TextStyle(fontSize: 13, color: Colors.grey))
+            ? Text(
+                subtitle,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              )
             : null,
         value: value,
         activeColor: Colors.blue,
@@ -1047,117 +1256,155 @@ class _ApplyFiltersScreenState extends State<ApplyFiltersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-           Text(
-            AppLocalizations.of(context)!.chooseTablesToViewInReport,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-
-          _buildCheckTile(
-            value: transData,
-            title:AppLocalizations.of(context)!.transData,
-            onChanged: (v) => setState(() => transData = v),
-          ),
-          _buildCheckTile(
-            value: documentAttachments,
-            title: AppLocalizations.of(context)!.documentAttachments,
-            onChanged: (v) => setState(() => documentAttachments = v),
-          ),
-          _buildCheckTile(
-            value: accountingDistributions,
-            title: AppLocalizations.of(context)!.accountDistribution,
-            onChanged: (v) => setState(() => accountingDistributions = v),
-          ),
-          _buildCheckTile(
-            value: expenseCategoryCustomFieldValues,
-            title: AppLocalizations.of(context)!.expenseCategoryCustomFields,
-            onChanged: (v) =>
-                setState(() => expenseCategoryCustomFieldValues = v),
-          ),
-          _buildCheckTile(
-            value: transCustomfieldValues,
-            title: AppLocalizations.of(context)!.transCustomFieldsValues,
-            onChanged: (v) => setState(() => transCustomfieldValues = v),
-          ),
-          _buildCheckTile(
-            value: headerCustomfieldValues,
-            title: AppLocalizations.of(context)!.headerCustomFieldsValues,
-            onChanged: (v) => setState(() => headerCustomfieldValues = v),
-          ),
-          _buildCheckTile(
-            value: activityLog,
-            title: AppLocalizations.of(context)!.activityLog,
-            onChanged: (v) => setState(() => activityLog = v),
-          ),
-          _buildCheckTile(
-            value: workFlowHistory,
-            title: AppLocalizations.of(context)!.workflowHistory,
-            onChanged: (v) => setState(() => workFlowHistory = v),
-          ),
-
-          const SizedBox(height: 24),
-
-          /// Apply Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                backgroundColor: Colors.blue,
+    return WillPopScope(
+      onWillPop: () async {
+        final reportModel = Provider.of<ReportModel>(context, listen: false);
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.exitForm),
+            content: Text(AppLocalizations.of(context)!.exitWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child: Text(AppLocalizations.of(context)!.cancel),
               ),
-              icon: const Icon(Icons.check, color: Colors.white),
-              label:  Text(
-               AppLocalizations.of(context)!.applyFilters,
-                style: const TextStyle(
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(true), // Confirm exit
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit ?? false) {
+          reportModel.clearMISFields();
+          Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+          return true; // allow back navigation
+        }
+
+        return false; // cancel back navigation
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.chooseTablesToViewInReport,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
+            _buildCheckTile(
+              value: transData,
+              title: AppLocalizations.of(context)!.transData,
+              onChanged: (v) => setState(() => transData = v),
+            ),
+            _buildCheckTile(
+              value: documentAttachments,
+              title: AppLocalizations.of(context)!.documentAttachments,
+              onChanged: (v) => setState(() => documentAttachments = v),
+            ),
+            _buildCheckTile(
+              value: accountingDistributions,
+              title: AppLocalizations.of(context)!.accountDistribution,
+              onChanged: (v) => setState(() => accountingDistributions = v),
+            ),
+            _buildCheckTile(
+              value: expenseCategoryCustomFieldValues,
+              title: AppLocalizations.of(context)!.expenseCategoryCustomFields,
+              onChanged: (v) =>
+                  setState(() => expenseCategoryCustomFieldValues = v),
+            ),
+            _buildCheckTile(
+              value: transCustomfieldValues,
+              title: AppLocalizations.of(context)!.transCustomFieldsValues,
+              onChanged: (v) => setState(() => transCustomfieldValues = v),
+            ),
+            _buildCheckTile(
+              value: headerCustomfieldValues,
+              title: AppLocalizations.of(context)!.headerCustomFieldsValues,
+              onChanged: (v) => setState(() => headerCustomfieldValues = v),
+            ),
+            _buildCheckTile(
+              value: activityLog,
+              title: AppLocalizations.of(context)!.activityLog,
+              onChanged: (v) => setState(() => activityLog = v),
+            ),
+            _buildCheckTile(
+              value: workFlowHistory,
+              title: AppLocalizations.of(context)!.workflowHistory,
+              onChanged: (v) => setState(() => workFlowHistory = v),
+            ),
+
+            const SizedBox(height: 24),
+
+            /// Apply Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  backgroundColor: Colors.blue,
+                ),
+                icon: const Icon(Icons.check, color: Colors.white),
+                label: Text(
+                  AppLocalizations.of(context)!.applyFilters,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onPressed: () async {
+                  final List<String> selected = [];
+
+                  /// Map UI checkboxes to API keys
+                  if (transData) selected.add('ExpenseTrans');
+                  if (documentAttachments) selected.add('DocumentAttachments');
+                  if (accountingDistributions) {
+                    selected.add('AccountingDistributions');
+                  }
+                  if (expenseCategoryCustomFieldValues) {
+                    selected.add('ExpenseCategoryCustomFieldValues');
+                  }
+                  if (transCustomfieldValues) {
+                    selected.add('TransCustomfieldValues');
+                  }
+                  if (headerCustomfieldValues) {
+                    selected.add('HeaderCustomfieldValues');
+                  }
+                  if (workFlowHistory) {
+                    selected.add('WorkFlowHistory');
+                  }
+                  if (activityLog) {
+                    selected.add('ActivityLog');
+                  }
+
+                  await _saveSelectedTables(selected);
+
+                  if (mounted) {
+                    final reportModel = Provider.of<ReportModel>(
+                      context,
+                      listen: false,
+                    );
+                    reportModel.callMISReportAPI(context);
+                  }
+                },
               ),
-              onPressed: () async {
-                final List<String> selected = [];
-
-                /// Map UI checkboxes to API keys
-                if (transData) selected.add('ExpenseTrans');
-                if (documentAttachments) selected.add('DocumentAttachments');
-                if (accountingDistributions) {
-                  selected.add('AccountingDistributions');
-                }
-                if (expenseCategoryCustomFieldValues) {
-                  selected.add('ExpenseCategoryCustomFieldValues');
-                }
-                if (transCustomfieldValues) {
-                  selected.add('TransCustomfieldValues');
-                }
-                 if (headerCustomfieldValues) {
-                  selected.add('HeaderCustomfieldValues');
-                }
-                 if (workFlowHistory) {
-                  selected.add('WorkFlowHistory');
-                }
-                 if (activityLog) {
-                  selected.add('ActivityLog');
-                }
-
-                await _saveSelectedTables(selected);
-
-                if (mounted) {
-                  final reportModel =
-                      Provider.of<ReportModel>(context, listen: false);
-                  reportModel.callMISReportAPI(context);
-                }
-              },
             ),
-          ),
 
-          const SizedBox(height: 40),
-        ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }

@@ -70,10 +70,9 @@ extension ListExtension<T> on List<T> {
 
 // Example Data Model
 
-
 class ReportScreen extends StatefulWidget {
   final List<Map<String, dynamic>> data;
-  final  List<Rule> rules; // Pass existing rules from API
+  final List<Rule> rules; // Pass existing rules from API
   final String logicalOperator; // AND or OR
 
   const ReportScreen({
@@ -92,12 +91,34 @@ class _ReportScreenState extends State<ReportScreen> {
   String _logicalOperator = 'AND';
   String _searchQuery = '';
   bool _isLoading = false;
-
+  late List<Map<String, dynamic>> _filteredData; // ← new
   @override
   void initState() {
     super.initState();
     _data = List.from(widget.data);
-    _logicalOperator = widget.logicalOperator;
+    _filteredData = List.from(widget.data);
+    // _logicalOperator = widget.logicalOperator;
+  }
+
+  void _filterData(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+      if (_searchQuery.isEmpty) {
+        _filteredData = List.from(_data);
+      } else {
+        _filteredData = _data.where((item) {
+          final merchant = (item['MerchantName'] ?? '')
+              .toString()
+              .toLowerCase();
+          final employeeId = (item['EmployeeId'] ?? '')
+              .toString()
+              .toLowerCase();
+          // Add any other fields you want to search in
+          return merchant.contains(_searchQuery) ||
+              employeeId.contains(_searchQuery);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _applyFilters() async {
@@ -109,147 +130,165 @@ class _ReportScreenState extends State<ReportScreen> {
       _isLoading = false;
     });
   }
+
  Future<void> _exportToExcel() async {
-    if (_data.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No data to export!')),
-      );
-      return;
-    }
+  if (_data.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No data to export!')),
+    );
+    return;
+  }
+debugPrint("DATA LENGTH: ${_data.length}");
+debugPrint(_data.toString());
+  final excel = Excel.createExcel();
+  excel.rename('Sheet1', 'Report');
+  final sheet = excel['Report'];
 
-    final excel = Excel.createExcel();
-    final sheet = excel['Report'];
+  /// Header
+  sheet.appendRow([
+    TextCellValue("Project Id"),
+    TextCellValue("Expense Category Id"),
+    TextCellValue("Quantity"),
+    TextCellValue("Uom Id"),
+    TextCellValue("Line Amount Trans"),
+    TextCellValue("Line Amount Reporting"),
+    TextCellValue("Employee Id"),
+  ]);
 
-    // Header
-    sheet.appendRow([
-      TextCellValue('Merchant Name'),
-      TextCellValue('Total Rejected Amount'),
-      TextCellValue('Employee ID'),
-      TextCellValue('Tax Amount'),
-      TextCellValue('Last Settlement Date'),
-    ]);
+  /// Data
+  for (var expense in _data) {
+    List transList = expense["ExpenseTrans"] ?? [];
 
-    // Data
-    for (var row in _data) {
+    for (var trans in transList) {
       sheet.appendRow([
-        TextCellValue(row['MerchantName']?.toString() ?? ''),
-        TextCellValue(row['TotalRejectedAmount']?.toString() ?? '0.00'),
-        TextCellValue(row['EmployeeId']?.toString() ?? ''),
-        TextCellValue(row['TaxAmount']?.toString() ?? '0.00'),
-        TextCellValue(row['LastSettlementDate']?.toString() ?? ''),
+        TextCellValue((trans["ProjectId"] ?? "").toString()),
+        TextCellValue((trans["ExpenseCategoryId"] ?? "").toString()),
+        TextCellValue((trans["Quantity"] ?? "").toString()),
+        TextCellValue((trans["UomId"] ?? "").toString()),
+        TextCellValue((trans["LineAmountTrans"] ?? "").toString()),
+        TextCellValue((trans["LineAmountReporting"] ?? "").toString()),
+        TextCellValue((trans["EmployeeId"] ?? "").toString()),
       ]);
     }
+  }
 
-    try {
-      final bytes = excel.save()!;
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/Expense_Report.xlsx');
-      await file.writeAsBytes(bytes);
+  try {
+    final bytes = excel.save()!;
 
-      final result = await OpenFilex.open(file.path);
-      if (result.type == ResultType.done) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Exported and opened Excel file!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to open: ${result.message}')),
-        );
-      }
-    } catch (e) {
+    final dir = await getApplicationDocumentsDirectory();
+    final fileName =
+      'Expense_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+
+  final file = File('${dir.path}/$fileName');
+ 
+
+    await file.writeAsBytes(bytes);
+
+    final result = await OpenFilex.open(file.path);
+
+    if (result.type == ResultType.done) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
+        const SnackBar(content: Text('Exported and opened Excel file!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open: ${result.message}')),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Export failed: $e')),
+    );
   }
-// Future<void> _exportToExcel() async {
-//   if (_data.isEmpty) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       const SnackBar(content: Text('No data to export!')),
-//     );
-//     return;
-//   }
+}
+  // Future<void> _exportToExcel() async {
+  //   if (_data.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('No data to export!')),
+  //     );
+  //     return;
+  //   }
 
-//   final excel = Excel.createExcel();
-//   final sheet = excel['Report'];
+  //   final excel = Excel.createExcel();
+  //   final sheet = excel['Report'];
 
-//   // Header
-//   sheet.appendRow([
-//     TextCellValue('Merchant Name'),
-//     TextCellValue('Total Rejected Amount'),
-//     TextCellValue('Employee ID'),
-//     TextCellValue('Tax Amount'),
-//     TextCellValue('Last Settlement Date'),
-//   ]);
+  //   // Header
+  //   sheet.appendRow([
+  //     TextCellValue('Merchant Name'),
+  //     TextCellValue('Total Rejected Amount'),
+  //     TextCellValue('Employee ID'),
+  //     TextCellValue('Tax Amount'),
+  //     TextCellValue('Last Settlement Date'),
+  //   ]);
 
-//   // Data
-//   for (var row in _data) {
-//     sheet.appendRow([
-//       TextCellValue(row['MerchantName']?.toString() ?? ''),
-//       TextCellValue(row['TotalRejectedAmount']?.toString() ?? '0.00'),
-//       TextCellValue(row['EmployeeId']?.toString() ?? ''),
-//       TextCellValue(row['TaxAmount']?.toString() ?? '0.00'),
-//       TextCellValue(row['LastSettlementDate']?.toString() ?? ''),
-//     ]);
-//   }
+  //   // Data
+  //   for (var row in _data) {
+  //     sheet.appendRow([
+  //       TextCellValue(row['MerchantName']?.toString() ?? ''),
+  //       TextCellValue(row['TotalRejectedAmount']?.toString() ?? '0.00'),
+  //       TextCellValue(row['EmployeeId']?.toString() ?? ''),
+  //       TextCellValue(row['TaxAmount']?.toString() ?? '0.00'),
+  //       TextCellValue(row['LastSettlementDate']?.toString() ?? ''),
+  //     ]);
+  //   }
 
-//   try {
-//     final bytes = excel.save()!;
+  //   try {
+  //     final bytes = excel.save()!;
 
-//     Directory? dir;
+  //     Directory? dir;
 
-//     if (Platform.isAndroid) {
-//       // Check and request storage permission if needed (for Android < 11)
-//       if (await _requestStoragePermission()) {
-//         // Try to use Downloads folder first
-//         dir = Directory('/storage/emulated/0/Download');
-//         if (!dir.existsSync()) {
-//           // Fallback to app-specific external storage directory
-//           dir = await getExternalStorageDirectory();
-//         }
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text('Storage permission denied')),
-//         );
-//         return;
-//       }
-//     } else if (Platform.isIOS) {
-//       dir = await getApplicationDocumentsDirectory();
-//     } else {
-//       dir = await getApplicationDocumentsDirectory();
-//     }
+  //     if (Platform.isAndroid) {
+  //       // Check and request storage permission if needed (for Android < 11)
+  //       if (await _requestStoragePermission()) {
+  //         // Try to use Downloads folder first
+  //         dir = Directory('/storage/emulated/0/Download');
+  //         if (!dir.existsSync()) {
+  //           // Fallback to app-specific external storage directory
+  //           dir = await getExternalStorageDirectory();
+  //         }
+  //       } else {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('Storage permission denied')),
+  //         );
+  //         return;
+  //       }
+  //     } else if (Platform.isIOS) {
+  //       dir = await getApplicationDocumentsDirectory();
+  //     } else {
+  //       dir = await getApplicationDocumentsDirectory();
+  //     }
 
-//     final filePath =
-//         '${dir!.path}/Expense_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-//     final file = File(filePath);
+  //     final filePath =
+  //         '${dir!.path}/Expense_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+  //     final file = File(filePath);
 
-//     await file.writeAsBytes(bytes);
+  //     await file.writeAsBytes(bytes);
 
-//     final result = await OpenFilex.open(file.path);
-//     if (result.type == ResultType.done) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Exported and opened Excel file at $filePath')),
-//       );
-//     } else {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(content: Text('Failed to open: ${result.message}')),
-//       );
-//     }
-//   } catch (e) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text('Export failed: $e')),
-//     );
-//   }
-// }
+  //     final result = await OpenFilex.open(file.path);
+  //     if (result.type == ResultType.done) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Exported and opened Excel file at $filePath')),
+  //       );
+  //     } else {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Failed to open: ${result.message}')),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Export failed: $e')),
+  //     );
+  //   }
+  // }
 
-// // Helper function to request storage permission on Android
-// Future<bool> _requestStoragePermission() async {
-//   var status = await Permission.storage.status;
-//   if (!status.isGranted) {
-//     status = await Permission.storage.request();
-//   }
-//   return status.isGranted;
-// } 
+  // // Helper function to request storage permission on Android
+  // Future<bool> _requestStoragePermission() async {
+  //   var status = await Permission.storage.status;
+  //   if (!status.isGranted) {
+  //     status = await Permission.storage.request();
+  //   }
+  //   return status.isGranted;
+  // }
 
   Widget _chip(String label, Color bgColor, Color textColor) {
     return Container(
@@ -270,22 +309,100 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
- Widget _buildRuleCard(Rule rule, int index) {
-  // Determine if this is a read-only view (for existing reports)
-  final isEditableField = rule.selectedField == null;
-  
-  return Container(
-    padding: const EdgeInsets.all(12.0),
-    decoration: BoxDecoration(
-      // color: Colors.grey[100],
-      borderRadius: BorderRadius.circular(8),
-      // border: Border.all(color: Colors.grey.shade300),
+  Widget cell(String text) {
+    return Padding(padding: const EdgeInsets.all(8), child: Text(text));
+  }
+
+  /// TABLE HEADER
+  Widget header(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
+  }
+
+  /// TABLE VIEW
+  Widget buildTable(Map<String, dynamic> item) {
+  List expenseTrans = item["ExpenseTrans"] ?? [];
+
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: DataTable(
+      columnSpacing: 24,
+      columns: [
+        DataColumn(label: header("Project Id")),
+        DataColumn(label: header("Expense Category Id")),
+        DataColumn(label: header("Quantity")),
+        DataColumn(label: header("Uom Id")),
+        DataColumn(label: header("Line Amount Trans")),
+        DataColumn(label: header("Line Amount Reporting")),
+        DataColumn(label: header("Employee Id")),
+      ],
+      rows: expenseTrans.map<DataRow>((trans) {
+        return DataRow(
+          cells: [
+            DataCell(cell((trans["ProjectId"] ?? "").toString())),
+            DataCell(cell((trans["ExpenseCategoryId"] ?? "").toString())),
+            DataCell(cell((trans["Quantity"] ?? "").toString())),
+            DataCell(cell((trans["UomId"] ?? "").toString())),
+            DataCell(cell((trans["LineAmountTrans"] ?? "").toString())),
+            DataCell(cell((trans["LineAmountReporting"] ?? "").toString())),
+            DataCell(cell((trans["EmployeeId"] ?? "").toString())),
+          ],
+        );
+      }).toList(),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Read-only display for existing reports
-     
+  );
+}
+
+  /// CARD UI
+  Widget buildCard(Map<String, dynamic> item) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ExpansionTile(
+        title: Text(
+          "Employee : ${item["EmployeeId"]}",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text("ExpenseCategoryId : ${item["ExpenseCategoryId"]}"),
+        children: [
+          Padding(padding: const EdgeInsets.all(8), child: buildTable(item)),
+        ],
+      ),
+    );
+  }
+
+  /// RULE UI
+  Widget ruleCard(Rule rule) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        "${rule.selectedTable} → ${rule.selectedField} ${rule.selectedCondition} ${rule.singleValue}",
+      ),
+    );
+  }
+
+  Widget _buildRuleCard(Rule rule, int index) {
+    // Determine if this is a read-only view (for existing reports)
+    final isEditableField = rule.selectedField == null;
+
+    return Container(
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        // color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+        // border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Read-only display for existing reports
+
           // Row(
           //   children: [
           //     // Table
@@ -293,16 +410,16 @@ class _ReportScreenState extends State<ReportScreen> {
           //     const SizedBox(width: 8),
           //     const Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
           //     const SizedBox(width: 8),
-              
+
           //     // Column
           //     _chip(rule.selectedField, Colors.green.shade100, Colors.green.shade800),
           //     const SizedBox(width: 8),
           //     const Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
           //     const SizedBox(width: 8),
-              
+
           //     // Condition
           //     _chip(rule.selectedCondition, Colors.orange.shade100, Colors.orange.shade800),
-              
+
           //     if (rule.selectedTable.isNotEmpty) ...[
           //       const SizedBox(width: 8),
           //       const Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
@@ -329,14 +446,15 @@ class _ReportScreenState extends State<ReportScreen> {
           //     ],
           //   ],
           // ),
-        
-        
-        // Editable fields for new reports
-     
+
+          // Editable fields for new reports
           LayoutBuilder(
             builder: (context, constraints) {
               return ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 56, maxHeight: 400),
+                constraints: const BoxConstraints(
+                  minHeight: 56,
+                  maxHeight: 400,
+                ),
                 child: IntrinsicHeight(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,8 +462,14 @@ class _ReportScreenState extends State<ReportScreen> {
                     children: [
                       CustomDropdown(
                         labelText: AppLocalizations.of(context)!.table,
-                        items: const ['Employees', 'Expenses', 'Vendors'], // Replace with your actual table labels
-                        value: rule.selectedTable.isEmpty ? null : rule.selectedTable,
+                        items: const [
+                          'Employees',
+                          'Expenses',
+                          'Vendors',
+                        ], // Replace with your actual table labels
+                        value: rule.selectedTable.isEmpty
+                            ? null
+                            : rule.selectedTable,
                         onChanged: (value) {
                           if (value != null) {
                             // Handle table selection change
@@ -355,11 +479,18 @@ class _ReportScreenState extends State<ReportScreen> {
                         isEditable: isEditableField,
                       ),
                       const SizedBox(height: 16),
-                      
-                      if (rule.selectedField.isNotEmpty) 
+
+                      if (rule.selectedField.isNotEmpty)
                         CustomDropdown(
                           labelText: AppLocalizations.of(context)!.column,
-                           items: const ["Name", "Amount", "Date", "Status", "Category", "ID"],
+                          items: const [
+                            "Name",
+                            "Amount",
+                            "Date",
+                            "Status",
+                            "Category",
+                            "ID",
+                          ],
                           value: rule.selectedField,
                           onChanged: (value) {
                             if (value != null) {
@@ -368,14 +499,23 @@ class _ReportScreenState extends State<ReportScreen> {
                           },
                           isEditable: isEditableField,
                         ),
-                      
-                      if (rule.selectedField.isNotEmpty) const SizedBox(height: 16),
-                      
+
+                      if (rule.selectedField.isNotEmpty)
+                        const SizedBox(height: 16),
+
                       if (rule.selectedField.isNotEmpty)
                         CustomDropdown(
-                          labelText:AppLocalizations.of(context)!.condition,
-                         items: const ["Employees", "Expenses", "Vendors", "Departments", "Projects"],
-                          value: rule.selectedCondition.isEmpty ? null : rule.selectedCondition,
+                          labelText: AppLocalizations.of(context)!.condition,
+                          items: const [
+                            "Employees",
+                            "Expenses",
+                            "Vendors",
+                            "Departments",
+                            "Projects",
+                          ],
+                          value: rule.selectedCondition.isEmpty
+                              ? null
+                              : rule.selectedCondition,
                           onChanged: (value) {
                             if (value != null) {
                               // Handle condition selection change
@@ -383,13 +523,15 @@ class _ReportScreenState extends State<ReportScreen> {
                           },
                           isEditable: isEditableField,
                         ),
-                      
-                      if (rule.selectedCondition.isNotEmpty) const SizedBox(height: 16),
-                      
-                      if (rule.selectedCondition.isNotEmpty && rule.selectedCondition != "In Between")
+
+                      if (rule.selectedCondition.isNotEmpty)
                         const SizedBox(height: 16),
-                      
-                      if (rule.selectedCondition.isNotEmpty && 
+
+                      if (rule.selectedCondition.isNotEmpty &&
+                          rule.selectedCondition != "In Between")
+                        const SizedBox(height: 16),
+
+                      if (rule.selectedCondition.isNotEmpty &&
                           rule.selectedCondition != "in_between" &&
                           rule.selectedCondition != "is_not_empty" &&
                           rule.selectedCondition != "is_empty")
@@ -399,43 +541,68 @@ class _ReportScreenState extends State<ReportScreen> {
                             initialValue: rule.singleValue,
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.value,
-                              hintText: AppLocalizations.of(context)!.enterValueToMatch,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterValueToMatch,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (value) {
                               // Handle value change
                             },
                           ),
                         ),
-                      
-                      if (rule.selectedCondition.isNotEmpty && rule.selectedCondition == "In Between") ...[
+
+                      if (rule.selectedCondition.isNotEmpty &&
+                          rule.selectedCondition == "In Between") ...[
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
                           child: TextFormField(
-                            initialValue: rule.inBetweenValues.isNotEmpty ? rule.inBetweenValues[0] : '',
+                            initialValue: rule.inBetweenValues.isNotEmpty
+                                ? rule.inBetweenValues[0]
+                                : '',
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.from,
-                              hintText: AppLocalizations.of(context)!.enterStartingValue,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterStartingValue,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (val) {
                               // Handle "from" value change
@@ -446,65 +613,84 @@ class _ReportScreenState extends State<ReportScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: TextFormField(
-                            initialValue: rule.inBetweenValues.length > 1 ? rule.inBetweenValues[1] : '',
+                            initialValue: rule.inBetweenValues.length > 1
+                                ? rule.inBetweenValues[1]
+                                : '',
                             decoration: InputDecoration(
                               labelText: AppLocalizations.of(context)!.to,
-                              hintText: AppLocalizations.of(context)!.enterEndingValue,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.enterEndingValue,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.grey),
+                                borderSide: const BorderSide(
+                                  color: Colors.grey,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.blue.shade400),
+                                borderSide: BorderSide(
+                                  color: Colors.blue.shade400,
+                                ),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                             ),
                             onChanged: (val) {
                               // Handle "to" value change
                             },
                           ),
                         ),
-                   
-                      
-                      if (isEditableField)
-                        // ignore: dead_code
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 18),
-                            label:  Text(AppLocalizations.of(context)!.removeRule, style: const TextStyle(color: Colors.red)),
-                            onPressed: () {
-                              // Handle rule removal
-                            },
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+
+                        if (isEditableField)
+                          // ignore: dead_code
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              label: Text(
+                                AppLocalizations.of(context)!.removeRule,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              onPressed: () {
+                                // Handle rule removal
+                              },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                      ],
                     ],
-       ] )
+                  ),
                 ),
               );
             },
           ),
         ],
-        
-      
-      
-    ),
-  );
-}
+      ),
+    );
+  }
 
-// You'll also need to add the CustomDropdown widget if it doesn't exist
-
+  // You'll also need to add the CustomDropdown widget if it doesn't exist
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:  Text(AppLocalizations.of(context)!.generateReport),
+        title: Text(AppLocalizations.of(context)!.generateReport),
         // backgroundColor: Colors.blue,
       ),
       body: SingleChildScrollView(
@@ -512,7 +698,14 @@ class _ReportScreenState extends State<ReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             AndOrToggleButton(value:_logicalOperator, onChanged: (String value) {  },),
+            AndOrToggleButton(
+              value: _logicalOperator,
+              onChanged: (String value) {
+                // setState(() {
+                //   _logicalOperator = value;
+                // });
+              },
+            ),
             // AND / OR Logic Toggle
             // Row(
             //   children: [
@@ -526,7 +719,7 @@ class _ReportScreenState extends State<ReportScreen> {
             //         ),
             //       ),
             //     ),
-               
+
             //     TextButton(
             //       onPressed: () => setState(() => _logicalOperator = 'OR'),
             //       child: Text(
@@ -545,16 +738,22 @@ class _ReportScreenState extends State<ReportScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 Text(
+                Text(
                   AppLocalizations.of(context)!.filterRule,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: widget.rules.map((rule) {
-                    return _buildRuleCard(rule, 0); // Index not used since non-editable
+                    return _buildRuleCard(
+                      rule,
+                      0,
+                    ); // Index not used since non-editable
                   }).toList(),
                 ),
               ],
@@ -566,15 +765,11 @@ class _ReportScreenState extends State<ReportScreen> {
               children: [
                 Expanded(
                   child: TextField(
-                    decoration:  InputDecoration(
+                    decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.search,
                       prefixIcon: const Icon(Icons.search, size: 16),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value.toLowerCase();
-                      });
-                    },
+                    onChanged: _filterData,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -583,53 +778,34 @@ class _ReportScreenState extends State<ReportScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
-                  child:  Text(AppLocalizations.of(context)!.export, style: const TextStyle(color: Colors.white)),
+                  child: Text(
+                    AppLocalizations.of(context)!.export,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Apply Filters Button
-            ElevatedButton(
-              onPressed: _applyFilters,
-              child:  Text(AppLocalizations.of(context)!.applyFilters),
-            ),
-            const SizedBox(height: 16),
+            // // Apply Filters Button
+            // ElevatedButton(
+            //   onPressed: _applyFilters,
+            //   child:  Text(AppLocalizations.of(context)!.applyFilters),
+            // ),
+            // const SizedBox(height: 16),
 
             // Loading Indicator
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
-            else if (_data.isEmpty)
-               Center(child: Text(AppLocalizations.of(context)!.noDataFound))
+            else if (_filteredData.isEmpty)
+              Center(child: Text(AppLocalizations.of(context)!.noDataFound))
             else
-              // Expandable Results
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _data.length,
+                itemCount: _filteredData.length,
                 itemBuilder: (context, index) {
-                  final item = _data[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-                    child: ExpansionTile(
-                      title: Text(
-                        '${AppLocalizations.of(context)!.merchantName}: ${item['MerchantName']}, '
-                        '${AppLocalizations.of(context)!.totalRejectedAmount} ${item['TotalRejectedAmount']}, '
-                        '${AppLocalizations.of(context)!.employeeId}: ${item['EmployeeId']}',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      children: [
-                        ListTile(
-                          title:  Text(AppLocalizations.of(context)!.taxAmount),
-                          subtitle: Text(item['TaxAmount']?.toString() ?? '0.00'),
-                        ),
-                        ListTile(
-                          title:  Text(AppLocalizations.of(context)!.lastSettlementDate),
-                          subtitle: Text(item['LastSettlementDate']?.toString() ?? '-'),
-                        ),
-                      ],
-                    ),
-                  );
+                  return buildCard(_filteredData[index]);
                 },
               ),
           ],
@@ -638,6 +814,7 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 }
+
 class CustomDropdown extends StatelessWidget {
   final String labelText;
   final List<String> items;
@@ -657,15 +834,16 @@ class CustomDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      readOnly: !isEditable, // disables input when not editable
+      enabled: isEditable, // disables input when not editable
       initialValue: value ?? "",
+
       decoration: InputDecoration(
         labelText: labelText,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         suffixIcon: isEditable
             ? PopupMenuButton<String>(
                 icon: const Icon(Icons.arrow_drop_down),
@@ -685,6 +863,7 @@ class CustomDropdown extends StatelessWidget {
     );
   }
 }
+
 class AndOrToggleButton extends StatelessWidget {
   final String value;
   final ValueChanged<String> onChanged;
@@ -697,36 +876,40 @@ class AndOrToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: () => onChanged('AND'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: value == 'AND' ? Colors.green : Colors.grey.shade200,
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-            ),
-            child: Text(AppLocalizations.of(context)!.and,
-                style: TextStyle(
-                    color: value == 'AND' ? Colors.white : Colors.black)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildOption('AND', AppLocalizations.of(context)!.and, Colors.green),
+          _buildOption('OR', AppLocalizations.of(context)!.or, Colors.blue),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOption(String option, String label, Color activeColor) {
+    final isSelected = value == option;
+    return GestureDetector(
+      onTap: () => onChanged(option),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
           ),
         ),
-        GestureDetector(
-          onTap: () => onChanged('OR'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: value == 'OR' ? Colors.blue : Colors.grey.shade200,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
-            ),
-            child: Text(AppLocalizations.of(context)!.or,
-                style: TextStyle(
-                    color: value == 'OR' ? Colors.white : Colors.black)),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

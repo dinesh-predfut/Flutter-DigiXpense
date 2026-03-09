@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -44,7 +45,7 @@ class _ViewMyteamCashAdvanceExpensePageState
   bool _showLocationError = false;
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<List<ExpenseHistory>>? historyFuture;
   String? selectedPaidTo;
   String? selectedPaidWith;
@@ -564,8 +565,8 @@ employeeId.text=widget.items!.employeeId;
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'View My Teams Cash Advance Return',
+          title:  Text(
+            '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.myTeamCashAdvances}',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
@@ -648,7 +649,7 @@ employeeId.text=widget.items!.employeeId;
               children: [
                 const SizedBox(height: 8),
                 SearchableMultiColumnDropdownField<Businessjustification>(
-                  labelText: 'Business Justification * ',
+                  labelText: '${AppLocalizations.of(context)!.businessJustification} * ',
                   enabled: controller.isEnable.value,
                   columnHeaders: const ['ID', 'Name'],
                   items: controller.justification,
@@ -671,6 +672,7 @@ employeeId.text=widget.items!.employeeId;
                           vertical: 12, horizontal: 16),
                       child: Row(
                         children: [
+                          const SizedBox(width: 8),
                           Expanded(child: Text(p.name)),
                           Expanded(child: Text(p.id)),
                         ],

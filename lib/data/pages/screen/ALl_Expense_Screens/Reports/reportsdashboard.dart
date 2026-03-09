@@ -1,18 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart';
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportMIS.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/reportMIS.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../models.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 
 class MyReportsDashboard extends StatefulWidget {
   const MyReportsDashboard({super.key});
@@ -28,6 +30,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
   late final AnimationController _animationController;
   late final Animation<double> _animation;
     final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+    Rxn<File> profileImage = Rxn<File>();
   bool isLoading = false;
   final List<String> statusOptionsmyTeam = ["In Process", "All"];
   // late Future<List<ReportModel>> futureReports;
@@ -38,9 +41,8 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
-      if (controller.profileImage.value == null) {
-        controller.getProfilePicture();
-      }
+      loadProfileImage();
+     
     });
     // / Use existing controller
     controller.selectedStatusmyteam = "In Process";
@@ -74,6 +76,18 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     controller.fetchAndAppendReports().then((_) {
       controller.isLoadingGE1.value = false;
     });
+  }
+  void loadProfileImage() async {
+    controller.isImageLoading.value = true;
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profileImagePath');
+    if (path != null && File(path).existsSync()) {
+      profileImage.value = File(path);
+      controller.isImageLoading.value = false;
+    } else {
+      // await controller.getProfilePicture();
+            controller.isImageLoading.value = false;
+    }
   }
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
@@ -120,140 +134,180 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
               children: [
                    Stack(
                                     children: [
-            if (primaryColor != const Color(0xFF1e4db7) )
-                 Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                primaryColor,
-                                                primaryColor.withOpacity(
-                                                  0.7,
-                                                ), // Lighter primary color
-                                              ],
-                                            ),
-                                          ),
-                                          padding: const EdgeInsets.fromLTRB(
-                                            6,
-                                            40,
-                                            6,
-                                            16,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              IconButton(
-                                                onPressed: _openMenu,
-                                                icon: Icon(
-                                                  Icons.menu,
-                                                  color: Colors.black,
-                                                  size: 20,
-                                                ),
-                                                // Optional: Add custom background or shape
-                                                style: IconButton.styleFrom(
-                                                  // backgroundColor: Colors.white,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                  ),
-                                                  padding: const EdgeInsets.all(
-                                                    8,
-                                                  ),
-                                                ),
-                                              ),
+              if (primaryColor != const Color(0xFF1e4db7))
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primaryColor,
+                          primaryColor.withOpacity(
+                            0.7,
+                          ), // Lighter primary color
+                        ],
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
+                                ),
+                              ),
 
-                                              // Logo
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                child: Image.asset(
-                                                  'assets/XpenseWhite.png',
-                                                  width: isSmallScreen
-                                                      ? 80
-                                                      : 100,
-                                                  height: isSmallScreen
-                                                      ? 30
-                                                      : 40,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-
-                                              // Actions
-                                              Row(
-                                                children: [
-                                                  const LanguageDropdown(),
-                                                  _buildNotificationBadge(),
-                                                  _buildProfileAvatar(),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-               if (primaryColor == const Color(0xFF1e4db7) )
-                     Container(
-                              width: double.infinity,
-                              height: 100,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/Vector.png'),
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
                                   fit: BoxFit.cover,
                                 ),
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const LanguageDropdown(),
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                if (primaryColor == const Color(0xFF1e4db7))
+                  Container(
+                    width: double.infinity,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/Vector.png'),
+                        fit: BoxFit.cover,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                    child:Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          flex: 4,
+                          child:
+                          
+                           Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              IconButton(
+                                onPressed: _openMenu,
+                                icon: Icon(
+                                  Icons.menu,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  // backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(5),
                                 ),
                               ),
-                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    onPressed: _openMenu,
-                                    icon: Icon(
-                                      Icons.menu,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    // Optional: Add custom background or shape
-                                    style: IconButton.styleFrom(
-                                      // backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                  ),
 
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.asset(
-                                      'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
-                                      height: isSmallScreen ? 30 : 40,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-
-                                  // Actions
-                                  Row(
-                                    children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
-                                    ],
-                                  ),
-                                ],
+                              // Logo
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: Image.asset(
+                                  'assets/XpenseWhite.png',
+                                  width: isSmallScreen ? 60 : 80,
+                                  height: isSmallScreen ? 30 : 40,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                            ),
+                            ],
+                          ),
+                        ),
+
+                        const Spacer(),
+                        Flexible(
+                          flex: 9,
+                          child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              const LanguageDropdown(),
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fingerprint,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.punchScreen,
+                                  );
+                                },
+                              ),
+
+                              _buildNotificationBadge(),
+                              _buildProfileAvatar(),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
               ]),
                 const SizedBox(height: 12),
                 Align(
@@ -391,11 +445,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
                           item.functionalArea.toLowerCase().contains(query);
                     }).toList();
                     if (expenses.isEmpty) {
-                      return Center(
-                        child: Text(
-                          AppLocalizations.of(context)!.noReportFound,
-                        ),
-                      );
+                      return const CommonNoDataWidget();
                     }
 
                     return ListView.builder(
@@ -521,40 +571,88 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
     );
   }
 
-  Widget _buildProfileAvatar() {
+ Widget _buildProfileAvatar() {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
       child: Obx(
-        () => Container(
-          padding: const EdgeInsets.all(2),
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: controller.isImageLoading.value
-                ? const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
                     ),
-                  )
-                : controller.profileImage.value != null
-                ? Image.file(
-                    controller.profileImage.value!,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  )
-                : const Icon(Icons.person, size: 40, color: Colors.white),
+
+                    /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+    
 
   Widget _buildSwipeActionLeft(bool isLoading) {
     return Container(
@@ -613,7 +711,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
 
   Widget _buildStyledCard(ReportModels item, BuildContext context) {
     // print("itemxxx ${item.expenseType}");
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
     final theme = Theme.of(context);
     final primaryColor = theme.secondaryHeaderColor;
     final textColot = theme.primaryColorDark;

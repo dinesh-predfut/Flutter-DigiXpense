@@ -1,9 +1,9 @@
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:digi_xpense/theme/theme.dart';
+import 'package:diginexa/theme/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ColorPickerGrid extends StatefulWidget {
@@ -97,7 +97,7 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
   }
 
   Widget _buildColorGrid(Map<Color, String> colors) {
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
 
     return SizedBox(
       height: 120, // reduced height

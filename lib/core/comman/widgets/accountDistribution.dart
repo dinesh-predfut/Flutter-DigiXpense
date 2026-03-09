@@ -1,6 +1,6 @@
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
@@ -30,7 +30,7 @@ class AccountingDistributionWidget extends StatefulWidget {
 
 class _AccountingDistributionWidgetState
     extends State<AccountingDistributionWidget> {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   List<DimensionHierarchy> dimensionList = [];
   List<DimensionValue> dimensionValueList = [];
   Map<int, bool> isPanelExpandedMap = {};

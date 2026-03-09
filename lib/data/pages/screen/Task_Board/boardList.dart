@@ -1,19 +1,20 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart'
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart'
     show MultiSelectMultiColumnDropdownField;
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/core/constant/url.dart';
-import 'package:digi_xpense/data/models.dart'
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/core/constant/url.dart';
+import 'package:diginexa/data/models.dart'
     show KanbanBoard, Shelf, TaskItem, Employee, BoardMember;
-import 'package:digi_xpense/data/pages/API_Service/apiService.dart';
-import 'package:digi_xpense/data/pages/screen/Task_Board/addmoreetailsTask.dart'
+import 'package:diginexa/data/pages/API_Service/apiService.dart';
+import 'package:diginexa/data/pages/screen/Task_Board/addmoreetailsTask.dart'
     show TaskDetailsPage;
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -27,9 +28,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/API_Service/apiService.dart';
-import 'package:digi_xpense/core/comman/widgets/multiselectDropdown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/API_Service/apiService.dart';
+import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class KanbanBoardScreen extends StatefulWidget {
@@ -51,14 +52,17 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   KanbanBoard? filteredBoard;
   bool isFiltered = false;
   bool get isDarkBoard => filteredBoard?.boardTheme?.toLowerCase() == 'dark';
-  final List<String> _tabTitles = ['Board', 'Grid', 'Board Settings'];
+  late final List<String> _tabTitles = [
+    AppLocalizations.of(context)!.board,
+    AppLocalizations.of(context)!.grid,
+    AppLocalizations.of(context)!.boardSettings,
+  ];
   int _selectedTabIndex = 0;
   final TextEditingController searchCtrl = TextEditingController();
-
   String selectedPriority = 'All';
   String selectedShelf = 'All';
   String selectedUser = 'All';
-  DateTime? selectedDueDate;
+  String selectedDueDate = 'No Date';
 
   @override
   void initState() {
@@ -90,9 +94,28 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     setState(() => isLoading = false);
   }
 
+  Future<void> withOutLoadloadKanbanBoard() async {
+    // setState(() => isLoading = true);
+
+    final result = await controller.fetchKanbanBoardAndNavigate(
+      context,
+      widget.boardId,
+      true,
+    );
+
+    if (result != null) {
+      result.shelfs.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      originalBoard = result;
+      controller.originalBoard = result;
+      filteredBoard = result;
+      controller.shelves.assignAll(result.shelfs);
+    }
+
+    // setState(() => isLoading = false);
+  }
   /* ---------------- FILTER DATA ---------------- */
 
-  List<String> get priorities => ['All', 'Low', 'Medium', 'High'];
+  List<String> get priorities => ["All", "Low", "Medium", "High"];
 
   List<String> get shelves => [
     'All',
@@ -101,16 +124,20 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   List<String> get users {
     final set = <String>{};
+
     for (final s in originalBoard!.shelfs) {
       for (final t in s.tasks) {
-        t.assignedTo?.forEach(set.add);
+        for (final u in t.assignedTo) {
+          set.add(u.employeeName);
+        }
       }
     }
+
     return ['All', ...set];
   }
 
   /* ---------------- APPLY FILTERS ---------------- */
-  void applyFilters() {
+  void applyFilters([String? value]) {
     if (originalBoard == null) return;
 
     final String keyword = searchCtrl.text.toLowerCase();
@@ -125,28 +152,44 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       final List<TaskItem> filteredTasks = [];
 
       for (final task in shelf.tasks) {
+        print("task.dueDate${task.dueDate}");
+
         /// 🔍 SEARCH FILTER
         final bool matchesSearch =
             keyword.isEmpty ||
-            (task.taskName?.toLowerCase().contains(keyword) == true) ||
-            (task.assignedTo?.any((u) => u.toLowerCase().contains(keyword)) ==
-                true);
+            task.taskName.toLowerCase().contains(keyword) ||
+            task.assignedTo.any(
+              (u) => u.employeeName.toLowerCase().contains(keyword),
+            );
 
         /// ⚡ PRIORITY FILTER
         final bool matchesPriority =
             selectedPriority == 'All' || task.priority == selectedPriority;
         isFiltered = true;
+        print("selectedUser$selectedUser");
 
         /// 👤 USER FILTER
         final bool matchesUser =
             selectedUser == 'All' ||
-            task.assignedTo?.contains(selectedUser) == true;
+            task.assignedTo.any((user) => user.employeeName == selectedUser);
 
-        /// 📅 DUE DATE FILTER
-        final bool matchesDueDate =
-            selectedDueDate == null ||
-            (task.dueDate != null &&
-                DateUtils.isSameDay(task.dueDate!, selectedDueDate));
+        final today = DateTime.now();
+        final todayOnly = DateTime(today.year, today.month, today.day);
+
+        bool matchesDueDate = true;
+
+        if (value == 'Today') {
+          matchesDueDate =
+              task.dueDate != null &&
+              DateUtils.isSameDay(task.dueDate!, todayOnly);
+        } else if (value == 'Late') {
+          matchesDueDate =
+              task.dueDate != null && task.dueDate!.isBefore(todayOnly);
+        } else if (value == 'No Date') {
+          matchesDueDate = true;
+        } else {
+          matchesDueDate = true; // All
+        }
 
         if (matchesSearch && matchesPriority && matchesUser && matchesDueDate) {
           filteredTasks.add(task);
@@ -156,6 +199,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       /// 🔁 CREATE NEW SHELF (NO copyWith)
       filteredShelves.add(
         Shelf(
+          image: shelf.image,
           shelfId: shelf.shelfId,
           shelfName: shelf.shelfName,
           sortOrder: shelf.sortOrder,
@@ -183,111 +227,167 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     if (isLoading || filteredBoard == null) {
       return const Scaffold(body: Center(child: SkeletonLoaderPage()));
     }
+    final backgroundImageUrl = getBoardBackgroundImage(
+      filteredBoard!.backgroundImageUrl,
+    );
+
     final theme = Theme.of(context);
     return WillPopScope(
       onWillPop: () async {
         controller.leaveField.value = false;
-        if (!controller.leaveField.value) {
-          controller.resetForm();
-          return true;
-        }
 
-        return false;
+        controller.resetForm();
+        Navigator.pushNamed(context, AppRoutes.boardDashboard);
+
+        return true;
       },
       child: Scaffold(
-        backgroundColor: isDarkBoard ? Colors.black : Colors.grey.shade100,
-
+        backgroundColor: Colors.transparent,
         appBar: AppBar(title: Text(filteredBoard!.boardName)),
-        body: Column(
-          children: [
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                height: 45,
-                decoration: BoxDecoration(
-                  color: isDarkBoard ? Colors.black : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Row(
-                  children: List.generate(_tabTitles.length, (index) {
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedTabIndex = index;
-                          });
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _selectedTabIndex == index
-                                ? theme.primaryColor
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: _selectedTabIndex == index
-                                ? [
-                                    BoxShadow(
-                                      color: theme.primaryColor.withOpacity(
-                                        0.3,
+        body: Container(
+          decoration: BoxDecoration(
+            color: backgroundImageUrl == null
+                ? (filteredBoard!.isDarkBoard
+                      ? Colors.black
+                      : Colors.grey.shade100)
+                : null,
+            image: backgroundImageUrl != null
+                ? DecorationImage(image: backgroundImageUrl, fit: BoxFit.cover)
+                : null,
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: isDarkBoard ? Colors.black : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    children: List.generate(_tabTitles.length, (index) {
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedTabIndex = index;
+                              if (index == 0) {
+                                withOutLoadloadKanbanBoard();
+                              }
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _selectedTabIndex == index
+                                  ? theme.primaryColor
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _selectedTabIndex == index
+                                  ? [
+                                      BoxShadow(
+                                        color: theme.primaryColor.withOpacity(
+                                          0.3,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : [],
-                          ),
-                          margin: const EdgeInsets.all(4),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Center(
-                            child: Text(
-                              _tabTitles[index],
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _selectedTabIndex == index
-                                    ? Colors.white
-                                    : Colors.grey[700],
+                                    ]
+                                  : [],
+                            ),
+                            margin: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Center(
+                              child: Text(
+                                _tabTitles[index],
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _selectedTabIndex == index
+                                      ? Colors.white
+                                      : Colors.grey[700],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
               ),
-            ),
-            if (_selectedTabIndex == 0) ...[
-              _buildSearchBar(),
-              _buildFilterRow(),
-              Expanded(child: _buildKanban()),
+              if (_selectedTabIndex == 0) ...[
+                _buildSearchBar(),
+                _buildFilterRow(),
+                Expanded(child: _buildKanban()),
+              ],
+              if (_selectedTabIndex == 1) ...[
+                Expanded(
+                  child: _buildCardViewContent(
+                    context,
+                    loadKanbanBoard: loadKanbanBoard,
+                  ),
+                ),
+              ],
+              if (_selectedTabIndex == 2) ...[
+                Expanded(
+                  child: BoardSettingsWidget(
+                    boardId: widget.boardId,
+                    loadKanbanBoard: loadKanbanBoard,
+                  ),
+                ),
+              ],
             ],
-            if (_selectedTabIndex == 1) ...[
-              Expanded(child: _buildCardViewContent(context)),
-            ],
-            if (_selectedTabIndex == 2) ...[
-              Expanded(child: BoardSettingsWidget(widget.boardId)),
-            ],
-          ],
+          ),
         ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          child: const Icon(Icons.add, size: 28, color: Colors.white),
-          onPressed: () {
-            showAddShelfBottomSheet(
-              context,
-              boardId: widget.boardId,
-              nextSortOrder: originalBoard!.shelfs.length + 1,
-              onShelfAdded: loadKanbanBoard,
-            );
-          },
-        ),
+        floatingActionButton: _selectedTabIndex == 0
+            ? FloatingActionButton.extended(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: Text(
+                  AppLocalizations.of(context)!.addShelf,
+                  style: TextStyle(color: Colors.white),
+                ),
+                onPressed: () {
+                  showAddShelfBottomSheet(
+                    context,
+                    boardId: widget.boardId,
+                    nextSortOrder: originalBoard!.shelfs.length + 1,
+                    onShelfAdded: loadKanbanBoard,
+                  );
+                },
+              )
+            : null,
       ),
     );
   }
 
-  Widget _buildCardViewContent(BuildContext context) {
+  ImageProvider? getBoardBackgroundImage(String? value) {
+    if (value == null || value.isEmpty) return null;
+
+    /// BASE64 IMAGE
+    if (value.startsWith('data:image')) {
+      try {
+        return MemoryImage(base64Decode(value.split(',').last));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    /// NETWORK IMAGE
+    if (value.startsWith('http')) {
+      return NetworkImage(value);
+    }
+
+    return null;
+  }
+
+  Widget _buildCardViewContent(
+    BuildContext context, {
+    required Future<void> Function() loadKanbanBoard,
+  }) {
     return Obx(() {
       if (controller.isLoading.value) {
         return const SkeletonLoaderPage();
@@ -304,11 +404,12 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 padding: const EdgeInsets.all(8),
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.add),
-                  label: const Text("Add Task"),
+                  label: Text(AppLocalizations.of(context)!.addTask),
                   onPressed: () async {
                     await showAddTaskBottomSheetInSecond(
                       context,
                       boardId: widget.boardId,
+                      loadKanbanBoard: loadKanbanBoard,
                     );
                   },
                 ),
@@ -359,7 +460,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                             final shouldDelete = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text('Delete'),
+                                title: Text(
+                                  AppLocalizations.of(context)!.delete,
+                                ),
                                 content: Text(
                                   'Delete task "${task.taskName}"?',
                                 ),
@@ -367,7 +470,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(ctx).pop(false),
-                                    child: const Text('Cancel'),
+                                    child: Text(
+                                      AppLocalizations.of(context)!.cancel,
+                                    ),
                                   ),
                                   ElevatedButton(
                                     onPressed: () =>
@@ -375,7 +480,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,
                                     ),
-                                    child: const Text('Delete'),
+                                    child: Text(
+                                      AppLocalizations.of(context)!.delete,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -383,7 +490,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
                             if (shouldDelete == true) {
                               setState(() => isLoading = true);
-                              // await controller.deleteTask(task.recId);
+
                               setState(() => isLoading = false);
                               return true;
                             }
@@ -603,7 +710,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                     /// HEADER
                     Center(
                       child: Text(
-                        "Add Shelf",
+                        AppLocalizations.of(context)!.addShelf,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -664,18 +771,23 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
                         const SizedBox(width: 16),
 
-                        /// 🎨 COLOR PICKER
                         InkWell(
                           onTap: () {
                             showDialog(
                               context: context,
                               builder: (_) => AlertDialog(
                                 title: const Text("Pick Color"),
-                                content: BlockPicker(
-                                  pickerColor: selectedColor,
-                                  onColorChanged: (color) {
-                                    setState(() => selectedColor = color);
-                                  },
+                                content: SingleChildScrollView(
+                                  child: ColorPicker(
+                                    pickerColor: selectedColor,
+                                    onColorChanged: (color) {
+                                      setState(() => selectedColor = color);
+                                    },
+                                    enableAlpha:
+                                        false, // remove transparency slider
+                                    displayThumbColor: true,
+                                    pickerAreaHeightPercent: 0.8,
+                                  ),
                                 ),
                                 actions: [
                                   TextButton(
@@ -706,7 +818,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                       controller: shelfNameCtrl,
 
                       decoration: InputDecoration(
-                        labelText: "Shelf Name",
+                        labelText: AppLocalizations.of(context)!.shelfName,
                         labelStyle: TextStyle(
                           color: isDarkBoard ? Colors.white : Colors.black,
                         ),
@@ -724,7 +836,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                         labelStyle: TextStyle(
                           color: isDarkBoard ? Colors.white : Colors.black,
                         ),
-                        labelText: "Description",
+                        labelText: AppLocalizations.of(context)!.description,
                       ),
                     ),
 
@@ -736,7 +848,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
+                            child: Text(AppLocalizations.of(context)!.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -764,14 +876,35 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                                         ),
                                         body: jsonEncode(payload),
                                       );
-
+                                      final Map<String, dynamic> responseData =
+                                          jsonDecode(res.body);
+                                      final String message =
+                                          responseData['detail']?['message'] ??
+                                          'No message found';
                                       if (res.statusCode == 200 ||
                                           res.statusCode == 201) {
+                                        Fluttertoast.showToast(
+                                          msg: message,
+                                          backgroundColor: Colors.green[200],
+                                          toastLength: Toast.LENGTH_LONG,
+                                          gravity: ToastGravity.BOTTOM,
+                                          textColor: Colors.green[800],
+                                          fontSize: 16.0,
+                                        );
                                         isSheetAlive =
                                             false; // 🔑 mark disposed
                                         Navigator.pop(context);
                                         loadKanbanBoard();
                                         return;
+                                      } else {
+                                        Fluttertoast.showToast(
+                                          msg: message,
+                                          backgroundColor: Colors.red[200],
+                                          toastLength: Toast.LENGTH_LONG,
+                                          gravity: ToastGravity.BOTTOM,
+                                          textColor: Colors.red[800],
+                                          fontSize: 16.0,
+                                        );
                                       }
                                     } catch (_) {
                                       if (!isSheetAlive) return;
@@ -796,7 +929,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text("Create"),
+                                : Text(AppLocalizations.of(context)!.save),
                           ),
                         ),
                       ],
@@ -817,7 +950,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       child: TextField(
         controller: searchCtrl,
         decoration: InputDecoration(
-          hintText: 'Search tasks, users, tags...',
+          hintText: AppLocalizations.of(context)!.searchTasksUsersTags,
           prefixIcon: const Icon(Icons.search),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -847,7 +980,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           children: [
             _filterDropdown(
               icon: Icons.flag,
-              label: 'Priority',
+              label: AppLocalizations.of(context)!.priority,
               value: selectedPriority,
               items: priorities,
               onChanged: (v) {
@@ -858,7 +991,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
             _filterDropdown(
               icon: Icons.view_column,
-              label: 'Shelf',
+              label: AppLocalizations.of(context)!.shelfName,
               value: selectedShelf,
               items: shelves,
               onChanged: (v) {
@@ -867,9 +1000,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               },
             ),
 
-            _filterDropdown(
+            _filterDropdownEmployee(
               icon: Icons.person_outline,
-              label: 'Assigned',
+              label: AppLocalizations.of(context)!.assignUsers,
               value: selectedUser,
               items: users,
               onChanged: (v) {
@@ -878,9 +1011,16 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               },
             ),
 
-            _dateFilterButton(),
+            _dateFilterDropdown(
+              value: selectedDueDate,
+              onChanged: (String value) {
+                print('selectedDueDate$value');
+                selectedDueDate = value;
+                applyFilters(value);
+              },
+            ),
 
-            // if (_hasActiveFilters()) _clearFiltersButton(),
+            if (_hasActiveFilters()) _clearFiltersButton(),
           ],
         ),
       ),
@@ -888,15 +1028,20 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   }
 
   Widget _clearFiltersButton() {
-    return TextButton.icon(
-      onPressed: clearFilters,
-      icon: const Icon(Icons.close, size: 18),
-      label: const Text('Clear'),
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.redAccent,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-      ),
+    return TextButton(
+      onPressed: clearAllFilters,
+      child: const Text('Clear Filters'),
     );
+  }
+
+  void clearAllFilters() {
+    searchCtrl.clear();
+    selectedShelf = 'All';
+    selectedPriority = 'All';
+    selectedUser = 'All';
+    selectedDueDate = 'No Date';
+
+    applyFilters();
   }
 
   void clearFilters() {
@@ -905,7 +1050,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       selectedPriority = 'All';
       selectedShelf = 'All';
       selectedUser = 'All';
-      selectedDueDate = null;
+      selectedDueDate = 'No Date';
 
       // Reset board view
       filteredBoard = null;
@@ -916,48 +1061,98 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     return selectedPriority != 'All' ||
         selectedShelf != 'All' ||
         selectedUser != 'All' ||
-        selectedDueDate != null ||
+        selectedDueDate != 'No Date' ||
         searchCtrl.text.isNotEmpty;
   }
 
-  Widget _dateFilterButton() {
-    final bool isActive = selectedDueDate != null;
+  Widget _dateFilterDropdown({
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    final List<String> items = ['Late', 'Today', 'No Date'];
+
+    /// ✅ prevent dropdown crash
+    final safeValue = items.contains(value) ? value : 'No Date';
+
+    final bool isActive = safeValue != 'No Date';
 
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: pickDueDate,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
+      padding: const EdgeInsets.only(right: 12),
+      child: Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
             color: isActive
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade300,
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: isActive
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.grey,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isActive
-                    ? DateFormat('dd MMM').format(selectedDueDate!)
-                    : 'Due date',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey,
+          color: isDarkBoard ? Colors.black : Colors.grey.shade100,
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: safeValue,
+            isDense: true,
+            icon: const Icon(Icons.arrow_drop_down),
+            dropdownColor: Theme.of(context).cardColor,
+            onChanged: (v) => onChanged(v!),
+
+            /// dropdown menu items
+            items: items.map((e) {
+              return DropdownMenuItem<String>(
+                value: e,
+                child: Text(
+                  e,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11),
                 ),
-              ),
-            ],
+              );
+            }).toList(),
+
+            /// selected display style
+            selectedItemBuilder: (context) {
+              return items.map((e) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: isActive
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Due Date', // 🔹 localize later if needed
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          e,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: isActive
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).textTheme.bodyMedium!.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }).toList();
+            },
           ),
         ),
       ),
@@ -998,7 +1193,11 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 .map(
                   (e) => DropdownMenuItem<String>(
                     value: e,
-                    child: Text(e, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      e,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 8),
+                    ),
                   ),
                 )
                 .toList(),
@@ -1029,7 +1228,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                         Text(
                           e,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 10,
                             fontWeight: isActive
                                 ? FontWeight.w600
                                 : FontWeight.normal,
@@ -1050,37 +1249,94 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     );
   }
 
-  Widget _dropdown(
-    String label,
-    String value,
-    List<String> items,
-    Function(String) onChanged,
-  ) {
+  Widget _filterDropdownEmployee({
+    required IconData icon,
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String> onChanged,
+  }) {
+    final bool isActive = value != 'All';
+
     return Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: DropdownButton<String>(
-        value: value,
-        underline: const SizedBox(),
-        items: items
-            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            .toList(),
-        onChanged: (v) => onChanged(v!),
+      child: Container(
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade300,
+          ),
+          color: isDarkBoard ? Colors.black : Colors.grey.shade100,
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: value,
+            isDense: true,
+            icon: const Icon(Icons.arrow_drop_down),
+            onChanged: (v) => onChanged(v!),
+            dropdownColor: Theme.of(context).cardColor,
+            items: items
+                .map(
+                  (e) => DropdownMenuItem<String>(
+                    value: e,
+                    child: Text(
+                      e,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 8),
+                    ),
+                  ),
+                )
+                .toList(),
+            selectedItemBuilder: (context) {
+              return items.map((e) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 16,
+                      color: isActive
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          e,
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: isActive
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).textTheme.bodyMedium!.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }).toList();
+            },
+          ),
+        ),
       ),
     );
-  }
-
-  Future<void> pickDueDate() async {
-    final date = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      initialDate: DateTime.now(),
-    );
-
-    if (date != null) {
-      selectedDueDate = date;
-      applyFilters();
-    }
   }
 
   Widget _buildKanban() {
@@ -1160,7 +1416,7 @@ class _ShelfColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Controller controller = Get.find<Controller>();
-
+    bool isSheetAlive = true;
     return Obx(() {
       if (controller.isLoading.value) {
         return const SkeletonLoaderPage();
@@ -1169,19 +1425,25 @@ class _ShelfColumn extends StatelessWidget {
       return Container(
         width: shelf.isCollapsed ? 60 : 300,
         margin: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: (shelf.colorPallete != null && shelf.colorPallete.isNotEmpty)
-              ? hexToColor(shelf.colorPallete)
-              : (isDarkBoard ? Colors.black : Colors.white),
-
           borderRadius: BorderRadius.circular(16),
+
+          // ✅ Add border here
+          border: Border.all(
+            color: isDarkBoard
+                ? Colors.white
+                : Colors.black, // your border color
+            width: 1.5, // thickness
+          ),
         ),
+
         child: Column(
           children: [
             GestureDetector(
               onTap: onToggle,
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(5),
                 child: shelf.isCollapsed
                     ? Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1213,6 +1475,8 @@ class _ShelfColumn extends StatelessWidget {
                       )
                     : Row(
                         children: [
+                          _shelfAvatar(shelf.image, size: 24),
+                          SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               shelf.shelfName,
@@ -1220,12 +1484,11 @@ class _ShelfColumn extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: isDarkBoard
-                                    ? Colors.white
-                                    : Colors.black,
+                                // color: Colors.black,
                               ),
                             ),
                           ),
+
                           CircleAvatar(
                             radius: 12,
                             child: Text(
@@ -1233,7 +1496,57 @@ class _ShelfColumn extends StatelessWidget {
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
+
                           const SizedBox(width: 6),
+
+                          /// Burger / Kebab menu
+                          PopupMenuButton<String>(
+                            icon: Icon(
+                              Icons.more_vert, // burger icon
+                              color: isDarkBoard ? Colors.white : Colors.black,
+                              size: 20,
+                            ),
+                            onSelected: (value) {
+                              if (value == AppLocalizations.of(context)!.edit) {
+                                _editShelf(
+                                  context,
+                                  shelf,
+                                  onTaskAdded,
+                                  isDarkBoard,
+                                );
+                              } else if (value ==
+                                  AppLocalizations.of(context)!.delete) {
+                                _deleteShelf(shelf, context);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: AppLocalizations.of(context)!.edit,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Edit Shelf'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: AppLocalizations.of(context)!.delete,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Delete Shelf'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
                           Icon(
                             shelf.isCollapsed
                                 ? Icons.chevron_right
@@ -1257,6 +1570,7 @@ class _ShelfColumn extends StatelessWidget {
                           task: shelf.tasks[i],
                           boardIdNumb: boardId,
                           isDarkBoard: isDarkBoard,
+                          callApi: onTaskAdded,
                           onTap: () {
                             print(
                               "Open task details: ${shelf.tasks[i].taskName}",
@@ -1282,7 +1596,7 @@ class _ShelfColumn extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.add),
-                  label: const Text("Add Task"),
+                  label: Text(AppLocalizations.of(context)!.addTask),
                   onPressed: () async {
                     await showAddTaskBottomSheet(
                       context,
@@ -1300,6 +1614,403 @@ class _ShelfColumn extends StatelessWidget {
       );
     });
   }
+}
+
+Widget _shelfAvatar(String? url, {double size = 22}) {
+  if (url == null || url.isEmpty) {
+    return CircleAvatar(
+      radius: size / 2,
+      child: const Icon(Icons.person, size: 12),
+    );
+  }
+
+  return CircleAvatar(
+    radius: size / 2,
+    backgroundColor: Colors.grey.shade200,
+    backgroundImage: NetworkImage(url),
+    onBackgroundImageError: (_, __) {},
+    child: null,
+  );
+}
+
+Future<void> _editShelf(
+  BuildContext context,
+  Shelf shelf,
+  VoidCallback onTaskAdded,
+  bool isDarkBoard,
+) async {
+  final shelfData = await fetchShelfDetail(shelf.recId);
+
+  if (shelfData == null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Failed to load shelf")));
+    return;
+  }
+
+  await showAddShelfBottomSheet(
+    context,
+    boardId: shelf.boardId,
+    nextSortOrder: shelf.sortOrder,
+    onShelfAdded: onTaskAdded,
+    isDarkBoard: isDarkBoard,
+    shelfData: shelfData,
+  );
+}
+
+Future<Map<String, dynamic>?> fetchShelfDetail(int recId) async {
+  final uri = Uri.parse(
+    "${Urls.baseURL}/api/v1/kanban/shelfs/shelfs/shelfs"
+    "?filter_query=KANShelfs.RecId__eq=$recId"
+    "&page=1&sort_order=asc&screen_name=KANShelfs",
+  );
+
+  final res = await ApiService.get(uri);
+
+  if (res.statusCode == 200) {
+    final data = jsonDecode(res.body);
+    if (data is List && data.isNotEmpty) {
+      return data.first;
+    }
+  }
+  return null;
+}
+
+void _deleteShelf(Shelf shelf, BuildContext context) {
+  _confirmDelete(context, shelf.recId, shelf.boardId);
+  // confirmation dialog
+  print('Delete Shelf: ${shelf.shelfName}');
+}
+
+Future<void> _confirmDelete(context, int recIds, String boardId) async {
+  final controller = Get.put(Controller());
+
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Delete Shelf'),
+      content: const Text('Are you sure you want to delete this task?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (result == true) {
+    controller.deleteShelf(
+      recId: recIds,
+      context: context,
+      boardIdNumb: boardId,
+    );
+  }
+}
+
+Future<void> showAddShelfBottomSheet(
+  BuildContext context, {
+  required String boardId,
+  required int nextSortOrder,
+  required VoidCallback onShelfAdded,
+  required Map<String, dynamic> shelfData,
+  required bool isDarkBoard,
+}) async {
+  final shelfNameCtrl = TextEditingController(
+    text: shelfData['ShelfName'] ?? '',
+  );
+
+  final descCtrl = TextEditingController(text: shelfData['Description'] ?? '');
+
+  final controller = Get.put(Controller());
+
+  Color selectedColor = shelfData['ColorPallete'] != null
+      ? hexToColor(shelfData['ColorPallete'])
+      : hexToColor('#FFFFFF');
+
+  final int recId = shelfData['RecId'];
+
+  File? selectedImage;
+  String? base64Image;
+  String? fileName;
+
+  await showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      bool isSheetAlive = true;
+
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 250),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDarkBoard ? Colors.black : Colors.grey.shade100,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.85,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // /// LOADER
+                        // if (controller.isCreating)
+                        //   const SizedBox(
+                        //     height: 120,
+                        //     child: Center(child: SkeletonLoaderPage()),
+                        //   ),
+
+                        // /// HEADER
+                        Center(
+                          child: Text(
+                            AppLocalizations.of(context)!.addShelf,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkBoard ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        /// IMAGE + COLOR ROW
+                        Row(
+                          children: [
+                            /// IMAGE PICKER
+                            InkWell(
+                              onTap: () async {
+                                final picker = ImagePicker();
+                                final picked = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                );
+
+                                if (picked == null || !isSheetAlive) return;
+
+                                final bytes = await File(
+                                  picked.path,
+                                ).readAsBytes();
+
+                                if (!isSheetAlive) return;
+
+                                setState(() {
+                                  selectedImage = File(picked.path);
+                                  base64Image =
+                                      "data:image/png;base64,${base64Encode(bytes)}";
+                                  fileName = picked.name;
+                                });
+                              },
+                              child: Container(
+                                height: 50,
+                                width: 50,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  image: selectedImage != null
+                                      ? DecorationImage(
+                                          image: FileImage(selectedImage!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                ),
+                                child: selectedImage == null
+                                    ? Icon(
+                                        Icons.image,
+                                        color: isDarkBoard
+                                            ? Colors.white
+                                            : Colors.black,
+                                      )
+                                    : null,
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            /// COLOR PICKER
+                            InkWell(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text("Pick Color"),
+                                    content: SizedBox(
+                                      height: 400,
+                                      width: 300,
+                                      child: ColorPicker(
+                                        pickerColor: selectedColor,
+                                        onColorChanged: (c) =>
+                                            selectedColor = c,
+                                        enableAlpha: false,
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Done"),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                height: 50,
+                                width: 50,
+                                decoration: BoxDecoration(
+                                  color: selectedColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        /// SHELF NAME
+                        TextField(
+                          controller: shelfNameCtrl,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(context)!.shelfName,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        /// DESCRIPTION
+                        TextField(
+                          controller: descCtrl,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: AppLocalizations.of(
+                              context,
+                            )!.description,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        /// ACTION BUTTONS
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text(
+                                  AppLocalizations.of(context)!.cancel,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: controller.isCreating
+                                    ? null
+                                    : () async {
+                                        controller.isCreating = true;
+
+                                        final payload = {
+                                          "BoardId": boardId,
+                                          "ShelfName": shelfNameCtrl.text,
+                                          "Description": descCtrl.text,
+                                          "ColorPallete":
+                                              '#${selectedColor.value.toRadixString(16).substring(2)}',
+                                          "FileName": fileName ?? "",
+                                          "SortOrder": nextSortOrder,
+                                          "base64Data": base64Image ?? "",
+                                          "WIPLimit": 0,
+                                        };
+
+                                        try {
+                                          final res = await ApiService.put(
+                                            Uri.parse(
+                                              "${Urls.baseURL}/api/v1/kanban/shelfs/shelfs/shelfsedit?RecId=$recId",
+                                            ),
+                                            body: jsonEncode(payload),
+                                          );
+
+                                          final data = jsonDecode(res.body);
+                                          final message =
+                                              data['detail']?['message'] ??
+                                              'Done';
+
+                                          if (res.statusCode == 200 ||
+                                              res.statusCode == 280) {
+                                            Navigator.pop(context);
+                                            onShelfAdded();
+
+                                            Fluttertoast.showToast(
+                                              msg: message,
+                                              backgroundColor: Colors.green,
+                                            );
+                                          } else {
+                                            Fluttertoast.showToast(
+                                              msg: message,
+                                              backgroundColor: Colors.red,
+                                            );
+                                          }
+                                        } catch (_) {
+                                          if (!isSheetAlive) return;
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text("Failed"),
+                                            ),
+                                          );
+                                        }
+
+                                        controller.isCreating = false;
+                                      },
+                                child: controller.isCreating
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(AppLocalizations.of(context)!.save),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 Color getShelfColor(String? hex) {
@@ -1332,13 +2043,15 @@ Color hexToColor(String? hex) {
   }
 }
 
-class _TaskCard extends StatelessWidget {
+class _TaskCard extends StatefulWidget {
   final TaskItem task;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? callApi;
   final String boardIdNumb;
   final bool isDarkBoard;
+
   const _TaskCard({
     Key? key,
     required this.task,
@@ -1347,19 +2060,41 @@ class _TaskCard extends StatelessWidget {
     this.onDelete,
     required this.boardIdNumb,
     required this.isDarkBoard,
+    required this.callApi,
   }) : super(key: key);
+
+  @override
+  State<_TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<_TaskCard> {
+  late List<TaskChecklist> checklist;
+  final controller = Get.put(Controller());
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    checklist = List.from(widget.task.checkLists);
+  }
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
+          // color: Colors.white,
+          border: Border.all(
+            color: widget.isDarkBoard
+                ? const Color.fromARGB(83, 255, 255, 255)
+                : const Color.fromARGB(92, 0, 0, 0), // your border color
+            width: 1.5, // thickness
+          ),
           boxShadow: [
             BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
           ],
@@ -1367,14 +2102,13 @@ class _TaskCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// TASK NAME + MENU
-            if (task.taskName != null && task.taskName!.isNotEmpty)
+            /// TITLE + MENU
+            if (widget.task.taskName.isNotEmpty)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Text(
-                      task.taskName!,
+                      widget.task.taskName,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
@@ -1383,20 +2117,16 @@ class _TaskCard extends StatelessWidget {
                   ),
                   PopupMenuButton<int>(
                     onSelected: (value) {
-                      if (value == 1) {
-                        onEdit?.call();
-                      } else if (value == 2) {
-                        onDelete?.call();
+                      if (value == 2) {
+                        _showDeleteConfirm(
+                          context,
+                          widget.task.recId,
+                          widget.callApi,
+                        );
                       }
                     },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 2,
-                        child: Text('Delete'),
-                        onTap: () {
-                          _confirmDelete(context, task.recId, boardIdNumb);
-                        },
-                      ),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 2, child: Text('Delete')),
                     ],
                   ),
                 ],
@@ -1405,40 +2135,38 @@ class _TaskCard extends StatelessWidget {
             const SizedBox(height: 6),
 
             /// DATE + PRIORITY
-            if (task.dueDate != null || task.priority != null)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (task.dueDate != null)
-                    Text(
-                      DateFormat('dd/MM/yyyy').format(task.dueDate!),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (widget.task.dueDate != null)
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(widget.task.dueDate!),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
 
-                  if (task.priority != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Priority: ${task.priority}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                ],
-              ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Priority: ${widget.task.priority}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 10),
 
             /// ASSIGNED USERS
-            if (task.assignedTo != null && task.assignedTo!.isNotEmpty)
+            if (widget.task.assignedTo.isNotEmpty)
               Row(
-                children: task.assignedTo!.map((user) {
+                children: widget.task.assignedTo.map((user) {
                   return Container(
                     margin: const EdgeInsets.only(right: 6),
                     width: 28,
@@ -1446,10 +2174,10 @@ class _TaskCard extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _getUserColor(user),
+                      color: _getUserColor(user.toString()),
                     ),
                     child: Text(
-                      _getInitials(user),
+                      _getInitials(user.employeeName),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -1460,11 +2188,10 @@ class _TaskCard extends StatelessWidget {
                 }).toList(),
               ),
 
-            if (task.assignedTo != null && task.assignedTo!.isNotEmpty)
-              const SizedBox(height: 10),
+            if (widget.task.assignedTo.isNotEmpty) const SizedBox(height: 10),
 
             /// CARD TYPE
-            if (task.cardType?.cardName != null)
+            if (widget.task.cardType?.cardName != null)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1475,49 +2202,141 @@ class _TaskCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  task.cardType!.cardName!,
+                  widget.task.cardType!.cardName!,
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
 
-            if (task.cardType?.cardName != null) const SizedBox(height: 10),
+            if (widget.task.cardType?.cardName != null)
+              const SizedBox(height: 10),
 
             /// ATTACHMENTS
-            if (task.taskDocuments != null &&
-                task.taskDocuments!.isNotEmpty) ...[
-              const Text(
-                'Attachment:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            if (widget.task.taskDocuments.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Icon(Icons.attach_file, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${widget.task.taskDocuments.length} Attachment(s)',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: widget.task.taskDocuments.map((doc) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      doc.fileName ?? 'File',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 10),
+            ],
+            if (widget.task.showNotes) ...[
               Text(
-                '${task.taskDocuments!.length} Attachment(s)',
-                style: const TextStyle(fontSize: 12),
+                widget.task.description!,
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
+            ],
+            const SizedBox(height: 6),
+
+            /// CHECKLIST
+            if (widget.task.showChecklist && checklist.isNotEmpty) ...[
+              const Text(
+                'Checklist',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+
+              Column(
+                children: checklist.map((item) {
+                  return Row(
+                    children: [
+                      Checkbox(
+                        value: item.status,
+                        onChanged: (val) async {
+                          if (val == null) return;
+
+                          final oldValue = item.status;
+
+                          // optimistic update
+                          setState(() {
+                            item.status = val;
+                          });
+
+                          final ok = await controller.updateChecklistStatus(
+                            recId: item.recId,
+                            status: val,
+                          );
+
+                          if (!ok && mounted) {
+                            setState(() {
+                              item.status = oldValue;
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Checklist update failed'),
+                              ),
+                            );
+                          }
+
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.kanbanBoardPage,
+                            arguments: {"boardId": widget.boardIdNumb},
+                          );
+                        },
+                      ),
+
+                      Expanded(
+                        child: Text(
+                          item.description,
+                          style: TextStyle(
+                            fontSize: 13,
+                            decoration: item.status
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+
               const SizedBox(height: 10),
             ],
 
             /// TAGS
-            if (task.tags != null && task.tags!.isNotEmpty)
+            if (widget.task.tags.isNotEmpty)
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: task.tags!.map((tag) {
+                children: widget.task.tags.map((tag) {
+                  final color = Color(
+                    int.parse(tag.tagColor.replaceAll('#', '0xFF')),
+                  );
+
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Color(
-                        int.parse(tag.tagColor.replaceAll('#', '0xFF')),
-                      ).withOpacity(0.15), // Light background with 15% opacity
-                      border: Border.all(
-                        color: Color(
-                          int.parse(tag.tagColor.replaceAll('#', '0xFF')),
-                        ).withOpacity(0.3), // Subtle border
-                        width: 1,
-                      ),
+                      color: color.withOpacity(0.15),
+                      border: Border.all(color: color.withOpacity(0.3)),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -1525,9 +2344,7 @@ class _TaskCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: Color(
-                          int.parse(tag.tagColor.replaceAll('#', '0xFF')),
-                        ), // Dark text for contrast
+                        color: color,
                       ),
                     ),
                   );
@@ -1539,38 +2356,37 @@ class _TaskCard extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(context, int recIds, String boardIdNumb) async {
-    final controller = Get.put(Controller());
-
-    final result = await showDialog<bool>(
+  // ---------- helpers ----------
+  void _showDeleteConfirm(
+    BuildContext context,
+    int recId,
+    VoidCallback? callApi,
+  ) {
+    showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Task'),
-        content: const Text('Are you sure you want to delete this task?'),
+        title: const Text("Confirm Delete"),
+        content: const Text("Are you sure you want to delete this task?"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
           ),
+
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            onPressed: () async {
+              Navigator.pop(context);
+              await controller.deleteKanbanTask(recId); // 👈 pass RecId
+              callApi!();
+            },
+            child: const Text("Delete"),
           ),
         ],
       ),
     );
-
-    if (result == true) {
-      controller.deleteTask(
-        recId: recIds,
-        context: context,
-        boardIdNumb: boardIdNumb,
-      );
-    }
   }
 
-  /// Helpers
   String _getInitials(String? name) {
     if (name == null || name.trim().isEmpty) {
       return '?';
@@ -1579,7 +2395,7 @@ class _TaskCard extends StatelessWidget {
     final parts = name
         .trim()
         .split(RegExp(r'\s+')) // handles multiple spaces
-        .where((e) => e.isNotEmpty)
+        .where((p) => p.isNotEmpty)
         .toList();
 
     if (parts.isEmpty) return '?';
@@ -1588,18 +2404,15 @@ class _TaskCard extends StatelessWidget {
       return parts[0][0].toUpperCase();
     }
 
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
   Color _getUserColor(String name) {
-    final colors = [
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-    ];
-    return colors[name.hashCode % colors.length];
+    final hash = name.hashCode;
+    final r = (hash & 0xFF0000) >> 16;
+    final g = (hash & 0x00FF00) >> 8;
+    final b = (hash & 0x0000FF);
+    return Color.fromARGB(255, r, g, b);
   }
 }
 
@@ -1609,7 +2422,8 @@ Future<void> showAddTaskBottomSheet(
   required String boardId,
   required VoidCallback onTaskAdded,
 }) async {
-  final controller = Get.find<Controller>();
+  final controller = Get.put(Controller());
+  final _formKey = GlobalKey<FormState>();
 
   final TextEditingController taskNameCtrl = TextEditingController();
   final TextEditingController dueDateCtrl = TextEditingController();
@@ -1633,7 +2447,8 @@ Future<void> showAddTaskBottomSheet(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (bottomSheetContext) {
-      bool isCreatingTask = false;
+      bool isCreatingTaskOne = false;
+      final controller = Get.put(Controller());
 
       return StatefulBuilder(
         builder: (context, setState) {
@@ -1654,158 +2469,206 @@ Future<void> showAddTaskBottomSheet(
                   physics: const ClampingScrollPhysics(),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          "Add Task",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!.addTask,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 16),
-
-                        TextField(
-                          controller: taskNameCtrl,
-                          enabled: !isCreatingTask,
-                          decoration: const InputDecoration(
-                            labelText: "Task Name",
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: taskNameCtrl,
+                            decoration: InputDecoration(
+                              labelText:
+                                  "${AppLocalizations.of(context)!.taskName}*",
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return "Task name is required";
+                              }
+                              if (value.trim().length < 3) {
+                                return "Minimum 3 characters required";
+                              }
+                              return null;
+                            },
                           ),
-                        ),
 
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
-                        TextField(
-                          controller: dueDateCtrl,
-                          enabled: !isCreatingTask,
-                          readOnly: true,
-                          onTap: isCreatingTask
-                              ? null
-                              : () async {
-                                  FocusScope.of(context).unfocus();
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime(2100),
-                                    initialDate: DateTime.now(),
-                                  );
-                                  if (date != null) {
-                                    dueDateCtrl.text = DateFormat(
-                                      'yyyy-MM-dd',
-                                    ).format(date);
-                                  }
-                                },
-                          decoration: const InputDecoration(
-                            labelText: "Due Date",
-                            suffixIcon: Icon(Icons.calendar_today),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        IgnorePointer(
-                          ignoring: isCreatingTask,
-                          child:
-                              MultiSelectMultiColumnDropdownField<BoardMember>(
-                                items: controller.boardMembers,
-                                selectedValues: controller.selectedMembers,
-                                isMultiSelect: true,
-                                labelText: "Assign Users",
-                                displayText: (e) => e.userName,
-                                searchValue: (e) => e.userName,
-                                columnHeaders: const ["ID", "Name"],
-                                rowBuilder: (e, _) => Row(
-                                  children: [
-                                    Expanded(child: Text(e.userId)),
-                                    Expanded(child: Text(e.userName)),
-                                  ],
-                                ),
-                                onMultiChanged: (vals) {
-                                  controller.selectedMembers.assignAll(vals);
-                                },
-                                onChanged: (_) {},
-                              ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isCreatingTask
+                          TextField(
+                            controller: dueDateCtrl,
+                            enabled: !isCreatingTaskOne,
+                            readOnly: true,
+                            onTap: isCreatingTaskOne
                                 ? null
                                 : () async {
-                                    if (taskNameCtrl.text.isEmpty) return;
-
-                                    setState(() => isCreatingTask = true);
-
-                                    try {
-                                      final payload = {
-                                        "ShelfId": shelfId,
-                                        "TaskName": taskNameCtrl.text,
-                                        "DueDate": dueDateCtrl.text.isEmpty
-                                            ? null
-                                            : dueDateCtrl.text,
-                                        "AssignedTo": controller.selectedMembers
-                                            .map((e) => e.userId)
-                                            .toList(),
-                                      };
-
-                                      final res = await ApiService.post(
-                                        Uri.parse(
-                                          "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks",
-                                        ),
-                                        body: jsonEncode(payload),
-                                      );
-
-                                      if (res.statusCode == 200 ||
-                                          res.statusCode == 201) {
-                                        taskNameCtrl.clear();
-                                        dueDateCtrl.clear();
-                                        controller.selectedMembers.clear();
-                                        controller.boardMembers.clear();
-
-                                        onTaskAdded();
-
-                                        /// 🔴 CLOSE SHEET AND EXIT
-                                        Navigator.pop(context);
-                                        return; // ⛔ STOP HERE
-                                      } else {
-                                        throw Exception();
-                                      }
-                                    } catch (_) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Failed to create task",
-                                          ),
-                                        ),
-                                      );
+                                    FocusScope.of(context).unfocus();
+                                    final date = await showDatePicker(
+                                      context: context,
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime(2100),
+                                      initialDate: DateTime.now(),
+                                    );
+                                    if (date != null) {
+                                      dueDateCtrl.text = DateFormat(
+                                        'yyyy-MM-dd',
+                                      ).format(date);
                                     }
-
-                                    /// ✅ SAFE: only runs if sheet is still open
-                                    setState(() => isCreatingTask = false);
                                   },
-
-                            child: isCreatingTask
-                                ? const SizedBox(
-                                    height: 22,
-                                    width: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text("Create Task"),
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(
+                                context,
+                              )!.plannedEndDate,
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 26),
-                      ],
+                          const SizedBox(height: 12),
+
+                          IgnorePointer(
+                            ignoring: isCreatingTaskOne,
+                            child:
+                                MultiSelectMultiColumnDropdownField<
+                                  BoardMember
+                                >(
+                                  items: controller.boardMembers,
+                                  selectedValues: controller.selectedMembers,
+                                  dropdownMaxHeight: 300,
+
+                                  isMultiSelect: true,
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.assignUsers,
+                                  displayText: (e) => e.userName,
+                                  searchValue: (e) => e.userName,
+                                  columnHeaders: [
+                                    AppLocalizations.of(context)!.id,
+                                    AppLocalizations.of(context)!.name,
+                                  ],
+                                  rowBuilder: (e, _) => Row(
+                                    children: [
+                                      Expanded(child: Text(e.userId)),
+                                      Expanded(child: Text(e.userName)),
+                                    ],
+                                  ),
+                                  onMultiChanged: (vals) {
+                                    controller.selectedMembers.assignAll(vals);
+                                  },
+                                  onChanged: (_) {},
+                                ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: controller.isCreating
+                                  ? null
+                                  : () async {
+                                      if (_formKey.currentState!.validate()) {
+                                        setState(
+                                          () => controller.isCreating = true,
+                                        );
+
+                                        try {
+                                          final payload = {
+                                            "ShelfId": shelfId,
+                                            "TaskName": taskNameCtrl.text,
+                                            "DueDate": dueDateCtrl.text.isEmpty
+                                                ? null
+                                                : dueDateCtrl.text,
+                                            "AssignedTo": controller
+                                                .selectedMembers
+                                                .map((e) => e.userId)
+                                                .toList(),
+                                          };
+
+                                          final res = await ApiService.post(
+                                            Uri.parse(
+                                              "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks",
+                                            ),
+                                            body: jsonEncode(payload),
+                                          );
+                                          final Map<String, dynamic>
+                                          responseData = jsonDecode(res.body);
+                                          final String message =
+                                              responseData['detail']?['message'] ??
+                                              'No message found';
+                                          if (res.statusCode == 200 ||
+                                              res.statusCode == 201) {
+                                            taskNameCtrl.clear();
+                                            dueDateCtrl.clear();
+                                            controller.selectedMembers.clear();
+                                            controller.boardMembers.clear();
+                                            controller.isCreating = false;
+                                            onTaskAdded();
+                                            Fluttertoast.showToast(
+                                              msg: message,
+                                              backgroundColor:
+                                                  Colors.green[200],
+                                              toastLength: Toast.LENGTH_LONG,
+                                              gravity: ToastGravity.BOTTOM,
+                                              textColor: Colors.green[800],
+                                              fontSize: 16.0,
+                                            );
+
+                                            /// 🔴 CLOSE SHEET AND EXIT
+                                            Navigator.pop(context);
+                                            return; // ⛔ STOP HERE
+                                          } else {
+                                            Fluttertoast.showToast(
+                                              msg: message,
+                                              backgroundColor: Colors.red[200],
+                                              toastLength: Toast.LENGTH_LONG,
+                                              gravity: ToastGravity.BOTTOM,
+                                              textColor: Colors.red[800],
+                                              fontSize: 16.0,
+                                            );
+                                            controller.isCreating = false;
+                                            throw Exception();
+                                          }
+                                        } catch (_) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                "Failed to create task",
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+
+                                      /// ✅ SAFE: only runs if sheet is still open
+                                      controller.isCreating = false;
+                                    },
+
+                              child: controller.isCreating
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text("Create Task"),
+                            ),
+                          ),
+
+                          const SizedBox(height: 26),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1821,8 +2684,9 @@ Future<void> showAddTaskBottomSheet(
 Future<void> showAddTaskBottomSheetInSecond(
   BuildContext context, {
   required String boardId,
+  required Future<void> Function() loadKanbanBoard,
 }) async {
-  final controller = Get.find<Controller>();
+  final controller = Get.put(Controller());
 
   final TextEditingController taskNameCtrl = TextEditingController();
   final TextEditingController dueDateCtrl = TextEditingController();
@@ -1840,6 +2704,7 @@ Future<void> showAddTaskBottomSheetInSecond(
       );
     }
   }
+  final _formKey = GlobalKey<FormState>();
 
   await showModalBottomSheet(
     context: context,
@@ -1867,205 +2732,219 @@ Future<void> showAddTaskBottomSheetInSecond(
                   physics: const ClampingScrollPhysics(),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          "Add Task",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        TextField(
-                          controller: taskNameCtrl,
-                          enabled: !isCreatingTask,
-                          decoration: const InputDecoration(
-                            labelText: "Task Name",
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        TextField(
-                          controller: dueDateCtrl,
-                          enabled: !isCreatingTask,
-                          readOnly: true,
-                          onTap: isCreatingTask
-                              ? null
-                              : () async {
-                                  FocusScope.of(context).unfocus();
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime(2100),
-                                    initialDate: DateTime.now(),
-                                  );
-                                  if (date != null) {
-                                    dueDateCtrl.text = DateFormat(
-                                      'yyyy-MM-dd',
-                                    ).format(date);
-                                  }
-                                },
-                          decoration: const InputDecoration(
-                            labelText: "Due Date",
-                            suffixIcon: Icon(Icons.calendar_today),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        IgnorePointer(
-                          ignoring: isCreatingTask,
-                          child:
-                              MultiSelectMultiColumnDropdownField<BoardMember>(
-                                items: controller.boardMembers,
-                                selectedValues: controller.selectedMembers,
-                                isMultiSelect: true,
-                                labelText: "Assign Users",
-                                displayText: (e) => e.userName,
-                                searchValue: (e) => e.userName,
-                                columnHeaders: const ["ID", "Name"],
-                                rowBuilder: (e, _) => Row(
-                                  children: [
-                                    Expanded(child: Text(e.userId)),
-                                    Expanded(child: Text(e.userName)),
-                                  ],
-                                ),
-                                onMultiChanged: (vals) {
-                                  controller.selectedMembers.assignAll(vals);
-                                },
-                                onChanged: (_) {},
-                              ),
-                        ),
-                        SizedBox(height: 20),
-                        IgnorePointer(
-                          ignoring: isCreatingTask,
-                          child: SearchableMultiColumnDropdownField<Shelf>(
-                            items: controller.shelves,
-                            selectedValue: controller.selectedBoard.value,
-
-                            labelText: "Assign Users",
-                            displayText: (e) => e.shelfName,
-                            searchValue: (e) => e.shelfName,
-                            columnHeaders: const ["BoardId", "BoardName"],
-                            rowBuilder: (e, _) => Row(
-                              children: [
-                                Expanded(child: Text(e.shelfId)),
-                                Expanded(child: Text(e.shelfName)),
-                              ],
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!.addTask,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-
-                            onChanged: (val) {
-                              controller.selectedBoard.value = val;
-                            },
                           ),
-                        ),
-                        const SizedBox(height: 20),
 
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isCreatingTask
+                          const SizedBox(height: 16),
+
+                          TextField(
+                            controller: taskNameCtrl,
+                            enabled: !isCreatingTask,
+                            decoration: InputDecoration(
+                              labelText:
+                                  '${AppLocalizations.of(context)!.taskName} *',
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          TextField(
+                            controller: dueDateCtrl,
+                            enabled: !isCreatingTask,
+                            readOnly: true,
+                            onTap: isCreatingTask
                                 ? null
                                 : () async {
-                                    if (taskNameCtrl.text.isEmpty) return;
+                                    FocusScope.of(context).unfocus();
+                                    final date = await showDatePicker(
+                                      context: context,
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime(2100),
+                                      initialDate: DateTime.now(),
+                                    );
+                                    if (date != null) {
+                                      dueDateCtrl.text = DateFormat(
+                                        'yyyy-MM-dd',
+                                      ).format(date);
+                                    }
+                                  },
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.of(context)!.dueDate,
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
+                          ),
 
-                                    setState(() => isCreatingTask = true);
+                          const SizedBox(height: 12),
 
-                                    try {
-                                      final payload = {
-                                        "ShelfId": controller
-                                            .selectedBoard
-                                            .value!
-                                            .shelfId,
-                                        "TaskName": taskNameCtrl.text,
-                                        "DueDate": dueDateCtrl.text.isEmpty
-                                            ? null
-                                            : dueDateCtrl.text,
-                                        "AssignedTo": controller.selectedMembers
-                                            .map((e) => e.userId)
-                                            .toList(),
-                                      };
+                          IgnorePointer(
+                            ignoring: isCreatingTask,
+                            child:
+                                MultiSelectMultiColumnDropdownField<
+                                  BoardMember
+                                >(
+                                  items: controller.boardMembers,
+                                  selectedValues: controller.selectedMembers,
+                                  isMultiSelect: true,
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.assignUsers,
+                                  displayText: (e) => e.userName,
+                                  searchValue: (e) => e.userName,
+                                  columnHeaders: [
+                                    AppLocalizations.of(context)!.id,
+                                    AppLocalizations.of(context)!.name,
+                                  ],
+                                  rowBuilder: (e, _) => Row(
+                                    children: [
+                                      Expanded(child: Text(e.userId)),
+                                      Expanded(child: Text(e.userName)),
+                                    ],
+                                  ),
+                                  onMultiChanged: (vals) {
+                                    controller.selectedMembers.assignAll(vals);
+                                  },
+                                  onChanged: (_) {},
+                                ),
+                          ),
+                          SizedBox(height: 20),
+                          IgnorePointer(
+                            ignoring: isCreatingTask,
+                            child: SearchableMultiColumnDropdownField<Shelf>(
+                              items: controller.shelves,
+                              selectedValue: controller.selectedBoard.value,
 
-                                      final res = await ApiService.post(
-                                        Uri.parse(
-                                          "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks",
-                                        ),
-                                        body: jsonEncode(payload),
-                                      );
+                              labelText: AppLocalizations.of(
+                                context,
+                              )!.shelfName,
+                              displayText: (e) => e.shelfName,
+                              searchValue: (e) => e.shelfName,
+                              columnHeaders: const ["ShelfName"],
+                              rowBuilder: (e, _) => Row(
+                                children: [
+                                  // Expanded(child: Text(e.shelfId)),
+                                  Expanded(child: Text(e.shelfName)),
+                                ],
+                              ),
 
-                                      if (res.statusCode == 200 ||
-                                          res.statusCode == 201) {
-                                        final result = await controller
-                                            .fetchKanbanBoardAndNavigate(
-                                              context,
-                                              controller
-                                                  .selectedBoard
-                                                  .value!
-                                                  .boardId
-                                                  .toString(),
-                                              true,
+                              onChanged: (val) {
+                                controller.selectedBoard.value = val;
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isCreatingTask
+                                  ? null
+                                  : () async {
+                                      if (taskNameCtrl.text.isEmpty) return;
+
+                                      setState(() => isCreatingTask = true);
+
+                                      try {
+                                        final payload = {
+                                          "ShelfId": controller
+                                              .selectedBoard
+                                              .value!
+                                              .shelfId,
+                                          "TaskName": taskNameCtrl.text,
+                                          "DueDate": dueDateCtrl.text.isEmpty
+                                              ? null
+                                              : dueDateCtrl.text,
+                                          "AssignedTo": controller
+                                              .selectedMembers
+                                              .map((e) => e.userId)
+                                              .toList(),
+                                        };
+
+                                        final res = await ApiService.post(
+                                          Uri.parse(
+                                            "${Urls.baseURL}/api/v1/kanban/tasks/tasks/tasks",
+                                          ),
+                                          body: jsonEncode(payload),
+                                        );
+
+                                        if (res.statusCode == 200 ||
+                                            res.statusCode == 201) {
+                                          final result = await controller
+                                              .fetchKanbanBoardAndNavigate(
+                                                context,
+                                                controller
+                                                    .selectedBoard
+                                                    .value!
+                                                    .boardId
+                                                    .toString(),
+                                                true,
+                                              );
+                                          loadKanbanBoard();
+                                          if (result != null) {
+                                            result.shelfs.sort(
+                                              (a, b) => a.sortOrder.compareTo(
+                                                b.sortOrder,
+                                              ),
                                             );
 
-                                        if (result != null) {
-                                          result.shelfs.sort(
-                                            (a, b) => a.sortOrder.compareTo(
-                                              b.sortOrder,
-                                            ),
-                                          );
+                                            controller.originalBoard = result;
 
-                                          controller.originalBoard = result;
+                                            controller.shelves.assignAll(
+                                              result.shelfs,
+                                            );
+                                          }
+                                          taskNameCtrl.clear();
+                                          dueDateCtrl.clear();
+                                          controller.selectedMembers.clear();
+                                          controller.boardMembers.clear();
+                                          controller.selectedBoard.value = null;
 
-                                          controller.shelves.assignAll(
-                                            result.shelfs,
-                                          );
+                                          Navigator.pop(context);
+                                          return;
+                                        } else {
+                                          throw Exception();
                                         }
-                                        taskNameCtrl.clear();
-                                        dueDateCtrl.clear();
-                                        controller.selectedMembers.clear();
-                                        controller.boardMembers.clear();
-                                        controller.selectedBoard.value = null;
-
-                                        Navigator.pop(context);
-                                        return;
-                                      } else {
-                                        throw Exception();
-                                      }
-                                    } catch (_) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Failed to create task",
+                                      } catch (_) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Failed to create task",
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    }
+                                        );
+                                      }
 
-                                    /// ✅ SAFE: only runs if sheet is still open
-                                    setState(() => isCreatingTask = false);
-                                  },
+                                      /// ✅ SAFE: only runs if sheet is still open
+                                      setState(() => isCreatingTask = false);
+                                    },
 
-                            child: isCreatingTask
-                                ? const SizedBox(
-                                    height: 22,
-                                    width: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text("Create Task"),
+                              child: isCreatingTask
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(AppLocalizations.of(context)!.save),
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 26),
-                      ],
+                          const SizedBox(height: 26),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2183,6 +3062,7 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
   final TextEditingController taskNameCtrl = TextEditingController();
   final TextEditingController dueDateCtrl = TextEditingController();
   final controller = Get.put(Controller());
+  final _formKey = GlobalKey<FormState>();
 
   DateTime? selectedDate;
 
@@ -2265,103 +3145,116 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
         top: 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// Title
-          const Text(
-            "Add Task",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-
-          /// Task Name
-          TextField(
-            controller: taskNameCtrl,
-            decoration: const InputDecoration(
-              labelText: "Task Name",
-              border: OutlineInputBorder(),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Title
+            Text(
+              AppLocalizations.of(context)!.addTask,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-          /// Due Date
-          TextField(
-            controller: dueDateCtrl,
-            readOnly: true,
-            onTap: pickDate,
-            decoration: const InputDecoration(
-              labelText: "Due Date",
-              suffixIcon: Icon(Icons.calendar_today),
-              border: OutlineInputBorder(),
+            /// Task Name
+            TextFormField(
+              controller: taskNameCtrl,
+              decoration: const InputDecoration(
+                labelText: "Task Name *",
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return "Task name is required";
+                }
+                if (value.trim().length < 3) {
+                  return "Minimum 3 characters required";
+                }
+                return null;
+              },
             ),
-          ),
-          const SizedBox(height: 12),
 
-          /// Assign Users (Multi Select)
-          const Text("Assign Users"),
-          const SizedBox(height: 6),
+            const SizedBox(height: 12),
 
-          SearchableMultiColumnDropdownField<BoardMember>(
-            enabled: true,
-            labelText: 'Select User(s)',
-            items: controller.boardMembers,
-            selectedValue: controller.selectedSettingsMembers.value,
-
-            /// Search
-            searchValue: (emp) => '${emp.userId} ${emp.userName}',
-
-            /// What shows in field
-            displayText: (emp) => emp.userName,
-
-            /// Table header
-            columnHeaders: const ['Employee ID', 'Name'],
-
-            /// Row UI
-            rowBuilder: (emp, searchQuery) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(emp.userId)),
-                    Expanded(child: Text(emp.userName)),
-                  ],
-                ),
-              );
-            },
-
-            onChanged: (emp) {
-              controller.selectedSettingsMembers.value = emp;
-            }, // ignored for multi-select
-          ),
-
-          const SizedBox(height: 20),
-
-          /// Buttons
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
-                ),
+            /// Due Date
+            TextField(
+              controller: dueDateCtrl,
+              readOnly: true,
+              onTap: pickDate,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.plannedEndDate,
+                suffixIcon: Icon(Icons.calendar_today),
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    createTask(context);
-                  },
-                  child: const Text("Create"),
+            ),
+            const SizedBox(height: 12),
+
+            /// Assign Users (Multi Select)
+            const Text("Assign Users"),
+            const SizedBox(height: 6),
+
+            SearchableMultiColumnDropdownField<BoardMember>(
+              enabled: true,
+              labelText: 'Select User(s)',
+              items: controller.boardMembers,
+              selectedValue: controller.selectedSettingsMembers.value,
+
+              /// Search
+              searchValue: (emp) => '${emp.userId} ${emp.userName}',
+
+              /// What shows in field
+              displayText: (emp) => emp.userName,
+
+              /// Table header
+              columnHeaders: const ['Employee ID', 'Name'],
+
+              /// Row UI
+              rowBuilder: (emp, searchQuery) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(emp.userId)),
+                      Expanded(child: Text(emp.userName)),
+                    ],
+                  ),
+                );
+              },
+
+              onChanged: (emp) {
+                controller.selectedSettingsMembers.value = emp;
+              }, // ignored for multi-select
+            ),
+
+            const SizedBox(height: 20),
+
+            /// Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel"),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      createTask(context);
+                    },
+                    child: const Text("Create"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2405,7 +3298,13 @@ class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
 
 class BoardSettingsWidget extends StatefulWidget {
   final String boardId;
-  const BoardSettingsWidget(this.boardId, {super.key});
+  final Future<void> Function() loadKanbanBoard;
+
+  const BoardSettingsWidget({
+    super.key,
+    required this.boardId,
+    required this.loadKanbanBoard,
+  });
 
   @override
   State<BoardSettingsWidget> createState() => _BoardSettingsWidgetState();
@@ -2421,6 +3320,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
   final referenceTypeCtrl = TextEditingController();
   final referenceIdCtrl = TextEditingController();
   final imageUrlCtrl = TextEditingController();
+  final areaName = TextEditingController();
+
   final Controller controller = Get.find<Controller>();
 
   var boardType = 'Public'.obs;
@@ -2469,11 +3370,13 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
         body: jsonEncode(payload),
       );
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      final message = responseData['detail']['message'];
 
       if (response.statusCode == 280) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-
-        final message = responseData['detail']['message'];
+        widget.loadKanbanBoard();
+        fetchBoardSettings(widget.boardId);
         Fluttertoast.showToast(
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
@@ -2482,9 +3385,15 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
           textColor: Colors.white,
           fontSize: 16.0,
         );
-        Get.snackbar("Success", "Board settings updated");
       } else {
-        Get.snackbar("Error", response.body);
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.red,
+          fontSize: 16.0,
+        );
       }
     } catch (e) {
       Get.snackbar("Error", e.toString());
@@ -2500,14 +3409,27 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
       case 'Priority':
         return 'Priority';
       case 'By Assignee':
-        return 'Assignee';
+        return 'ByAssignee';
+      case 'Task Name':
+        return 'TaskName';
+      case 'Planned End Date':
+        return 'PlannedEndDate';
+      case 'Tag':
+        return 'Tag';
       default:
-        return 'DueDate';
+        return 'Tag';
     }
   }
 
   Future<void> loadMembers() async {
     controller.boardMembers = await controller.fetchBoardMembers(
+      widget.boardId,
+    );
+    setState(() {});
+  }
+
+  Future<void> boardAllemployeeMembers() async {
+    controller.boardAllemployeeMembers = await controller.boardmemberslist(
       widget.boardId,
     );
     setState(() {});
@@ -2535,7 +3457,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         descriptionCtrl.text = settings.description ?? '';
         referenceTypeCtrl.text = settings.referenceType ?? '';
         referenceIdCtrl.text = settings.referenceId ?? '';
-
+        areaName.text = settings.areaName ?? '';
         boardType.value = settings.boardSettingType;
         sortingOrder.value = _mapSorting(settings.defaultSortingOrder);
         boardTheme.value = settings.boardTheme;
@@ -2562,6 +3484,14 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         return 'Due Date';
       case 'Priority':
         return 'Priority';
+      case 'TaskName':
+        return 'Task Name';
+      case 'PlannedEndDate':
+        return 'Planned End Date';
+      case 'Tag':
+        return 'Tag';
+      case 'ByAssignee':
+        return 'By Assignee';
       default:
         return 'By Assignee';
     }
@@ -2571,8 +3501,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     setState(() {});
 
     try {
-      await loadMembers();
       fetchBoardSettings(widget.boardId);
+      await loadMembers();
+      await boardAllemployeeMembers();
     } catch (e) {
       debugPrint('Checklist error: $e');
     }
@@ -2586,21 +3517,24 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         TabBar(
           controller: tabController,
           labelColor: Colors.deepPurple,
-          tabs: const [
-            Tab(text: 'General Settings'),
-            Tab(text: 'Members'),
+          tabs: [
+            Tab(text: AppLocalizations.of(context)!.generalSettings),
+            Tab(text: AppLocalizations.of(context)!.members),
           ],
         ),
 
         Expanded(
           child: Obx(() {
             if (isLoading.value) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: SkeletonLoaderPage());
             }
 
             return TabBarView(
               controller: tabController,
-              children: [_generalSettingsUI(), _membersUI(widget.boardId)],
+              children: [
+                _generalSettingsUI(),
+                _membersUI(widget.boardId, loadMembers),
+              ],
             );
           }),
         ),
@@ -2618,13 +3552,21 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     if (image == null) return;
 
     final bytes = await File(image.path).readAsBytes();
-    imageUrlCtrl.text = base64Encode(bytes);
-    //   imageUrlCtrl.text = basename(image.path);
 
-    // /// 🔥 SET VALUE IN TEXTFIELD
-    // imageUrlCtrl.text = imageFileName!;
+    /// 🔥 Detect image type safely
+    final String extension = image.path.split('.').last.toLowerCase();
+    final String mimeType = extension == 'png'
+        ? 'image/png'
+        : extension == 'jpg' || extension == 'jpeg'
+        ? 'image/jpeg'
+        : 'image/png'; // fallback
 
-    // debugPrint('Base64 Image Length: ${base64Image!.length}');
+    /// 🔥 FINAL FORMAT REQUIRED BY BACKEND
+    final String base64WithHeader =
+        'data:$mimeType;base64,${base64Encode(bytes)}';
+
+    /// 🔥 SET VALUE
+    imageUrlCtrl.text = base64WithHeader;
   }
 
   /// ================= GENERAL SETTINGS =================
@@ -2638,15 +3580,28 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _text('Board Name', boardNameCtrl, true),
-                _text('Description', descriptionCtrl, true, maxLines: 3),
+                _text(
+                  AppLocalizations.of(context)!.boardName,
+                  boardNameCtrl,
+                  true,
+                ),
+                _text(
+                  AppLocalizations.of(context)!.description,
+                  descriptionCtrl,
+                  true,
+                  maxLines: 3,
+                ),
 
                 const SizedBox(height: 10),
 
                 /// BOARD TYPE
                 SearchableMultiColumnDropdownField<String>(
-                  labelText: 'Board Type',
-                  items: const ['Public', 'Private'],
+                  labelText:
+                      '${AppLocalizations.of(context)!.board}${AppLocalizations.of(context)!.type}',
+                  items: [
+                    AppLocalizations.of(context)!.public,
+                    AppLocalizations.of(context)!.private,
+                  ],
                   selectedValue: boardType.value,
                   searchValue: (type) => type,
                   displayText: (type) => type,
@@ -2658,7 +3613,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                     ),
                     child: Text(type),
                   ),
-                  columnHeaders: const ['Type'],
+                  columnHeaders: [AppLocalizations.of(context)!.type],
                 ),
 
                 const SizedBox(height: 15),
@@ -2666,7 +3621,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 /// BOARD OWNER
                 MultiSelectMultiColumnDropdownField<BoardMember>(
                   enabled: true,
-                  labelText: 'Board Owner Name',
+                  labelText: AppLocalizations.of(context)!.boardOwnerName,
                   items: controller.boardMembers,
                   controller: ownerNameController,
                   selectedValues: controller.selectedMembers,
@@ -2674,7 +3629,10 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   searchValue: (emp) => '${emp.userId} ${emp.userName}',
                   displayText: (emp) => emp.userName,
                   onMultiChanged: controller.selectedMembers.assignAll,
-                  columnHeaders: const ['Employee ID', 'Name'],
+                  columnHeaders: [
+                    AppLocalizations.of(context)!.employeeId,
+                    AppLocalizations.of(context)!.employeeName,
+                  ],
                   rowBuilder: (emp, searchQuery) => Padding(
                     padding: const EdgeInsets.symmetric(
                       vertical: 12,
@@ -2694,8 +3652,12 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
                 /// SORTING ORDER
                 SearchableMultiColumnDropdownField<String>(
-                  labelText: 'Default Sorting Order',
-                  items: const ['By Assignee', 'Due Date', 'Priority'],
+                  labelText: AppLocalizations.of(context)!.defaultSortingOrder,
+                  items: [
+                    AppLocalizations.of(context)!.byAssignee,
+                    AppLocalizations.of(context)!.dueDate,
+                    AppLocalizations.of(context)!.priority,
+                  ],
                   selectedValue: sortingOrder.value,
                   searchValue: (type) => type,
                   displayText: (type) => type,
@@ -2707,15 +3669,15 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                     ),
                     child: Text(type),
                   ),
-                  columnHeaders: const ['Type'],
+                  columnHeaders: [AppLocalizations.of(context)!.type],
                 ),
 
                 /// TIME TRACKING
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Enable Time Tracking',
+                    Text(
+                      AppLocalizations.of(context)!.enableTimeTracking,
                       style: TextStyle(fontSize: 14),
                     ),
                     Transform.scale(
@@ -2732,44 +3694,57 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 Row(
                   children: [
                     Expanded(
-                      child: _text('Reference Type', referenceTypeCtrl, false),
+                      child: _text(
+                        AppLocalizations.of(context)!.referenceName,
+                        referenceTypeCtrl,
+                        false,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _text('Reference ID', referenceIdCtrl, false),
+                      child: _text(
+                        AppLocalizations.of(context)!.referenceId,
+                        referenceIdCtrl,
+                        false,
+                      ),
                     ),
                   ],
                 ),
-
+                _text(AppLocalizations.of(context)!.areaName, areaName, false),
                 const SizedBox(height: 12),
 
                 /// THEME
-                const Text(
-                  'Board Theme',
+                Text(
+                  AppLocalizations.of(context)!.boardTheme,
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
 
-                Row(
-                  children: ['Dark', 'Light', 'SystemDefault']
-                      .map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(e, style: TextStyle(fontSize: 10)),
-                            selected: boardTheme.value == e,
-                            onSelected: (_) => boardTheme.value = e,
+                Obx(
+                  () => Row(
+                    children: ["Dark", "Light", "SystemDefault"]
+                        .map(
+                          (e) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(
+                                e,
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                              selected: boardTheme.value == e,
+                              onSelected: (_) => boardTheme.value = e,
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
+                        )
+                        .toList(),
+                  ),
                 ),
 
                 const SizedBox(height: 16),
 
                 /// BACKGROUND IMAGE
-                const Text(
-                  'Background Image',
+                Text(
+                  AppLocalizations.of(context)!.backgroundImage,
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
 
@@ -2777,17 +3752,21 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   children: [
                     TextButton(
                       onPressed: () => showUrlUpload.value = true,
-                      child: const Text('URL'),
+                      child: Text(AppLocalizations.of(context)!.url),
                     ),
                     TextButton(
                       onPressed: () => showUrlUpload.value = false,
-                      child: const Text('File Upload'),
+                      child: Text(AppLocalizations.of(context)!.fileUpload),
                     ),
                   ],
                 ),
 
                 showUrlUpload.value
-                    ? _text('Image URL', imageUrlCtrl, true)
+                    ? _text(
+                        AppLocalizations.of(context)!.imageUrl,
+                        imageUrlCtrl,
+                        true,
+                      )
                     : InkWell(
                         onTap: pickImage,
                         child: Container(
@@ -2804,7 +3783,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                               const SizedBox(height: 4),
                               Text(
                                 imageUrlCtrl.text.isEmpty
-                                    ? 'Upload Image'
+                                    ? AppLocalizations.of(context)!.uploadImage
                                     : imageUrlCtrl.text,
                                 style: const TextStyle(fontSize: 12),
                                 overflow: TextOverflow.ellipsis,
@@ -2822,7 +3801,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   children: [
                     OutlinedButton(
                       onPressed: controller.resetForm,
-                      child: const Text('Cancel'),
+                      child: Text(AppLocalizations.of(context)!.cancel),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
@@ -2836,7 +3815,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Update');
+                            : Text(AppLocalizations.of(context)!.update);
                       }),
                     ),
                   ],
@@ -2849,7 +3828,19 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     });
   }
 
-  Widget _membersUI(String boardId) {
+  Widget _membersUI(String boardId, Future<void> Function() loadMembers) {
+    void showLoader(BuildContext context) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    void hideLoader(BuildContext context) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+
     return Column(
       children: [
         /// ADD MEMBER BUTTON
@@ -2859,9 +3850,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: const Icon(Icons.person_add),
-              label: const Text("Add Members"),
+              label: Text(AppLocalizations.of(context)!.addBoardMembers),
               onPressed: () {
-                _openAddMemberDialog(context, boardId);
+                _openAddMemberDialog(context, boardId, loadMembers);
               },
             ),
           ),
@@ -2883,7 +3874,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 background: Container(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  color: Colors.blue.shade400,
+                  color: Colors.red.shade400,
                   child: const Icon(
                     Icons.visibility,
                     color: Colors.white,
@@ -2911,7 +3902,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                       builder: (ctx) => AlertDialog(
                         title: const Text("Remove Member"),
                         content: Text(
-                          'Remove "${member.userName}" from board?',
+                          '${AppLocalizations.of(context)!.remove}"${member.userName}" from board?',
                         ),
                         actions: [
                           TextButton(
@@ -2919,19 +3910,27 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                             child: const Text("Cancel"),
                           ),
                           ElevatedButton(
-                            onPressed: () => Navigator.of(ctx).pop(true),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
                             ),
-                            child: const Text("Remove"),
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: Text(AppLocalizations.of(context)!.remove),
                           ),
                         ],
                       ),
                     );
 
                     if (shouldDelete == true) {
-                      controller.boardMembers.removeAt(index);
-                      return true;
+                      final success = await controller.deleteBoardMember(
+                        recId: member.recId,
+                      );
+                      if (success) {
+                        controller.boardMembers.removeAt(index);
+
+                        return true;
+                      } else {
+                        return false;
+                      }
                     }
                   }
                   return false;
@@ -2968,10 +3967,6 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                         ),
                       ],
                     ),
-                    trailing: Icon(
-                      member.isActive ? Icons.visibility : Icons.visibility_off,
-                      color: member.isActive ? Colors.green : Colors.grey,
-                    ),
                   ),
                 ),
               );
@@ -2982,7 +3977,11 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     );
   }
 
-  void _openAddMemberDialog(BuildContext context, bordeId) {
+  void _openAddMemberDialog(
+    BuildContext context,
+    bordeId,
+    Future<void> Function() loadMembers,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -3002,8 +4001,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   const SizedBox(height: 12),
 
                   /// HEADER
-                  const Text(
-                    "Add Board Members",
+                  Text(
+                    AppLocalizations.of(context)!.addBoardMembers,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
 
@@ -3034,9 +4033,10 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                             onPressed: () {
                               controller.selectedGroups.clear();
                               controller.selectedEmployees.clear();
+                              controller.selectedMembers.clear();
                               Navigator.pop(context);
                             },
-                            child: const Text("Cancel"),
+                            child: Text(AppLocalizations.of(context)!.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -3048,6 +4048,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                                   : () async {
                                       controller.isSavingMember.value = true;
                                       await _saveBoardMembers(context, bordeId);
+                                      loadMembers();
                                       controller.isSavingMember.value = false;
                                     },
                               child: controller.isLoading.value
@@ -3059,7 +4060,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Text("Save"),
+                                  : Text(AppLocalizations.of(context)!.save),
                             ),
                           );
                         }),
@@ -3088,8 +4089,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
           return MultiSelectMultiColumnDropdownField<BoardMember>(
             enabled: true,
-            labelText: 'Select User(s)',
-            items: controller.boardMembers,
+            labelText: AppLocalizations.of(context)!.selectUser,
+            items: controller.boardAllemployeeMembers,
             selectedValues: controller.selectedMembers,
             isMultiSelect: true,
             dropdownMaxHeight: 300,
@@ -3099,7 +4100,11 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
             onMultiChanged: (employees) {
               controller.selectedMembers.assignAll(employees);
             },
-            columnHeaders: const ['Employee ID', 'Name', 'Department'],
+            columnHeaders: [
+              AppLocalizations.of(context)!.employeeId,
+              AppLocalizations.of(context)!.employeeName,
+              AppLocalizations.of(context)!.department,
+            ],
             rowBuilder: (emp, searchQuery) {
               return Padding(
                 padding: const EdgeInsets.symmetric(
@@ -3197,6 +4202,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
       if (res.statusCode == 200 || res.statusCode == 201) {
         controller.selectedGroups.clear();
         controller.selectedEmployees.clear();
+        controller.boardMembers.clear();
+        controller.selectedMembers.clear();
 
         /// refresh members list
         // await controller.loadBoardMembers(
@@ -3212,8 +4219,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
-          backgroundColor: Colors.red[100],
-          textColor: Colors.red[800],
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
           fontSize: 16.0,
         );
       } else {
@@ -3245,7 +4252,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         // Remove Obx wrapper since there are no observable variables inside
         MultiSelectMultiColumnDropdownField<EmployeeGroup>(
           enabled: true,
-          labelText: 'Select Groups',
+          labelText: AppLocalizations.of(context)!.selectGroups,
           items: controller.employeeGroups,
           selectedValues: controller.selectedGroups,
           isMultiSelect: true,
@@ -3266,7 +4273,10 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
               }
             }
           },
-          columnHeaders: const ['Group Name', 'Description'],
+          columnHeaders: [
+            AppLocalizations.of(context)!.group,
+            AppLocalizations.of(context)!.description,
+          ],
           rowBuilder: (group, searchQuery) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),

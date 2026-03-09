@@ -1,8 +1,10 @@
 import 'dart:convert';
 
-import 'package:digi_xpense/core/constant/url.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/core/constant/url.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/API_Service/apiService.dart'
+    show ApiService;
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
@@ -122,6 +124,10 @@ class ReportModel with ChangeNotifier {
         return dsFA == 'ExpenseRequisition';
       } else if (value == 'Cash Advance Requisition') {
         return dsFA == 'CashAdvanceRequisition';
+      } else if (value == 'Leave Requisition') {
+        return dsFA == 'LeaveRequisition';
+      } else if (value == 'TimeSheet Requisition') {
+        return dsFA == 'TimeSheetRequisition';
       }
       return false;
     }).toList();
@@ -326,22 +332,24 @@ class ReportModel with ChangeNotifier {
         rule.value = '';
         rule.inBetweenValues = [];
         String? colType = tableColumnTypes[rule.table]?[value];
-        print("colType$tableColumnTypes");
+
         if (colType != null && conditionsByType.containsKey(colType)) {
           rule.conditionItems = conditionsByType[colType]!;
+          print("colType${rule.conditionItems}");
         } else {
           rule.conditionItems = [];
         }
         break;
 
       case 'condition':
-      rule.condition = value;
+        rule.condition = value;
 
-      // FIX: Check for correct "In Between" condition
-      if (value.toString().trim().toLowerCase() != 'in between'.toLowerCase()) {
-        rule.inBetweenValues = [];
-      }
-      break;
+        // FIX: Check for correct "In Between" condition
+        if (value.toString().trim().toLowerCase() !=
+            'in between'.toLowerCase()) {
+          rule.inBetweenValues = [];
+        }
+        break;
 
       case 'value':
         rule.value = value;
@@ -503,6 +511,16 @@ class ReportModel with ChangeNotifier {
           .where((ds) => ds['FunctionalArea'] == 'CashAdvanceRequisition')
           .cast<Map<String, dynamic>>()
           .toList();
+    } else if (functionalArea == 'Leave Requisition') {
+      return allDatasets
+          .where((ds) => ds['FunctionalArea'] == 'LeaveRequisition')
+          .cast<Map<String, dynamic>>()
+          .toList();
+    } else if (functionalArea == 'TimeSheet Requisition') {
+      return allDatasets
+          .where((ds) => ds['FunctionalArea'] == 'TimeSheetRequisition')
+          .cast<Map<String, dynamic>>()
+          .toList();
     }
     return [];
   }
@@ -534,14 +552,7 @@ class ReportModel with ChangeNotifier {
     );
 
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization':
-              'Bearer ${Params.userToken}', // Required for authentication
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await ApiService.get(url);
 
       // Check if the response is successful (status 200-299)
       if (response.statusCode == 200) {
@@ -797,7 +808,7 @@ class ReportModel with ChangeNotifier {
 
       notifyListeners();
     }
-    print("ADDcolname${selectedCheckbox1.length}");
+    print("ADDcolname${selectedCheckbox1}");
   }
 
   void removeSelectedColumn(String colname) {
@@ -828,15 +839,13 @@ class ReportModel with ChangeNotifier {
       final mapping = {
         "Cash Advance Requisition": "CashAdvanceRequisition",
         "Expense Requisition": "ExpenseRequisition",
+        "Leave Requisition": "LeaveRequisition",
+        "TimeSheet Requisition": "TimeSheetRequisition",
       };
       String mappedProp = mapping[props] ?? props;
       comparefunctionalAreaWithRes = mappedProp;
-      final response = await http.get(
+      final response = await ApiService.get(
         Uri.parse('${Urls.expenseReport}$mappedProp'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken}',
-        },
       );
 
       if (response.statusCode == 200) {
@@ -921,23 +930,17 @@ class ReportModel with ChangeNotifier {
         return {"matchType": groupOperator, "rules": rulesJson};
       }).toList();
 
-      // 4️⃣ Build API URL
-      final url = Uri.https(
-        'api.digixpense.com',
-        '/api/v1/reports/expensereport/misreportdata',
-        queryParams,
-      );
+      final url = Uri.parse(
+        '${Urls.baseURL}/api/v1/reports/expensereport/misreportdata?',
+      ).replace(queryParameters: queryParams);
 
       debugPrint("📡 Request URL: $url");
       debugPrint("📦 Request Body: ${jsonEncode(filterGroupsJson)}");
 
       // 5️⃣ Make API request
-      final response = await http.post(
+      final response = await ApiService.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken}',
-        },
+
         body: jsonEncode(filterGroupsJson),
       );
 
@@ -954,8 +957,15 @@ class ReportModel with ChangeNotifier {
             if (expenseList.isEmpty) {
               Fluttertoast.showToast(
                 msg: "No expenses found Please Change the Filtrations",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                backgroundColor: Colors.orange,
+                textColor: Colors.black,
+                fontSize: 16.0,
               );
               return;
+            }else{
+              clearMISFields(); 
             }
             // ignore: use_build_context_synchronously
             Navigator.pushNamed(context, AppRoutes.expensePaginationPage);
@@ -978,7 +988,21 @@ class ReportModel with ChangeNotifier {
       Fluttertoast.showToast(msg: "Something went wrong");
     }
   }
+void clearMISFields() {
+  fromDateCtrl.clear();
+  toDateCtrl.clear();
 
+  sortBy = '';
+  sortOrder = '';
+_functionalArea = '';
+
+  // Clear filter groups
+  filterGroups.clear();
+  groupOperators.clear();
+  tableColumnTypes.clear();
+
+  notifyListeners();
+}
   /// 📌 Helper function to save ExpenseIds to local storage
   Future<void> _saveExpenseIds(List<dynamic> expenseList) async {
     List<String> expenseIds = expenseList
@@ -1056,7 +1080,7 @@ class ReportModel with ChangeNotifier {
               case 'Is Not Empty':
                 apiCondition = 'is_not_empty';
                 break;
-                 case 'Is Empty':
+              case 'Is Empty':
                 apiCondition = 'is_empty';
                 break;
               default:
@@ -1076,88 +1100,61 @@ class ReportModel with ChangeNotifier {
       }
     }
 
+    // 🔁 Dynamically build columnChooserData from the selected dataset
+    final selectedDataset = allDatasets.firstWhere(
+      (ds) => ds['RecId'].toString() == dataSet,
+      orElse: () => null,
+    );
+
+    if (selectedDataset == null) {
+      throw Exception('Selected dataset not found');
+    }
+
+    // Build header columns map (from columnchooser)
+    final Map<String, bool> headerMap = {};
+    final List columnChooserTables =
+        selectedDataset['Schema']?['columnchooser'] ?? [];
+    for (var table in columnChooserTables) {
+      if (table is Map && table.containsKey('Columns')) {
+        final columns = table['Columns'] as List;
+        for (var col in columns) {
+          if (col is Map && col.containsKey('Colname')) {
+            final colName = col['Colname'] as String;
+            headerMap[colName] = selectedCheckbox1.contains(colName);
+          }
+        }
+      }
+    }
+
+    // Build lines columns map (from LinesFields)
+    final Map<String, bool> linesMap = {};
+    final List linesFields = selectedDataset['Schema']?['LinesFields'] ?? [];
+    for (var field in linesFields) {
+      if (field is Map && field.containsKey('dataField')) {
+        final fieldName = field['dataField'] as String;
+        linesMap[fieldName] = selectedCheckbox2.contains(fieldName);
+      }
+    }
+
     final columnChooserData = [
-      {
-        'header': {
-          'ExpenseId': selectedCheckbox1.contains('ExpenseId'),
-          'ProjectId': selectedCheckbox1.contains('ProjectId'),
-          'PaymentMethod': selectedCheckbox1.contains('PaymentMethod'),
-          'TotalAmountTrans': selectedCheckbox1.contains('TotalAmountTrans'),
-          'TotalAmountReporting': selectedCheckbox1.contains(
-            'TotalAmountReporting',
-          ),
-          'ExpenseCategoryId': selectedCheckbox1.contains('ExpenseCategoryId'),
-          'MerchantName': selectedCheckbox1.contains('MerchantName'),
-          'MerchantId': selectedCheckbox1.contains('MerchantId'),
-          'TotalApprovedAmount': selectedCheckbox1.contains(
-            'TotalApprovedAmount',
-          ),
-          'TotalRejectedAmount': selectedCheckbox1.contains(
-            'TotalRejectedAmount',
-          ),
-          'EmployeeId': selectedCheckbox1.contains('EmployeeId'),
-          'ReceiptDate': selectedCheckbox1.contains('ReceiptDate'),
-          'ApprovalStatus': selectedCheckbox1.contains('ApprovalStatus'),
-          'Currency': selectedCheckbox1.contains('Currency'),
-          'ReferenceNumber': selectedCheckbox1.contains('ReferenceNumber'),
-          'Description': selectedCheckbox1.contains('Description'),
-          'IsBillable': selectedCheckbox1.contains('IsBillable'),
-          'RecId': selectedCheckbox1.contains('RecId'),
-          'TaxGroup': selectedCheckbox1.contains('TaxGroup'),
-          'TaxAmount': selectedCheckbox1.contains('TaxAmount'),
-          'IsReimbursable': selectedCheckbox1.contains('IsReimbursable'),
-          'Country': selectedCheckbox1.contains('Country'),
-          'Location': selectedCheckbox1.contains('Location'),
-          'FromDate': selectedCheckbox1.contains('FromDate'),
-          'ToDate': selectedCheckbox1.contains('ToDate'),
-          'ExpenseType': selectedCheckbox1.contains('ExpenseType'),
-        },
-      },
-      {
-        'lines': {
-          'LineNumber': selectedCheckbox2.contains('LineNumber'),
-          'ExpenseCategoryId': selectedCheckbox2.contains('ExpenseCategoryId'),
-          'Timezone': selectedCheckbox2.contains('Timezone'),
-          'Quantity': selectedCheckbox2.contains('Quantity'),
-          'UomId': selectedCheckbox2.contains('UomId'),
-          'UnitPriceTrans': selectedCheckbox2.contains('UnitPriceTrans'),
-          'UnitPriceReporting': selectedCheckbox2.contains(
-            'UnitPriceReporting',
-          ),
-          'LineAmountTrans': selectedCheckbox2.contains('LineAmountTrans'),
-          'LineAmountReporting': selectedCheckbox2.contains(
-            'LineAmountReporting',
-          ),
-          'TaxAmount': selectedCheckbox2.contains('TaxAmount'),
-          'TaxGroup': selectedCheckbox2.contains('TaxGroup'),
-          'AmountSettled': selectedCheckbox2.contains('AmountSettled'),
-          'LastSettlementDate': selectedCheckbox2.contains(
-            'LastSettlementDate',
-          ),
-          'ClosedDate': selectedCheckbox2.contains('ClosedDate'),
-          'ApprovedAmount': selectedCheckbox2.contains('ApprovedAmount'),
-          'RejectedAmount': selectedCheckbox2.contains('RejectedAmount'),
-          'RecId': selectedCheckbox2.contains('RecId'),
-          'ProjectId': selectedCheckbox2.contains('ProjectId'),
-          'Description': selectedCheckbox2.contains('Description'),
-          'IsReimbursable': selectedCheckbox2.contains('IsReimbursable'),
-          'EmployeeId': selectedCheckbox2.contains('EmployeeId'),
-          'ExpenseId': selectedCheckbox2.contains('ExpenseId'),
-          'Location': selectedCheckbox2.contains('Location'),
-          'FromDate': selectedCheckbox2.contains('FromDate'),
-          'ToDate': selectedCheckbox2.contains('ToDate'),
-        },
-      },
+      {'header': headerMap},
+      {'lines': linesMap},
     ];
+
+    final functionalAreaMap = {
+      'Expense Requisition': 'ExpenseRequisition',
+      'Cash Advance Requisition': 'CashAdvanceRequisition',
+      'Leave Requisition': 'LeaveRequisition',
+      'TimeSheet Requisition': 'TimeSheetRequisition',
+    };
+    final functionalAreaValue = functionalAreaMap[functionalArea] ?? '';
 
     final payload = {
       'Reports': {
         'Name': reportName.text,
         'DataSet': int.tryParse(dataSet) ?? 0,
         'ReportAvailability': applicableFor,
-        'FunctionalArea': functionalArea == 'Expense Requisition'
-            ? 'ExpenseRequisition'
-            : 'CashAdvanceRequisition',
+        'FunctionalArea': functionalAreaValue,
         'ColumnChooser': jsonEncode(columnChooserData),
         'ReportMetaData': jsonEncode(filterGroupsData),
         'Description': description.text,
@@ -1166,23 +1163,16 @@ class ReportModel with ChangeNotifier {
       },
       'ReportUserMappings': finelselectedUsers.isNotEmpty
           ? finelselectedUsers.map((user) {
-              return {
-                'RefRecId': 0,
-                'UserId': user.userId, // or user.email if that's the field
-              };
+              return {'RefRecId': 0, 'UserId': user.userId};
             }).toList()
           : [],
     };
 
     try {
-      final response = await http.post(
+      final response = await ApiService.post(
         Uri.parse(
           '${Urls.baseURL}/api/v1/reports/reports/reportandreportusermapping',
         ),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken}',
-        },
         body: jsonEncode(payload),
       );
 
@@ -1206,9 +1196,6 @@ class ReportModel with ChangeNotifier {
         );
       }
     } catch (e) {
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(content: Text('Error saving report: ${e.toString()}')),
-      // );
       rethrow;
     }
   }

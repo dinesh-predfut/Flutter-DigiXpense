@@ -453,12 +453,12 @@ class ThemeNotifier with ChangeNotifier {
         onSecondary: Colors.white,
         error: Colors.redAccent,
         onError: Colors.white,
-        background: background,
-        onBackground: textPrimary,
         surface: containerBg,
         onSurface: textSecondary,
       ),
       scaffoldBackgroundColor: background,
+       cardColor: containerBg,
+           canvasColor: containerBg,
       appBarTheme: AppBarTheme(
         backgroundColor: primary,
         foregroundColor: Colors.white,
@@ -469,6 +469,7 @@ class ThemeNotifier with ChangeNotifier {
           color: Colors.white,
         ),
       ),
+      
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: secondary,
         foregroundColor: textPrimary,

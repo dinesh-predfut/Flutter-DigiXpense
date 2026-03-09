@@ -1,4 +1,4 @@
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -189,7 +189,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
 
     return WillPopScope(
         onWillPop: () async {
@@ -397,35 +397,62 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
   /// ✅ Dynamic table builder
   Widget _buildTable(List<Map<String, String>> data) {
-    if (data.isEmpty) return const SizedBox.shrink();
+  if (data.isEmpty) return const SizedBox.shrink();
 
-    final columns = data.first.keys.toList();
+  final columns = data.first.keys.toList();
 
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
+  return Container(
+    margin: const EdgeInsets.only(top: 8),
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.grey[300]!),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor:
-            MaterialStateProperty.all(const Color(0xFF4A148C).withOpacity(0.1)),
+        headingRowColor: MaterialStateProperty.all(
+          const Color(0xFF4A148C).withOpacity(0.1),
+        ),
         columnSpacing: 20,
         columns: columns
             .map((col) => DataColumn(
-                  label: Text(col,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(
+                    col,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ))
             .toList(),
         rows: data.map((row) {
           return DataRow(
-            cells:
-                columns.map((col) => DataCell(Text(row[col] ?? ""))).toList(),
+            cells: columns.map((col) {
+              return DataCell(
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    _formatValue(row[col]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              );
+            }).toList(),
           );
         }).toList(),
       ),
-    );
+    ),
+  );
+}
+
+String _formatValue(String? value) {
+  if (value == null || value.isEmpty) return "";
+
+  final numVal = double.tryParse(value);
+  if (numVal != null) {
+    return numVal.toStringAsFixed(2);
   }
+
+  return value;
+}
+
 
   /// ✅ Always bar chart
   Widget _buildChart(List<Map<String, String>> data) {

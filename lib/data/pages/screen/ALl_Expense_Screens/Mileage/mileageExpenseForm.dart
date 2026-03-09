@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
-import 'package:digi_xpense/core/constant/url.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/core/constant/url.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
@@ -14,7 +14,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 
 import '../../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../../../l10n/app_localizations.dart';
@@ -37,7 +37,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   String selectedVehicleType = ""; // Currently selected type
   List<Map<String, dynamic>> mileageRateLines = [];
   bool isSubmitAttempted = false;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   MapType _currentMapType = MapType.normal; // Start with Normal map
   Set<Polyline> _polylines = {};
   Set<Marker> _markers = {};
@@ -485,7 +485,7 @@ Future<void> _calculateAllDistances() async {
   Future<List<String>> fetchPlaceSuggestions(String input) async {
     if (input.isEmpty) return [];
     final String url =
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$googleApiKey&components=country:in';
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$googleApiKey';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -1375,7 +1375,7 @@ Future<void> _calculateAllDistances() async {
                                               );
                                               try {
                                                 controller.closeField();
-                                                 Navigator.pop(context);
+                                                 controller.chancelButton(context);
                                               } finally {
                                                 controller.setButtonLoading(
                                                   'cancel_main',
@@ -2120,7 +2120,7 @@ Future<void> _calculateAllDistances() async {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.comments,
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),

@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/service.dart';
-import 'package:digi_xpense/main.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:diginexa/main.dart';
+import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -39,7 +41,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     with TickerProviderStateMixin {
   final controller = Get.put(Controller());
   final controllerItems = Get.put(Controller());
-  // final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
   bool allowDocAttachments = false;
   int _currentStep = 0;
@@ -92,17 +94,19 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     // controller.fetchPaidto();
 
     itemizeControllers.add(Controller());
-    controller.configuration();
+   
     controller.isManualEntryMerchant = false;
     _loadSettings();
+    _initializeUnits();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       loadSequenceAndUpdateUI();
-          _initializeUnits();
-controller.fetchPaidto();
+ controller.configuration();
+      controller.fetchPaidto();
+      controller.loadSequenceModules();
       await controller.fetchMaxAllowedPercentage();
       controller.fetchCashAdvanceRequests();
       controller.getconfigureFieldCashAdvance();
-      
+
       controller.fetchPaidwith();
       controller.fetchProjectName();
       controller.fetchTaxGroup();
@@ -143,6 +147,16 @@ controller.fetchPaidto();
 
   bool isFieldMandatory(String fieldName) {
     return controller.configList.any(
+      (f) =>
+          (f['FieldName']?.toString().trim().toLowerCase() ==
+              fieldName.trim().toLowerCase()) &&
+          (f['IsEnabled'].toString().toLowerCase() == 'true') &&
+          (f['IsMandatory'].toString().toLowerCase() == 'true'),
+    );
+  }
+
+  bool isFieldMandatoryAdvance(String fieldName) {
+    return controller.configListAdvance.any(
       (f) =>
           (f['FieldName']?.toString().trim().toLowerCase() ==
               fieldName.trim().toLowerCase()) &&
@@ -650,6 +664,177 @@ controller.fetchPaidto();
         controller.quantity.text = '1.00';
       }
     }
+  Future<void> calculateAndFetchExchange() async {
+  try {
+    final unitText = controller.unitAmount.text.trim();
+    final qtyText = controller.quantity.text.trim();
+
+    final double? unit = double.tryParse(unitText);
+    final double qty = double.tryParse(qtyText) ?? 0.0;
+
+    // ✅ Validation
+    if (unitText.isEmpty || unit == null || unit <= 0) {
+      controller.showUnitAmountError.value = true;
+      return;
+    }
+
+    /// -----------------------------
+    /// STEP 1: Line Total
+    /// -----------------------------
+    final calculatedLineAmount = qty * unit;
+
+    controller.paidAmountCA1.text =
+        calculatedLineAmount.toStringAsFixed(2);
+    controller.paidAmount.text =
+        calculatedLineAmount.toStringAsFixed(2);
+
+    /// -----------------------------
+    /// STEP 2: Requested %
+    /// -----------------------------
+    final requestedPercentage =
+        double.tryParse(
+              controller.requestedPercentage.text
+                  .replaceAll('%', '')
+                  .trim(),
+            ) ??
+            0.0;
+
+    double calculatedRequestedAmount = 0.0;
+
+    if (requestedPercentage > 0) {
+      calculatedRequestedAmount =
+          (calculatedLineAmount * requestedPercentage) / 100;
+    }
+
+    controller.totalRequestedAmount.text =
+        calculatedRequestedAmount.toStringAsFixed(2);
+
+    controller.calculatedPercentage.value =
+        calculatedRequestedAmount;
+
+    /// -----------------------------
+    /// STEP 3: Get Exchange Rate CA1 (Only Rate)
+    /// -----------------------------
+    final currency1 =
+        controller.currencyDropDowncontrollerCA3.text.trim();
+
+    if (currency1.isNotEmpty) {
+      final exchangeRate1 =
+          await controller.fetchExchangeRatecalculated(currency1);
+
+      if (exchangeRate1 != null) {
+        controller.unitRateCA1.text =
+            exchangeRate1.toString();
+
+        controller.amountINRCA1.text =
+            (calculatedLineAmount * exchangeRate1)
+                .toStringAsFixed(2);
+
+        controller.isVisible.value = true;
+      }
+    }
+
+    /// -----------------------------
+    /// STEP 4: Get Exchange Rate CA2
+    /// -----------------------------
+    final currency2 =
+        controller.currencyDropDowncontrollerCA2.text.trim();
+
+    if (currency2.isNotEmpty &&
+        calculatedRequestedAmount > 0) {
+      final exchangeRate2 =
+          await controller.fetchExchangeRatecalculated(currency2);
+
+      if (exchangeRate2 != null) {
+        controller.unitRateCA2.text =
+            exchangeRate2.toString();
+
+        controller.amountINRCA2.text =
+            (calculatedRequestedAmount * exchangeRate2)
+                .toStringAsFixed(2);
+      }
+    }
+  } catch (e) {
+    debugPrint("Calculation Error: $e");
+  }
+}
+    Future<void> calculateAmount() async {
+  controller.isAmountCalculating.value = true;
+
+  final paidAmountText =
+      controller.paidAmountCA1.text.trim();
+
+  final double paidAmounts =
+      double.tryParse(paidAmountText) ?? 0.0;
+
+  final currency1 =
+      controller.currencyDropDowncontrollerCA3.text;
+
+  if (currency1.isEmpty || paidAmounts <= 0) {
+    controller.isAmountCalculating.value = false;
+    return;
+  }
+
+  /// 🔥 GET EXCHANGE RATE (Only once)
+  final exchangeRate1 =
+      await controller.fetchExchangeRatecalculated
+      (currency1);
+
+  if (exchangeRate1 != null) {
+    controller.unitRateCA1.text =
+        exchangeRate1.toString();
+
+    controller.amountINRCA1.text =
+        (paidAmounts * exchangeRate1)
+            .toStringAsFixed(2);
+
+    controller.isVisible.value = true;
+  }
+
+  /// -----------------------
+  /// Requested %
+  /// -----------------------
+  final requestedPercentage =
+      double.tryParse(
+            controller.requestedPercentage.text
+                .replaceAll('%', '')
+                .trim(),
+          ) ??
+          0.0;
+
+  double requestedAmount = 0.0;
+
+  if (requestedPercentage > 0) {
+    requestedAmount =
+        (paidAmounts * requestedPercentage) / 100;
+  }
+
+  controller.totalRequestedAmount.text =
+      requestedAmount.toStringAsFixed(2);
+
+  /// -----------------------
+  /// CA2 Exchange
+  /// -----------------------
+  final currency2 =
+      controller.currencyDropDowncontrollerCA2.text;
+
+  if (currency2.isNotEmpty && requestedAmount > 0) {
+    final exchangeRate2 =
+        await controller.fetchExchangeRatecalculated
+        (currency2);
+
+    if (exchangeRate2 != null) {
+      controller.unitRateCA2.text =
+          exchangeRate2.toString();
+
+      controller.amountINRCA2.text =
+          (requestedAmount * exchangeRate2)
+              .toStringAsFixed(2);
+    }
+  }
+
+  controller.isAmountCalculating.value = false;
+}
     _calculateTotalLineAmount(controller);
     _calculateTotalLineAmount2(controller);
     if (clearField) {
@@ -720,6 +905,7 @@ controller.fetchPaidto();
                                   ),
                                   child: Row(
                                     children: [
+                                      SizedBox(width: 10),
                                       Expanded(child: Text(proj.name)),
                                       Expanded(child: Text(proj.code)),
                                     ],
@@ -1053,151 +1239,32 @@ controller.fetchPaidto();
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d*\.?\d{0,2}'),
-                              ), // Allows numbers with up to 2 decimal places
-                            ],
+                          child: TextFormField(
+  controller: controller.unitAmount,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  textInputAction: TextInputAction.done,
 
-                            controller: controller.unitAmount,
-                            onChanged: (value) {
-                              // controllerItems.unitAmount.text = value;
+  // enabled: !showItemizeDetails,
 
-                              setState(() {
-                                controller.unitAmount.text = value;
-                                controller.showUnitAmountError.value = false;
-                              });
+  // ✅ When user presses Done
+  onFieldSubmitted: (_) async {
+    FocusScope.of(context).unfocus();
+    await calculateAndFetchExchange();
+  },
 
-                              // Step 1: Calculate line total
-                              final qty =
-                                  double.tryParse(controller.quantity.text) ??
-                                  0.0;
-                              final unit =
-                                  double.tryParse(controller.unitAmount.text) ??
-                                  0.0;
-                              final calculatedLineAmount = qty * unit;
+  // ✅ When focus lost
+  onEditingComplete: () async {
+    FocusScope.of(context).unfocus();
+      await calculateAndFetchExchange();
+  },
 
-                              controller.paidAmountCA1.text =
-                                  calculatedLineAmount.toStringAsFixed(2);
-                              controller.paidAmount.text = calculatedLineAmount
-                                  .toStringAsFixed(2);
+  inputFormatters: [
+    FilteringTextInputFormatter.allow(
+      RegExp(r'^\d*\.?\d{0,2}'),
+    ),
+  ],
 
-                              // Step 2: Debounce to avoid frequent API calls
-                              if (_debounce?.isActive ?? false)
-                                _debounce!.cancel();
-
-                              _debounce = Timer(
-                                const Duration(milliseconds: 400),
-                                () async {
-                                  final paidAmountText = controller
-                                      .paidAmountCA1
-                                      .text
-                                      .trim();
-                                  final double paidAmounts =
-                                      double.tryParse(paidAmountText) ?? 0.0;
-                                  final currency = controller
-                                      .currencyDropDowncontrollerCA3
-                                      .text;
-
-                                  // ✅ Only proceed if we have currency + amount
-                                  if (currency.isNotEmpty &&
-                                      paidAmountText.isNotEmpty) {
-                                    // Fire API call for Exchange Rate
-                                    final results = await Future.wait([
-                                      controller.fetchExchangeRateCA(
-                                        currency,
-                                        paidAmountText,
-                                      ),
-                                    ]);
-
-                                    // Step 3: Process exchange rate for CA1
-                                    final exchangeResponse1 =
-                                        results[0] as ExchangeRateResponse?;
-                                    if (exchangeResponse1 != null) {
-                                      controller.unitRateCA1.text =
-                                          exchangeResponse1.exchangeRate
-                                              .toString();
-                                      controller.amountINRCA1.text =
-                                          exchangeResponse1.totalAmount
-                                              .toStringAsFixed(2);
-                                      controller.isVisible.value = true;
-                                    }
-
-                                    // ✅ Step 4: Use requestedPercentage instead of maxPercentage
-                                    final requestedPercentageText = controller
-                                        .requestedPercentage
-                                        .text
-                                        .trim();
-                                    final double requestedPercentage =
-                                        double.tryParse(
-                                          requestedPercentageText
-                                              .replaceAll('%', '')
-                                              .trim(),
-                                        ) ??
-                                        0.0;
-
-                                    if (requestedPercentage > 0 &&
-                                        paidAmounts > 0) {
-                                      // Calculate requested amount (foreign currency)
-                                      final double calculatedRequestedAmount =
-                                          (paidAmounts * requestedPercentage) /
-                                          100;
-
-                                      controller.totalRequestedAmount.text =
-                                          calculatedRequestedAmount
-                                              .toStringAsFixed(2);
-                                      controller.calculatedPercentage.value =
-                                          calculatedRequestedAmount;
-                                    } else {
-                                      controller.totalRequestedAmount.text =
-                                          '0.00';
-                                    }
-
-                                    // ✅ Step 5: Convert requested amount to INR (CA2)
-                                    final reqPaidAmount = controller
-                                        .totalRequestedAmount
-                                        .text
-                                        .trim();
-                                    final reqCurrency = controller
-                                        .currencyDropDowncontrollerCA2
-                                        .text;
-
-                                    if (reqCurrency.isNotEmpty &&
-                                        reqPaidAmount.isNotEmpty) {
-                                      final exchangeResponse = await controller
-                                          .fetchExchangeRateCA(
-                                            reqCurrency,
-                                            reqPaidAmount,
-                                          );
-
-                                      if (exchangeResponse != null) {
-                                        controller.unitRateCA2.text =
-                                            exchangeResponse.exchangeRate
-                                                .toString();
-                                        controller.amountINRCA2.text =
-                                            exchangeResponse.totalAmount
-                                                .toStringAsFixed(2);
-                                      }
-                                    }
-                                  }
-                                },
-                              );
-                            },
-
-                            onEditingComplete: () {
-                              String text = controller.unitAmount.text;
-                               FocusScope.of(context).unfocus();
-                              double? value = double.tryParse(text);
-                              if (text.isEmpty || value == null ) {
-                                setState(() {
-                                  controller.showUnitAmountError.value = true;
-                                });
-                                return;
-                              }
-                            },
-                            decoration: InputDecoration(
+  decoration: InputDecoration(
                               labelText:
                                   "${AppLocalizations.of(context)!.unitEstimatedAmount}*",
                               errorText: controller.showUnitAmountError.value
@@ -1208,15 +1275,8 @@ controller.fetchPaidto();
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              // enabledBorder: OutlineInputBorder(
-                              //   borderRadius: BorderRadius.circular(10),
-                              // ),
-                              // focusedBorder: OutlineInputBorder(
-                              //   borderSide: const BorderSide(width: 2),
-                              //   borderRadius: BorderRadius.circular(10),
-                              // ),
-                            ),
-                          ),
+  ),
+)
                         ),
                         if (showItemizeDetails) const SizedBox(width: 12),
                         if (showItemizeDetails)
@@ -1384,17 +1444,17 @@ controller.fetchPaidto();
                           ),
                       ],
                     ),
-                    //  if (controller.showUnitAmountError.value)
-                    //         Padding(
-                    //           padding: const EdgeInsets.only(top: 4),
-                    //           child: Text(
-                    //             AppLocalizations.of(context)!.fieldRequired,
-                    //             style: const TextStyle(
-                    //               color: Colors.red,
-                    //               fontSize: 12,
-                    //             ),
-                    //           ),
-                    //         ),
+                  //  if (controller.showUnitAmountError.value)
+                  //         Padding(
+                  //           padding: const EdgeInsets.only(top: 4),
+                  //           child: Text(
+                  //             AppLocalizations.of(context)!.fieldRequired,
+                  //             style: const TextStyle(
+                  //               color: Colors.red,
+                  //               fontSize: 12,
+                  //             ),
+                  //           ),
+                  //         ),
                   // if (controller.lineAmount.text.isNotEmpty)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -1495,163 +1555,43 @@ controller.fetchPaidto();
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(
-                                  controller: controller.paidAmountCA1,
-                                  enabled: !showItemizeDetails,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction
-                                      .done, // 👉 Enter key becomes DONE
-                                  onFieldSubmitted: (_) {
-                                    FocusScope.of(
-                                      context,
-                                    ).unfocus(); // 👉 Keyboard closes on Enter
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d{0,2}'),
-                                    ), // Allows numbers with up to 2 decimal places
-                                  ],
-                                  decoration: InputDecoration(
-                                    hintText: AppLocalizations.of(
-                                      context,
-                                    )!.totalEstimatedAmountIn,
-                                    isDense: true,
-                                    // contentPadding:
-                                    //     EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(10),
-                                        bottomLeft: Radius.circular(10),
-                                      ),
-                                    ),
-                                  ),
-                                  onChanged: (_) async {
-                                    // Cancel any active debounce
-                                    if (_debounce?.isActive ?? false)
-                                      _debounce!.cancel();
+  controller: controller.paidAmountCA1,
+  enabled: !showItemizeDetails,
+  keyboardType: TextInputType.number,
+  textInputAction: TextInputAction.done,
 
-                                    // Start new debounce
-                                    _debounce = Timer(
-                                      const Duration(milliseconds: 400),
-                                      () async {
-                                        final paidAmountText = controller
-                                            .paidAmountCA1
-                                            .text
-                                            .trim();
-                                        controller.unitAmount.text =
-                                            controller.paidAmountCA1.text;
+  // ✅ When user presses Enter
+  onFieldSubmitted: (_) async {
+    FocusScope.of(context).unfocus();
+    await calculateAmount();
+  },
 
-                                        final double paidAmounts =
-                                            double.tryParse(paidAmountText) ??
-                                            0.0;
-                                        final currency = controller
-                                            .currencyDropDowncontrollerCA3
-                                            .text;
+  // ✅ When user taps outside (focus lost)
+  onEditingComplete: () async {
+    FocusScope.of(context).unfocus();
+    await calculateAmount();
+  },
 
-                                        // ✅ Only proceed if currency and amount are provided
-                                        if (currency.isNotEmpty &&
-                                            paidAmountText.isNotEmpty) {
-                                          // Step 1: Fetch exchange rate for CA1
-                                          final results = await Future.wait([
-                                            controller.fetchExchangeRateCA(
-                                              currency,
-                                              paidAmountText,
-                                            ),
-                                          ]);
+  inputFormatters: [
+    FilteringTextInputFormatter.allow(
+      RegExp(r'^\d*\.?\d{0,2}'),
+    ),
+  ],
 
-                                          final exchangeResponse1 =
-                                              results[0]
-                                                  as ExchangeRateResponse?;
-                                          if (exchangeResponse1 != null) {
-                                            controller.unitRateCA1.text =
-                                                exchangeResponse1.exchangeRate
-                                                    .toString();
-                                            controller.amountINRCA1.text =
-                                                exchangeResponse1.totalAmount
-                                                    .toStringAsFixed(2);
-                                            controller.isVisible.value = true;
-                                          }
-
-                                          // ✅ Step 2: Use requested percentage (user-entered or prefilled)
-                                          final requestedPercentageText =
-                                              controller
-                                                  .requestedPercentage
-                                                  .text
-                                                  .trim();
-                                          final double requestedPercentage =
-                                              double.tryParse(
-                                                requestedPercentageText
-                                                    .replaceAll('%', '')
-                                                    .trim(),
-                                              ) ??
-                                              0.0;
-
-                                          if (requestedPercentage > 0 &&
-                                              paidAmounts > 0) {
-                                            // Calculate requested amount in original currency
-                                            final double
-                                            calculatedRequestedAmount =
-                                                (paidAmounts *
-                                                    requestedPercentage) /
-                                                100;
-
-                                            controller
-                                                    .totalRequestedAmount
-                                                    .text =
-                                                calculatedRequestedAmount
-                                                    .toStringAsFixed(2);
-                                            controller
-                                                    .calculatedPercentage
-                                                    .value =
-                                                calculatedRequestedAmount;
-                                          } else {
-                                            controller
-                                                    .totalRequestedAmount
-                                                    .text =
-                                                '0.00';
-                                          }
-
-                                          // ✅ Step 3: Convert total requested amount to INR (CA2)
-                                          final reqPaidAmount = controller
-                                              .totalRequestedAmount
-                                              .text
-                                              .trim();
-                                          final reqCurrency = controller
-                                              .currencyDropDowncontrollerCA2
-                                              .text;
-
-                                          if (reqCurrency.isNotEmpty &&
-                                              reqPaidAmount.isNotEmpty) {
-                                            final exchangeResponse =
-                                                await controller
-                                                    .fetchExchangeRateCA(
-                                                      reqCurrency,
-                                                      reqPaidAmount,
-                                                    );
-
-                                            if (exchangeResponse != null) {
-                                              controller.unitRateCA2.text =
-                                                  exchangeResponse.exchangeRate
-                                                      .toString();
-                                              controller.amountINRCA2.text =
-                                                  exchangeResponse.totalAmount
-                                                      .toStringAsFixed(2);
-                                            }
-                                          }
-                                        }
-                                      },
-                                    );
-                                  },
-
-                                  onEditingComplete: () {
-                                    String text = controller.paidAmountCA1.text;
-                                    double? value = double.tryParse(text);
-                                    if (value != null) {
-                                      controller.paidAmountCA1.text = value
-                                          .toStringAsFixed(2);
-                                    }
-                                  },
-                                ),
-                              ),
+  decoration: InputDecoration(
+    hintText:
+        AppLocalizations.of(context)!
+            .totalEstimatedAmountIn,
+    isDense: true,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(10),
+        bottomLeft: Radius.circular(10),
+      ),
+    ),
+  ),
+)
+                              ),     
 
                               /// Currency Dropdown
                               Obx(
@@ -1665,7 +1605,7 @@ controller.fetchPaidto();
                                         labelText: AppLocalizations.of(
                                           context,
                                         )!.currency,
-                                        alignLeft: -210,
+                                        alignLeft: -110,
                                         dropdownWidth: 200,
                                         columnHeaders: [
                                           AppLocalizations.of(context)!.code,
@@ -1800,7 +1740,7 @@ controller.fetchPaidto();
                               ),
                             ],
                           ),
-                          if (!showItemizeDetails &&_showRequestedAmountError)
+                          if (!showItemizeDetails && _showRequestedAmountError)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
@@ -1916,7 +1856,7 @@ controller.fetchPaidto();
                                         labelText: AppLocalizations.of(
                                           context,
                                         )!.currency,
-                                        alignLeft: -210,
+                                        alignLeft: -110,
                                         dropdownWidth: 200,
                                         columnHeaders: [
                                           AppLocalizations.of(context)!.code,
@@ -2140,97 +2080,172 @@ controller.fetchPaidto();
                           // ✅ Show button only when feature is enabled
                           return OutlinedButton.icon(
                             onPressed: () {
-  // Reset error states
-  setState(() {
-    controller.showQuantityError.value = false;
-    controller.showUnitAmountError.value = false;
-    _showUnitError = false;
-    _showTaxAmountError = false;
-    _showRequestedAmountError = false;
-    _showPaidAmountError = false;
-    _showPercentageError = false;
-    controller.showPaidForError.value = false;
-    controller.showProjectError.value = false;
-  });
+                              // Reset error states
+                              setState(() {
+                                controller.showQuantityError.value = false;
+                                controller.showUnitAmountError.value = false;
+                                _showUnitError = false;
+                                _showTaxAmountError = false;
+                                _showRequestedAmountError = false;
+                                _showPaidAmountError = false;
+                                _showPercentageError = false;
+                                controller.showPaidForError.value = false;
+                                controller.showProjectError.value = false;
+                              });
 
-  bool isValid = true;
+                              bool isValid = true;
 
-  // 1. Validate Project Id if mandatory
-  final projectIdMandatory = isFieldMandatory('Project Id');
-  if (projectIdMandatory && controller.selectedProject == null) {
-    setState(() => controller.showProjectError.value = true);
-    isValid = false;
-  }
+                              // 1. Validate Project Id if mandatory
+                              final projectIdMandatory =
+                                  isFieldMandatoryAdvance('Project Id');
+                              final locationMandatory = isFieldMandatoryAdvance(
+                                'Project Id',
+                              );
+                              if (locationMandatory &&
+                                  controller.selectedLocation == null) {
+                                setState(() => _showLocationError = true);
+                                isValid = false;
+                              }
+                              final amount =
+                                  double.tryParse(
+                                    controller.amountINRCA2.text.trim(),
+                                  ) ??
+                                  0;
 
-  // 2. Validate Category
-  if (controller.selectedCategoryId.isEmpty) {
-    setState(() => controller.showPaidForError.value = true);
-    isValid = false;
-  }
+                              if (amount <= 0) {
+                                Fluttertoast.showToast(
+                                  msg: "Amount must be greater than 0",
+                                  backgroundColor: Colors.red,
+                                );
+                                isValid = false;
+                              }
+                              final amount2 =
+                                  double.tryParse(
+                                    controller.amountINRCA2.text.trim(),
+                                  ) ??
+                                  0;
 
-  // 3. Validate Paid Amount (CA1)
-  final paidAmountText = controller.paidAmountCA1.text.trim();
-  final paidAmount = double.tryParse(paidAmountText) ?? 0.0;
-  if (paidAmountText.isEmpty || paidAmount <= 0) {
-    setState(() => _showPaidAmountError = true);
-    isValid = false;
-  }
+                              if (amount2 <= 0) {
+                                Fluttertoast.showToast(
+                                  msg: "Amount must be greater than 0",
+                                  backgroundColor: Colors.red,
+                                );
+                                isValid = false;
+                              }
+                              if (projectIdMandatory &&
+                                  controller.selectedProject == null) {
+                                setState(
+                                  () =>
+                                      controller.showProjectError.value = true,
+                                );
+                                isValid = false;
+                              }
 
-  // 4. Validate Requested Amount (CA2)
-  final requestedAmountText = controller.totalRequestedAmount.text.trim();
-  final requestedAmount = double.tryParse(requestedAmountText) ?? 0.0;
-  if (requestedAmountText.isEmpty || requestedAmount <= 0) {
-    setState(() => _showRequestedAmountError = true);
-    isValid = false;
-  }
+                              // 2. Validate Category
+                              if (controller.selectedCategoryId.isEmpty) {
+                                setState(
+                                  () =>
+                                      controller.showPaidForError.value = true,
+                                );
+                                isValid = false;
+                              }
 
-  // 5. Validate Percentage
-  final percentageText = controller.requestedPercentage.text.trim();
-  final percentage = double.tryParse(percentageText.replaceAll('%', '')) ?? 0.0;
-  if (percentageText.isEmpty || percentage <= 0 || percentage > 100) {
-    setState(() => _showPercentageError = true);
-    isValid = false;
-  }
+                              // 3. Validate Paid Amount (CA1)
+                              final paidAmountText = controller
+                                  .paidAmountCA1
+                                  .text
+                                  .trim();
+                              final paidAmount =
+                                  double.tryParse(paidAmountText) ?? 0.0;
+                              if (paidAmountText.isEmpty || paidAmount <= 0) {
+                                setState(() => _showPaidAmountError = true);
+                                isValid = false;
+                              }
 
-  // 6. Validate itemized fields only if itemization is active
-  if (_itemizeCount > 1) {
-    if (controller.quantity.text.isEmpty) {
-      setState(() => controller.showQuantityError.value = true);
-      isValid = false;
-    }
+                              // 4. Validate Requested Amount (CA2)
+                              final requestedAmountText = controller
+                                  .totalRequestedAmount
+                                  .text
+                                  .trim();
+                              final requestedAmount =
+                                  double.tryParse(requestedAmountText) ?? 0.0;
+                              if (requestedAmountText.isEmpty ||
+                                  requestedAmount <= 0) {
+                                setState(
+                                  () => _showRequestedAmountError = true,
+                                );
+                                isValid = false;
+                              }
 
-    if (controller.unitAmount.text.isEmpty) {
-      setState(() => controller.showUnitAmountError.value = true);
-      isValid = false;
-    }
+                              // 5. Validate Percentage
+                              final percentageText = controller
+                                  .requestedPercentage
+                                  .text
+                                  .trim();
+                              final percentage =
+                                  double.tryParse(
+                                    percentageText.replaceAll('%', ''),
+                                  ) ??
+                                  0.0;
+                              if (percentageText.isEmpty ||
+                                  percentage <= 0 ||
+                                  percentage > 100) {
+                                setState(() => _showPercentageError = true);
+                                isValid = false;
+                              }
 
-    if (controller.selectedunit == null) {
-      setState(() => _showUnitError = true);
-      isValid = false;
-    }
-  }
+                              // 6. Validate itemized fields only if itemization is active
+                              if (_itemizeCount > 1) {
+                                if (controller.quantity.text.isEmpty) {
+                                  setState(
+                                    () => controller.showQuantityError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
 
-  print('✅ Validation Result: $isValid');
-  print('📊 Itemize Count: $_itemizeCount');
+                                if (controller.unitAmount.text.isEmpty) {
+                                  setState(
+                                    () => controller.showUnitAmountError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
 
-  if (isValid) {
-    try {
-      final items = itemizeControllers
-          .map((c) => c.toCashAdvanceRequestItemize())
-          .toList();
+                                if (controller.selectedunit == null) {
+                                  setState(() => _showUnitError = true);
+                                  isValid = false;
+                                }
+                              }
 
-      // Debug: Print each item
-      for (var i = 0; i < items.length; i++) {
-        print("📝 Item $i: ${jsonEncode(items[i].toJson())}");
-      }
+                              print('✅ Validation Result: $isValid');
+                              print('📊 Itemize Count: $_itemizeCount');
 
-      controllerItems.finalItemsCashAdvanceNew = items;
-      _addItemize();
-    } catch (e) {
-      print('❌ Error converting to CashAdvanceRequestItemize: $e');
-    }
-  }
-},
+                              if (isValid) {
+                                try {
+                                  final items = itemizeControllers
+                                      .map(
+                                        (c) => c.toCashAdvanceRequestItemize(),
+                                      )
+                                      .toList();
+
+                                  // Debug: Print each item
+                                  for (var i = 0; i < items.length; i++) {
+                                    print(
+                                      "📝 Item $i: ${jsonEncode(items[i].toJson())}",
+                                    );
+                                  }
+
+                                  controllerItems.finalItemsCashAdvanceNew =
+                                      items;
+                                  _addItemize();
+                                } catch (e) {
+                                  print(
+                                    '❌ Error converting to CashAdvanceRequestItemize: $e',
+                                  );
+                                }
+                              }
+                            },
                             // onPressed: _addItemize,
                             style: OutlinedButton.styleFrom(
                               backgroundColor: theme.colorScheme.onPrimary,
@@ -2277,98 +2292,157 @@ controller.fetchPaidto();
                           const SizedBox(),
                         const Spacer(),
                         ElevatedButton(
-                        onPressed: () {
-  // Reset error states
-  setState(() {
-    controller.showQuantityError.value = false;
-    controller.showUnitAmountError.value = false;
-    _showUnitError = false;
-    _showTaxAmountError = false;
-    _showRequestedAmountError = false;
-    _showPaidAmountError = false;
-    _showPercentageError = false;
-    controller.showPaidForError.value = false;
-    controller.showProjectError.value = false;
-  });
+                          onPressed: () {
+                            // Reset error states
+                            setState(() {
+                              controller.showQuantityError.value = false;
+                              controller.showUnitAmountError.value = false;
+                              _showUnitError = false;
+                              _showTaxAmountError = false;
+                              _showRequestedAmountError = false;
+                              _showPaidAmountError = false;
+                              _showPercentageError = false;
+                              controller.showPaidForError.value = false;
+                              controller.showProjectError.value = false;
+                            });
 
-  bool isValid = true;
+                            bool isValid = true;
 
-  // 1. Validate Project Id if mandatory
-  final projectIdMandatory = isFieldMandatory('Project Id');
-  if (projectIdMandatory && controller.selectedProject == null) {
-    setState(() => controller.showProjectError.value = true);
-    isValid = false;
-  }
+                            // 1. Validate Project Id if mandatory
+                            final projectIdMandatory = isFieldMandatoryAdvance(
+                              'Project Id',
+                            );
+                            print("projectIdMandatory$projectIdMandatory");
+                            if (projectIdMandatory &&
+                                controller.selectedProject == null) {
+                              setState(
+                                () => controller.showProjectError.value = true,
+                              );
+                              isValid = false;
+                            }
 
-  // 2. Validate Category
-  if (controller.selectedCategoryId.isEmpty) {
-    setState(() => controller.showPaidForError.value = true);
-    isValid = false;
-  }
+                            // 2. Validate Category
+                            if (controller.selectedCategoryId.isEmpty) {
+                              setState(
+                                () => controller.showPaidForError.value = true,
+                              );
+                              isValid = false;
+                            }
+                            final amount =
+                                double.tryParse(
+                                  controller.amountINRCA1.text.trim(),
+                                ) ??
+                                0;
+                            if (amount <= 0) {
+                              Fluttertoast.showToast(
+                                msg: "invaild Requested",
+                                backgroundColor: Colors.red,
+                              );
+                              isValid = false;
+                            }
+                            final amount2 =
+                                double.tryParse(
+                                  controller.amountINRCA2.text.trim(),
+                                ) ??
+                                0;
 
-  // 3. Validate Paid Amount (CA1)
-  final paidAmountText = controller.paidAmountCA1.text.trim();
-  final paidAmount = double.tryParse(paidAmountText) ?? 0.0;
-  if (paidAmountText.isEmpty || paidAmount <= 0) {
-    setState(() => _showPaidAmountError = true);
-    isValid = false;
-  }
+                            if (amount2 <= 0) {
+                              Fluttertoast.showToast(
+                                msg: "invaild Requested ",
+                                backgroundColor: Colors.red,
+                              );
+                              isValid = false;
+                            }
+                            // 3. Validate Paid Amount (CA1)
+                            final paidAmountText = controller.paidAmountCA1.text
+                                .trim();
+                            final paidAmount =
+                                double.tryParse(paidAmountText) ?? 0.0;
+                            if (paidAmountText.isEmpty || paidAmount <= 0) {
+                              setState(() => _showPaidAmountError = true);
+                              isValid = false;
+                            }
 
-  // 4. Validate Requested Amount (CA2)
-  final requestedAmountText = controller.totalRequestedAmount.text.trim();
-  final requestedAmount = double.tryParse(requestedAmountText) ?? 0.0;
-  if (requestedAmountText.isEmpty || requestedAmount <= 0) {
-    setState(() => _showRequestedAmountError = true);
-    isValid = false;
-  }
+                            // 4. Validate Requested Amount (CA2)
+                            final requestedAmountText = controller
+                                .totalRequestedAmount
+                                .text
+                                .trim();
+                            final requestedAmount =
+                                double.tryParse(requestedAmountText) ?? 0.0;
+                            if (requestedAmountText.isEmpty ||
+                                requestedAmount <= 0) {
+                              setState(() => _showRequestedAmountError = true);
+                              isValid = false;
+                            }
 
-  // 5. Validate Percentage
-  final percentageText = controller.requestedPercentage.text.trim();
-  final percentage = double.tryParse(percentageText.replaceAll('%', '')) ?? 0.0;
-  if (percentageText.isEmpty || percentage <= 0 || percentage > 100) {
-    setState(() => _showPercentageError = true);
-    isValid = false;
-  }
+                            // 5. Validate Percentage
+                            final percentageText = controller
+                                .requestedPercentage
+                                .text
+                                .trim();
+                            final percentage =
+                                double.tryParse(
+                                  percentageText.replaceAll('%', ''),
+                                ) ??
+                                0.0;
+                            if (percentageText.isEmpty ||
+                                percentage <= 0 ||
+                                percentage > 100) {
+                              setState(() => _showPercentageError = true);
+                              isValid = false;
+                            }
 
-  // 6. Validate itemized fields only if itemization is active
-  if (_itemizeCount > 1) {
-    if (controller.quantity.text.isEmpty) {
-      setState(() => controller.showQuantityError.value = true);
-      isValid = false;
-    }
+                            // 6. Validate itemized fields only if itemization is active
+                            if (_itemizeCount > 1) {
+                              if (controller.quantity.text.isEmpty) {
+                                setState(
+                                  () =>
+                                      controller.showQuantityError.value = true,
+                                );
+                                isValid = false;
+                              }
 
-    if (controller.unitAmount.text.isEmpty) {
-      setState(() => controller.showUnitAmountError.value = true);
-      isValid = false;
-    }
+                              if (controller.unitAmount.text.isEmpty) {
+                                setState(
+                                  () => controller.showUnitAmountError.value =
+                                      true,
+                                );
+                                isValid = false;
+                              }
 
-    if (controller.selectedunit == null) {
-      setState(() => _showUnitError = true);
-      isValid = false;
-    }
-  }
+                              if (controller.selectedunit == null) {
+                                setState(() => _showUnitError = true);
+                                isValid = false;
+                              }
+                            }
 
-  print('✅ Validation Result: $isValid');
-  print('📊 Itemize Count: $_itemizeCount');
+                            print('✅ Validation Result: $isValid');
+                            print('📊 Itemize Count: $_itemizeCount');
 
-  if (isValid) {
-    try {
-      final items = itemizeControllers
-          .map((c) => c.toCashAdvanceRequestItemize())
-          .toList();
+                            if (isValid) {
+                              try {
+                                final items = itemizeControllers
+                                    .map((c) => c.toCashAdvanceRequestItemize())
+                                    .toList();
 
-      // Debug: Print each item
-      for (var i = 0; i < items.length; i++) {
-        print("📝 Item $i: ${jsonEncode(items[i].toJson())}");
-      }
+                                // Debug: Print each item
+                                for (var i = 0; i < items.length; i++) {
+                                  print(
+                                    "📝 Item $i: ${jsonEncode(items[i].toJson())}",
+                                  );
+                                }
 
-      controllerItems.finalItemsCashAdvanceNew = items;
-      _nextStep();
-    } catch (e) {
-      print('❌ Error converting to CashAdvanceRequestItemize: $e');
-    }
-  }
-},
+                                controllerItems.finalItemsCashAdvanceNew =
+                                    items;
+                                _nextStep();
+                              } catch (e) {
+                                print(
+                                  '❌ Error converting to CashAdvanceRequestItemize: $e',
+                                );
+                              }
+                            }
+                          },
                           style: OutlinedButton.styleFrom(
                             backgroundColor: AppColors.gradientEnd,
                             side: const BorderSide(
@@ -2668,6 +2742,34 @@ controller.fetchPaidto();
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Obx(() {
+                                if (controller.isSequenceLoading.value) {
+                                  return const SizedBox(); // or loader
+                                }
+
+                                final hideField = controller.hasModule(
+                                  "CashAdvance",
+                                );
+
+                                if (hideField) {
+                                  return const SizedBox.shrink(); // ✅ hide
+                                }
+
+                                return Column(
+                                  children: [
+                                    TextFormField(
+                                      controller:
+                                          controller.cashAdvanceRequisitionID,
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                );
+                              }),
+
                               // Obx(() {
                               //   return showField.value
                               //       ? _buildTextField(
@@ -2806,8 +2908,12 @@ controller.fetchPaidto();
                           SearchableMultiColumnDropdownField<
                             Businessjustification
                           >(
-                            labelText: 'Business Justification * ',
-                            columnHeaders: const ['ID', 'Name'],
+                            labelText:
+                                '${AppLocalizations.of(context)!.businessJustification} * ',
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.id,
+                              AppLocalizations.of(context)!.name,
+                            ],
                             items: controller.justification,
                             selectedValue: controller.selectedjustification,
                             searchValue: (p) => '${p.id} ${p.name}',
@@ -2830,6 +2936,7 @@ controller.fetchPaidto();
                                 ),
                                 child: Row(
                                   children: [
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         p.merchantId,
@@ -2863,25 +2970,43 @@ controller.fetchPaidto();
                       ),
 
                       const SizedBox(height: 10),
-                      const Text(
-                        'Paid With',
+                      Text(
+                        AppLocalizations.of(context)!.paidWith,
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
 
                       // Paid With Radio Buttons
                       Obx(() {
-                        // if (controller.paidWith == null &&
-                        //     controller.paymentMethods.isNotEmpty) {
-                        //   controller.paidWith =
-                        //       controller.paymentMethods.first.paymentMethodId;
-                        //   controller.paymentMethodeID =
-                        //       controller.paymentMethods.first.paymentMethodId;
-                        // }
+                        /// ✅ SHOW LOADER
+                        if (controller.isPaymentMethodsLoading.value) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+
+                        /// ✅ SHOW EMPTY STATE
+                        if (controller.paymentMethods.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              AppLocalizations.of(context)!.noDataFound,
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }
+
+                        /// ✅ SHOW LIST
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Payment methods list
                             ...List.generate(controller.paymentMethods.length, (
                               index,
                             ) {
@@ -2917,107 +3042,63 @@ controller.fetchPaidto();
                                 child: RadioListTile<String>(
                                   title: Row(
                                     children: [
-                                      Icon(
-                                        icons[index % icons.length],
-                                        color: Colors.black,
-                                      ),
+                                      Icon(icons[index % icons.length]),
                                       const SizedBox(width: 10),
                                       Expanded(
-                                        child: Text(
-                                          method.paymentMethodName,
-                                          style: const TextStyle(
-                                            color: Colors.black,
-                                          ),
-                                        ),
+                                        child: Text(method.paymentMethodName),
                                       ),
                                     ],
                                   ),
                                   value: method.paymentMethodId,
                                   groupValue:
                                       controller.paidWithCashAdvance.value,
-                                  onChanged: (String? value) {
-                                    // print(value);
-                                    // loadAndAppendCashAdvanceList();
-                                    setState(() {
-                                      if (controller
-                                              .paidWithCashAdvance
-                                              .value ==
-                                          value) {
-                                        // Unselect if same item clicked
-                                        controller.paidWithCashAdvance.value =
-                                            null;
-                                        controller
-                                                .paymentMethodeIDCashAdvance
-                                                .value =
-                                            null;
-                                      } else {
-                                        controller.paidWithCashAdvance.value =
-                                            value;
-                                        controller
-                                                .paymentMethodeIDCashAdvance
-                                                .value =
-                                            value;
-                                      }
-                                    });
+
+                                  /// ❌ REMOVE setState — GetX handles it
+                                  onChanged: (value) {
+                                    if (controller.paidWithCashAdvance.value ==
+                                        value) {
+                                      controller.paidWithCashAdvance.value =
+                                          null;
+                                      controller
+                                              .paymentMethodeIDCashAdvance
+                                              .value =
+                                          null;
+                                    } else {
+                                      controller.paidWithCashAdvance.value =
+                                          value;
+                                      controller
+                                              .paymentMethodeIDCashAdvance
+                                              .value =
+                                          value;
+                                    }
                                   },
+
                                   contentPadding: EdgeInsets.zero,
                                   controlAffinity:
                                       ListTileControlAffinity.leading,
-                                  tileColor: Colors.transparent,
                                 ),
                               );
                             }),
 
-                            // Error message below the list
                             const SizedBox(height: 8),
-                            // Small red button to clear selection
-                            if (controller.paidWithCashAdvance.value != null &&
-                                controller
-                                    .paidWithCashAdvance
-                                    .value!
-                                    .isNotEmpty)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    controller.paidWithCashAdvance.value = "";
-                                    controller
-                                            .paymentMethodeIDCashAdvance
-                                            .value =
-                                        "";
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    minimumSize: const Size(
-                                      60,
-                                      30,
-                                    ), // Small size
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    AppLocalizations.of(context)!.clear,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
+
+                            /// ✅ CLEAR BUTTON
+                            if (controller.paidWithCashAdvance.value != null)
+                              ElevatedButton(
+                                onPressed: () {
+                                  controller.paidWithCashAdvance.value = null;
+                                  controller.paymentMethodeIDCashAdvance.value =
+                                      null;
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  minimumSize: const Size(60, 30),
+                                ),
+                                child: Text(
+                                  AppLocalizations.of(context)!.clear,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                               ),
-                            // if (paidwithError.value != null)
-                            //   Padding(
-                            //     padding:
-                            //         const EdgeInsets.only(left: 8.0, bottom: 8),
-                            //     child: Text(
-                            //       paidwithError.value!,
-                            //       style: const TextStyle(color: Colors.red),
-                            //     ),
-                            //   ),
                           ],
                         );
                       }),
@@ -3181,7 +3262,7 @@ class CreateExpensePage extends StatefulWidget {
 
 class _CreateExpensePageState extends State<CreateExpensePage> {
   // bool controller._isVisible = false;
-
+  final _formKey = GlobalKey<FormState>();
   final FocusNode _focusNode = FocusNode();
   final PhotoViewController _photoViewController = PhotoViewController();
   final controller = Get.put(Controller());
@@ -3279,10 +3360,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 right: 20,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                   onPressed: () {
-                            // controller.closeField();
-                            Navigator.pop(context);
-                          },
+                  onPressed: () {
+                    // controller.closeField();
+                    Navigator.pop(context);
+                  },
                 ),
               ),
 
@@ -3331,6 +3412,66 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     );
   }
 
+  Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
+
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
+  }
+
   Widget _buildImageArea() {
     final loc = AppLocalizations.of(context)!;
 
@@ -3353,120 +3494,177 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: () => {
-            if (controller.imageFiles.isEmpty)
-              {_pickImage(ImageSource.gallery)},
-          },
-          child: Container(
-            width:
-                MediaQuery.of(context).size.width * 0.9, // 90% of screen width
-            height:
-                MediaQuery.of(context).size.height *
-                0.3, // 30% of screen height
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey, // border color
-                width: 2, // border thickness
+        Obx(() {
+          return GestureDetector(
+            onTap: () => {
+              if (controller.imageFiles.isEmpty) {_pickFile},
+            },
+
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(
-                12,
-              ), // optional rounded corners
-            ),
-            child: Obx(() {
-              if (controller.imageFiles.isEmpty) {
-                return Center(child: Text(loc.tapToUploadDocs));
-              } else {
-                return Stack(
-                  children: [
-                    PageView.builder(
-                      controller: _pageController,
-                      itemCount: controller.imageFiles.length,
-                      onPageChanged: (index) {
-                        controller.currentIndex.value = index;
-                      },
-                      itemBuilder: (_, index) {
-                        final file = controller.imageFiles[index];
-                        return GestureDetector(
-                          onTap: () => _showFullImage(file, index),
-                          child: Container(
-                            alignment: Alignment.center,
-                            margin: const EdgeInsets.all(8),
-                            width: 100,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.deepPurple),
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(
-                                image: FileImage(file),
-                                fit: BoxFit.cover,
+
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                              onTap: () =>
+                                  controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Positioned(
-                      bottom: 40,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Obx(
-                          () => Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    // Positioned(
-                    //   top: 40,
-                    //   right: 20,
-                    //   child: IconButton(
-                    //     icon: const Icon(Icons.close,
-                    //         color: Colors.white),
-                    //     onPressed: () =>
-                    //         Navigator.pop(context),
-                    //   ),
-                    // ),
-                    // Positioned(
-                    //   bottom: 16,
-                    //   right: 16,
-                    //   child: GestureDetector(
-                    //     onTap: () => _pickImage(ImageSource.gallery),
-                    //     child: Container(
-                    //       decoration: BoxDecoration(
-                    //         color: Colors.deepPurple,
-                    //         shape: BoxShape.circle,
-                    //         border: Border.all(color: Colors.white, width: 2),
-                    //       ),
-                    //       padding: const EdgeInsets.all(8),
-                    //       child: const Icon(
-                    //         Icons.add,
-                    //         color: Colors.white,
-                    //         size: 28,
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
-                  ],
-                );
-              }
-            }),
-          ),
-        ),
+            ),
+          );
+        }),
       ],
     );
   }
@@ -3508,300 +3706,430 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
         padding: const EdgeInsets.all(20),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              if (widget.allowDocAttachments) _buildImageArea(),
-              if (widget.allowDocAttachments) const SizedBox(height: 20),
-              if (widget.allowDocAttachments)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+          child: Form(
+            key: _formKey, // Add form key for validation
+            child: Column(
+              children: [
+                if (widget.allowDocAttachments) _buildImageArea(),
+                if (widget.allowDocAttachments) const SizedBox(height: 20),
+                if (widget.allowDocAttachments)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.upload_file),
+                        label: Text(AppLocalizations.of(context)!.upload),
+                        onPressed: () => _pickImage(ImageSource.gallery),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.camera_alt),
+                        label: Text(AppLocalizations.of(context)!.capture),
+                        onPressed: () => _pickImage(ImageSource.camera),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(AppLocalizations.of(context)!.upload),
-                      onPressed: () => _pickImage(ImageSource.gallery),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.camera_alt),
-                      label: Text(AppLocalizations.of(context)!.capture),
-                      onPressed: () => _pickImage(ImageSource.camera),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: controller.estimatedamountINR,
-                    enabled: false,
-                    decoration: InputDecoration(
-                      labelText: 'Total Estimated Amount In INR *',
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                    TextFormField(
+                      controller: controller.estimatedamountINR,
+                      enabled: false,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${AppLocalizations.of(context)!.totalEstimatedAmountInInr} *',
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  TextFormField(
-                    controller: controller.requestamountINR,
-                    enabled: false,
-                    decoration: InputDecoration(
-                      labelText: 'Total Request Amount In INR *',
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                    TextFormField(
+                      controller: controller.requestamountINR,
+                      enabled: false,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${AppLocalizations.of(context)!.totalRequestedAmount} *',
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  ),
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //   children: [
-                  //     Text(
-                  //       AppLocalizations.of(context)!.policyViolations,
-                  //       style: const TextStyle(
-                  //         fontWeight: FontWeight.bold,
-                  //         fontSize: 16,
-                  //       ),
-                  //     ),
-                  //     Text(
-                  //       AppLocalizations.of(context)!.checkPolicies,
-                  //       style: const TextStyle(color: Colors.blue),
-                  //     ),
-                  //   ],
-                  // ),
-                  // const SizedBox(height: 12),
+                    // Row(
+                    //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    //   children: [
+                    //     Text(
+                    //       AppLocalizations.of(context)!.policyViolations,
+                    //       style: const TextStyle(
+                    //         fontWeight: FontWeight.bold,
+                    //         fontSize: 16,
+                    //       ),
+                    //     ),
+                    //     Text(
+                    //       AppLocalizations.of(context)!.checkPolicies,
+                    //       style: const TextStyle(color: Colors.blue),
+                    //     ),
+                    //   ],
+                    // ),
+                    // const SizedBox(height: 12),
 
-                  // // Policy Card
-                  // Container(
-                  //   width: double.infinity,
-                  //   padding: const EdgeInsets.all(16),
-                  //   decoration: BoxDecoration(
-                  //     borderRadius: BorderRadius.circular(12),
-                  //   ),
-                  //   child: Column(
-                  //     crossAxisAlignment: CrossAxisAlignment.start,
-                  //     children: [
-                  //       Text(
-                  //         AppLocalizations.of(context)!.policy1001,
-                  //         style: const TextStyle(fontWeight: FontWeight.bold),
-                  //       ),
-                  //       const SizedBox(height: 10),
-                  //       Row(
-                  //         children: [
-                  //           const Icon(Icons.check, color: Colors.green),
-                  //           const SizedBox(width: 8),
-                  //           Expanded(
-                  //             child: Text(
-                  //               AppLocalizations.of(
-                  //                 context,
-                  //               )!.expenseAmountUnderLimit,
-                  //             ),
-                  //           ),
-                  //         ],
-                  //       ),
-                  //       const SizedBox(height: 6),
-                  //       Row(
-                  //         children: [
-                  //           const Icon(Icons.check, color: Colors.green),
-                  //           const SizedBox(width: 8),
-                  //           Expanded(
-                  //             child: Text(
-                  //               AppLocalizations.of(
-                  //                 context,
-                  //               )!.receiptRequiredAmount,
-                  //             ),
-                  //           ),
-                  //         ],
-                  //       ),
-                  //       const SizedBox(height: 6),
-                  //       Row(
-                  //         children: [
-                  //           const Icon(Icons.close, color: Colors.red),
-                  //           const SizedBox(width: 8),
-                  //           Expanded(
-                  //             child: Text(
-                  //               AppLocalizations.of(
-                  //                 context,
-                  //               )!.descriptionMandatory,
-                  //               style: const TextStyle(color: Colors.red),
-                  //             ),
-                  //           ),
-                  //         ],
-                  //       ),
-                  //       const SizedBox(height: 6),
-                  //       Row(
-                  //         children: [
-                  //           const Icon(
-                  //             Icons.error_outline,
-                  //             color: Colors.orange,
-                  //           ),
-                  //           const SizedBox(width: 8),
-                  //           Expanded(
-                  //             child: Text(
-                  //               AppLocalizations.of(context)!.expiredPolicy,
-                  //             ),
-                  //           ),
-                  //         ],
-                  //       ),
-                  //     ],
-                  //   ),
-                  // ),
-                  const SizedBox(height: 40),
+                    // // Policy Card
+                    // Container(
+                    //   width: double.infinity,
+                    //   padding: const EdgeInsets.all(16),
+                    //   decoration: BoxDecoration(
+                    //     borderRadius: BorderRadius.circular(12),
+                    //   ),
+                    //   child: Column(
+                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                    //     children: [
+                    //       Text(
+                    //         AppLocalizations.of(context)!.policy1001,
+                    //         style: const TextStyle(fontWeight: FontWeight.bold),
+                    //       ),
+                    //       const SizedBox(height: 10),
+                    //       Row(
+                    //         children: [
+                    //           const Icon(Icons.check, color: Colors.green),
+                    //           const SizedBox(width: 8),
+                    //           Expanded(
+                    //             child: Text(
+                    //               AppLocalizations.of(
+                    //                 context,
+                    //               )!.expenseAmountUnderLimit,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       const SizedBox(height: 6),
+                    //       Row(
+                    //         children: [
+                    //           const Icon(Icons.check, color: Colors.green),
+                    //           const SizedBox(width: 8),
+                    //           Expanded(
+                    //             child: Text(
+                    //               AppLocalizations.of(
+                    //                 context,
+                    //               )!.receiptRequiredAmount,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       const SizedBox(height: 6),
+                    //       Row(
+                    //         children: [
+                    //           const Icon(Icons.close, color: Colors.red),
+                    //           const SizedBox(width: 8),
+                    //           Expanded(
+                    //             child: Text(
+                    //               AppLocalizations.of(
+                    //                 context,
+                    //               )!.descriptionMandatory,
+                    //               style: const TextStyle(color: Colors.red),
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       const SizedBox(height: 6),
+                    //       Row(
+                    //         children: [
+                    //           const Icon(
+                    //             Icons.error_outline,
+                    //             color: Colors.orange,
+                    //           ),
+                    //           const SizedBox(width: 8),
+                    //           Expanded(
+                    //             child: Text(
+                    //               AppLocalizations.of(context)!.expiredPolicy,
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Column(
+                        children: [
+                          // 🚨 Submit Button
+                          Obx(() {
+                            final isLoading =
+                                controller.buttonLoaders['submit'] ?? false;
 
-                  // Buttons
-                  Center(
-                    child: Column(
-                      children: [
-                        Obx(() {
-                          return GradientButton(
-                            text: AppLocalizations.of(context)!.submit,
-                            isLoading: controller.isGESubmitBTNLoading.value,
-                            onPressed: () {
-                              controller.saveCashAdvance(
-                                context,
-                                true,
-                                false,
-                                null,
-                                null,
-                              );
-                            },
-                          );
-                        }),
-                        // SizedBox(
-                        //   width: 200,
-                        //   height: 48,
-                        //   child: ElevatedButton(
-                        //     onPressed: () {
-                        //       // Your action here
-                        //     },
-                        //     style: ElevatedButton.styleFrom(
-                        //       padding: EdgeInsets.zero,
-                        //       shape: RoundedRectangleBorder(
-                        //         borderRadius: BorderRadius.circular(24),
-                        //       ),
-                        //       backgroundColor: Colors.transparent, // Important!
-                        //       shadowColor: Colors.transparent,
-                        //     ),
-                        //     child: Ink(
-                        //       decoration: BoxDecoration(
-                        //         gradient: const LinearGradient(
-                        //           colors: [Colors.indigo, Colors.blueAccent],
-                        //         ),
-                        //         borderRadius: BorderRadius.circular(24),
-                        //       ),
-                        //       child: Container(
-                        //         alignment: Alignment.center,
-                        //         child: const Text(
-                        //           'Submit',
-                        //           style: TextStyle(
-                        //             color: Colors.white,
-                        //             fontWeight: FontWeight.bold,
-                        //           ),
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Obx(() {
-                              return ElevatedButton(
-                                onPressed: controller.isUploading.value
-                                    ? null
-                                    : () {
-                                        controller.saveCashAdvance(
+                            return CustomLoaderButton(
+                              text: AppLocalizations.of(context)!.submit,
+                              width: 300,
+                              backgroundColor: AppColors.gradientEnd,
+                              isLoading: isLoading,
+                              disabled:
+                                  controller.anyButtonLoading && !isLoading,
+                              onPressed: () async {
+                                if (!(_formKey.currentState?.validate() ??
+                                    false))
+                                  return;
+
+                                controller.setButtonLoading('submit', true);
+                                try {
+                                  await controller.saveCashAdvance(
+                                    context,
+                                    true,
+                                    false,
+                                    null,
+                                    null,
+                                  );
+                                } finally {
+                                  controller.setButtonLoading('submit', false);
+                                }
+                              },
+                            );
+                          }),
+
+                          const SizedBox(height: 20),
+
+                          // 💾 Save & Cancel Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  final isLoading =
+                                      controller.buttonLoaders['save'] ?? false;
+
+                                  return CustomLoaderButton(
+                                    text: AppLocalizations.of(context)!.save,
+                                    backgroundColor: const Color.fromARGB(
+                                      241,
+                                      20,
+                                      94,
+                                      2,
+                                    ),
+                                    isLoading: isLoading,
+                                    disabled:
+                                        controller.anyButtonLoading &&
+                                        !isLoading,
+                                    onPressed: () async {
+                                      if (!(_formKey.currentState?.validate() ??
+                                          false))
+                                        return;
+
+                                      controller.setButtonLoading('save', true);
+                                      controller.isPageLoading.value = true;
+
+                                      try {
+                                        await controller.saveCashAdvance(
                                           context,
                                           false,
                                           false,
                                           null,
                                           null,
                                         );
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size(130, 50),
-                                  backgroundColor: const Color.fromARGB(
-                                    241,
-                                    20,
-                                    94,
-                                    2,
-                                  ),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                child: controller.isUploading.value
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(AppLocalizations.of(context)!.save),
-                              );
-                            }),
-                            const SizedBox(width: 10),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(130, 50),
-                                backgroundColor: Colors.grey,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                                      } finally {
+                                        controller.setButtonLoading(
+                                          'save',
+                                          false,
+                                        );
+                                        controller.isPageLoading.value = false;
+                                      }
+                                    },
+                                  );
+                                }),
                               ),
-                              onPressed: () {
-                                controller.chancelButton(context);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
-                                ),
-                                child: Text(
-                                  AppLocalizations.of(context)!.cancel,
-                                  style: const TextStyle(
-                                    letterSpacing: 1.5,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Obx(() {
+                                  final isLoading =
+                                      controller.buttonLoaders['cancel'] ??
+                                      false;
+
+                                  return CustomLoaderButton(
+                                    text: AppLocalizations.of(context)!.cancel,
+                                    backgroundColor: Colors.grey,
+                                    isLoading: isLoading,
+                                    disabled:
+                                        controller.anyButtonLoading &&
+                                        !isLoading,
+                                    onPressed: () async {
+                                      controller.setButtonLoading(
+                                        'cancel',
+                                        true,
+                                      );
+                                      controller.isPageLoading.value = true;
+
+                                      try {
+                                        controller.chancelButton(context);
+                                      } finally {
+                                        controller.setButtonLoading(
+                                          'cancel',
+                                          false,
+                                        );
+                                        controller.isPageLoading.value = false;
+                                      }
+                                    },
+                                  );
+                                }),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  OutlinedButton.icon(
-                    onPressed: widget.backButton,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.grey),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    icon: const Icon(Icons.arrow_back),
-                    label: Text(AppLocalizations.of(context)!.back),
-                  ),
-                ],
-              ),
-            ],
+                    // Buttons
+
+                    // Center(
+                    //   child: Column(
+                    //     children: [
+                    //       Obx(() {
+                    //         return GradientButton(
+                    //           text: AppLocalizations.of(context)!.submit,
+                    //           isLoading: controller.isGESubmitBTNLoading.value,
+                    //           onPressed: () {
+                    //             controller.saveCashAdvance(
+                    //               context,
+                    //               true,
+                    //               false,
+                    //               null,
+                    //               null,
+                    //             );
+                    //           },
+                    //         );
+                    //       }),
+                    //       // SizedBox(
+                    //       //   width: 200,
+                    //       //   height: 48,
+                    //       //   child: ElevatedButton(
+                    //       //     onPressed: () {
+                    //       //       // Your action here
+                    //       //     },
+                    //       //     style: ElevatedButton.styleFrom(
+                    //       //       padding: EdgeInsets.zero,
+                    //       //       shape: RoundedRectangleBorder(
+                    //       //         borderRadius: BorderRadius.circular(24),
+                    //       //       ),
+                    //       //       backgroundColor: Colors.transparent, // Important!
+                    //       //       shadowColor: Colors.transparent,
+                    //       //     ),
+                    //       //     child: Ink(
+                    //       //       decoration: BoxDecoration(
+                    //       //         gradient: const LinearGradient(
+                    //       //           colors: [Colors.indigo, Colors.blueAccent],
+                    //       //         ),
+                    //       //         borderRadius: BorderRadius.circular(24),
+                    //       //       ),
+                    //       //       child: Container(
+                    //       //         alignment: Alignment.center,
+                    //       //         child: const Text(
+                    //       //           'Submit',
+                    //       //           style: TextStyle(
+                    //       //             color: Colors.white,
+                    //       //             fontWeight: FontWeight.bold,
+                    //       //           ),
+                    //       //         ),
+                    //       //       ),
+                    //       //     ),
+                    //       //   ),
+                    //       // ),
+                    //       const SizedBox(height: 20),
+                    //       Row(
+                    //         mainAxisAlignment: MainAxisAlignment.center,
+                    //         children: [
+                    //           Obx(() {
+                    //             return ElevatedButton(
+                    //               onPressed: controller.isUploading.value
+                    //                   ? null
+                    //                   : () {
+                    //                       controller.saveCashAdvance(
+                    //                         context,
+                    //                         false,
+                    //                         false,
+                    //                         null,
+                    //                         null,
+                    //                       );
+                    //                     },
+                    //               style: ElevatedButton.styleFrom(
+                    //                 minimumSize: const Size(130, 50),
+                    //                 backgroundColor: const Color.fromARGB(
+                    //                   241,
+                    //                   20,
+                    //                   94,
+                    //                   2,
+                    //                 ),
+                    //                 foregroundColor: Colors.white,
+                    //                 padding: const EdgeInsets.symmetric(
+                    //                   horizontal: 24,
+                    //                   vertical: 12,
+                    //                 ),
+                    //                 shape: RoundedRectangleBorder(
+                    //                   borderRadius: BorderRadius.circular(8),
+                    //                 ),
+                    //                 textStyle: const TextStyle(
+                    //                   fontSize: 16,
+                    //                   fontWeight: FontWeight.w500,
+                    //                 ),
+                    //               ),
+                    //               child: controller.isUploading.value
+                    //                   ? const SizedBox(
+                    //                       width: 20,
+                    //                       height: 20,
+                    //                       child: CircularProgressIndicator(
+                    //                         color: Colors.white,
+                    //                         strokeWidth: 2,
+                    //                       ),
+                    //                     )
+                    //                   : Text(AppLocalizations.of(context)!.save),
+                    //             );
+                    //           }),
+                    //           const SizedBox(width: 10),
+                    //           ElevatedButton(
+                    //             style: ElevatedButton.styleFrom(
+                    //               minimumSize: const Size(130, 50),
+                    //               backgroundColor: Colors.grey,
+                    //               shape: RoundedRectangleBorder(
+                    //                 borderRadius: BorderRadius.circular(10),
+                    //               ),
+                    //             ),
+                    //             onPressed: () {
+                    //               controller.chancelButton(context);
+                    //             },
+                    //             child: Padding(
+                    //               padding: const EdgeInsets.symmetric(
+                    //                 horizontal: 24,
+                    //                 vertical: 12,
+                    //               ),
+                    //               child: Text(
+                    //                 AppLocalizations.of(context)!.cancel,
+                    //                 style: const TextStyle(
+                    //                   letterSpacing: 1.5,
+                    //                   color: Colors.white,
+                    //                 ),
+                    //               ),
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
+                    const SizedBox(height: 20),
+                    OutlinedButton.icon(
+                      onPressed: widget.backButton,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.grey),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(AppLocalizations.of(context)!.back),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

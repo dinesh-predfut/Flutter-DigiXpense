@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/core/constant/image.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/image.dart';
 import 'package:flutter/material.dart';
 
 import '../widget/router/router.dart';

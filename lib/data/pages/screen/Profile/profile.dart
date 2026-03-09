@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 
 import '../../../service.dart';
 
@@ -12,7 +12,7 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
     return Scaffold(
       backgroundColor: Colors.white,

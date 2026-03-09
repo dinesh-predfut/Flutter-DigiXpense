@@ -1,18 +1,21 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:digi_xpense/core/comman/widgets/chatCard.dart';
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/constant/url.dart' show Urls;
-import 'package:digi_xpense/data/models.dart';
+import 'package:diginexa/core/comman/widgets/chatCard.dart';
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/constant/url.dart' show Urls;
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart' show PendingApprovalTableWidgetLeave, PendingApprovalTableWidgetLeaveOverdraftLeave, PendingApprovalTableWidgetLeaveOverdraft;
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:table_calendar/table_calendar.dart' show CalendarFormat, TableCalendar, HeaderStyle, isSameDay, CalendarStyle, CalendarBuilders, DaysOfWeekStyle;
 import 'package:uuid/uuid.dart';
 import '../../../../core/constant/Parames/colors.dart';
 import '../../../../core/constant/Parames/params.dart';
@@ -35,6 +38,8 @@ class _DashboardPageState extends State<DashboardPage>
   double _dragOffset = 100; // Initial height of the draggable panel
   final double _minDragExtent = 100; // Minimum height
   RxBool isImageLoading = false.obs;
+    CalendarFormat _calendarFormat = CalendarFormat.month;
+
   Rxn<File> profileImage = Rxn<File>();
   List<Dashboard> dashboards = [];
   bool loadingDashboards = false;
@@ -52,8 +57,8 @@ class _DashboardPageState extends State<DashboardPage>
     super.initState();
     _scrollController = ScrollController();
     getDeviceDetails(context);
-    controller.fetchAndStoreFeatures(Params.userToken);
-
+    controller.fetchAndStoreFeatures(Params.userToken, context);
+    _loadProfileImage();
     controller.updateFeatureVisibility();
     //  controller.loadDashboards();
     _loadDashboards();
@@ -74,7 +79,6 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Future<void> _initializeAsync() async {
-    print("Initialization failed111: ${controller.isDataLoaded.value}");
     if (controller.isDataLoaded.value) return;
 
     controller.digiSessionId = const Uuid().v4();
@@ -83,6 +87,7 @@ class _DashboardPageState extends State<DashboardPage>
       /// 1️⃣ FIRST: fetch reference / user token (blocking)
       await controller.getPersonalDetails(context); // if this gives token
       await controller.getUserPref(context);
+
       await controller.fetchAndCombineData().then((_) {
         if (controller.manageExpensesCards.isNotEmpty && mounted) {
           _animationController = AnimationController(
@@ -117,33 +122,38 @@ class _DashboardPageState extends State<DashboardPage>
               controller.configuration(),
               controller.getAllFeatureStates(),
               registerDevice(),
-              _loadProfileImage(),
             ]
             as Iterable<Future>,
       );
 
       controller.isDataLoaded.value = true;
     } catch (e) {
-      debugPrint("Initialization failed: $e");
       controller.isInitialized.value = true;
     }
   }
 
   void _loadProfileImage() async {
+    // ✅ If already loaded, do nothing
+    if (profileImage.value != null) {
+      return;
+    }
+
     controller.isImageLoading.value = true;
+
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
-    if (path != null && File(path).existsSync()) {
-      profileImage.value = File(path);
-      controller.isImageLoading.value = false;
-    } else {
-      await controller.getProfilePicture();
-      final path = prefs.getString('profileImagePath');
 
-      profileImage.value = File(path!);
-      controller.isImageLoading.value = false;
+    if (path != null && path.isNotEmpty) {
+      final file = File(path);
+
+      if (file.existsSync()) {
+        profileImage.value = file;
+      }
     }
+
+    controller.isImageLoading.value = false;
   }
+
   // void _initializeAsync() async {
   //   final prefs = await SharedPreferences.getInstance();
   //   String? userToken;
@@ -239,7 +249,6 @@ class _DashboardPageState extends State<DashboardPage>
       // Step 1: Get device details
       final details = await getDeviceDetails(context);
 
-      print("📱 Registering device with details: $details");
 
       // Step 2: Make POST API call
       final response = await http.post(
@@ -257,13 +266,9 @@ class _DashboardPageState extends State<DashboardPage>
       // Step 3: Handle response
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print("✅ Device registered successfully: $data");
       } else {
-        print("❌ Failed to register device. Status: ${response.statusCode}");
-        print("Response: ${response.body}");
       }
     } catch (e) {
-      print("🚨 Error registering device: $e");
     }
   }
 
@@ -271,7 +276,6 @@ class _DashboardPageState extends State<DashboardPage>
     setState(() => loadingDashboards = true);
     try {
       dashboards = await controller.fetchDashboardWidgets();
-      print("ErrorErrordashboards: $dashboards");
 
       if (dashboards.isNotEmpty) {
         // Find the dashboard where IsDefault == true
@@ -286,16 +290,13 @@ class _DashboardPageState extends State<DashboardPage>
       }
     } catch (e) {
       debugPrint('Error: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load dashboards: $e')));
     } finally {
+       if (!mounted) return; 
       setState(() => loadingDashboards = false);
     }
   }
 
   Future<Map<String, dynamic>> getDeviceDetails(BuildContext context) async {
-    print("Fetching device details...");
     final token = await controller.getDeviceToken();
     final platform = controller.getPlatform();
     final deviceId = await controller.getDeviceId();
@@ -434,12 +435,7 @@ class _DashboardPageState extends State<DashboardPage>
                                   ],
                                 ),
                               ),
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                40,
-                                16,
-                                16,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(8, 40, 8, 16),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -448,17 +444,37 @@ class _DashboardPageState extends State<DashboardPage>
                                     borderRadius: BorderRadius.circular(20),
                                     child: Image.asset(
                                       'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
+                                      width: isSmallScreen ? 70 : 90,
                                       height: isSmallScreen ? 30 : 40,
                                       fit: BoxFit.cover,
                                     ),
                                   ),
-                                  Row(
-                                    children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
-                                    ],
+                                  const Spacer(),
+
+                                  Flexible(
+                                    flex: 8,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const LanguageDropdown(),
+
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.fingerprint,
+                                            color: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.punchScreen,
+                                            );
+                                          },
+                                        ),
+
+                                        _buildNotificationBadge(),
+                                        _buildProfileAvatar(),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -477,17 +493,14 @@ class _DashboardPageState extends State<DashboardPage>
                                   bottomRight: Radius.circular(10),
                                 ),
                               ),
-                              padding: const EdgeInsets.fromLTRB(
-                                10,
-                                40,
-                                20,
-                                20,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(8, 40, 8, 16),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
+                                  SizedBox(width: 8),
                                   Flexible(
+                                    flex: 2,
                                     child: Column(
                                       children: [
                                         ClipRRect(
@@ -496,185 +509,39 @@ class _DashboardPageState extends State<DashboardPage>
                                           ),
                                           child: Image.asset(
                                             'assets/XpenseWhite.png',
-                                            width: 100,
-                                            height: 40,
+                                            width: isSmallScreen ? 70 : 90,
+                                            height: isSmallScreen ? 30 : 40,
                                             fit: BoxFit.cover,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const LanguageDropdown(),
-                                      Stack(
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.notifications,
-                                              color: Colors.white,
-                                            ),
-                                            onPressed: () {
-                                              Navigator.pushNamed(
-                                                context,
-                                                AppRoutes.notification,
-                                              );
-                                            },
-                                          ),
-                                          Obx(() {
-                                            final unreadCount = controller
-                                                .unreadNotifications
-                                                .length;
-                                            if (unreadCount == 0) {
-                                              return const SizedBox.shrink();
-                                            }
-                                            return Positioned(
-                                              right: 6,
-                                              top: 6,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  4,
-                                                ),
-                                                decoration: const BoxDecoration(
-                                                  color: Colors.red,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                constraints:
-                                                    const BoxConstraints(
-                                                      minWidth: 15,
-                                                      minHeight: 15,
-                                                    ),
-                                                child: Text(
-                                                  '$unreadCount',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 6,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ),
-                                            );
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 10),
-                                      GestureDetector(
-                                        onTap: () {
-                                          Navigator.pushNamed(
-                                            context,
-                                            AppRoutes.personalInfo,
-                                          );
-                                        },
-                                        child: Obx(
-                                          () => AnimatedContainer(
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withOpacity(0.15),
-                                                  blurRadius: 12,
-                                                  offset: const Offset(0, 4),
-                                                ),
-                                              ],
-                                            ),
-                                            child: AnimatedScale(
-                                              duration: const Duration(
-                                                milliseconds: 200,
-                                              ),
-                                              scale: controller.isImageLoading.value
-                                                  ? 1.0
-                                                  : 1.05,
-                                              child: ClipOval(
-                                                child: SizedBox(
-                                                  width: 30,
-                                                  height: 30,
-                                                  child: Stack(
-                                                    alignment: Alignment.center,
-                                                    children: [
-                                                      /// Avatar / Placeholder
-                                                      Container(
-                                                        width: 30,
-                                                        height: 30,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              color: Colors
-                                                                  .grey[800],
-                                                            ),
-                                                        child:
-                                                            profileImage
-                                                                    .value !=
-                                                                null
-                                                            ? Image.file(
-                                                                profileImage
-                                                                    .value!,
-                                                                key: ValueKey(
-                                                                  profileImage
-                                                                      .value!
-                                                                      .path,
-                                                                ),
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              )
-                                                            : const Icon(
-                                                                Icons.person,
-                                                                size: 18,
-                                                                color: Colors
-                                                                    .white70,
-                                                              ),
-                                                      ),
+                                  const Spacer(),
+                                  Flexible(
+                                    flex: 8,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const LanguageDropdown(),
 
-                                                      /// Loader Overlay
-                                                      if (controller.isImageLoading.value)
-                                                        Container(
-                                                          width: 30,
-                                                          height: 30,
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                                color: Colors
-                                                                    .black
-                                                                    .withOpacity(
-                                                                      0.35,
-                                                                    ),
-                                                              ),
-                                                          child: const Center(
-                                                            child: SizedBox(
-                                                              width: 14,
-                                                              height: 14,
-                                                              child: CircularProgressIndicator(
-                                                                strokeWidth: 2,
-                                                                valueColor:
-                                                                    AlwaysStoppedAnimation<
-                                                                      Color
-                                                                    >(
-                                                                      Colors
-                                                                          .white,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.fingerprint,
+                                            color: Colors.white,
                                           ),
+                                          onPressed: () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.punchScreen,
+                                            );
+                                          },
                                         ),
-                                      ),
-                                    ],
+
+                                        _buildNotificationBadge(),
+                                        _buildProfileAvatar(),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -815,54 +682,62 @@ class _DashboardPageState extends State<DashboardPage>
                                               fontSize: 10,
                                             ),
                                           ),
-                                          Obx(() {
-                                            final selected = controller
-                                                .selectedDashboard
-                                                .value;
-                                            return DropdownButtonHideUnderline(
-                                              child: DropdownButton<Dashboard>(
-                                                value: selected,
-                                                icon: const Icon(
-                                                  Icons.arrow_drop_down,
-                                                  color: Colors.white,
-                                                ),
-                                                dropdownColor: Theme.of(
-                                                  context,
-                                                ).colorScheme.secondary,
-                                                onChanged: (Dashboard? newDash) {
-                                                  if (newDash != null) {
-                                                    controller
-                                                            .selectedDashboard
-                                                            .value =
-                                                        newDash;
-                                                    controller
-                                                        .onDashboardChanged(
-                                                          newDash,
-                                                        );
-                                                  }
-                                                },
-                                                items: dashboards
-                                                    .map(
-                                                      (dashboard) =>
-                                                          DropdownMenuItem<
-                                                            Dashboard
-                                                          >(
-                                                            value: dashboard,
-                                                            child: Text(
-                                                              dashboard
-                                                                  .dashBoardTitle,
-                                                              style:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
-                                                                  ),
-                                                            ),
+
+                                          Expanded(
+                                            // ✅ prevents overflow
+                                            child: Obx(() {
+                                              final selected = controller
+                                                  .selectedDashboard
+                                                  .value;
+
+                                              return DropdownButtonHideUnderline(
+                                                child: DropdownButton<Dashboard>(
+                                                  isExpanded:
+                                                      true, // ✅ important
+                                                  value: selected,
+                                                  icon: const Icon(
+                                                    Icons.arrow_drop_down,
+                                                    color: Colors.white,
+                                                  ),
+                                                  dropdownColor: Theme.of(
+                                                    context,
+                                                  ).colorScheme.secondary,
+                                                  onChanged: (Dashboard? newDash) {
+                                                    if (newDash != null) {
+                                                      controller
+                                                              .selectedDashboard
+                                                              .value =
+                                                          newDash;
+                                                      controller
+                                                          .onDashboardChanged(
+                                                            newDash,
+                                                          );
+                                                    }
+                                                  },
+                                                  items: dashboards
+                                                      .map(
+                                                        (
+                                                          dashboard,
+                                                        ) => DropdownMenuItem<Dashboard>(
+                                                          value: dashboard,
+                                                          child: Text(
+                                                            dashboard
+                                                                .dashBoardTitle,
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                ),
+                                                            overflow: TextOverflow
+                                                                .ellipsis, // ✅ prevents long text overflow
                                                           ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                            );
-                                          }),
+                                                        ),
+                                                      )
+                                                      .toList(),
+                                                ),
+                                              );
+                                            }),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -936,7 +811,7 @@ class _DashboardPageState extends State<DashboardPage>
                             child: Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: Colors.white, // White background
+                                color: Theme.of(context).colorScheme.surface,
                                 borderRadius: BorderRadius.circular(
                                   12,
                                 ), // Rounded corners
@@ -956,7 +831,7 @@ class _DashboardPageState extends State<DashboardPage>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "Dashboards",
+                                    loc.myDashboard,
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
@@ -1064,9 +939,9 @@ class _DashboardPageState extends State<DashboardPage>
 
   // Build Widget Content
   Widget _buildWidgetContent(DashboardDataItem item, BuildContext context) {
-    final data = controller.getWidgetData(item.filterProps?.widgetName ?? "");
+    final data = controller.getWidgetData(item.id);
 
-    if (data == null) {
+    if (data == null && item.filterProps?.widgetName != "leavecalanderview" && item.filterProps?.widgetName != "mypendingleaves" && item.filterProps?.widgetName != "DraftExpenses"  && item.filterProps?.widgetName != "draftleaves" && item.filterProps?.widgetName != "MyPendingApprovals" )  {
       return Center(
         child: ElevatedButton(
           onPressed: () async {
@@ -1076,31 +951,461 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       );
     }
+
     switch (controller.getWidgetType(item.filterProps?.widgetName ?? '')) {
+      
       case 'LineChart':
-        return _buildLineChartWidget(item, data);
+        return _buildLineChartWidget(item, data!);
 
       case 'BarChart':
-        return _buildBarChartWidget(item, data);
+        return _buildBarChartWidget(item, data!);
 
       case 'PieChart':
-        return _buildPieChartWidget(item, data);
+        return _buildPieChartWidget(item, data!);
 
       case 'DonutChart':
-        return _buildDonutChartWidget(item, data);
+        return _buildDonutChartWidget(item, data!);
 
       case 'SummaryBox':
-        return _buildSummaryBoxWidget(item, data);
+        return _buildSummaryBoxWidget(item, data!);
 
       case 'Table':
         return _buildTable();
+      case 'Leavecalanderview':
+        return _buildCalendarViewContent(context);
+      case 'ExpenseTable':
+        return _buildTable();
+      case 'MyPendingApprovalsPage':
+        return PendingApprovalTableWidget(controller: controller);
       case 'MultiBarChart':
-        return _buildMultiBarChart(item, data);
+        return _buildMultiBarChart(item, data!);
+      case 'mypendingleaves':
+        return PendingApprovalTableWidgetLeave(controller: controller);
+        case 'DraftExpenses':
+        return PendingApprovalTableWidgetLeaveOverdraft(controller: controller);
+          case 'Draftleaves':
+        return PendingApprovalTableWidgetLeaveOverdraftLeave (controller: controller);
       default:
-        return _buildGenericWidgetContent(item, data);
+        return _buildGenericWidgetContent(item, data!);
     }
   }
+Widget _buildCalendarViewContent(BuildContext context) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    child: Obx(() {
+      return Stack(
+        children: [
+          SingleChildScrollView(
+            child: TableCalendar<LeaveDetailsModel>(
+              firstDay: DateTime.utc(2000, 1, 1),
+              lastDay: DateTime.utc(2050, 12, 31),
+              focusedDay: controller.focusedDay,
+              calendarFormat: CalendarFormat.month,
 
+              rowHeight: 28,
+              daysOfWeekHeight: 18,
+
+              headerStyle: const HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                leftChevronVisible: false,
+                rightChevronVisible: false,
+                titleTextStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              daysOfWeekStyle: const DaysOfWeekStyle(
+                weekdayStyle: TextStyle(fontSize: 10),
+                weekendStyle: TextStyle(fontSize: 10),
+              ),
+
+              calendarStyle: const CalendarStyle(
+                defaultTextStyle: TextStyle(fontSize: 11),
+                weekendTextStyle: TextStyle(fontSize: 11),
+                todayTextStyle: TextStyle(fontSize: 11),
+                selectedTextStyle: TextStyle(fontSize: 11),
+                markersMaxCount: 2,
+              ),
+
+              eventLoader: (date) {
+                final key =
+                    DateTime(date.year, date.month, date.day);
+                return controller.events[key] ?? [];
+              },
+
+              selectedDayPredicate: (d) =>
+                  isSameDay(d, controller.selectedDay),
+
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, date, events) {
+                  if (events.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: events.take(2).map((e) {
+                        return Container(
+                          width: 4,
+                          height: 4,
+                          margin:
+                              const EdgeInsets.symmetric(
+                                  horizontal: 1),
+                          decoration:
+                              const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
+
+              onDaySelected: (selected, focused) {
+                controller.onDaySelected(
+                    selected, focused);
+              },
+
+              onPageChanged: (focused) {
+                controller.focusedDay = focused;
+
+                final range =
+                    controller.getMonthRangeEpoch(
+                        focused);
+
+                controller.loadCalendarLeaves(
+                  fromDate: range['from']!,
+                  toDate: range['to']!,
+                );
+              },
+            ),
+          ),
+
+          if (controller.isCalendarLoading.value)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.05),
+                child: const Center(
+                  child: SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }),
+  );
+}
+  Widget _buildDatePickerField(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Selected Dates *'),
+        const SizedBox(height: 6),
+
+        Obx(
+          () => TextFormField(
+            readOnly: true,
+            decoration: InputDecoration(
+              hintText: controller.selectedFilterDate.value == null
+                  ? 'Select date'
+                  : DateFormat(
+                      'dd/MM/yyyy',
+                    ).format(controller.selectedFilterDate.value!),
+              suffixIcon: const Icon(Icons.calendar_today, size: 18),
+              border: const OutlineInputBorder(),
+            ),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2050),
+                initialDate:
+                    controller.selectedFilterDate.value ?? DateTime.now(),
+              );
+              if (date != null) {
+                controller.selectedFilterDate.value = date;
+              }
+            },
+          ),
+        ),
+
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildBottomList() {
+    final list = controller.selectedEvents;
+
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            '${AppLocalizations.of(context)!.noEventsFor} ${DateFormat('yMMMd').format(controller.selectedDay)}',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true, // IMPORTANT
+      physics: const NeverScrollableScrollPhysics(), // IMPORTANT
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        final ev = list[index];
+
+        return GestureDetector(
+          onTap: () => _openDetail(ev),
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 6),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    // color: _colorFromHex(ev.leaveColor ?? '#e13333'),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ev.leaveCode,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        ev.employeeName, // Show employee name instead
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${ev.duration} day${ev.duration != 1 ? 's' : ''}', // Show duration
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      DateFormat('MMM d').format(
+                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
+                      ),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openDetail(LeaveDetailsModel ev) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ViewEditLeavePage(
+          leaveRequest: ev,
+          isReadOnly: true,
+          status: false,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(30),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 24, color: Colors.grey[700]),
+      ),
+    );
+  }
+
+  Widget _buildFormatButton(String text, CalendarFormat format) {
+    final isSelected = _calendarFormat == format;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _calendarFormat = format;
+          });
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.grey[700],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeaveEventItem(LeaveRequisition leave) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: _getLeaveColor(leave.leaveCode),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  leave.leaveCode,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${AppLocalizations.of(context)!.duration}: ${leave.duration} ${AppLocalizations.of(context)!.days}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getStatusColor(leave.approvalStatus).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _getStatusColor(leave.approvalStatus),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              leave.approvalStatus,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: _getStatusColor(leave.approvalStatus),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getLeaveColor(String leaveCode) {
+    // Map leave codes to colors
+    final colorMap = {
+      'Annual Leave': Colors.blue,
+      'Sick Leave': Colors.green,
+      'Maternity Leave': Colors.purple,
+      'Paternity Leave': Colors.orange,
+      'Study Leave': Colors.teal,
+      'Unpaid Leave': Colors.grey,
+    };
+
+    return colorMap[leaveCode] ?? Theme.of(context).primaryColor;
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'rejected':
+        return Colors.red;
+      case 'cancelled':
+        return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
   Widget _buildMultiBarChart(DashboardDataItem item, WidgetDataResponse data) {
     final multiSeries = controller.convertMultiSeriesChart(data!.raw);
     if (multiSeries.isEmpty) {
@@ -1193,23 +1498,48 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildPieChartWidget(DashboardDataItem item, WidgetDataResponse data) {
     final chartData = _convertToChartDataPoints(data);
 
+    // 👇 Indian currency formatter
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹ ',
+      decimalDigits: 0,
+    );
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: SfCircularChart(
         tooltipBehavior: TooltipBehavior(
           enable: true,
-          textStyle: const TextStyle(fontSize: 9),
+          builder:
+              (
+                dynamic data,
+                dynamic point,
+                dynamic series,
+                int pointIndex,
+                int seriesIndex,
+              ) {
+                return Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Text(
+                    '${data.x} : ${formatter.format(data.y)}',
+                    style: const TextStyle(fontSize: 10, color: Colors.white),
+                  ),
+                );
+              },
         ),
-
         series: <PieSeries<ChartDataPoint, String>>[
           PieSeries<ChartDataPoint, String>(
             dataSource: chartData,
             xValueMapper: (p, _) => p.x,
             yValueMapper: (p, _) => p.y,
 
+            // 👇 Indian ₹ format for labels
+            dataLabelMapper: (p, _) =>
+                formatter.format(double.tryParse(p.y.toString()) ?? 0),
+
             dataLabelSettings: const DataLabelSettings(
               isVisible: true,
-              textStyle: TextStyle(fontSize: 8), // Reduced label font
+              textStyle: TextStyle(fontSize: 8),
             ),
           ),
         ],
@@ -1362,7 +1692,7 @@ class _DashboardPageState extends State<DashboardPage>
   ) {
     final value = data.getSingleValue();
     final formattedValue = NumberFormat.currency(
-      symbol: "₹",
+      symbol: "",
       decimalDigits: 0,
     ).format(value);
 
@@ -2285,217 +2615,264 @@ class _DashboardPageState extends State<DashboardPage>
 
   Widget _buildProfileAvatar() {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.personalInfo),
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
       child: Obx(
-        () => Container(
-          padding: const EdgeInsets.all(2),
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: controller.isImageLoading.value
-                ? const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
                     ),
-                  )
-                : profileImage.value != null
-                ? Image.file(
-                    profileImage.value!,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  )
-                : const Icon(Icons.person, size: 40, color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _loaderBox() {
-    return const SizedBox(
-      width: 250,
-      height: 220,
-      child: Center(child: CircularProgressIndicator(color: Colors.green)),
-    );
-  }
-
-  /// 🔹 Reusable empty state box
-  Widget _emptyBox() {
-    return const SizedBox(
-      width: 250,
-      height: 220,
-      child: Center(
-        child: Text(
-          "No data available",
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  /// 🔹 Chart Widgets (split into methods for clarity)
-  Widget _expenseTrendChart(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.8,
-      height: 220,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: _boxDecoration(Colors.green.shade50),
-      child: SfCartesianChart(
-        title: ChartTitle(
-          text: loc.myExpenseTrends,
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-        ),
-        primaryXAxis: const CategoryAxis(
-          labelRotation: 25,
-          labelStyle: TextStyle(fontSize: 5),
-          edgeLabelPlacement: EdgeLabelPlacement.shift,
-          labelIntersectAction: AxisLabelIntersectAction.hide,
-        ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        tooltipBehavior: TooltipBehavior(enable: true),
-        series: <CartesianSeries>[
-          LineSeries<ProjectData, String>(
-            dataSource: controller.chartData,
-            xValueMapper: (ProjectData project, _) => project.x,
-            yValueMapper: (ProjectData project, _) => project.y,
-            markerSettings: const MarkerSettings(isVisible: true),
-            color: Colors.green,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _approvalStatusChart(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.8,
-      height: 220,
-      margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: _boxDecoration(Colors.amber.shade50),
-      child: SfCircularChart(
-        title: ChartTitle(
-          text: loc.myExpenseAmountByApprovalStatus,
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        legend: const Legend(
-          isVisible: true,
-          overflowMode: LegendItemOverflowMode.wrap,
-          position: LegendPosition.bottom,
-          textStyle: TextStyle(fontSize: 9),
-        ),
-        series: <DoughnutSeries<ManageExpensesSummary, String>>[
-          DoughnutSeries<ManageExpensesSummary, String>(
-            dataSource: controller.manageExpensesSummary,
-            xValueMapper: (ManageExpensesSummary data, _) => data.status,
-            yValueMapper: (ManageExpensesSummary data, _) => data.amount,
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              textStyle: TextStyle(fontSize: 8),
+                    /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _settlementStatusChart(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
+  // Widget _loaderBox() {
+  //   return const SizedBox(
+  //     width: 250,
+  //     height: 220,
+  //     child: Center(child: CircularProgressIndicator(color: Colors.green)),
+  //   );
+  // }
 
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      height: 220,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: _boxDecoration(Colors.white),
-      child: SfCartesianChart(
-        title: ChartTitle(
-          text: loc.mySettlementStatus,
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        primaryXAxis: const CategoryAxis(
-          labelRotation: 35,
-          labelStyle: TextStyle(fontSize: 8),
-        ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        series: <ColumnSeries>[
-          ColumnSeries<ExpenseAmountByStatus, String>(
-            dataSource: controller.expensesByStatus,
-            xValueMapper: (ExpenseAmountByStatus data, _) => data.status,
-            yValueMapper: (ExpenseAmountByStatus data, _) => data.amount,
-            pointColorMapper: (_, __) =>
-                Colors.primaries[__ % Colors.primaries.length].shade300,
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              textStyle: TextStyle(fontSize: 8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // /// 🔹 Reusable empty state box
+  // Widget _emptyBox() {
+  //   return const SizedBox(
+  //     width: 250,
+  //     height: 220,
+  //     child: Center(
+  //       child: Text(
+  //         "No data available",
+  //         style: TextStyle(fontSize: 12, color: Colors.grey),
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  Widget _expensesByProjectChart(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.8,
-      height: 220,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: _boxDecoration(Colors.blue.shade50),
-      child: SfCartesianChart(
-        title: ChartTitle(
-          text: loc.myExpensesByProject,
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-        ),
-        primaryXAxis: const CategoryAxis(labelStyle: TextStyle(fontSize: 8)),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        series: <CartesianSeries>[
-          ColumnSeries<ProjectExpense, String>(
-            dataSource: controller.projectExpenses,
-            xValueMapper: (ProjectExpense project, _) => project.x,
-            yValueMapper: (ProjectExpense project, _) => project.y,
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              textStyle: TextStyle(fontSize: 8),
-            ),
-            color: Colors.blue,
-          ),
-        ],
-      ),
-    );
-  }
+  // /// 🔹 Chart Widgets (split into methods for clarity)
+  // Widget _expenseTrendChart(BuildContext context) {
+  //   final loc = AppLocalizations.of(context)!;
+  //   return Container(
+  //     width: MediaQuery.of(context).size.width * 0.8,
+  //     height: 220,
+  //     margin: const EdgeInsets.symmetric(horizontal: 8),
+  //     decoration: _boxDecoration(Colors.green.shade50),
+  //     child: SfCartesianChart(
+  //       title: ChartTitle(
+  //         text: loc.myExpenseTrends,
+  //         textStyle: const TextStyle(
+  //           fontSize: 12,
+  //           fontWeight: FontWeight.w600,
+  //           color: Colors.black,
+  //         ),
+  //       ),
+  //       primaryXAxis: const CategoryAxis(
+  //         labelRotation: 25,
+  //         labelStyle: TextStyle(fontSize: 5),
+  //         edgeLabelPlacement: EdgeLabelPlacement.shift,
+  //         labelIntersectAction: AxisLabelIntersectAction.hide,
+  //       ),
+  //       primaryYAxis: NumericAxis(
+  //         numberFormat: NumberFormat.compact(),
+  //         labelStyle: const TextStyle(fontSize: 8),
+  //       ),
+  //       tooltipBehavior: TooltipBehavior(enable: true),
+  //       series: <CartesianSeries>[
+  //         LineSeries<ProjectData, String>(
+  //           dataSource: controller.chartData,
+  //           xValueMapper: (ProjectData project, _) => project.x,
+  //           yValueMapper: (ProjectData project, _) => project.y,
+  //           markerSettings: const MarkerSettings(isVisible: true),
+  //           color: Colors.green,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _approvalStatusChart(BuildContext context) {
+  //   final loc = AppLocalizations.of(context)!;
+  //   return Container(
+  //     width: MediaQuery.of(context).size.width * 0.8,
+  //     height: 220,
+  //     margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+  //     decoration: _boxDecoration(Colors.amber.shade50),
+  //     child: SfCircularChart(
+  //       title: ChartTitle(
+  //         text: loc.myExpenseAmountByApprovalStatus,
+  //         textStyle: const TextStyle(
+  //           fontSize: 12,
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.black,
+  //         ),
+  //       ),
+  //       legend: const Legend(
+  //         isVisible: true,
+  //         overflowMode: LegendItemOverflowMode.wrap,
+  //         position: LegendPosition.bottom,
+  //         textStyle: TextStyle(fontSize: 9),
+  //       ),
+  //       series: <DoughnutSeries<ManageExpensesSummary, String>>[
+  //         DoughnutSeries<ManageExpensesSummary, String>(
+  //           dataSource: controller.manageExpensesSummary,
+  //           xValueMapper: (ManageExpensesSummary data, _) => data.status,
+  //           yValueMapper: (ManageExpensesSummary data, _) => data.amount,
+  //           dataLabelSettings: const DataLabelSettings(
+  //             isVisible: true,
+  //             textStyle: TextStyle(fontSize: 8),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _settlementStatusChart(BuildContext context) {
+  //   final loc = AppLocalizations.of(context)!;
+
+  //   return Container(
+  //     width: MediaQuery.of(context).size.width * 0.85,
+  //     height: 220,
+  //     margin: const EdgeInsets.symmetric(horizontal: 8),
+  //     decoration: _boxDecoration(Colors.white),
+  //     child: SfCartesianChart(
+  //       title: ChartTitle(
+  //         text: loc.mySettlementStatus,
+  //         textStyle: const TextStyle(
+  //           fontSize: 12,
+  //           fontWeight: FontWeight.bold,
+  //           color: Colors.black,
+  //         ),
+  //       ),
+  //       primaryXAxis: const CategoryAxis(
+  //         labelRotation: 35,
+  //         labelStyle: TextStyle(fontSize: 8),
+  //       ),
+  //       primaryYAxis: NumericAxis(
+  //         numberFormat: NumberFormat.compact(),
+  //         labelStyle: const TextStyle(fontSize: 8),
+  //       ),
+  //       series: <ColumnSeries>[
+  //         ColumnSeries<ExpenseAmountByStatus, String>(
+  //           dataSource: controller.expensesByStatus,
+  //           xValueMapper: (ExpenseAmountByStatus data, _) => data.status,
+  //           yValueMapper: (ExpenseAmountByStatus data, _) => data.amount,
+  //           pointColorMapper: (_, __) =>
+  //               Colors.primaries[__ % Colors.primaries.length].shade300,
+  //           dataLabelSettings: const DataLabelSettings(
+  //             isVisible: true,
+  //             textStyle: TextStyle(fontSize: 8),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _expensesByProjectChart(BuildContext context) {
+  //   final loc = AppLocalizations.of(context)!;
+  //   return Container(
+  //     width: MediaQuery.of(context).size.width * 0.8,
+  //     height: 220,
+  //     margin: const EdgeInsets.symmetric(horizontal: 8),
+  //     decoration: _boxDecoration(Colors.blue.shade50),
+  //     child: SfCartesianChart(
+  //       title: ChartTitle(
+  //         text: loc.myExpensesByProject,
+  //         textStyle: const TextStyle(
+  //           fontSize: 12,
+  //           fontWeight: FontWeight.w600,
+  //           color: Colors.black,
+  //         ),
+  //       ),
+  //       primaryXAxis: const CategoryAxis(labelStyle: TextStyle(fontSize: 8)),
+  //       primaryYAxis: NumericAxis(
+  //         numberFormat: NumberFormat.compact(),
+  //         labelStyle: const TextStyle(fontSize: 8),
+  //       ),
+  //       series: <CartesianSeries>[
+  //         ColumnSeries<ProjectExpense, String>(
+  //           dataSource: controller.projectExpenses,
+  //           xValueMapper: (ProjectExpense project, _) => project.x,
+  //           yValueMapper: (ProjectExpense project, _) => project.y,
+  //           dataLabelSettings: const DataLabelSettings(
+  //             isVisible: true,
+  //             textStyle: TextStyle(fontSize: 8),
+  //           ),
+  //           color: Colors.blue,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
     final theme = Theme.of(context);
@@ -2631,6 +3008,143 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       ],
       color: color,
+    );
+  }
+}
+class PendingApprovalTableWidget extends StatelessWidget {
+  final Controller controller;
+
+  const PendingApprovalTableWidget({
+    super.key,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        /// 🔍 Search Bar
+        SizedBox(
+          height: 42,
+          child: TextField(
+            controller: controller.searchController,
+            onChanged: (value) {
+              controller.searchQuery.value = value.toLowerCase();
+            },
+            decoration: InputDecoration(
+              hintText: "Search expenses...",
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        /// 📋 Scrollable Table
+        Expanded(
+          child: Obx(() {
+            if (controller.isLoadingGE1.value) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
+            if (controller.filteredpendingApprovals.isEmpty) {
+              return const Center(
+                child: Text("No expenses found"),
+              );
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 900, // 👈 table width
+                child: ListView.builder(
+                  itemCount:
+                      controller.filteredpendingApprovals.length,
+                  itemBuilder: (context, index) {
+                    final item =
+                        controller.filteredpendingApprovals[index];
+
+                    return _SmallApprovalRow(item: item);
+                  },
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+  }
+  
+class _SmallApprovalRow extends StatelessWidget {
+  final ExpenseModel item;
+
+  const _SmallApprovalRow({
+    required this.item,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 8,
+        ),
+        child: Row(
+          children: [
+            _cell(item.expenseId, 110, bold: true),
+
+            _cell(
+              DateFormat('dd-MM-yyyy').format(
+                DateTime.fromMillisecondsSinceEpoch(
+                  item.receiptDate,
+                ),
+              ),
+              110,
+            ),
+
+            _cell(item.expenseCategoryId ?? '', 150),
+
+            _cell(item.stepType, 120),
+
+            _cell(
+              item.totalAmountReporting.toStringAsFixed(2),
+              120,
+              color: Colors.blue,
+              bold: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(
+    String text,
+    double width, {
+    bool bold = false,
+    Color? color,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          color: color,
+        ),
+      ),
     );
   }
 }

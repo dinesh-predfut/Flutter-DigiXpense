@@ -1,46 +1,57 @@
 // lib/presentation/routes/app_routes.dart
 import 'dart:io';
 
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/AI%20Analytics/aiAnalytics.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseForm.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseFormstart.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Mileage/viewAndEditMileage.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalDashboard.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalPendingEdit.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/expenseReportPrintPage.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Reports/reportsdashboard.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/Unprocessed_Expense/viewUnProcessExpense.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/unProcessed.dart';
-import 'package:digi_xpense/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
-import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
-import 'package:digi_xpense/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
-import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart' show SpendersDashboardPage;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/Leave_Approvals/leaveApprovals.dart' show PendingApprovalsLeaveDashboard;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/Leave_Cancellation/leave_Cancelation_Dashboard.dart';
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/My_Teams_Leave/my_Team_dashboard_leave.dart';
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/dashboard_leave.dart';
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart' show CalendarPage;
-import 'package:digi_xpense/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
-import 'package:digi_xpense/data/pages/screen/Notification/notification.dart';
-import 'package:digi_xpense/data/pages/screen/Payroll/paySlipDashboard.dart';
-import 'package:digi_xpense/data/pages/screen/Profile/personalDetail.dart';
-import 'package:digi_xpense/data/pages/screen/Task_Board/addmoreetailsTask.dart';
-import 'package:digi_xpense/data/pages/screen/Task_Board/boardDashboard.dart';
-import 'package:digi_xpense/data/pages/screen/Task_Board/boardList.dart' show KanbanBoardPage, KanbanBoardScreen;
-import 'package:digi_xpense/data/pages/screen/Task_Board/view-Board.dart';
-import 'package:digi_xpense/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
-import 'package:digi_xpense/data/pages/screen/TimeSheet/timesheetDashboard.dart';
-import 'package:digi_xpense/data/pages/screen/landingLogo/entryLogoScree.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/AI%20Analytics/aiAnalytics.dart';
+import 'package:diginexa/data/pages/ApprovalHub/ApprovalPages/externalApproval.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseForm.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseFormstart.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Mileage/viewAndEditMileage.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalDashboard.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Pending%20Approval/approvalPendingEdit.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/PerDiem/perDiemCreateform.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/expenseReportPrintPage.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/reportsdashboard.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Unprocessed_Expense/viewUnProcessExpense.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/unProcessed.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
+import 'package:diginexa/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart'
+    show SpendersDashboardPage;
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Leave_Approvals/leaveApprovals.dart'
+    show PendingApprovalsLeaveDashboard;
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Leave_Cancellation/leave_Cancelation_Dashboard.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/My_Teams_Leave/my_Team_dashboard_leave.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/dashboard_leave.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart'
+    show CalendarPage;
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
+import 'package:diginexa/data/pages/screen/Notification/notification.dart';
+import 'package:diginexa/data/pages/screen/Payroll/allpaySlipDashboard.dart';
+import 'package:diginexa/data/pages/screen/Payroll/myPaySlips.dart';
+import 'package:diginexa/data/pages/screen/Profile/personalDetail.dart';
+import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/createPunchIn-out.dart';
+import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/listPunchIn-Out.dart';
+import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/myTeamPunchIn-Out.dart';
+import 'package:diginexa/data/pages/screen/Task_Board/addmoreetailsTask.dart';
+import 'package:diginexa/data/pages/screen/Task_Board/boardDashboard.dart';
+import 'package:diginexa/data/pages/screen/Task_Board/boardList.dart'
+    show KanbanBoardPage, KanbanBoardScreen;
+import 'package:diginexa/data/pages/screen/Task_Board/view-Board.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/myTeamsTimeSheet.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/timeSheetPendingApproval.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/timesheetDashboard.dart';
+import 'package:diginexa/data/pages/screen/landingLogo/entryLogoScree.dart';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/core/comman/navigationBar.dart';
-import 'package:digi_xpense/data/pages/screen/Authentication/forgetPassword.dart';
-import 'package:digi_xpense/data/pages/screen/Authentication/login.dart';
-import 'package:digi_xpense/data/pages/screen/Dashboard_Screen/dashboard_Main.dart';
-import 'package:digi_xpense/data/pages/screen/Profile/changeLanguage.dart';
+import 'package:diginexa/core/comman/navigationBar.dart';
+import 'package:diginexa/data/pages/screen/Authentication/forgetPassword.dart';
+import 'package:diginexa/data/pages/screen/Authentication/login.dart';
+import 'package:diginexa/data/pages/screen/Dashboard_Screen/dashboard_Main.dart';
+import 'package:diginexa/data/pages/screen/Profile/changeLanguage.dart';
 import '../../../ApprovalHub/ApprovalPages/hubMileage/hubMileage_2.dart';
 import '../../../ApprovalHub/approvalHubMain.dart';
 import '../../../EmailHub/emailHubListing.dart';
@@ -63,7 +74,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String forgetPasswordurl = '/forgetPassword';
   static const String dashboard_Main = '/dashboard_Main';
-    static const String spanders = '/dashboard_Main/spanders';
+  static const String spanders = '/dashboard_Main/spanders';
 
   static const String changesLanguage = '/profile/changesLanguage';
   static const String profile = '/profile/profileinfo';
@@ -72,7 +83,8 @@ class AppRoutes {
   static const String generalExpense = '/expense/generalExpense';
   static const String expenseForm = '/expense/generalExpense/from';
   static const String getSpecificExpense = '/expense/getSpecificExpense/view';
-    static const String unProcessExpense = '/expense/unProcessExpense/view';
+  static const String unProcessExpense = '/expense/unProcessExpense/view';
+  static const String externalApprovals = '/expense/externalApprovals/view';
 
   static const String getSpecificCashAdvanseView =
       '/expense/getSpecificCashAdvanseView/view';
@@ -110,39 +122,45 @@ class AppRoutes {
       '/expense/reportsDashboard/reportsDashboard';
   static const String reportsAssignUser =
       '/expense/reportsAssignUser/reportsAssignUser';
-       static const String leaveDashboard =
-      '/expense/leaveDashboard/leaveDashboard';
+  static const String leaveDashboard = '/expense/leaveDashboard/leaveDashboard';
   static const String reportCreateScreen =
       '/expense/reportCreateScreen/reportCreateScreen';
   static const String emailHubScreen = '/expense/emailHubScreen/emailHubScreen';
   static const String reportWizardParent =
       '/expense/reportWizardParent/reportWizardParent';
-       static const String expensePaginationPage =
-      '/expense/reportWizardParent/reportWizardParent';
-  static const String calendarView =
-      '/leave/calendarView/calendarView';
-       static const String myTeamsDashboard =
+  static const String expensePaginationPage =
+      '/expense/reportWizardParentx/reportWizardParentx';
+  static const String calendarView = '/leave/calendarView/calendarView';
+  static const String myTeamsDashboard =
       '/myTeamsDashboard/myTeamsDashboard/myTeamsDashboard';
-       static const String viewLeave =
-      '/leave/viewLeave/viewLeave';
-       static const String leavePendingApprovals =
+  static const String viewLeave = '/leave/viewLeave/viewLeave';
+  static const String leavePendingApprovals =
       '/leave/leavePendingApprovals/leavePendingApprovals';
-         static const String leaveCancellation =
+  static const String leaveCancellation =
       '/leave/leaveCancellation/leaveCancellation';
-       static const String paySlipDashboard =
+  static const String paySlipDashboard =
       '/leave/paySlipDashboard/paySlipDashboard';
-       static const String boardDashboard =
-      '/leave/boardDashboard/boardDashboard';
-        static const String createBoard =
-      '/leave/boardDashboard/createBoard';
-        static const String kanbanBoardPage =
+  static const String mypaySlipDashboard =
+      '/leave/paySlipDashboard/mypaySlipDashboard';
+  static const String boardDashboard = '/leave/boardDashboard/boardDashboard';
+  static const String createBoard = '/leave/boardDashboard/createBoard';
+  static const String kanbanBoardPage =
       '/leave/kanbanBoardPage/kanbanBoardPage';
-           static const String taskAddDetails =
-      '/leave/kanbanBoardPage/taskAddDetails';
-              static const String timeSheetDashboard =
+  static const String taskAddDetails = '/leave/kanbanBoardPage/taskAddDetails';
+  static const String timeSheetDashboard =
       '/leave/timeSheetDashboard/timeSheetDashboard';
-      static const String timeSheetRequestPage =
+  static const String timeSheetRequestPage =
       '/leave/timeSheetRequestPage/timeSheetRequestPage';
+       static const String punchScreen =
+      '/punchScreen/punchScreen/punchScreenView';
+       static const String myTeamimeSheetRequestPage =
+      '/leave/myTeamimeSheetRequestPage/myTeamimeSheetRequestPage';
+      static const String timeSheetPendingDashboard =
+      '/leave/timeSheetPendingDashboard/timeSheetPendingDashboard';
+          static const String myTeamPunchInOutList =
+      '/leave/punchInOutList/punchInOutList';
+      static const String myAttendanceList =
+      '/leave/myAttendanceList/myAttendanceList';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case entryScreen:
@@ -155,77 +173,93 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ForgetPassword());
       case changesLanguage:
         return MaterialPageRoute(builder: (_) => const SettingsPage());
-           case leaveDashboard:
+      case leaveDashboard:
         return MaterialPageRoute(builder: (_) => const LeaveDashboard());
       case personalInfo:
         return MaterialPageRoute(builder: (_) => const PersonalDetailsPage());
       case notification:
         return MaterialPageRoute(builder: (_) => const NotificationPage());
-         case paySlipDashboard:
+      case paySlipDashboard:
         return MaterialPageRoute(builder: (_) => const Payslip_Dashboard());
-         case timeSheetDashboard:
+      case mypaySlipDashboard:
+        return MaterialPageRoute(builder: (_) => const MyPayslip_Dashboard());
+      case timeSheetDashboard:
         return MaterialPageRoute(builder: (_) => const TimeSheetDashboard());
-         case timeSheetRequestPage:
-        return MaterialPageRoute(builder: (_) => const TimeSheetRequestPage());
-        // case taskAddDetails:
-        // return MaterialPageRoute(builder: (_) => const TaskDetailsPage());
-        // Your route configuration should look like this:
-case kanbanBoardPage:
-  final args = settings.arguments as Map<String, dynamic>?;
-  
-  if (args != null && args['boardId'] != null) {
-    final board = args['boardId'];
-    return MaterialPageRoute(
-      builder: (_) => KanbanBoardScreen(boardId: board),
-    );
-  } else {
-    // Return to previous screen or show error
-    return MaterialPageRoute(
-      builder: (_) => const Scaffold(
-        body: Center(
-          child: Text('Board not found'),
-        ),
-      ),
-    );
-  }
-      
+         case myTeamimeSheetRequestPage:
+        return MaterialPageRoute(builder: (_) => const MyTeamTimeSheetDashboard());
+            case timeSheetPendingDashboard:
+        return MaterialPageRoute(builder: (_) => const TimeSheetPendingDashboard());
+         case punchScreen:
+        return MaterialPageRoute(builder: (_) => const PunchScreen());
+        case myTeamPunchInOutList:
+        return MaterialPageRoute(builder: (_) => const MyTeamPunchInOutList());
+          case myAttendanceList:
+        return MaterialPageRoute(builder: (_) => const MyAttendanceList());
+      case timeSheetRequestPage:
+        final Map<String, dynamic>? args =
+            settings.arguments as Map<String, dynamic>?;
+        final bool status = args?['status'] ?? false;
+         final bool team = args?['team'] ?? false;
+        return MaterialPageRoute(builder: (_) =>  TimeSheetRequestPage( status: status , team : team));
+      // case taskAddDetails:
+      // return MaterialPageRoute(builder: (_) => const TaskDetailsPage());
+      // Your route configuration should look like this:
+      case kanbanBoardPage:
+        final args = settings.arguments as Map<String, dynamic>?;
+
+        if (args != null && args['boardId'] != null) {
+          final board = args['boardId'];
+          return MaterialPageRoute(
+            builder: (_) => KanbanBoardScreen(boardId: board),
+          );
+        } else {
+          // Return to previous screen or show error
+          return MaterialPageRoute(
+            builder: (_) =>
+                const Scaffold(body: Center(child: Text('Board not found'))),
+          );
+        }
+
       case cashAdvanceReturnForms:
         return MaterialPageRoute(builder: (_) => const CashAdvanceReturnForm());
-          case leaveCancellation:
-        return MaterialPageRoute(builder: (_) => const CancellationLeaveDashboard());
+      case leaveCancellation:
+        return MaterialPageRoute(
+          builder: (_) => const CancellationLeaveDashboard(),
+        );
       case reportWizardParent:
         return MaterialPageRoute(builder: (_) => ReportWizardParent());
       case reportsAssignUser:
         return MaterialPageRoute(builder: (_) => const UserAssignmentScreen());
       case aIAnalyticsPage:
         return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
-          case myTeamsDashboard:
+      case myTeamsDashboard:
         return MaterialPageRoute(builder: (_) => const MyTeamLeaveDashboard());
-          case leavePendingApprovals:
-        return MaterialPageRoute(builder: (_) => const PendingApprovalsLeaveDashboard());
-        case boardDashboard:
+      case leavePendingApprovals:
+        return MaterialPageRoute(
+          builder: (_) => const PendingApprovalsLeaveDashboard(),
+        );
+      case boardDashboard:
         return MaterialPageRoute(builder: (_) => const BoardDashboard());
-         case createBoard:
+      case createBoard:
         return MaterialPageRoute(builder: (_) => const CreateEditBoardPage());
-        case AppRoutes.viewLeave:
+      case AppRoutes.viewLeave:
+        final Map<String, dynamic>? args =
+            settings.arguments as Map<String, dynamic>?;
 
- final Map<String, dynamic>? args =
-    settings.arguments as Map<String, dynamic>?;
+        final LeaveDetailsModel? leaveRequest = args != null
+            ? args['item'] as LeaveDetailsModel?
+            : null;
 
-final LeaveDetailsModel? leaveRequest =
-    args != null ? args['item'] as LeaveDetailsModel? : null;
-
-final bool readOnly = args?['readOnly'] == true;
-final bool status = args?['status'] == true; // ✅ SAFE
-print("StatusLeave$status");
-return MaterialPageRoute(
-  builder: (_) => ViewEditLeavePage(
-    leaveRequest: leaveRequest,
-    isReadOnly: readOnly,
-    status: status,
-  ),
-);
-
+        final bool readOnly = args?['readOnly'] == true;
+        final bool status = args?['status'] == true; // ✅ SAFE
+        print("StatusLeave$status");
+        return MaterialPageRoute(
+          builder: (_) => ViewEditLeavePage(
+            leaveRequest: leaveRequest,
+            isReadOnly: readOnly,
+            status: status,
+          ),
+        );
 
       case myTeamExpenseDashboard:
         return MaterialPageRoute(
@@ -255,17 +289,22 @@ return MaterialPageRoute(
         return MaterialPageRoute(builder: (_) => const EmailHubScreen());
       case expensePaginationPage:
         return MaterialPageRoute(builder: (_) => const ExpensePaginationPage());
-        case calendarView:
+      case calendarView:
         return MaterialPageRoute(builder: (_) => const CalendarPage());
       case approvalHubMain:
         return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
+        case externalApprovals:
+        return MaterialPageRoute(builder: (_) => const ExternalApprovalMetadataPage());
       case AppRoutes.viewCashAdvanseReturnForms:
         final args = settings.arguments as Map<String, dynamic>?;
-                final bool readOnly = args?['readOnly'] == true;
+        final bool readOnly = args?['readOnly'] == true;
 
         print("args$args");
         return MaterialPageRoute(
-          builder: (_) => ViewCashAdvanseReturnForm(items: args?['item'],isReadOnly: readOnly),
+          builder: (_) => ViewCashAdvanseReturnForm(
+            items: args?['item'],
+            isReadOnly: readOnly,
+          ),
         );
       case approvalDashboardForDashboard:
         return MaterialPageRoute(
@@ -346,12 +385,13 @@ return MaterialPageRoute(
           }
         }
 
-        return MaterialPageRoute(
-          builder: (_) => MileageFirstFrom(
-            mileageId: expense,
-            isReadOnly: args?['isReadOnly'],
-          ),
-        );
+   return MaterialPageRoute(
+  builder: (_) => MileageFirstFrom(
+    mileageId: expense,
+    isReadOnly: args?['isReadOnly'] ?? false, 
+  ),
+);
+
       case AppRoutes.autoScan:
         final rawArgs = settings.arguments as Map;
         final args = Map<String, dynamic>.from(rawArgs);
@@ -386,14 +426,16 @@ return MaterialPageRoute(
             ],
           ),
         );
-        case spanders:
-                final args = settings.arguments as Map<String, dynamic>;
+      case spanders:
+        final args = settings.arguments as Map<String, dynamic>;
 
-        return MaterialPageRoute(builder: (_) =>  SpendersDashboardPage(role: args["id"]));
+        return MaterialPageRoute(
+          builder: (_) => SpendersDashboardPage(role: args["id"]),
+        );
       case expenseForm:
         return MaterialPageRoute(builder: (_) => const ExpenseCreationForm());
       case AppRoutes.getSpecificExpense:
-        final args = settings.arguments as Map<String, dynamic>?; 
+        final args = settings.arguments as Map<String, dynamic>?;
         print("args$args");
         return MaterialPageRoute(
           builder: (_) => ViewEditExpensePage(
@@ -419,7 +461,7 @@ return MaterialPageRoute(
             isReadOnly: true,
           ),
         );
- case AppRoutes.unProcessExpense:
+      case AppRoutes.unProcessExpense:
         final args = settings.arguments as Map<String, dynamic>?;
         print("args$args");
         return MaterialPageRoute(

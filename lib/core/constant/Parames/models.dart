@@ -85,6 +85,22 @@ class UserSettings {
         'DisplayName': displayName,
       };
 }
+class LeaveEmployee {
+  final String employeeId;
+  final String employeeName;
+
+  LeaveEmployee({
+    required this.employeeId,
+    required this.employeeName,
+  });
+
+  factory LeaveEmployee.fromJson(Map<String, dynamic> json) {
+    return LeaveEmployee(
+      employeeId: json['EmployeeId'],
+      employeeName: json['EmployeeName'],
+    );
+  }
+}
 class   OrganizationSettings {
   final String? name;
   final String? value;

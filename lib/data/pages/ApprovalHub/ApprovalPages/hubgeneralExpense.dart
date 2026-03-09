@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/widgets/accountDistribution.dart';
-import 'package:digi_xpense/core/comman/widgets/button.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/data/models.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -50,7 +51,7 @@ class _HubApprovalViewEditExpensePageState
   final _formKey = GlobalKey<FormState>();
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<List<ExpenseHistory>>? historyFuture;
   String? selectedPaidTo;
   String? selectedPaidWith;
@@ -80,48 +81,56 @@ class _HubApprovalViewEditExpensePageState
     employeeName.text = "";
     employyeID.text = "";
     merhantName.text = "";
-    controller.fetchPaidto();
-    controller.fetchPaidwith();
-    controller.fetchProjectName();
-    controller.fetchExpenseCategory();
-    controller.fetchUnit();
-    controller.fetchTaxGroup();
-    controller.currencyDropDown();
-    controller.fetchExchangeRate();
-    controller.fetchUsers();
-    controller.configuration();
-    controller.fetchExpenseDocImage(widget.items!.recId);
+    _pageController = PageController(
+      initialPage: controller.currentIndex.value,
+    );
+    
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _pageController = PageController(
-        initialPage: controller.currentIndex.value,
-      );
-    });
-    historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
-    final formatted = DateFormat(
-      'dd/MM/yyyy',
-    ).format(widget.items!.receiptDate);
-    controller.selectedDate = widget.items!.receiptDate;
-    receiptDateController.text = formatted;
-    employeeName.text = widget.items!.employeeName!;
-    employyeID.text = widget.items!.employeeId!;
-    controller.paymentMethodID = widget.items!.paymentMethod.toString();
-    expenseIdController.text = widget.items!.expenseId.toString();
-    receiptDateController.text = formatted;
-    controller.paidToController.text = widget.items!.merchantName.toString();
-    controller.paidWithController.text = widget.items!.paymentMethod!;
-    referenceController.text = widget.items!.referenceNumber.toString();
-    selectedPaidTo = paidToOptions.first;
-    selectedPaidWith = paidWithOptions.first;
-    controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitRate.text = widget.items!.exchRate.toString();
-    controller.amountINR.text = widget.items!.totalAmountReporting.toString();
-    controller.expenseID = widget.items!.expenseId;
-    controller.recID = widget.items!.recId;
+      controller.fetchExpenseDocImage(widget.items!.recId);
+      controller.configuration();
+      controller.currencyDropDown();
+      await controller.fetchPaidto();
+      await controller.fetchPaidwith();
+      controller.fetchProjectName();
+      controller.fetchExpenseCategory();
+      controller.fetchUnit();
+      controller.fetchTaxGroup();
 
-    workitemrecid = widget.items!.workitemrecid!;
-    controller.currencyDropDowncontroller.text = widget.items!.currency
-        .toString();
+      controller.fetchUsers();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
+      final formatted = DateFormat(
+        'dd/MM/yyyy',
+      ).format(widget.items!.receiptDate);
+      controller.selectedDate = widget.items!.receiptDate;
+      receiptDateController.text = formatted;
+      controller.employeeName.text = widget.items!.employeeName!;
+      employyeID.text = widget.items!.employeeId!;
+      controller.paymentMethodID = widget.items!.paymentMethod.toString();
+      expenseIdController.text = widget.items!.expenseId.toString();
+
+      controller.employeeIdController.text = widget.items!.employeeId
+          .toString();
+      receiptDateController.text = formatted;
+      controller.paidToController.text = widget.items!.merchantName.toString();
+      controller.paidWithController.text = widget.items!.paymentMethod!;
+      referenceController.text = widget.items!.referenceNumber.toString();
+      selectedPaidTo = paidToOptions.first;
+      selectedPaidWith = paidWithOptions.first;
+      controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
+      controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
+      controller.unitRate.text = widget.items!.exchRate.toString();
+      controller.amountINR.text = widget.items!.totalAmountReporting.toString();
+      controller.expenseID = widget.items!.expenseId;
+      controller.recID = widget.items!.recId;
+
+      workitemrecid = widget.items!.workitemrecid!;
+      controller.currencyDropDowncontroller.text = widget.items!.currency
+          .toString();
+    });
+
+    //  controller.fetchExchangeRate();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Initialize itemize controllers
       if (widget.items!.stepType == "Approval") {
@@ -137,14 +146,18 @@ class _HubApprovalViewEditExpensePageState
       }
       _initializeItemizeControllers();
       _loadSettings();
-          projectConfig = controller.getFieldConfig("Project Id");
-    taxGroupConfig = controller.getFieldConfig("Tax Group");
-    taxAmountConfig = controller.getFieldConfig("Tax Amount");
-    isReimbursibleConfig = controller.getFieldConfig("is Reimbursible");
-    isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
-    isBillableConfig = controller.getFieldConfig("Is Billable");
-    isLocationConfig = controller.getFieldConfig("Location");
+
+      projectConfig = controller.getFieldConfig("Project Id");
+      taxGroupConfig = controller.getFieldConfig("Tax Group");
+      taxAmountConfig = controller.getFieldConfig("Tax Amount");
+      isReimbursibleConfig = controller.getFieldConfig("Is Reimbursible");
+      isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
+      isBillableConfig = controller.getFieldConfig("Is Billable");
+      isLocationConfig = controller.getFieldConfig("Location");
+          waitForDropdownDataAndSetValues();
+
     });
+
   }
 
   Future<void> _loadSettings() async {
@@ -159,7 +172,7 @@ class _HubApprovalViewEditExpensePageState
       // setState(() => isLoading = false);
     }
   }
-  
+
   Future<void> _updateAllLineItems() async {
     final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
 
@@ -221,7 +234,7 @@ class _HubApprovalViewEditExpensePageState
       controller.taxGroupController.text = item.taxGroup!;
       controller.categoryController.text = item.expenseCategoryId;
       controller.uomId.text = item.uomId;
-      controller.isReimbursite = item.isReimbursable;
+      controller.isReimbursable = item.isReimbursable;
       controller.isBillable.value = item.isBillable;
       controller.expenseID = item.expenseId.toString();
       controller.split = (item.accountingDistributions ?? []).map((dist) {
@@ -237,19 +250,14 @@ class _HubApprovalViewEditExpensePageState
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
+ 
+
     int retries = 0;
     while ((controller.paymentMethods.isEmpty ||
             controller.expenseCategory.isEmpty) &&
         retries < 10) {
       await Future.delayed(const Duration(milliseconds: 300));
       retries++;
-    }
-
-    if (controller.paymentMethods.isNotEmpty) {
-      controller.selectedPaidWith = controller.paymentMethods.firstWhere(
-        (e) => e.paymentMethodId == widget.items!.paymentMethod,
-        orElse: () => controller.paymentMethods.first,
-      );
     }
 
     if (controller.project.isNotEmpty) {
@@ -264,6 +272,14 @@ class _HubApprovalViewEditExpensePageState
         orElse: () => controller.currencies.first,
       );
     }
+      
+      controller.selectedPaidWith = controller.paymentMethods.firstWhere(
+        (e) => e.paymentMethodId == widget.items!.paymentMethod,
+        orElse: () => controller.paymentMethods.first,
+      );
+      controller.isReimbursableEnabled.value =
+          controller.selectedPaidWith!.reimbursible;
+    
     setState(() {});
   }
 
@@ -397,6 +413,7 @@ class _HubApprovalViewEditExpensePageState
       controller.isImageLoading.value = false;
     }
   }
+
   String? _validateRequiredField(
     String value,
     String fieldName,
@@ -407,7 +424,8 @@ class _HubApprovalViewEditExpensePageState
     }
     return null;
   }
-   String? _validateNumericField(
+
+  String? _validateNumericField(
     String value,
     String fieldName,
     bool isMandatory,
@@ -441,6 +459,66 @@ class _HubApprovalViewEditExpensePageState
     return null;
   }
 
+  Future<void> _pickFile() async {
+    try {
+      controller.isImageLoading.value = true;
+
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'pdf',
+          'xls',
+          'xlsx',
+          'doc',
+          'docx',
+        ],
+      );
+
+      if (result == null) return;
+
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
+
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
+
+        /// ✅ IMAGE FLOW
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+
+            await _processSelectedFile(croppedImage);
+          }
+        }
+        /// ✅ PDF / EXCEL / DOC FLOW
+        else {
+          await _processSelectedFile(file);
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  Future<void> _processSelectedFile(File file) async {
+    // ✅ Check feature states
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      setState(() {
+        controller.imageFiles.add(file);
+      });
+    } else {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -463,132 +541,205 @@ class _HubApprovalViewEditExpensePageState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: !controller.isEnable.value
-                        ? null
-                        : () => _pickImage(ImageSource.gallery),
-                    child: Container(
-                      width:
-                          MediaQuery.of(context).size.width *
-                          0.9, // 90% of screen width
-                      height:
-                          MediaQuery.of(context).size.height *
-                          0.3, // 30% of screen height
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.grey, // border color
-                          width: 2, // border thickness
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          12,
-                        ), // optional rounded corners
-                      ),
-                      child: Obx(() {
-                        if (controller.imageFiles.isEmpty) {
-                          return Center(
-                            child: Text(
-                              AppLocalizations.of(context)!.tapToUploadDocs,
-                            ),
-                          );
-                        } else {
+                    Obx(() {
                           return Stack(
                             children: [
-                              PageView.builder(
-                                controller: _pageController,
-                                itemCount: controller.imageFiles.length,
-                                onPageChanged: (index) {
-                                  controller.currentIndex.value = index;
+                               Obx(() {
+          return GestureDetector(
+            onTap: () {
+                                  if (controller.imageFiles.isEmpty &&
+                                      controller.isEnable.value &&
+                                      !controller.isLoadingviewImage.value) {
+                                    _pickFile();
+                                  }
                                 },
-                                itemBuilder: (_, index) {
-                                  final file = controller.imageFiles[index];
-                                  return GestureDetector(
-                                    onTap: () => _showFullImage(file, index),
-                                    child: Container(
-                                      alignment: Alignment.center,
-                                      margin: const EdgeInsets.all(8),
-                                      width: 100,
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.deepPurple,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                        image: DecorationImage(
-                                          image: FileImage(file),
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+           
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.3,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
 
-                              Positioned(
-                                bottom: 40,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: Obx(
-                                    () => Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                        horizontal: 16,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.5),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
+              /// ✅ EMPTY VIEW
+              child: controller.imageFiles.isEmpty
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
+                      ),
+                    )
+                  /// ✅ FILE PREVIEW VIEW
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) {
+                            controller.currentIndex.value = index;
+                          },
+
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+
+                            return GestureDetector(
+                             onTap: () =>
+    controller.openFile(context, file, index),
+
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+
+                                /// ✅ IMAGE
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
                                         ),
+                                      )
+                                    /// ✅ PDF
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ EXCEL
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    /// ✅ OTHER FILE
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
-                                    ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        /// ✅ PAGE COUNT
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
                                   ),
                                 ),
                               ),
-                              // Positioned(
-                              //   top: 40,
-                              //   right: 20,
-                              //   child: IconButton(
-                              //     icon: const Icon(Icons.close,
-                              //         color: Colors.white),
-                              //     onPressed: () =>
-                              //         Navigator.pop(context),
-                              //   ),
-                              // ),
-                              if (controller.isEnable.value)
-                                Positioned(
-                                  bottom: 16,
-                                  right: 16,
-                                  child: GestureDetector(
-                                    onTap: () =>
-                                        _pickImage(ImageSource.gallery),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.deepPurple,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                      child: const Icon(
-                                        Icons.add,
+                            ),
+                          ),
+                        ),
+
+                        /// ✅ ADD BUTTON
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          );
+        }),
+                              
+                              // 🔥 CIRCULAR LOADER OVERLAY
+                              if (controller.isLoadingviewImage.value)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.25),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
                                         color: Colors.white,
-                                        size: 28,
                                       ),
                                     ),
                                   ),
                                 ),
                             ],
                           );
-                        }
-                      }),
-                    ),
-                  ),
+                        }),
+
                   const SizedBox(height: 20),
                   Text(
                     AppLocalizations.of(context)!.receiptDetails,
@@ -600,6 +751,17 @@ class _HubApprovalViewEditExpensePageState
                     controller: expenseIdController,
                     isReadOnly: false,
                   ),
+                  _buildTextField(
+                    label: "${AppLocalizations.of(context)!.employeeId} *",
+                    controller: controller.employeeIdController,
+                    isReadOnly: false,
+                  ),
+                  _buildTextField(
+                    label: "${AppLocalizations.of(context)!.employeeName} *",
+                    controller: controller.employeeName,
+                    isReadOnly: false,
+                  ),
+
                   buildDateField(
                     AppLocalizations.of(context)!.receiptDate,
                     receiptDateController,
@@ -809,6 +971,8 @@ class _HubApprovalViewEditExpensePageState
                             controller.paymentMethodID = p!.paymentMethodId;
                             controller.paidWithController.text =
                                 p.paymentMethodId;
+                            controller.isReimbursableEnabled.value =
+                                p.reimbursible;
                           });
                         },
                         controller: controller.paidWithController,
@@ -831,56 +995,49 @@ class _HubApprovalViewEditExpensePageState
                   ),
                   const SizedBox(height: 12),
                   ...controller.configList
-                            .where(
-                              (field) =>
-                                  field['IsEnabled'] == true &&
-                                  field['FieldName'] == 'Refrence Id',
-                            )
-                            .map((field) {
-                              final String label = field['FieldName'];
-                              final bool isMandatory =
-                                  field['IsMandatory'] ?? false;
+                      .where(
+                        (field) =>
+                            field['IsEnabled'] == true &&
+                            field['FieldName'] == 'Refrence Id',
+                      )
+                      .map((field) {
+                        final String label = field['FieldName'];
+                        final bool isMandatory = field['IsMandatory'] ?? false;
 
-                              late Widget inputFields;
+                        late Widget inputFields;
 
-                              if (label == 'Refrence Id') {
-                                inputFields = _buildTextField(
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.referenceId,
-                                  controller: controller.referenceID,
-                                  isReadOnly: controller.isEnable.value,
-                                  validator: (value) =>
-                                      isRefrenceIDConfig.isMandatory
-                                      ? _validateRequiredField(
-                                          controller.referenceID.text,
-                                          AppLocalizations.of(
-                                            context,
-                                          )!.referenceId,
-                                          true,
-                                        )
-                                      : null,
-                                );
-                              } else {
-                                inputFields = TextField(
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        '$label${isMandatory ? " *" : ""}',
-                                    border: const OutlineInputBorder(),
-                                  ),
-                                );
-                              }
+                        if (label == 'Refrence Id') {
+                          inputFields = _buildTextField(
+                            label: AppLocalizations.of(context)!.referenceId,
+                            controller: controller.referenceID,
+                            isReadOnly: controller.isEnable.value,
+                            validator: (value) => isRefrenceIDConfig.isMandatory
+                                ? _validateRequiredField(
+                                    controller.referenceID.text,
+                                    AppLocalizations.of(context)!.referenceId,
+                                    true,
+                                  )
+                                : null,
+                          );
+                        } else {
+                          inputFields = TextField(
+                            decoration: InputDecoration(
+                              labelText: '$label${isMandatory ? " *" : ""}',
+                              border: const OutlineInputBorder(),
+                            ),
+                          );
+                        }
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  inputFields,
-                                  const SizedBox(height: 16),
-                                ],
-                              );
-                            })
-                            .toList(),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            inputFields,
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      })
+                      .toList(),
                   Row(
                     children: [
                       Expanded(
@@ -1194,259 +1351,234 @@ class _HubApprovalViewEditExpensePageState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                     ...controller.configList
-                                                .where(
-                                                  (field) =>
-                                                      field['IsEnabled'] ==
-                                                          true &&
-                                                      field['FieldName'] !=
-                                                          'Location' &&
-                                                      field['FieldName'] !=
-                                                          'Refrence Id' &&
-                                                      field['FieldName'] !=
-                                                          'Is Billable' &&
-                                                      field['FieldName'] !=
-                                                          'is Reimbursible',
-                                                )
-                                                .map((field) {
-                                                  final String label =
-                                                      field['FieldName'];
-                                                  final bool isMandatory =
-                                                      field['IsMandatory'] ??
-                                                      false;
+                                      ...controller.configList
+                                          .where(
+                                            (field) =>
+                                                field['IsEnabled'] == true &&
+                                                field['FieldName'] !=
+                                                    'Location' &&
+                                                field['FieldName'] !=
+                                                    'Refrence Id' &&
+                                                field['FieldName'] !=
+                                                    'Is Billable' &&
+                                                field['FieldName'] !=
+                                                    'Is Reimbursible',
+                                          )
+                                          .map((field) {
+                                            final String label =
+                                                field['FieldName'];
+                                            final bool isMandatory =
+                                                field['IsMandatory'] ?? false;
 
-                                                  Widget inputField;
+                                            Widget inputField;
 
-                                                  if (label == 'Project Id') {
-                                                    inputField = SearchableMultiColumnDropdownField<Project>(
-                                                      enabled: controller
-                                                          .isEnable
-                                                          .value,
-                                                      labelText:
-                                                          "${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}",
-                                                      columnHeaders: const [
-                                                        'Project Name',
-                                                        'Project ID',
+                                            if (label == 'Project Id') {
+                                              inputField = SearchableMultiColumnDropdownField<Project>(
+                                                enabled:
+                                                    controller.isEnable.value,
+                                                labelText:
+                                                    "${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}",
+                                                columnHeaders: const [
+                                                  'Project Name',
+                                                  'Project ID',
+                                                ],
+                                                items: controller.project,
+                                                selectedValue: itemController
+                                                    .selectedProject,
+                                                searchValue: (p) =>
+                                                    '${p.name} ${p.code}',
+                                                displayText: (p) => p.code,
+                                                validator: (value) =>
+                                                    projectConfig.isEnabled &&
+                                                        projectConfig
+                                                            .isMandatory
+                                                    ? _validateRequiredField(
+                                                        itemController
+                                                            .taxGroupController
+                                                            .text,
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.projectId,
+                                                        true,
+                                                      )
+                                                    : null,
+                                                onChanged: (p) {
+                                                  setState(() {
+                                                    controller.selectedProject =
+                                                        p;
+                                                    itemController
+                                                            .selectedProject =
+                                                        p;
+                                                    controller
+                                                        .projectDropDowncontroller
+                                                        .text = p!
+                                                        .code;
+                                                    widget
+                                                            .items!
+                                                            .expenseTrans[index] =
+                                                        itemController
+                                                            .toExpenseItemUpdateModel();
+                                                  });
+                                                  controller
+                                                      .fetchExpenseCategory();
+                                                },
+                                                controller: itemController
+                                                    .projectDropDowncontroller,
+                                                rowBuilder: (p, searchQuery) {
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(p.name),
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(p.code),
+                                                        ),
                                                       ],
-                                                      items: controller.project,
-                                                      selectedValue:
-                                                          itemController
-                                                              .selectedProject,
-                                                      searchValue: (p) =>
-                                                          '${p.name} ${p.code}',
-                                                      displayText: (p) =>
-                                                          p.code,
-                                                      validator: (value) =>
-                                                          projectConfig
-                                                                  .isEnabled &&
-                                                              projectConfig
-                                                                  .isMandatory
-                                                          ? _validateRequiredField(
-                                                              itemController
-                                                                  .taxGroupController
-                                                                  .text,
-                                                              AppLocalizations.of(
-                                                                context,
-                                                              )!.projectId,
-                                                              true,
-                                                            )
-                                                          : null,
-                                                      onChanged: (p) {
-                                                        setState(() {
-                                                          controller
-                                                                  .selectedProject =
-                                                              p;
-                                                          itemController
-                                                                  .selectedProject =
-                                                              p;
-                                                          controller
-                                                              .projectDropDowncontroller
-                                                              .text = p!
-                                                              .code;
-                                                          widget
-                                                                  .items!
-                                                                  .expenseTrans[index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                        });
-                                                        controller
-                                                            .fetchExpenseCategory();
-                                                      },
-                                                      controller: itemController
-                                                          .projectDropDowncontroller,
-                                                      rowBuilder: (p, searchQuery) {
-                                                        return Padding(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                vertical: 12,
-                                                                horizontal: 16,
-                                                              ),
-                                                          child: Row(
-                                                            children: [
-                                                              Expanded(
-                                                                child: Text(
-                                                                  p.name,
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  p.code,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                      },
-                                                    );
-                                                  } else if (label ==
-                                                      'Tax Group') {
-                                                    inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
-                                                      enabled: controller
-                                                          .isEnable
-                                                          .value,
-                                                      labelText:
-                                                          "${AppLocalizations.of(context)!.taxGroup}${isMandatory ? "*" : ""}",
-                                                      columnHeaders: [
+                                                    ),
+                                                  );
+                                                },
+                                              );
+                                            } else if (label == 'Tax Group') {
+                                              inputField = SearchableMultiColumnDropdownField<TaxGroupModel>(
+                                                enabled:
+                                                    controller.isEnable.value,
+                                                labelText:
+                                                    "${AppLocalizations.of(context)!.taxGroup}${isMandatory ? "*" : ""}",
+                                                columnHeaders: [
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.taxGroup,
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.taxId,
+                                                ],
+                                                items: controller.taxGroup,
+                                                selectedValue:
+                                                    itemController.selectedTax,
+                                                searchValue: (tax) =>
+                                                    '${tax.taxGroup} ${tax.taxGroupId}',
+                                                displayText: (tax) =>
+                                                    tax.taxGroupId,
+                                                validator: (value) =>
+                                                    taxGroupConfig.isEnabled &&
+                                                        taxGroupConfig
+                                                            .isMandatory
+                                                    ? _validateRequiredField(
+                                                        itemController
+                                                            .taxGroupController
+                                                            .text,
                                                         AppLocalizations.of(
                                                           context,
                                                         )!.taxGroup,
-                                                        AppLocalizations.of(
-                                                          context,
-                                                        )!.taxId,
-                                                      ],
-                                                      items:
-                                                          controller.taxGroup,
-                                                      selectedValue:
-                                                          itemController
-                                                              .selectedTax,
-                                                      searchValue: (tax) =>
-                                                          '${tax.taxGroup} ${tax.taxGroupId}',
-                                                      displayText: (tax) =>
-                                                          tax.taxGroupId,
-                                                      validator: (value) =>
-                                                          taxGroupConfig
-                                                                  .isEnabled &&
-                                                              taxGroupConfig
-                                                                  .isMandatory
-                                                          ? _validateRequiredField(
-                                                              itemController
-                                                                  .taxGroupController
-                                                                  .text,
-                                                              AppLocalizations.of(
-                                                                context,
-                                                              )!.taxGroup,
-                                                              true,
-                                                            )
-                                                          : null,
-                                                      onChanged: (tax) {
-                                                        setState(() {
-                                                          itemController
-                                                                  .selectedTax =
-                                                              tax;
-                                                          widget
-                                                                  .items!
-                                                                  .expenseTrans[index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                          itemController
-                                                              .taxGroupController
-                                                              .text = tax!
-                                                              .taxGroupId;
-                                                        });
-                                                      },
-                                                      controller: itemController
-                                                          .taxGroupController,
-                                                      rowBuilder: (tax, searchQuery) {
-                                                        return Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                vertical: 12,
-                                                                horizontal: 16,
-                                                              ),
-                                                          child: Row(
-                                                            children: [
-                                                              Expanded(
-                                                                child: Text(
-                                                                  tax.taxGroup,
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  tax.taxGroupId,
-                                                                ),
-                                                              ),
-                                                            ],
+                                                        true,
+                                                      )
+                                                    : null,
+                                                onChanged: (tax) {
+                                                  setState(() {
+                                                    itemController.selectedTax =
+                                                        tax;
+                                                    widget
+                                                            .items!
+                                                            .expenseTrans[index] =
+                                                        itemController
+                                                            .toExpenseItemUpdateModel();
+                                                    itemController
+                                                            .taxGroupController
+                                                            .text =
+                                                        tax!.taxGroupId;
+                                                  });
+                                                },
+                                                controller: itemController
+                                                    .taxGroupController,
+                                                rowBuilder: (tax, searchQuery) {
+                                                  return Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            tax.taxGroup,
                                                           ),
-                                                        );
-                                                      },
-                                                    );
-                                                  } else if (label ==
-                                                      'Tax Amount') {
-                                                    inputField = _buildTextField(
-                                                      keyboardType:
-                                                          TextInputType.number,
-                                                      inputFormatters: [
-                                                        FilteringTextInputFormatter.allow(
-                                                          RegExp(
-                                                            r'^\d*\.?\d{0,2}',
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            tax.taxGroupId,
                                                           ),
                                                         ),
                                                       ],
-                                                      label:
-                                                          "${AppLocalizations.of(context)!.taxAmount}${isMandatory ? "*" : ""}",
-                                                      controller: itemController
-                                                          .taxAmount,
-                                                      isReadOnly: controller
-                                                          .isEnable
-                                                          .value,
-                                                      validator: (value) =>
-                                                          taxAmountConfig
-                                                                  .isEnabled &&
-                                                              taxAmountConfig
-                                                                  .isMandatory
-                                                          ? _validateNumericField(
-                                                              value!,
-                                                              AppLocalizations.of(
-                                                                context,
-                                                              )!.taxAmount,
-                                                              true,
-                                                            )
-                                                          : null,
-                                                      onChanged: (value) {
-                                                        setState(() {
-                                                          widget
-                                                                  .items
-                                                                  ?.expenseTrans[index] =
-                                                              itemController
-                                                                  .toExpenseItemUpdateModel();
-                                                        });
-                                                      },
-                                                    );
-                                                  } else {
-                                                    inputField = TextField(
-                                                      decoration: InputDecoration(
-                                                        labelText:
-                                                            '$label${isMandatory ? " *" : ""}',
-                                                        border:
-                                                            const OutlineInputBorder(),
-                                                      ),
-                                                    );
-                                                  }
-
-                                                  return Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const SizedBox(height: 8),
-                                                      inputField,
-                                                      const SizedBox(
-                                                        height: 16,
-                                                      ),
-                                                    ],
+                                                    ),
                                                   );
-                                                })
-                                                .toList(),
+                                                },
+                                              );
+                                            } else if (label == 'Tax Amount') {
+                                              inputField = _buildTextField(
+                                                keyboardType:
+                                                    TextInputType.number,
+                                                inputFormatters: [
+                                                  FilteringTextInputFormatter.allow(
+                                                    RegExp(r'^\d*\.?\d{0,2}'),
+                                                  ),
+                                                ],
+                                                label:
+                                                    "${AppLocalizations.of(context)!.taxAmount}${isMandatory ? "*" : ""}",
+                                                controller:
+                                                    itemController.taxAmount,
+                                                isReadOnly:
+                                                    controller.isEnable.value,
+                                                validator: (value) =>
+                                                    taxAmountConfig.isEnabled &&
+                                                        taxAmountConfig
+                                                            .isMandatory
+                                                    ? _validateNumericField(
+                                                        value!,
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.taxAmount,
+                                                        true,
+                                                      )
+                                                    : null,
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    widget
+                                                            .items
+                                                            ?.expenseTrans[index] =
+                                                        itemController
+                                                            .toExpenseItemUpdateModel();
+                                                  });
+                                                },
+                                              );
+                                            } else {
+                                              inputField = TextField(
+                                                decoration: InputDecoration(
+                                                  labelText:
+                                                      '$label${isMandatory ? " *" : ""}',
+                                                  border:
+                                                      const OutlineInputBorder(),
+                                                ),
+                                              );
+                                            }
+
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const SizedBox(height: 8),
+                                                inputField,
+                                                const SizedBox(height: 16),
+                                              ],
+                                            );
+                                          })
+                                          .toList(),
                                       const SizedBox(height: 12),
                                       SearchableMultiColumnDropdownField<
                                         ExpenseCategory
@@ -1670,130 +1802,236 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                       ),
                                       ...controller.configList
-    .where((field) =>
-        field['IsEnabled'] == true &&
-        field['FieldName'] == 'is Reimbursible')
-    .map((field) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
+                                          .where(
+                                            (field) =>
+                                                field['IsEnabled'] == true &&
+                                                field['FieldName'] ==
+                                                    'Is Reimbursible',
+                                          )
+                                          .map((field) {
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const SizedBox(height: 8),
 
-          Theme(
-            data: Theme.of(context).copyWith(
-              switchTheme: SwitchThemeData(
-                thumbColor: WidgetStateProperty.resolveWith<Color?>(
-                  (states) {
-                    final selected = states.contains(WidgetState.selected);
-                    if (states.contains(WidgetState.disabled)) {
-                      return selected ? Colors.green : null;
-                    }
-                    return selected ? Colors.green : null;
-                  },
-                ),
-                trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                  final selected = states.contains(WidgetState.selected);
-                  if (states.contains(WidgetState.disabled)) {
-                    return selected ? Colors.green.withOpacity(0.5) : null;
-                  }
-                  return selected ? Colors.green.withOpacity(0.5) : null;
-                }),
-              ),
-            ),
-            child: SwitchListTile(
-              title: Text(
-                AppLocalizations.of(context)!.isReimbursable,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              value: itemController.isReimbursable,
-              onChanged: controller.isEnable.value
-                  ? (val) {
-                      setState(() {
-                        itemController.isReimbursable = val;
-                        controller.isReimbursite = val;
-                        widget.items!.expenseTrans[index] =
-                            itemController.toExpenseItemUpdateModel();
-                      });
-                    }
-                  : null,
-            ),
-          ),
+                                                Theme(
+                                                  data: Theme.of(context).copyWith(
+                                                    switchTheme: SwitchThemeData(
+                                                      thumbColor:
+                                                          WidgetStateProperty.resolveWith<
+                                                            Color?
+                                                          >((states) {
+                                                            final selected =
+                                                                states.contains(
+                                                                  WidgetState
+                                                                      .selected,
+                                                                );
+                                                            if (states.contains(
+                                                              WidgetState
+                                                                  .disabled,
+                                                            )) {
+                                                              return selected
+                                                                  ? Colors.green
+                                                                  : null;
+                                                            }
+                                                            return selected
+                                                                ? Colors.green
+                                                                : null;
+                                                          }),
+                                                      trackColor:
+                                                          WidgetStateProperty.resolveWith<
+                                                            Color?
+                                                          >((states) {
+                                                            final selected =
+                                                                states.contains(
+                                                                  WidgetState
+                                                                      .selected,
+                                                                );
+                                                            if (states.contains(
+                                                              WidgetState
+                                                                  .disabled,
+                                                            )) {
+                                                              return selected
+                                                                  ? Colors.green
+                                                                        .withOpacity(
+                                                                          0.5,
+                                                                        )
+                                                                  : null;
+                                                            }
+                                                            return selected
+                                                                ? Colors.green
+                                                                      .withOpacity(
+                                                                        0.5,
+                                                                      )
+                                                                : null;
+                                                          }),
+                                                    ),
+                                                  ),
+                                                  child: SwitchListTile(
+                                                    title: Text(
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.isReimbursable,
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    value: itemController
+                                                        .isReimbursable,
+                                                    onChanged:
+                                                        controller
+                                                                .isEnable
+                                                                .value &&
+                                                            controller
+                                                                .isReimbursableEnabled
+                                                                .value
+                                                        ? (val) {
+                                                            setState(() {
+                                                              itemController
+                                                                      .isReimbursable =
+                                                                  val;
+                                                              controller
+                                                                      .isReimbursite =
+                                                                  val;
+                                                              widget
+                                                                      .items!
+                                                                      .expenseTrans[index] =
+                                                                  itemController
+                                                                      .toExpenseItemUpdateModel();
+                                                            });
+                                                          }
+                                                        : null,
+                                                  ),
+                                                ),
 
-          const SizedBox(height: 16),
-        ],
-      );
-    }).toList(),
-      
-                                          ...controller.configList
-    .where((field) =>
-        field['IsEnabled'] == true &&
-        field['FieldName'] == 'Is Billable')
-    .map((field) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
+                                                const SizedBox(height: 16),
+                                              ],
+                                            );
+                                          })
+                                          .toList(),
 
-          Obx(
-            () => Theme(
-              data: Theme.of(context).copyWith(
-                switchTheme: SwitchThemeData(
-                  thumbColor:
-                      MaterialStateProperty.resolveWith<Color?>((states) {
-                    if (states.contains(MaterialState.disabled)) {
-                      return controller.isBillableCreate
-                          ? Colors.blue
-                          : Colors.grey.shade400;
-                    }
-                    if (states.contains(MaterialState.selected)) {
-                      return Colors.blue;
-                    }
-                    return Colors.grey.shade400;
-                  }),
-                  trackColor:
-                      MaterialStateProperty.resolveWith<Color?>((states) {
-                    if (states.contains(MaterialState.disabled)) {
-                      return controller.isBillableCreate
-                          ? Colors.blue.withOpacity(0.5)
-                          : Colors.grey.shade300;
-                    }
-                    if (states.contains(MaterialState.selected)) {
-                      return Colors.blue.withOpacity(0.5);
-                    }
-                    return Colors.grey.shade300;
-                  }),
-                ),
-              ),
-              child: SwitchListTile(
-                title: Text(
-                  AppLocalizations.of(context)!.isBillable,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                value: controller.isBillableCreate,
-                onChanged: controller.isEnable.value
-                    ? (val) {
-                        setState(() {
-                          controller.isBillableCreate = val;
-                          itemController.isBillableCreate = val;
-                          widget.items!.expenseTrans[index] =
-                              itemController.toExpenseItemUpdateModel();
-                        });
-                      }
-                    : null,
-              ),
-            ),
-          ),
+                                      ...controller.configList
+                                          .where(
+                                            (field) =>
+                                                field['IsEnabled'] == true &&
+                                                field['FieldName'] ==
+                                                    'Is Billable',
+                                          )
+                                          .map((field) {
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const SizedBox(height: 8),
 
-          const SizedBox(height: 16),
-        ],
-      );
-    }).toList(),
+                                                Obx(
+                                                  () => Theme(
+                                                    data: Theme.of(context).copyWith(
+                                                      switchTheme: SwitchThemeData(
+                                                        thumbColor:
+                                                            MaterialStateProperty.resolveWith<
+                                                              Color?
+                                                            >((states) {
+                                                              if (states.contains(
+                                                                MaterialState
+                                                                    .disabled,
+                                                              )) {
+                                                                return controller
+                                                                        .isBillableCreate
+                                                                    ? Colors
+                                                                          .blue
+                                                                    : Colors
+                                                                          .grey
+                                                                          .shade400;
+                                                              }
+                                                              if (states.contains(
+                                                                MaterialState
+                                                                    .selected,
+                                                              )) {
+                                                                return Colors
+                                                                    .blue;
+                                                              }
+                                                              return Colors
+                                                                  .grey
+                                                                  .shade400;
+                                                            }),
+                                                        trackColor: MaterialStateProperty.resolveWith<Color?>((
+                                                          states,
+                                                        ) {
+                                                          if (states.contains(
+                                                            MaterialState
+                                                                .disabled,
+                                                          )) {
+                                                            return controller
+                                                                    .isBillableCreate
+                                                                ? Colors.blue
+                                                                      .withOpacity(
+                                                                        0.5,
+                                                                      )
+                                                                : Colors
+                                                                      .grey
+                                                                      .shade300;
+                                                          }
+                                                          if (states.contains(
+                                                            MaterialState
+                                                                .selected,
+                                                          )) {
+                                                            return Colors.blue
+                                                                .withOpacity(
+                                                                  0.5,
+                                                                );
+                                                          }
+                                                          return Colors
+                                                              .grey
+                                                              .shade300;
+                                                        }),
+                                                      ),
+                                                    ),
+                                                    child: SwitchListTile(
+                                                      title: Text(
+                                                        AppLocalizations.of(
+                                                          context,
+                                                        )!.isBillable,
+                                                        style: const TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                      value: controller
+                                                          .isBillableCreate,
+                                                      onChanged:
+                                                          controller
+                                                              .isEnable
+                                                              .value
+                                                          ? (val) {
+                                                              setState(() {
+                                                                controller
+                                                                        .isBillableCreate =
+                                                                    val;
+                                                                itemController
+                                                                        .isBillableCreate =
+                                                                    val;
+                                                                widget
+                                                                        .items!
+                                                                        .expenseTrans[index] =
+                                                                    itemController
+                                                                        .toExpenseItemUpdateModel();
+                                                              });
+                                                            }
+                                                          : null,
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                const SizedBox(height: 16),
+                                              ],
+                                            );
+                                          })
+                                          .toList(),
                                       // SearchableMultiColumnDropdownField<
                                       //   TaxGroupModel
                                       // >(
@@ -2166,10 +2404,11 @@ class _HubApprovalViewEditExpensePageState
                             );
                           }
 
-                       
-                  if (snapshot.hasError) {
-                    return Center(child: Text("No Data Available Please Skip Next"));
-                  }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text("No Data Available Please Skip Next"),
+                            );
+                          }
 
                           final historyList = snapshot.data!;
                           if (historyList.isEmpty) {
@@ -2586,7 +2825,7 @@ class _HubApprovalViewEditExpensePageState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 30),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -2686,84 +2925,86 @@ class _HubApprovalViewEditExpensePageState
     });
   }
 
- void _showFullImage(File file, int index) {
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent, // remove white box background
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Full image view
-            PhotoView.customChild(
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 9.0,
-              backgroundDecoration: const BoxDecoration(
-                color: Colors.transparent,
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(
+        0.9,
+      ), // darker transparent background
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent, // remove white box background
+          insetPadding: const EdgeInsets.all(8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Full image view
+              PhotoView.customChild(
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 9.0,
+                backgroundDecoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                child: Image.file(file, fit: BoxFit.contain),
               ),
-              child: Image.file(file, fit: BoxFit.contain),
-            ),
 
-            // Close button (top-left)
-            Positioned(
-              top: 30,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: () {
-                            controller.closeField();
+              // Close button (top-left)
+              Positioned(
+                top: 30,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () {
+                    controller.closeField();
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+
+              // Floating edit & delete buttons (top-right)
+              Positioned(
+                top: 80,
+                right: 20,
+                child: Column(
+                  children: [
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "edit_$index",
+                        onPressed: () async {
+                          final croppedFile = await _cropImage(file);
+                          if (croppedFile != null) {
+                            setState(() {
+                              controller.imageFiles[index] = croppedFile;
+                            });
                             Navigator.pop(context);
-                          },
-              ),
-            ),
-
-            // Floating edit & delete buttons (top-right)
-            Positioned(
-              top: 80,
-              right: 20,
-              child: Column(
-                children: [
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () async {
-                        final croppedFile = await _cropImage(file);
-                        if (croppedFile != null) {
-                          setState(() {
-                            controller.imageFiles[index] = croppedFile;
-                          });
+                            _showFullImage(croppedFile, index);
+                          }
+                        },
+                        backgroundColor: Colors.deepPurple,
+                        child: const Icon(Icons.edit),
+                      ),
+                    const SizedBox(height: 12),
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "delete_$index",
+                        onPressed: () {
                           Navigator.pop(context);
-                          _showFullImage(croppedFile, index);
-                        }
-                      },
-                      backgroundColor: Colors.deepPurple,
-                      child: const Icon(Icons.edit),
-                    ),
-                  const SizedBox(height: 12),
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          controller.imageFiles.removeAt(index);
-                        });
-                      },
-                      backgroundColor: Colors.red,
-                      child: const Icon(Icons.delete),
-                    ),
-                ],
+                          setState(() {
+                            controller.imageFiles.removeAt(index);
+                          });
+                        },
+                        backgroundColor: Colors.red,
+                        child: const Icon(Icons.delete),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
     return Row(
@@ -2888,7 +3129,7 @@ class _HubApprovalViewEditExpensePageState
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      AppLocalizations.of(context)!.comments,
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -2990,7 +3231,7 @@ class _HubApprovalViewEditExpensePageState
                         ),
                       ],
                     ),
-                     const SizedBox(height: 30),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -3001,7 +3242,7 @@ class _HubApprovalViewEditExpensePageState
     );
   }
 
- Widget _buildTextField({
+  Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required bool isReadOnly,
@@ -3034,7 +3275,6 @@ class _HubApprovalViewEditExpensePageState
       ],
     );
   }
-
 
   Widget _buildDropdownField({
     required String label,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
 
 class GradientButton extends StatelessWidget {
   final String text;

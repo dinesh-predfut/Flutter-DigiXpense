@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:digi_xpense/core/comman/Side_Bar/side_bar.dart';
-import 'package:digi_xpense/core/comman/widgets/languageDropdown.dart';
-import 'package:digi_xpense/core/comman/widgets/pageLoaders.dart';
-import 'package:digi_xpense/core/comman/widgets/searchDropown.dart';
-import 'package:digi_xpense/core/constant/Parames/colors.dart';
-import 'package:digi_xpense/data/pages/screen/widget/router/router.dart';
-import 'package:digi_xpense/data/service.dart';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
-import 'package:digi_xpense/l10n/app_localizations.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -26,14 +27,15 @@ class PendingApprovalDashboard extends StatefulWidget {
 
 class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     with TickerProviderStateMixin {
-  final controllers = Get.put(Controller());
+  // final controllers = Get.put(Controller());
   bool isLoading = false;
-  final Controller controller = Controller();
+  final controller = Get.put(Controller());
+
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
-Rxn<File> profileImage = Rxn<File>();
+  Rxn<File> profileImage = Rxn<File>();
   double _dragOffset = 0;
   final double _maxDragExtent = 600;
   // final Controller controller = Controller();
@@ -139,8 +141,7 @@ Rxn<File> profileImage = Rxn<File>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchController.clear();
-      
-      
+      controller.selectedExpenseIds.clear();
     });
     controller.fetchNotifications();
     controller.fetchAndCombineData().then((_) {
@@ -164,32 +165,35 @@ Rxn<File> profileImage = Rxn<File>();
     setState(() {
       controller.isEnable.value = false;
     });
-     
+
     print("${controller.isEnable.value}isEnable");
-    _loadDataOnce();
+   
     WidgetsBinding.instance.addPostFrameCallback((_) {
+       _loadDataOnce();
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
     });
     loadProfileImage();
   }
-   
+
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
   }
-void loadProfileImage() async {
-    controller.isImageLoading.value = true;
+
+  void loadProfileImage() async {
+    // controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
     if (path != null && File(path).existsSync()) {
       profileImage.value = File(path);
-      controller.isImageLoading.value = false;
+      // controller.isImageLoading.value = false;
     } else {
       // await controller.getProfilePicture();
-            controller.isImageLoading.value = false;
+      // controller.isImageLoading.value = false;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -199,6 +203,7 @@ void loadProfileImage() async {
     WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+        controller.selectedExpenseIds.clear();
         return true; // allow back navigation
       },
       child: Scaffold(
@@ -223,7 +228,7 @@ void loadProfileImage() async {
                         children: [
                           Stack(
                             children: [
-                             if (primaryColor != const Color(0xFF1e4db7) )
+                              if (primaryColor != const Color(0xFF1e4db7))
                                 Container(
                                   width: double.infinity,
                                   decoration: BoxDecoration(
@@ -240,388 +245,208 @@ void loadProfileImage() async {
                                     ),
                                   ),
                                   padding: const EdgeInsets.fromLTRB(
-                                    6,
+                                    0,
                                     40,
-                                    6,
+                                    0,
                                     16,
                                   ),
                                   child: Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                     IconButton(
-                                          onPressed: _openMenu,
-                                          icon: Icon(
-                                            Icons.menu,
-                                            color: Colors.black,
-                                            size: 20,
-                                          ),
-                                          // Optional: Add custom background or shape
-                                          style: IconButton.styleFrom(
-                                            // backgroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                      Flexible(
+                                        flex: 4,
+                                        child: Row(
+                                          children: [
+                                            IconButton(
+                                              onPressed: _openMenu,
+                                              icon: Icon(
+                                                Icons.menu,
+                                                color: Colors.black,
+                                                size: 20,
+                                              ),
+                                              style: IconButton.styleFrom(
+                                                // backgroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  5,
+                                                ),
+                                              ),
                                             ),
-                                            padding: const EdgeInsets.all(8),
-                                          ),
-                                        ),
-                                    
-                                      // Logo
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: Image.asset(
-                                          'assets/XpenseWhite.png',
-                                          width: isSmallScreen ? 80 : 100,
-                                          height: isSmallScreen ? 30 : 40,
-                                          fit: BoxFit.cover,
+
+                                            // Logo
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              child: Image.asset(
+                                                'assets/XpenseWhite.png',
+                                                width: isSmallScreen ? 60 : 80,
+                                                height: isSmallScreen ? 30 : 40,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
 
-                                      // Actions
-                                      Row(
-                                        children: [
-                                          const LanguageDropdown(),
-                                          _buildNotificationBadge(),
-                                          _buildProfileAvatar(),
-                                        ],
+                                      const Spacer(),
+                                      Flexible(
+                                        flex: 9,
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.start,
+                                            children: [
+                                              const LanguageDropdown(),
+
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.fingerprint,
+                                                  color: Colors.white,
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    AppRoutes.punchScreen,
+                                                  );
+                                                },
+                                              ),
+
+                                              _buildNotificationBadge(),
+                                              _buildProfileAvatar(),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                             if (primaryColor == const Color(0xFF1e4db7) )
-                             Container(
-                              width: double.infinity,
-                              height: 100,
-                              decoration: const BoxDecoration(
-                                image: DecorationImage(
-                                  image: AssetImage('assets/Vector.png'),
-                                  fit: BoxFit.cover,
-                                ),
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(10),
-                                  bottomRight: Radius.circular(10),
-                                ),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(6, 40, 6, 16),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    onPressed: _openMenu,
-                                    icon: Icon(
-                                      Icons.menu,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
-                                    // Optional: Add custom background or shape
-                                    style: IconButton.styleFrom(
-                                      // backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                  ),
-
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Image.asset(
-                                      'assets/XpenseWhite.png',
-                                      width: isSmallScreen ? 80 : 100,
-                                      height: isSmallScreen ? 30 : 40,
+                              if (primaryColor == const Color(0xFF1e4db7))
+                                Container(
+                                  width: double.infinity,
+                                  height: 100,
+                                  decoration: const BoxDecoration(
+                                    image: DecorationImage(
+                                      image: AssetImage('assets/Vector.png'),
                                       fit: BoxFit.cover,
                                     ),
+                                    borderRadius: BorderRadius.only(
+                                      bottomLeft: Radius.circular(10),
+                                      bottomRight: Radius.circular(10),
+                                    ),
                                   ),
-
-                                  // Actions
-                                  Row(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    0,
+                                    40,
+                                    0,
+                                    16,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const LanguageDropdown(),
-                                      _buildNotificationBadge(),
-                                      _buildProfileAvatar(),
+                                      Flexible(
+                                        flex: 4,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          children: [
+                                            IconButton(
+                                              onPressed: _openMenu,
+                                              icon: Icon(
+                                                Icons.menu,
+                                                color: Colors.black,
+                                                size: 20,
+                                              ),
+                                              style: IconButton.styleFrom(
+                                                // backgroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  5,
+                                                ),
+                                              ),
+                                            ),
+
+                                            // Logo
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              child: Image.asset(
+                                                'assets/XpenseWhite.png',
+                                                width: isSmallScreen ? 60 : 80,
+                                                height: isSmallScreen ? 30 : 40,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      const Spacer(),
+                                      Flexible(
+                                        flex: 9,
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              const LanguageDropdown(),
+
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.fingerprint,
+                                                  color: Colors.white,
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.pushNamed(
+                                                    context,
+                                                    AppRoutes.punchScreen,
+                                                  );
+                                                },
+                                              ),
+
+                                              _buildNotificationBadge(),
+                                              _buildProfileAvatar(),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ),
-                //                 Container(
-                //                   width: double.infinity,
-                //                   height: 100,
-                //                  decoration: BoxDecoration(
-                //                     borderRadius: BorderRadius.circular(16),
-                //                     gradient: LinearGradient(
-                //                       begin: Alignment.topLeft,
-                //                       end: Alignment.bottomRight,
-                //                       colors: [
-                //                         primaryColor,
-                //                         primaryColor.withOpacity(
-                //                           0.7,
-                //                         ), // Lighter primary color
-                //                       ],
-                //                     ),
-                //                   ),
-                //                   padding: const EdgeInsets.fromLTRB(
-                //                     10,
-                //                     40,
-                //                     20,
-                //                     20,
-                //                   ),
-                //                   child: Row(
-                //                     mainAxisAlignment:
-                //                         MainAxisAlignment.spaceBetween,
-                //                     children: [
-                //                       Positioned(
-                //   top: 40,
-                //   left: 16,
-                //   child: IconButton(
-                //     onPressed: _openMenu,
-                //     icon: Icon(Icons.menu, color: Colors.black, size: 20),
-                //     // Optional: Add custom background or shape
-                //     style: IconButton.styleFrom(
-                //       // backgroundColor: Colors.white,
-                //       shape: RoundedRectangleBorder(
-                //         borderRadius: BorderRadius.circular(8),
-                //       ),
-                //       padding: const EdgeInsets.all(8),
-                //     ),
-                //   ),
-                // ),
-                //                       Flexible(
-                //                         child: Column(
-                //                           children: [
-                                         
-                //                             // const Text(
-                //                             //   'Welcome to',
-                //                             //   style: TextStyle(
-                //                             //       color: Colors.white,
-                //                             //       fontSize: 8),
-                //                             // ),
-                //                             ClipRRect(
-                //                               borderRadius:
-                //                                   BorderRadius.circular(20),
-                //                               child: Image.asset(
-                //                                 'assets/XpenseWhite.png',
-                //                                 width: 100,
-                //                                 height: 40,
-                //                                 fit: BoxFit.cover,
-                //                               ),
-                //                             ),
-                //                           ],
-                //                         ),
-                //                       ),
-                //                       const SizedBox(height: 20),
-                //                       Row(
-                //                         mainAxisAlignment:
-                //                             MainAxisAlignment.spaceBetween,
-                //                         children: [
-                //                           const LanguageDropdown(),
-                //                           Stack(
-                //                             children: [
-                //                               IconButton(
-                //                                 icon: const Icon(
-                //                                   Icons.notifications,
-                //                                   color: Colors.white,
-                //                                 ),
-                //                                 onPressed: () {
-                //                                   Navigator.pushNamed(
-                //                                     context,
-                //                                     AppRoutes.notification,
-                //                                   );
-                //                                 },
-                //                               ),
-                //                               Obx(() {
-                //                                 final unreadCount = controller
-                //                                     .unreadNotifications
-                //                                     .length;
-                //                                 if (unreadCount == 0) {
-                //                                   return const SizedBox.shrink();
-                //                                 }
-                //                                 return Positioned(
-                //                                   right: 6,
-                //                                   top: 6,
-                //                                   child: Container(
-                //                                     padding:
-                //                                         const EdgeInsets.all(4),
-                //                                     decoration:
-                //                                         const BoxDecoration(
-                //                                           color: Colors.red,
-                //                                           shape:
-                //                                               BoxShape.circle,
-                //                                         ),
-                //                                     constraints:
-                //                                         const BoxConstraints(
-                //                                           minWidth: 15,
-                //                                           minHeight: 15,
-                //                                         ),
-                //                                     child: Text(
-                //                                       '$unreadCount',
-                //                                       style: const TextStyle(
-                //                                         color: Colors.white,
-                //                                         fontSize: 6,
-                //                                         fontWeight:
-                //                                             FontWeight.bold,
-                //                                       ),
-                //                                       textAlign:
-                //                                           TextAlign.center,
-                //                                     ),
-                //                                   ),
-                //                                 );
-                //                               }),
-                //                             ],
-                //                           ),
-                //                           const SizedBox(width: 10),
-                //                           GestureDetector(
-                //                             onTap: () {
-                //                               Navigator.pushNamed(
-                //                                 context,
-                //                                 AppRoutes.personalInfo,
-                //                               );
-                //                             },
-                //                             child: Obx(
-                //                               () => AnimatedContainer(
-                //                                 duration: const Duration(
-                //                                   milliseconds: 300,
-                //                                 ),
-                //                                 padding: const EdgeInsets.all(
-                //                                   4,
-                //                                 ),
-                //                                 decoration: BoxDecoration(
-                //                                   shape: BoxShape.circle,
-
-                //                                   boxShadow: [
-                //                                     BoxShadow(
-                //                                       color: Colors.black
-                //                                           .withOpacity(0.15),
-                //                                       blurRadius: 12,
-                //                                       offset: const Offset(
-                //                                         0,
-                //                                         4,
-                //                                       ),
-                //                                     ),
-                //                                   ],
-                //                                 ),
-                //                                 child: AnimatedScale(
-                //                                   duration: const Duration(
-                //                                     milliseconds: 200,
-                //                                   ),
-                //                                   scale:
-                //                                       controller
-                //                                           .isImageLoading
-                //                                           .value
-                //                                       ? 1.0
-                //                                       : 1.05,
-                //                                   child: ClipRRect(
-                //                                     borderRadius:
-                //                                         BorderRadius.circular(
-                //                                           24,
-                //                                         ),
-                //                                     child: Stack(
-                //                                       children: [
-                //                                         // Placeholder or Image
-                //                                         Container(
-                //                                           width: 30,
-                //                                           height: 30,
-                //                                           decoration:
-                //                                               BoxDecoration(
-                //                                                 shape: BoxShape
-                //                                                     .circle,
-                //                                                 color: Colors
-                //                                                     .grey[800],
-                //                                               ),
-                //                                           child:
-                //                                               controller
-                //                                                   .isImageLoading
-                //                                                   .value
-                //                                               ? const Center(
-                //                                                   child: CircularProgressIndicator(
-                //                                                     color: Colors
-                //                                                         .white,
-                //                                                     strokeWidth:
-                //                                                         2.5,
-                //                                                   ),
-                //                                                 )
-                //                                               : profileImage
-                //                                                         .value !=
-                //                                                     null
-                //                                               ? Image.file(
-                //                                                  profileImage
-                //                                                       .value!,
-                //                                                   fit: BoxFit
-                //                                                       .cover,
-                //                                                   width: 30,
-                //                                                   height: 30,
-                //                                                 )
-                //                                               : const Center(
-                //                                                   child: Icon(
-                //                                                     Icons
-                //                                                         .person,
-                //                                                     size: 28,
-                //                                                     color: Colors
-                //                                                         .white70,
-                //                                                   ),
-                //                                                 ),
-                //                                         ),
-                //                                         // Overlay shimmer when loading
-                //                                         if (controller
-                //                                             .isImageLoading
-                //                                             .value)
-                //                                           Container(
-                //                                             decoration: const BoxDecoration(
-                //                                               shape: BoxShape
-                //                                                   .circle,
-                //                                               gradient: LinearGradient(
-                //                                                 colors: [
-                //                                                   Colors
-                //                                                       .transparent,
-                //                                                   Colors
-                //                                                       .white10,
-                //                                                 ],
-                //                                                 stops: [
-                //                                                   0.7,
-                //                                                   1.0,
-                //                                                 ],
-                //                                               ),
-                //                                             ),
-                //                                           ),
-
-                //                                         // Edit icon overlay on tap-ready state
-                //                                       ],
-                //                                     ),
-                //                                   ),
-                //                                 ),
-                //                               ),
-                //                             ),
-                //                           ),
-                //                         ],
-                //                       ),
-                //                     ],
-                //                   ),
-                //                 ),
+                                ),
+                              const SizedBox(height: 8),
                             ],
                           ),
-                            const SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 16.0,
-                    ), // Like margin-left
-                    child: Text(
-                      loc.pendingApprovals,
-                      style: const TextStyle(
-                        // color: AppColors.gradientEnd, // Text color
-                        fontSize: 20, // font-size
-                        fontWeight: FontWeight.bold, // font-weight: bold
-                        fontFamily: 'Roboto',
-                        letterSpacing: 0.5,
-                        // height: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 16.0,
+                              ), // Like margin-left
+                              child: Text(
+                                loc.pendingApprovals,
+                                style: const TextStyle(
+                                  // color: AppColors.gradientEnd, // Text color
+                                  fontSize: 20, // font-size
+                                  fontWeight:
+                                      FontWeight.bold, // font-weight: bold
+                                  fontFamily: 'Roboto',
+                                  letterSpacing: 0.5,
+                                  // height: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           Obx(() {
                             return SizedBox(
                               height: 140,
@@ -675,50 +500,63 @@ void loadProfileImage() async {
                           Row(
                             children: [
                               // ------------------ Status Dropdown ------------------
-                              // Expanded(
-                              //   child: Padding(
-                              //     padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              //     child: Container(
-                              //       padding: const EdgeInsets.symmetric(horizontal: 12),
-                              //       decoration: BoxDecoration(
-                              //          color:theme.colorScheme.primary,
-                              //          borderRadius: BorderRadius.circular(10),
-                              //       ),
-                              //       child: Obx(() => DropdownButton<String>(
-                              //             value: controller.selectedStatusDropDown.value,
-                              //             isExpanded: true,
-                              //             underline:
-                              //                 Container(), // Removes default underline
-                              //             borderRadius: BorderRadius.circular(10),
-                              //           style:
-                              //                  const TextStyle(fontSize: 12),
-                              //             icon:  Icon(Icons.arrow_drop_down,
-                              //                 color: theme.colorScheme.primary),
+                              Expanded(
+                                child:  Padding(
+    padding: const EdgeInsets.only(right: 16, left: 16),
+    child: Obx(() {
+      final isDisabled = controller.selectedExpenseIds.isEmpty;
 
-                              //             onChanged: (String? newValue) {
-                              //               if (newValue != null &&
-                              //                   newValue != controller.selectedStatus) {
-                              //                 controller.selectedStatus = newValue;
-                              //                 controller.selectedStatusDropDown.value =
-                              //                     newValue;
-                              //                 controller
-                              //                     .fetchGetallGExpense(); // Refetch data
-                              //               }
-                              //             },
-                              //             items: statusOptions
-                              //                 .map<DropdownMenuItem<String>>(
-                              //                     (String value) {
-                              //               return DropdownMenuItem<String>(
-                              //                 value: value,
-                              //                 enabled: true,
-                              //                 child: Text(value,
-                              //                    ),
-                              //               );
-                              //             }).toList(),
-                              //           )),
-                              //     ),
-                              //   ),
-                              // ),
+      return Container(
+        height: 47,
+        width: 140,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: isDisabled
+              ? Colors.grey
+              : Theme.of(context).colorScheme.primary,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: PopupMenuButton<String>(
+          enabled: !isDisabled, // ✅ disables tap
+          onSelected: (value) {
+            if (value == "approve") {
+              showActionPopup(context, "Approve");
+            } else if (value == "reject") {
+              showActionPopup(context, "Reject");
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: "approve",
+              child: Text("Approval"),
+            ),
+            PopupMenuItem(
+              value: "reject",
+              child: Text("Reject"),
+            ),
+          ],
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Bulk Action",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      );
+    }),
+  ),
+                                
+                              ),
 
                               // ------------------ Expense Type Dropdown ------------------
                               Expanded(
@@ -742,9 +580,8 @@ void loadProfileImage() async {
                                             .value,
                                         isExpanded: true,
                                         underline: Container(),
-                                        dropdownColor: theme
-                                            .colorScheme
-                                            .primary,
+                                        dropdownColor:
+                                            theme.colorScheme.primary,
                                         borderRadius: BorderRadius.circular(10),
                                         style: const TextStyle(fontSize: 12),
                                         icon: Icon(
@@ -775,9 +612,16 @@ void loadProfileImage() async {
                                                   value,
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                   color: controller.selectedExpenseType.value == value
-                      ? theme.colorScheme.secondary // ACTIVE DROPDOWN ITEM COLOR
-                      : Colors.white,  // popup text color
+                                                    color:
+                                                        controller
+                                                                .selectedExpenseType
+                                                                .value ==
+                                                            value
+                                                        ? theme
+                                                              .colorScheme
+                                                              .secondary // ACTIVE DROPDOWN ITEM COLOR
+                                                        : Colors
+                                                              .white, // popup text color
                                                   ),
                                                 ),
                                               );
@@ -798,10 +642,10 @@ void loadProfileImage() async {
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.47,
                   child: Obx(() {
-                    return controller.isLoadingGE1.value
+                    return controller.isLoadingGE1.value  
                         ? const SkeletonLoaderPage()
                         : controller.filteredpendingApprovals.isEmpty
-                        ? const Center(child: Text("No expenses found"))
+                        ? const CommonNoDataWidget()
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount:
@@ -817,7 +661,7 @@ void loadProfileImage() async {
                                 confirmDismiss: (direction) async {
                                   if (direction ==
                                       DismissDirection.startToEnd) {
-                                    setState(() => isLoading = true);
+                                    // setState(() => isLoading = true);
 
                                     if (item.expenseType == "PerDiem") {
                                       controller
@@ -827,7 +671,7 @@ void loadProfileImage() async {
                                           );
                                     } else if (item.expenseType ==
                                         "General Expenses") {
-                                      print("Expenses${item.recId}");
+                                      
                                       controller
                                           .fetchSecificApprovalExpenseItem(
                                             context,
@@ -837,7 +681,7 @@ void loadProfileImage() async {
                                         item.recId,
                                       );
                                     } else if (item.expenseType == "Mileage") {
-                                      print("Expenses${item.recId}");
+                                      // print("Expenses${item.recId}");
                                       controller.fetchMileageDetailsApproval(
                                         context,
                                         item.workitemrecid,
@@ -862,6 +706,204 @@ void loadProfileImage() async {
           },
         ),
       ),
+    );
+  }
+
+  void showActionPopup(BuildContext context, String status) {
+    final TextEditingController commentController = TextEditingController();
+    bool isCommentError = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: MediaQuery.of(context).viewInsets,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppLocalizations.of(context)!.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (status == "Escalate") ...[
+                      Text(
+                        '${AppLocalizations.of(context)!.selectUser}*',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${AppLocalizations.of(context)!.user} *',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.userName,
+                            AppLocalizations.of(context)!.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(user.userName)),
+                                  Expanded(child: Text(user.userId)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: isCommentError ? Colors.red : Colors.teal,
+                            width: 2,
+                          ),
+                        ),
+                        errorText: isCommentError
+                            ? 'Comment is required.'
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        if (isCommentError && value.trim().isNotEmpty) {
+                          setState(() => isCommentError = false);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            controller.closeField();
+                            Navigator.pop(context);
+                          },
+                          child: Text(AppLocalizations.of(context)!.close),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final comment = commentController.text.trim();
+                            if (status != "Approve" && comment.isEmpty) {
+                              setState(() => isCommentError = true);
+                              return;
+                            }
+
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
+                            );
+                            print(
+                              "Sending IDs: ${controller.selectedExpenseIds}",
+                            );
+
+                            final success = await controller.postApprovalAction(
+                              context,
+                              workitemrecid:
+                                  controller.selectedExpenseIds.value,
+                              decision: status,
+                              comment: commentController.text,
+                            );
+
+                            if (Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).canPop()) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                            }
+
+                            if (!context.mounted) return;
+
+                            if (success) {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.approvalDashboard,
+                              );
+                              controller.isApprovalEnable.value = false;
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Failed to submit action'),
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(status),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1037,7 +1079,7 @@ void loadProfileImage() async {
     );
   }
 
-   Widget _buildProfileAvatar() {
+  Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(context, AppRoutes.personalInfo);
@@ -1088,27 +1130,27 @@ void loadProfileImage() async {
                     ),
 
                     /// Loader Overlay
-                    if (controller.isImageLoading.value)
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
@@ -1118,7 +1160,8 @@ void loadProfileImage() async {
       ),
     );
   }
-    }
+}
+
 Widget _buildSwipeActionLeft(bool isLoading) {
   return Container(
     alignment: Alignment.centerLeft,
@@ -1169,115 +1212,167 @@ Widget _buildSwipeActionRight() {
   );
 }
 
+void _openExpenseDetails(
+  ExpenseModel item,
+  BuildContext context,
+  Controller controller,
+) {
+  if (item.expenseType == "PerDiem") {
+    controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
+  } else if (item.expenseType == "General Expenses") {
+    controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
+    controller.fetchExpenseHistory(item.recId);
+  } else if (item.expenseType == "Mileage") {
+    controller.fetchMileageDetailsApproval(context, item.workitemrecid, true);
+  } else if (item.expenseType == "CashAdvanceReturn") {
+    controller.fetchSecificCashAdvanceReturnApproval(
+      context,
+      item.workitemrecid,
+      true,
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
+    );
+  }
+}
+
+Widget _swipeBg(IconData icon, Alignment align) {
+  return Container(
+    alignment: align,
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    color: Colors.blue.shade50,
+    child: Icon(icon, color: Colors.blue),
+  );
+}
+
 Widget _buildCard(ExpenseModel item, BuildContext context) {
   final controller = Get.put(Controller());
-  return GestureDetector(
-    onTap: () {
-      if (item.expenseType == "PerDiem") {
-        controller.fetchSecificPerDiemItemApproval(context, item.workitemrecid);
-      } else if (item.expenseType == "General Expenses") {
-        print("Expenses${item.recId}");
-        controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-        controller.fetchExpenseHistory(item.recId);
-      } else if (item.expenseType == "Mileage") {
-        print("Expenses${item.recId}");
-        controller.fetchMileageDetailsApproval(
-          context,
-          item.workitemrecid,
-          true,
-        );
-        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-        // controller.fetchExpenseHistory(item.recId);
-      } else if (item.expenseType == "CashAdvanceReturn") {
-        controller.fetchSecificCashAdvanceReturnApproval(
-          context,
-          item.workitemrecid,
-          true,
-        );
-        // controller.fetchSecificApprovalExpenseItem(context, item.workitemrecid);
-        // controller.fetchExpenseHistory(item.recId);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Unknown expense type: ${item.expenseType}")),
-        );
-      }
-    },
-    child: Card(
-      // color: const Color.fromARGB(218, 245, 244, 244),
-      shadowColor: const Color.fromARGB(255, 82, 78, 78),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: ID + Date
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  item.expenseId,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  DateFormat('dd-MM-yyyy').format(
-                    DateTime.fromMillisecondsSinceEpoch(item.receiptDate),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    // color: Color.fromARGB(255, 41, 41, 41),
-                  ),
-                ),
-              ],
+  final id = item.workitemrecid;
+
+  return Obx(() {
+    final isSelected = controller.selectedExpenseIds.contains(id);
+
+    return Dismissible(
+      key: ValueKey('expense_$id'),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        _openExpenseDetails(item, context, controller);
+        return false; // prevent dismiss
+      },
+      background: _swipeBg(Icons.arrow_forward, Alignment.centerLeft),
+      secondaryBackground: _swipeBg(Icons.arrow_back, Alignment.centerRight),
+
+      child: GestureDetector(
+        onLongPress: () => controller.toggleSelectionExpense(id),
+
+        onTap: () {
+          if (controller.selectedExpenseIds.isNotEmpty) {
+            controller.toggleSelectionExpense(id);
+          } else {
+            _openExpenseDetails(item, context, controller);
+          }
+        },
+
+        child: Card(
+          color: isSelected ? Colors.blue.shade50 : null,
+          shadowColor: const Color.fromARGB(255, 82, 78, 78),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isSelected ? Colors.blue : Colors.transparent,
+              width: isSelected ? 2 : 0,
             ),
+          ),
 
-            const SizedBox(height: 4),
-
-            // Category
-            Text(
-              (item.expenseCategoryId == null)
-                  ? ''
-                  : item.expenseCategoryId.toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 6),
-
-            // Status and Amount
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    item.stepType,
-                    style: const TextStyle(
-                      color: Color.fromARGB(255, 1, 90, 4),
-                      fontSize: 12,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.expenseId,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          DateFormat('dd-MM-yyyy').format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                              item.receiptDate,
+                            ),
+                          ),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ),
+
+                    const SizedBox(height: 4),
+
+                    /// Category
+                    Text(
+                      item.expenseCategoryId?.toString() ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    /// Status + Amount
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green[200],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            item.stepType,
+                            style: const TextStyle(
+                              color: Color.fromARGB(255, 1, 90, 4),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+
+                        Text(
+                          item.totalAmountReporting.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                Text(
-                  '${item.totalAmountReporting.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+
+              // /// ✅ Checkbox overlay when selecting
+              // if (controller.selectedExpenseIds.isNotEmpty)
+              //   Positioned(
+              //     top: 8,
+              //     right: 8,
+              //     child: Checkbox(
+              //       value: isSelected,
+              //       onChanged: (_) =>
+              //           controller.toggleSelectionExpense(id),
+              //     ),
+              //   ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  });
 }

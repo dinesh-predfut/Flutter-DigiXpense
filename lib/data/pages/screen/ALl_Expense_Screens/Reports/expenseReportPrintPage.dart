@@ -1,4 +1,4 @@
-import 'package:digi_xpense/data/models.dart';
+import 'package:diginexa/data/models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +8,7 @@ import 'dart:convert';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:digi_xpense/core/constant/Parames/params.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
 
 import '../../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../../../core/constant/url.dart';
@@ -49,10 +49,12 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
     debugPrint("📦 Stored selected tables: $stored");
 
     List<String> filtered = [];
-    if (stored.contains("DocumentAttachments"))
+    if (stored.contains("DocumentAttachments")) {
       filtered.add("DocumentAttachments");
-    if (stored.contains("AccountingDistributions"))
+    }
+    if (stored.contains("AccountingDistributions")) {
       filtered.add("AccountingDistributions");
+    }
     if (stored.contains("CSHHeaderExpensecategorycustomfieldvalues")) {
       filtered.add("CSHHeaderExpensecategorycustomfieldvalues");
     }
@@ -81,70 +83,63 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
   }
 
   Future<void> _fetchExpenseData(String expenseId) async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
+  setState(() {
+    isLoading = true;
+    errorMessage = null;
+  });
 
-    try {
-      final url = Uri.parse(
-        '${Urls.baseURL}/api/v1/reports/expensereport/misreports'
-        '?transactionid=$expenseId&trackingcontext=ExpenseRequisition',
-      );
+  try {
+    final url = Uri.parse(
+      '${Urls.baseURL}/api/v1/reports/expensereport/misreports'
+      '?transactionid=$expenseId&trackingcontext=ExpenseRequisition',
+    );
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Params.userToken}',
-        },
-      );
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${Params.userToken}',
+      },
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data is List && data.isNotEmpty) {
-          final expense = Map<String, dynamic>.from(data.first);
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
 
-          setState(() {
-            expenseDetails = [expense];
+      if (data is List && data.isNotEmpty) {
+        final List<Map<String, dynamic>> expenses =
+            data.map((e) => Map<String, dynamic>.from(e)).toList();
 
-            // Parse and store ActivityLog data
-            activityLog = (expense['ActivityLog'] as List<dynamic>? ?? [])
-                .map((log) => ExpenseHistory.fromJson(log))
-                .toList();
-          });
-        }
+        final expense = expenses.first;
 
-        if (data is List && data.isNotEmpty) {
-          final List<Map<String, dynamic>> expenses =
-              data.map((e) => Map<String, dynamic>.from(e)).toList();
+        setState(() {
+          expenseDetails = expenses;
 
-          setState(() {
-            expenseDetails = expenses;
-          });
+          activityLog = (expense['ActivityLog'] as List<dynamic>? ?? [])
+              .map((log) => ExpenseHistory.fromJson(log))
+              .toList();
+        });
 
-          debugPrint("✅ API Data fetched for $expenseId");
-        } else {
-          setState(() {
-            errorMessage = "No expense data found.";
-          });
-        }
+        debugPrint("✅ API Data fetched for $expenseId");
       } else {
         setState(() {
-          errorMessage = "Failed to load data (HTTP ${response.statusCode})";
+          errorMessage = "No expense data found.";
         });
       }
-    } catch (e) {
+    } else {
       setState(() {
-        errorMessage = "Error: $e";
-      });
-    } finally {
-      setState(() {
-        isLoading = false;
+        errorMessage = "Failed to load data (HTTP ${response.statusCode})";
       });
     }
+  } catch (e) {
+    setState(() {
+      errorMessage = "Error: $e";
+    });
+  } finally {
+    setState(() {
+      isLoading = false;
+    });
   }
-
+}
   Future<void> _printAllExpenses(List<String> expenseIds) async {
     if (expenseIds.isEmpty) {
       debugPrint("⚠ No expense IDs provided");
@@ -291,7 +286,7 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
   }
 
   pw.Widget _buildTimelineItemPdf(ExpenseHistory item, bool isLast) {
-    print("activityLog${item.eventType}");
+    // print("activityLog${item.eventType}");
 
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
