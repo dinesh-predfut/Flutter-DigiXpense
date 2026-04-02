@@ -47,11 +47,13 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
   late final Animation<double> _animation;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
+  CalendarFormat _viewMode = CalendarFormat.month;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
 
   // Tab related variables
   int _selectedTabIndex = 0;
-  late final List<String> _tabTitles = [
-    AppLocalizations.of(context)!.calendarView,
+   late final List<String> _tabTitles = [
+    AppLocalizations.of(context)!.tableView,
     AppLocalizations.of(context)!.calendarView,
   ];
 
@@ -59,7 +61,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final Map<DateTime, List<LeaveRequisition>> _events = {};
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+
   bool isLoading = false;
   Rxn<File> profileImage = Rxn<File>();
   bool? showExpense;
@@ -93,6 +95,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
       // loadLeaveAnalytics();
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
+      controller.selectedLeaveStatusDropDownmyTeam.value = "In Process";
       _loadProfileImage();
       _initializeCalendarEvents();
       controller.loadMyTeamLeaveAnalytics();
@@ -108,10 +111,6 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
     // Load data
     // controller.loadProfilePictureFromStorage();
     final range = controller.getMonthRangeEpoch(controller.focusedDay);
-    controller.loadCalendarLeaves(
-      fromDate: range['from']!,
-      toDate: range['to']!,
-    );
 
     controller.fetchAndCombineData().then((_) {
       if (leaveAnalyticsCards.isNotEmpty && mounted) {
@@ -132,6 +131,10 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.loadCalendarLeaves(
+        fromDate: range['from']!,
+        toDate: range['to']!,
+      );
       controller.fetchMyteamsLeaveRequisitions().then((_) {
         controller.isLoadingLeaves.value = false;
       });
@@ -213,8 +216,8 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
 
     return WillPopScope(
       onWillPop: () async {
-        controller.selectedExpenseType = "All Expenses".obs;
-        controller.selectedLeaveStatusDropDown = "Un Reported".obs;
+        controller.selectedExpenseType.value = "All Expenses";
+        controller.selectedLeaveStatusDropDown.value = "Un Reported";
         controller.selectedStatus = "Un Reported";
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
@@ -638,12 +641,13 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
 
   Widget _buildCalendarViewContent(BuildContext context) {
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
           const SizedBox(height: 12),
 
-          // Calendar Format Selector
+          /// Month Week Day Buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -666,6 +670,8 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
           ),
 
           const SizedBox(height: 12),
+
+          /// Today + Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -673,152 +679,192 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
               children: [
                 SizedBox(
                   height: 32,
+                  child: OutlinedButton(
+                    onPressed: _goToToday,
+                    child: const Text("Today", style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
                   child: OutlinedButton.icon(
                     onPressed: () => _openFilterBottomSheet(context),
                     icon: const Icon(Icons.filter_alt_outlined, size: 16),
-                    label: const Text('Filter', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    label: const Text("Filter", style: TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
-          // Table Calendar Container with Fixed Height
-          Container(
-            height: 500, // Fixed height for calendar
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Calendar - Takes most of the space
-                Expanded(
-                  child: Obx(() {
-                    return Stack(
-                      children: [
-                        TableCalendar<LeaveDetailsModel>(
-                          firstDay: DateTime.utc(2000, 1, 1),
-                          lastDay: DateTime.utc(2050, 12, 31),
-                          focusedDay: controller.focusedDay,
-                          calendarFormat: _calendarFormat,
+          /// CALENDAR VIEW
+          if (_viewMode != CalendarFormat.twoWeeks)
+            Container(
+              height: 500,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Obx(() {
+                return Stack(
+                  children: [
+                    TableCalendar<LeaveDetailsModel>(
+                      firstDay: DateTime.utc(2000, 1, 1),
+                      lastDay: DateTime.utc(2050, 12, 31),
+                      focusedDay: controller.focusedDay,
+                      calendarFormat: _calendarFormat,
 
-                          eventLoader: (date) {
-                            final key = DateTime(
-                              date.year,
-                              date.month,
-                              date.day,
-                            );
-                            return controller.events[key] ?? [];
-                          },
+                      eventLoader: (date) {
+                        final key = DateTime(date.year, date.month, date.day);
+                        return controller.events[key] ?? [];
+                      },
 
-                          selectedDayPredicate: (d) =>
-                              isSameDay(d, controller.selectedDay),
+                      selectedDayPredicate: (day) {
+                        return isSameDay(controller.selectedDay, day);
+                      },
 
-                          headerStyle: const HeaderStyle(
-                            titleCentered: true,
-                            formatButtonVisible: false,
-                          ),
+                      headerStyle: const HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                      ),
 
-                          calendarStyle: CalendarStyle(
-                            markerDecoration: BoxDecoration(),
-                            markersAlignment: Alignment.bottomCenter,
-                            markersMaxCount: 3,
-                          ),
+                      calendarStyle: CalendarStyle(
+                        markersAlignment: Alignment.bottomCenter,
+                        markersMaxCount: 3,
 
-                          calendarBuilders: CalendarBuilders(
-                            markerBuilder: (context, date, events) {
-                              if (events.isEmpty)
-                                return const SizedBox.shrink();
-
-                              final dots = events
-                                  .take(3)
-                                  .map((e) => (e).leaveColor ?? '#e13333')
-                                  .toList();
-
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: dots.map((hex) {
-                                  return Container(
-                                    width: 6,
-                                    height: 6,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _colorFromHex(hex),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-
-                          onDaySelected: (selected, focused) {
-                            controller.onDaySelected(selected, focused);
-                            setState(() {});
-                          },
-
-                          onPageChanged: (focused) {
-                            controller.focusedDay = focused;
-
-                            final range = controller.getMonthRangeEpoch(
-                              focused,
-                            );
-
-                            controller.loadCalendarLeaves(
-                              fromDate: range['from']!,
-                              toDate: range['to']!,
-                            );
-                          },
+                        todayDecoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
                         ),
 
-                        // 🔄 Loader overlay
-                        if (controller.isCalendarLoading.value)
-                          Positioned.fill(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.08),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }),
-                ),
+                        selectedDecoration: const BoxDecoration(
+                          color: Colors.deepPurple,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
 
-                // Selected Day Events - Only shows when there are events
-              ],
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, date, events) {
+                          if (events.isEmpty) return const SizedBox();
+
+                          final dots = events
+                              .take(3)
+                              .map((e) => e.leaveColor ?? "#e13333")
+                              .toList();
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: dots.map((hex) {
+                              return Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _colorFromHex(hex),
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+
+                      onDaySelected: (selected, focused) {
+                        controller.onDaySelected(selected, focused);
+                        setState(() {});
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+
+                      onPageChanged: (focused) {
+                        controller.focusedDay = focused;
+
+                        final range = controller.getMonthRangeEpoch(focused);
+
+                        controller.loadCalendarLeaves(
+                          fromDate: range['from']!,
+                          toDate: range['to']!,
+                        );
+                      },
+                    ),
+
+                    if (controller.isCalendarLoading.value)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.08),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ),
-          ),
+
+          /// DAY VIEW (TODAY CARD)
+          if (_viewMode == CalendarFormat.twoWeeks)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildTodayLeaveCard(),
+            ),
+
+          const SizedBox(height: 12),
+
+          /// Bottom Leave List
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _buildBottomList(),
           ),
 
-          // Add some bottom padding for better scrolling
           const SizedBox(height: 20),
         ],
       ),
     );
+  }
+
+  void _goToToday() {
+    final today = DateTime.now();
+
+    controller.focusedDay = today;
+    controller.selectedDay = today;
+
+    final range = controller.getMonthRangeEpoch(today);
+
+    controller.loadCalendarLeaves(
+      fromDate: range['from']!,
+      toDate: range['to']!,
+    );
+
+    setState(() {});
+
+    /// Scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   void _openFilterBottomSheet(BuildContext context) {
@@ -885,19 +931,24 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
                             ? _buildEmployeeMultiSelect(context, controller)
                             : const SizedBox(),
                       ),
+
                       const SizedBox(height: 16),
 
                       _buildStatusDropdown(context, controller),
+
                       const SizedBox(height: 16),
 
                       _buildLeaveCodeMultiSelect(context, controller),
+
                       const SizedBox(height: 16),
 
                       _buildNotifyingUsersMultiSelect(context, controller),
-                      const SizedBox(height: 24),
+
+                      const SizedBox(height: 28),
 
                       _buildActionButtons(context, controller),
-                      const SizedBox(height: 16),
+
+                      const SizedBox(height: 10),
                     ],
                   ),
                 ),
@@ -941,7 +992,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd/MM/yyyy',
+                      'dd-MM-yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -1022,10 +1073,13 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
         } else if (option == "My Team Leave") {
           controller.showEmployeeField.value = false;
           controller.scopeFilters = "my_team_leaves";
+          controller.fetchEmployeesFilter();
         } else {
           controller.showEmployeeField.value = false;
           controller.scopeFilters = "my_leaves";
+          controller.fetchEmployeesFilter();
         }
+        // controller.fetchEmployeesFilter();
         // Clear previous employee selection when type changes
         controller.selectedEmployeesFilter.clear();
       },
@@ -1145,33 +1199,30 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
   ) {
     final localizations = AppLocalizations.of(context)!;
 
-    return MultiSelectMultiColumnDropdownField<Employee>(
+    return MultiSelectMultiColumnDropdownField<LeaveEmployee>(
       labelText: '${localizations.all} ${localizations.employees}',
-      items: controller.employees,
-      selectedValues: controller.selectedNotifyingUsers,
+      items: controller.employeesFilter,
+      selectedValues: controller.selectedEmployeesFilter,
       isMultiSelect: true,
-      searchValue: (user) => '${user.id} ${user.firstName}',
-      displayText: (user) => user.firstName,
+      searchable: false,
+      searchValue: (user) => '${user.employeeId} ${user.employeeName}',
+      displayText: (user) => user.employeeName,
       validator: (values) {
-        if (controller.selectedNotifyingUsers.isEmpty) {
+        if (controller.selectedEmployeesFilter.isEmpty) {
           return '${localizations.notifyingUsers} ${localizations.fieldRequired}';
         }
         return null;
       },
       onMultiChanged: (users) {
-        controller.selectedNotifyingUsers.assignAll(users);
+        controller.selectedEmployeesFilter.assignAll(users);
       },
       columnHeaders: [localizations.employeeId, localizations.name],
       rowBuilder: (emp, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Row(
           children: [
-            Expanded(child: Text(emp.id)),
-            Expanded(
-              child: Text(
-                '${emp.firstName} ${emp.middleName} ${emp.lastName}'.trim(),
-              ),
-            ),
+            Expanded(child: Text(emp.employeeId)),
+            Expanded(child: Text(emp.employeeName)),
           ],
         ),
       ),
@@ -1219,7 +1270,27 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              controller.resetFilters(); // reset filters
+              final now = DateTime.now();
+              final fromDate = DateTime(
+                now.year,
+                now.month,
+                1,
+              ).millisecondsSinceEpoch;
+
+              final toDate = DateTime(
+                now.year,
+                now.month + 1,
+                0,
+                23,
+                59,
+                59,
+              ).millisecondsSinceEpoch;
+
+              controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
+              Navigator.pop(context); // close dialog/page
+            },
             child: Text(localizations.cancel),
           ),
         ),
@@ -1361,36 +1432,69 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
     );
   }
 
-  Widget _buildFormatButton(String text, CalendarFormat format) {
-    final isSelected = _calendarFormat == format;
+  Widget _buildFormatButton(String text, CalendarFormat mode) {
+    final bool isSelected = _viewMode == mode;
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        onPressed: () {
           setState(() {
-            _calendarFormat = format;
+            _viewMode = mode;
+
+            if (mode == CalendarFormat.month) {
+              _calendarFormat = CalendarFormat.month;
+            } else if (mode == CalendarFormat.week) {
+              _calendarFormat = CalendarFormat.week;
+            } else {
+              controller.onDaySelected(DateTime.now(), DateTime.now());
+            }
           });
         },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).primaryColor
-                : Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.grey[700],
-              ),
-            ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.white,
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.white : Colors.black,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTodayLeaveCard() {
+    final today = DateTime.now();
+    final key = DateTime(today.year, today.month, today.day);
+
+    final leaves = controller.events[key] ?? [];
+
+    if (leaves.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text("No Leave Today", style: TextStyle(fontSize: 14)),
+          ),
+        ),
+      );
+    }
+
+    final leave = leaves.first;
+
+    return Card(
+      color: Colors.amber,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ListTile(
+        title: Text(
+          leave.leaveCode ?? "Leave",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(leave.employeeName ?? ""),
       ),
     );
   }
@@ -1638,7 +1742,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
             confirmDismiss: (direction) async {
               if (direction == DismissDirection.startToEnd) {
                 setState(() => isLoading = true);
-                await controller.fetchSpecificLeaveDetails(
+                await controller.fetchSpecificLeaveDetailsMyTeams(
                   context,
                   item.recId,
                   true,
@@ -1647,7 +1751,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
                 return false;
               } else {
                 setState(() => isLoading = true);
-                await controller.fetchSpecificLeaveDetails(
+                await controller.fetchSpecificLeaveDetailsMyTeams(
                   context,
                   item.recId,
                   true,
@@ -2059,7 +2163,11 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
       onTap: () async {
         // 👉 Handle click here
         // Example: Navigate to details page
-        await controller.fetchSpecificLeaveDetails(context, item.recId, true);
+        await controller.fetchSpecificLeaveDetailsMyTeams(
+          context,
+          item.recId,
+          true,
+        );
       },
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

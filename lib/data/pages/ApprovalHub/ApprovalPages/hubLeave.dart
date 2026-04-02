@@ -31,10 +31,12 @@ class ApprovalHubViewEditLeavePage extends StatefulWidget {
   });
 
   @override
-  State<ApprovalHubViewEditLeavePage> createState() => _ApprovalHubViewEditLeavePageState();
+  State<ApprovalHubViewEditLeavePage> createState() =>
+      _ApprovalHubViewEditLeavePageState();
 }
 
-class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeavePage> {
+class _ApprovalHubViewEditLeavePageState
+    extends State<ApprovalHubViewEditLeavePage> {
   final Controller controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
@@ -1094,9 +1096,7 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
                                       /// Date column
                                       Expanded(
                                         child: Text(
-                                          DateFormat(
-                                            'dd MMM yyyy',
-                                          ).format(date),
+                                          DateFormat('dd-MM-yyyy').format(date),
                                           style: const TextStyle(fontSize: 14),
                                         ),
                                       ),
@@ -1302,9 +1302,11 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat(
-                                        'dd MMM yyyy',
-                                      ).format(leaveDay.date),
+                                      DateFormat('dd-MM-yyyy').format(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                          leaveDay.transDate,
+                                        ),
+                                      ),
                                     ),
                                   ),
 
@@ -1741,7 +1743,7 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    controller.chancelButton(context);
+                    Navigator.pop(context);
                     controller.closeField();
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
@@ -1837,7 +1839,7 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -1952,22 +1954,12 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
       children: [
         if (widget.leaveRequest != null) ...[
           // REJECTED - RESUBMIT BUTTON
-       
-
           if (controller.leaveField.value) const SizedBox(height: 20),
 
-        
-
-        
-
-          
-
           // APPROVED WITH CANCEL ID
-          if (widget.isReadOnly &&
-              widget.leaveRequest!.stepType == "Approval")
+          if (widget.isReadOnly && widget.leaveRequest!.stepType == "Approval")
             Row(
               children: [
-         
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
@@ -1984,8 +1976,7 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
             ),
 
           // APPROVED WITHOUT CANCEL ID - CLOSE BUTTON
-          if (widget.isReadOnly &&
-              widget.leaveRequest!.stepType == "Approval")
+          if (widget.isReadOnly && widget.leaveRequest!.stepType == "Approval")
             Row(
               children: [
                 Expanded(
@@ -2001,8 +1992,6 @@ class _ApprovalHubViewEditLeavePageState extends State<ApprovalHubViewEditLeaveP
                 ),
               ],
             ),
-
-         
 
           const SizedBox(height: 28),
         ] else ...[

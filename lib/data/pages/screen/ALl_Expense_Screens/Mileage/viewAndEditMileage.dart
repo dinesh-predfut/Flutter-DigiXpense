@@ -179,7 +179,7 @@ Future<void> fetchMileageRates() async {
   });
 
   final dateToUse = DateTime.now(); // Use receipt date if available
-  final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+  final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
   final fromDate = (DateTime.parse(formatted).millisecondsSinceEpoch / 1000).floor();
 
   try {
@@ -699,7 +699,7 @@ Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

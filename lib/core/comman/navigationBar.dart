@@ -1,11 +1,14 @@
 import 'dart:io';
 
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:file_picker/file_picker.dart'
     show FilePickerResult, FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -39,7 +42,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav>
   bool? showMileage;
   bool? showCashAdvans;
 
-final Controller controller = Get.put(Controller());
+  late final Controller controller;
   final PhotoViewController _photoViewController = PhotoViewController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   late final AnimationController _ctrl = AnimationController(
@@ -53,16 +56,7 @@ final Controller controller = Get.put(Controller());
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -73,8 +67,8 @@ final Controller controller = Get.put(Controller());
         File file = File(pickedFile.path!);
         final ext = pickedFile.extension?.toLowerCase();
 
-        /// ✅ IMAGE FLOW
-        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+        
+        if (['jpg', 'jpeg', 'png'].contains(ext)) {
           await _cropImage(file);
 
           // if (croppedFile != null) {
@@ -100,13 +94,13 @@ final Controller controller = Get.put(Controller());
     final featureStates = await controller.getAllFeatureStates();
 
     if (controller.digiScanEnable!) {
-        setState(() {
+      setState(() {
         controller.imageFiles.add(file);
       });
+
       /// ✅ AutoScan Enabled → Upload directly
       // ignore: use_build_context_synchronously
       await controller.sendUploadedFileToServer(context, file);
-      
     } else {
       /// ✅ AutoScan Disabled → Navigate
       // ignore: use_build_context_synchronously
@@ -146,10 +140,10 @@ final Controller controller = Get.put(Controller());
       }
 
       // 🧩 Update state only if widget still mounted
-      if (!mounted) return;
-      setState(() {
-        controller.imageFiles.add(croppedFile);
-      });
+      // if (!mounted) return;
+      // setState(() {
+      //   controller.imageFiles.add(croppedFile);
+      // });
     } catch (e, stack) {
       debugPrint("❌ Error picking or cropping image: $e");
       debugPrint(stack.toString());
@@ -161,48 +155,62 @@ final Controller controller = Get.put(Controller());
       controller.isImageLoading.value = false;
     }
   }
+Future<File> compressImage(File file) async {
+  final dir = file.parent.path;
+  final targetPath =
+      "$dir/${DateTime.now().millisecondsSinceEpoch}.jpg";
 
-  Future<File?> _cropImage(File file) async {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: file.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: Colors.deepPurple,
-          toolbarWidgetColor: Colors.white,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
-      ],
-    );
+  final compressed = await FlutterImageCompress.compressAndGetFile(
+    file.absolute.path,
+    targetPath,
+    quality: 70, // 🔥 adjust (0–100)
+  );
 
-    if (croppedFile != null) {
-      final croppedImage = File(croppedFile.path);
-      controller.imageFiles.add(croppedImage);
-    
-      // ✅ Check feature states before deciding what to do next
-      final featureStates = await controller.getAllFeatureStates();
+  return compressed != null ? File(compressed.path) : file;
+}
+ Future<File?> _cropImage(File file) async {
+  final croppedFile = await ImageCropper().cropImage(
+    sourcePath: file.path,
+    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Crop Image',
+        toolbarColor: Colors.deepPurple,
+        toolbarWidgetColor: Colors.white,
+        lockAspectRatio: false,
+      ),
+      IOSUiSettings(title: 'Crop Image', aspectRatioLockEnabled: false),
+    ],
+  );
 
-      if (controller.digiScanEnable!) {
-        // ✅ AutoScan enabled → upload directly
-        // ignore: use_build_context_synchronously
-        await controller.sendUploadedFileToServer(context, croppedImage);
-      } else {
-        // 🚫 AutoScan disabled → go to AutoScan page manually
-        // ignore: use_build_context_synchronously
-        Navigator.pushNamed(
-          context,
-          AppRoutes.autoScan,
-          arguments: {'imageFile': croppedImage, 'apiResponse': {}},
-        );
-      }
+  if (croppedFile != null) {
+    File croppedImage = File(croppedFile.path);
 
-      return croppedImage;
+    // 🔥 COMPRESS IMAGE HERE
+    File compressedImage = await compressImage(croppedImage);
+
+    controller.imageFiles.add(compressedImage);
+
+    final featureStates = await controller.getAllFeatureStates();
+
+    if (controller.digiScanEnable!) {
+      await controller.sendUploadedFileToServer(context, compressedImage);
+    } else {
+      Navigator.pushNamed(
+        context,
+        AppRoutes.autoScan,
+        arguments: {
+          'imageFile': compressedImage,
+          'apiResponse': {}
+        },
+      );
     }
 
-    return null;
+    return compressedImage;
   }
+
+  return null;
+}
 
   void _zoomIn() {
     _photoViewController.scale = _photoViewController.scale! * 1.2;
@@ -239,7 +247,9 @@ final Controller controller = Get.put(Controller());
     super.initState();
     _currentIndex = widget.initialIndex;
     print("Initial index set to: $_currentIndex");
-
+    controller = Get.isRegistered<Controller>()
+        ? Get.find<Controller>()
+        : Get.put(Controller());
     // Call loadFuture without wrapping in setState
     loadFuture();
   }
@@ -315,28 +325,32 @@ final Controller controller = Get.put(Controller());
 
                 // Only show buttons that are enabled in backend
                 final visibleFabs = [
-                  if (featureStates['EnableMileage'] == true)
+                  if (featureStates['EnableMileage'] == true &&
+                      PermissionHelper.canRead("Expense Registration"))
                     {
                       'route': AppRoutes.mileageExpensefirst,
                       'asset': 'assets/vodometer.png',
                       'label': AppLocalizations.of(context)!.mileage,
                       'tag': 'addFabMileage',
                     },
-                  if (featureStates['EnablePerdiem'] == true)
+                  if (featureStates['EnablePerdiem'] == true &&
+                      PermissionHelper.canRead("Expense Registration"))
                     {
                       'route': AppRoutes.perDiem,
                       'asset': 'assets/perDiem.png',
                       'label': AppLocalizations.of(context)!.perDiem,
                       'tag': 'addFabPerDiem',
                     },
-                  if (featureStates['EnableGeneralExpense'] == true)
+                  if (featureStates['EnableGeneralExpense'] == true &&
+                      PermissionHelper.canRead("Expense Registration"))
                     {
                       'route': AppRoutes.expenseForm,
                       'asset': 'assets/general.png',
                       'label': AppLocalizations.of(context)!.generalExpense,
                       'tag': 'addFabExpense',
                     },
-                  if (featureStates['EnableCashAdvanceRequisition'] == true)
+                  if (featureStates['EnableCashAdvanceRequisition'] == true &&
+                      PermissionHelper.canRead("Cash Advance Requisition"))
                     {
                       'route': AppRoutes.formCashAdvanceRequest,
                       'asset': 'assets/cashAdvanse.png',
@@ -375,12 +389,14 @@ final Controller controller = Get.put(Controller());
           ? FloatingActionButton(
               backgroundColor: Theme.of(context).colorScheme.secondary,
               elevation: 0,
-              onPressed: () {
-                setState(() {
-                  _isFabOpen = !_isFabOpen;
-                  _isAddFabOpen = false;
-                });
-              },
+              onPressed: PermissionHelper.canWrite("Expense Registration")
+                  ? () {
+                      setState(() {
+                        _isFabOpen = !_isFabOpen;
+                        _isAddFabOpen = false;
+                      });
+                    }
+                  : null, // disables button
               child: Icon(
                 _isFabOpen ? Icons.close : Icons.document_scanner,
                 color: Colors.white,
@@ -467,26 +483,47 @@ final Controller controller = Get.put(Controller());
               icon: const Icon(Icons.smart_toy, color: Colors.white),
               onPressed: () async {
                 final featureStates = await controller.getAllFeatureStates();
-                final bool? isEnabled =
-                    featureStates['EnableAIAnalytics']; // use your feature key
 
-                if (isEnabled == true) {
+                final bool isFeatureEnabled =
+                    featureStates['EnableAIAnalytics'] == true;
+
+                final bool hasPermission = PermissionHelper.canRead(
+                  "AI Analytics",
+                );
+
+                print(
+                  "Feature: $isFeatureEnabled | Permission: $hasPermission",
+                );
+
+                if (isFeatureEnabled && hasPermission) {
+                  if (!mounted) return;
+
                   setState(() {
                     _currentIndex = 2;
                     _isFabOpen = false;
                     _isAddFabOpen = false;
                   });
                 } else {
-                  if (context.mounted) {
-                    Fluttertoast.showToast(
-                      msg: "AI Analytics feature is not subscribed or activated for the organization",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      backgroundColor: const Color.fromARGB(255, 250, 1, 1),
-                      textColor: const Color.fromARGB(255, 253, 252, 253),
-                      fontSize: 16.0,
-                    );
+                  if (!mounted) return;
+
+                  String message;
+
+                  if (!isFeatureEnabled) {
+                    message =
+                        "AI Analytics feature is not enabled for your organization";
+                  } else {
+                    message =
+                        "You don’t have permission to access AI Analytics";
                   }
+
+                  Fluttertoast.showToast(
+                    msg: message,
+                    toastLength: Toast.LENGTH_SHORT,
+                    gravity: ToastGravity.BOTTOM,
+                    backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+                    textColor: const Color.fromARGB(255, 253, 252, 253),
+                    fontSize: 16.0,
+                  );
                 }
               },
             ),

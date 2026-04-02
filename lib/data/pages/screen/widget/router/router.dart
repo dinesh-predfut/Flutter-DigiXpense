@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/AI%20Analytics/aiAnalytics.dart';
 import 'package:diginexa/data/pages/ApprovalHub/ApprovalPages/externalApproval.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/Reports%20for%20Expense/expenseReport.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/Reports%20for%20Expense/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/Reports%20for%20Expense/reportsdashboard.dart';
 import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/createForm.dart';
 import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/viewGeneralExpense.dart';
 import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Mileage/mileageExpenseForm.dart';
@@ -18,6 +21,9 @@ import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Unprocessed_Expen
 import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/unProcessed.dart';
 import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/cashAdvanceReturn/expensecashAdvanceReturnForm.dart';
 import 'package:diginexa/data/pages/screen/CashAdvanceRequest/MyTeamCashAdvance/myTeamCashAdvanseDashboard.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/Reports%20for%20CashAdvanse/expenseReport.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/Reports%20for%20CashAdvanse/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/Reports%20for%20CashAdvanse/reportsdashboard.dart';
 import 'package:diginexa/data/pages/screen/CashAdvanceRequest/cashAdvanceReturnForm.dart';
 import 'package:diginexa/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart'
     show SpendersDashboardPage;
@@ -25,6 +31,10 @@ import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Leave_Approval
     show PendingApprovalsLeaveDashboard;
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Leave_Cancellation/leave_Cancelation_Dashboard.dart';
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/My_Teams_Leave/my_Team_dashboard_leave.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Reports%20for%20Leave/expenseReport.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Reports%20for%20Leave/expenseReportPrintPage.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Reports%20for%20Leave/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Reports%20for%20Leave/reportsdashboard.dart';
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/dashboard_leave.dart';
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart'
     show CalendarPage;
@@ -41,6 +51,8 @@ import 'package:diginexa/data/pages/screen/Task_Board/boardDashboard.dart';
 import 'package:diginexa/data/pages/screen/Task_Board/boardList.dart'
     show KanbanBoardPage, KanbanBoardScreen;
 import 'package:diginexa/data/pages/screen/Task_Board/view-Board.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/Reports%20for%20Leave/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/Reports%20for%20Leave/reportsdashboard.dart';
 import 'package:diginexa/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
 import 'package:diginexa/data/pages/screen/TimeSheet/myTeamsTimeSheet.dart';
 import 'package:diginexa/data/pages/screen/TimeSheet/timeSheetPendingApproval.dart';
@@ -120,14 +132,35 @@ class AppRoutes {
       '/expense/approvalHubMain/approvalHubMain';
   static const String reportsDashboard =
       '/expense/reportsDashboard/reportsDashboard';
+  static const String expensereportsDashboard =
+      '/expense/expensereportsDashboard/expensereportsDashboard';
+  static const String cashAdvanceMyReportsDashboard =
+      '/expense/cashAdvanceMyReportsDashboard/cashAdvanceMyReportsDashboard';
+  static const String leaveMyReportsDashboard =
+      '/expense/leaveMyReportsDashboard/leaveMyReportsDashboard';
+  static const String timeSheetDashboardReports =
+      '/expense/timeSheetDashboardReports/timeSheetDashboardReports';
   static const String reportsAssignUser =
       '/expense/reportsAssignUser/reportsAssignUser';
   static const String leaveDashboard = '/expense/leaveDashboard/leaveDashboard';
   static const String reportCreateScreen =
       '/expense/reportCreateScreen/reportCreateScreen';
+  static const String expensereportCreateScreen =
+      '/expense/expensereportCreateScreen/expensereportCreateScreen';
+  static const String leaveReportCreateScreen =
+      '/expense/LeaveReportCreateScreen/LeaveReportCreateScreen';
+  static const String timeSheetsReportCreateScreen =
+      '/expense/timeSheetsReportCreateScreen/timeSheetsReportCreateScreen';
+  static const String cashAdvancereportCreateScreen =
+      '/expense/cashAdvancereportCreateScreen/cashAdvancereportCreateScreen';
   static const String emailHubScreen = '/expense/emailHubScreen/emailHubScreen';
   static const String reportWizardParent =
       '/expense/reportWizardParent/reportWizardParent';
+  static const String expenseMIS = '/expense/expenseMIS/expenseMIS';
+  static const String cashAdvanceMISReports =
+      '/expense/CashAdvanceMISReports/CashAdvanceMISReports';
+  static const String leaveMISReports =
+      '/expense/leaveMISReports/leaveMISReports';
   static const String expensePaginationPage =
       '/expense/reportWizardParentx/reportWizardParentx';
   static const String calendarView = '/leave/calendarView/calendarView';
@@ -151,15 +184,14 @@ class AppRoutes {
       '/leave/timeSheetDashboard/timeSheetDashboard';
   static const String timeSheetRequestPage =
       '/leave/timeSheetRequestPage/timeSheetRequestPage';
-       static const String punchScreen =
-      '/punchScreen/punchScreen/punchScreenView';
-       static const String myTeamimeSheetRequestPage =
+  static const String punchScreen = '/punchScreen/punchScreen/punchScreenView';
+  static const String myTeamimeSheetRequestPage =
       '/leave/myTeamimeSheetRequestPage/myTeamimeSheetRequestPage';
-      static const String timeSheetPendingDashboard =
+  static const String timeSheetPendingDashboard =
       '/leave/timeSheetPendingDashboard/timeSheetPendingDashboard';
-          static const String myTeamPunchInOutList =
+  static const String myTeamPunchInOutList =
       '/leave/punchInOutList/punchInOutList';
-      static const String myAttendanceList =
+  static const String myAttendanceList =
       '/leave/myAttendanceList/myAttendanceList';
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -185,22 +217,28 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const MyPayslip_Dashboard());
       case timeSheetDashboard:
         return MaterialPageRoute(builder: (_) => const TimeSheetDashboard());
-         case myTeamimeSheetRequestPage:
-        return MaterialPageRoute(builder: (_) => const MyTeamTimeSheetDashboard());
-            case timeSheetPendingDashboard:
-        return MaterialPageRoute(builder: (_) => const TimeSheetPendingDashboard());
-         case punchScreen:
+      case myTeamimeSheetRequestPage:
+        return MaterialPageRoute(
+          builder: (_) => const MyTeamTimeSheetDashboard(),
+        );
+      case timeSheetPendingDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const TimeSheetPendingDashboard(),
+        );
+      case punchScreen:
         return MaterialPageRoute(builder: (_) => const PunchScreen());
-        case myTeamPunchInOutList:
+      case myTeamPunchInOutList:
         return MaterialPageRoute(builder: (_) => const MyTeamPunchInOutList());
-          case myAttendanceList:
+      case myAttendanceList:
         return MaterialPageRoute(builder: (_) => const MyAttendanceList());
       case timeSheetRequestPage:
         final Map<String, dynamic>? args =
             settings.arguments as Map<String, dynamic>?;
         final bool status = args?['status'] ?? false;
-         final bool team = args?['team'] ?? false;
-        return MaterialPageRoute(builder: (_) =>  TimeSheetRequestPage( status: status , team : team));
+        final bool team = args?['team'] ?? false;
+        return MaterialPageRoute(
+          builder: (_) => TimeSheetRequestPage(status: status, team: team),
+        );
       // case taskAddDetails:
       // return MaterialPageRoute(builder: (_) => const TaskDetailsPage());
       // Your route configuration should look like this:
@@ -228,8 +266,18 @@ class AppRoutes {
         );
       case reportWizardParent:
         return MaterialPageRoute(builder: (_) => ReportWizardParent());
+      case expenseMIS:
+        return MaterialPageRoute(builder: (_) => ExpenseReportWizardParent());
+      case cashAdvanceMISReports:
+        return MaterialPageRoute(builder: (_) => CashAdvanceMISReports());
+      case leaveMISReports:
+        return MaterialPageRoute(builder: (_) => LeaveMISWizardParent());
       case reportsAssignUser:
-        return MaterialPageRoute(builder: (_) => const UserAssignmentScreen());
+        final args = settings.arguments as Map<String, dynamic>?;
+        final page = args!['page'];
+        return MaterialPageRoute(
+          builder: (_) =>  UserAssignmentScreen(page: page),
+        );
       case aIAnalyticsPage:
         return MaterialPageRoute(builder: (_) => const AIAnalyticsPage());
       case myTeamsDashboard:
@@ -275,8 +323,38 @@ class AppRoutes {
         return MaterialPageRoute(
           builder: (_) => const ReportCreateScreen(isEdit: false),
         );
+      case expensereportCreateScreen:
+        return MaterialPageRoute(
+          builder: (_) => const ExpenseReportCreateScreen(isEdit: false),
+        );
+      case leaveReportCreateScreen:
+        return MaterialPageRoute(
+          builder: (_) => const LeaveReportCreateScreen(isEdit: false),
+        );
+      case timeSheetsReportCreateScreen:
+        return MaterialPageRoute(
+          builder: (_) => const TimeSheetsReportCreateScreen(isEdit: false),
+        );
+      case cashAdvancereportCreateScreen:
+        return MaterialPageRoute(
+          builder: (_) => const CashAdvanceReportCreateScreen(isEdit: false),
+        );
       case reportsDashboard:
         return MaterialPageRoute(builder: (_) => const MyReportsDashboard());
+      case expensereportsDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const MyExpenseReportsDashboard(),
+        );
+      case cashAdvanceMyReportsDashboard:
+        return MaterialPageRoute(
+          builder: (_) => const CashAdvanceMyReportsDashboard(),
+        );
+      case leaveMyReportsDashboard:
+        return MaterialPageRoute(builder: (_) => const LeaveReportDashbard());
+      case timeSheetDashboardReports:
+        return MaterialPageRoute(
+          builder: (_) => const TimeSheetDashboardReport(),
+        );
       case myTeamcashAdvanceDashboard:
         return MaterialPageRoute(
           builder: (_) => const MyTeamCashAdvanceDashboard(),
@@ -293,8 +371,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const CalendarPage());
       case approvalHubMain:
         return MaterialPageRoute(builder: (_) => const ApprovalHubPage());
-        case externalApprovals:
-        return MaterialPageRoute(builder: (_) => const ExternalApprovalMetadataPage());
+      case externalApprovals:
+        return MaterialPageRoute(
+          builder: (_) => const ExternalApprovalMetadataPage(),
+        );
       case AppRoutes.viewCashAdvanseReturnForms:
         final args = settings.arguments as Map<String, dynamic>?;
         final bool readOnly = args?['readOnly'] == true;
@@ -385,12 +465,12 @@ class AppRoutes {
           }
         }
 
-   return MaterialPageRoute(
-  builder: (_) => MileageFirstFrom(
-    mileageId: expense,
-    isReadOnly: args?['isReadOnly'] ?? false, 
-  ),
-);
+        return MaterialPageRoute(
+          builder: (_) => MileageFirstFrom(
+            mileageId: expense,
+            isReadOnly: args?['isReadOnly'] ?? false,
+          ),
+        );
 
       case AppRoutes.autoScan:
         final rawArgs = settings.arguments as Map;

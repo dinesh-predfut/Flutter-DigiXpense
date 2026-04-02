@@ -40,10 +40,10 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
   bool isCalculatingDistance = false;
   RxBool shouldShow = false.obs;
   bool isSubmitAttempted = false;
-   MapType _currentMapType = MapType.normal; // Start with Normal map
+  MapType _currentMapType = MapType.normal; // Start with Normal map
   Set<Polyline> _polylines = {};
   final controller = Get.find<Controller>();
-  
+
   Set<Marker> _markers = {};
   GoogleMapController? _mapController;
   bool isEditMode = true;
@@ -51,7 +51,7 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
   // RxBool shouldShow = false.obs;
   late final int workitemrecid;
   // double controller.totalDistanceKm = 0;
-int _calculationToken = 0;
+  int _calculationToken = 0;
   Timer? _debounce;
 
   final String googleApiKey =
@@ -91,114 +91,136 @@ int _calculationToken = 0;
   //   super.dispose();
   // }
 
- Future<void> _calculateAllDistances() async {
-  print("_calculateAllDistances is Calling");
+  Future<void> _calculateAllDistances() async {
+    print("_calculateAllDistances is Calling");
 
-  setState(() => isCalculatingDistance = true);
+    setState(() => isCalculatingDistance = true);
 
-  final int currentToken = ++_calculationToken;
+    final int currentToken = ++_calculationToken;
 
-  _polylines.clear();
-  _markers.clear();
-  controller.calculatedAmountINR = 0;
-  controller.totalDistanceKm = 0;
+    _polylines.clear();
+    _markers.clear();
+    controller.calculatedAmountINR = 0;
+    controller.totalDistanceKm = 0;
 
-  if (controller.tripControllers.length < 2) {
-    if (mounted) setState(() => isCalculatingDistance = false);
-    return;
-  }
-
-  for (int i = 0; i < controller.tripControllers.length - 1; i++) {
-    if (currentToken != _calculationToken) {
-      setState(() => isCalculatingDistance = false);
+    if (controller.tripControllers.length < 2) {
+      if (mounted) setState(() => isCalculatingDistance = false);
       return;
     }
 
-    String startCity = controller.tripControllers[i].text.trim();
-    String endCity = controller.tripControllers[i + 1].text.trim();
-    print("startCity: $startCity");
-    print("endCity: $endCity");
-
-    if (startCity.isEmpty || endCity.isEmpty) continue;
-
-    try {
-      // ✅ Use Google API instead of system geocoder
-      final startLoc = await getCoordinatesFromAddress(startCity);
-      if (!mounted || currentToken != _calculationToken) return;
-      print("startLoc: $startLoc");
-
-      final endLoc = await getCoordinatesFromAddress(endCity);
-      if (!mounted || currentToken != _calculationToken) return;
-      print("endLoc: $endLoc");
-
-      if (startLoc == null || endLoc == null) {
-        print("⚠️ Skipping route due to missing coordinates");
-        continue;
+    for (int i = 0; i < controller.tripControllers.length - 1; i++) {
+      if (currentToken != _calculationToken) {
+        setState(() => isCalculatingDistance = false);
+        return;
       }
 
-      LatLng startLatLng = LatLng(startLoc.latitude, startLoc.longitude);
-      LatLng endLatLng = LatLng(endLoc.latitude, endLoc.longitude);
+      String startCity = controller.tripControllers[i].text.trim();
+      String endCity = controller.tripControllers[i + 1].text.trim();
+      print("startCity: $startCity");
+      print("endCity: $endCity");
 
-      print("✅ startLatLng: $startLatLng, endLatLng: $endLatLng");
+      if (startCity.isEmpty || endCity.isEmpty) continue;
 
-      String startMarkerLabel = getMarkerLabel(i);
-      String endMarkerLabel = getMarkerLabel(i + 1);
+      try {
+        // ✅ Use Google API instead of system geocoder
+        final startLoc = await getCoordinatesFromAddress(startCity);
+        if (!mounted || currentToken != _calculationToken) return;
+        print("startLoc: $startLoc");
 
-      BitmapDescriptor startMarkerIcon = await createMarkerWithLabel(startMarkerLabel);
-      if (!mounted || currentToken != _calculationToken) return;
+        final endLoc = await getCoordinatesFromAddress(endCity);
+        if (!mounted || currentToken != _calculationToken) return;
+        print("endLoc: $endLoc");
 
-      BitmapDescriptor endMarkerIcon = await createMarkerWithLabel(endMarkerLabel);
-      if (!mounted || currentToken != _calculationToken) return;
+        if (startLoc == null || endLoc == null) {
+          print("⚠️ Skipping route due to missing coordinates");
+          continue;
+        }
 
-      _markers.add(
-        Marker(
-          markerId: MarkerId('start_$i'),
-          position: startLatLng,
-          infoWindow: InfoWindow(title: "Point $startMarkerLabel", snippet: startCity),
-          icon: startMarkerIcon,
-        ),
-      );
+        LatLng startLatLng = LatLng(startLoc.latitude, startLoc.longitude);
+        LatLng endLatLng = LatLng(endLoc.latitude, endLoc.longitude);
 
-      _markers.add(
-        Marker(
-          markerId: MarkerId('end_${i + 1}'),
-          position: endLatLng,
-          infoWindow: InfoWindow(title: "Point $endMarkerLabel", snippet: endCity),
-          icon: endMarkerIcon,
-        ),
-      );
+        print("✅ startLatLng: $startLatLng, endLatLng: $endLatLng");
 
-      // ✅ Fetch route and distance
-      double routeDistance = await _fetchRoutePolyline(startLatLng, endLatLng, i);
-      if (!mounted || currentToken != _calculationToken) return;
+        String startMarkerLabel = getMarkerLabel(i);
+        String endMarkerLabel = getMarkerLabel(i + 1);
 
-      controller.totalDistanceKm += routeDistance;
-      controller.calculateAmount();
-
-      // ✅ Handle round trip
-      if (controller.isRoundTrip && i == controller.tripControllers.length - 2) {
-        double returnDistance = await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
+        BitmapDescriptor startMarkerIcon = await createMarkerWithLabel(
+          startMarkerLabel,
+        );
         if (!mounted || currentToken != _calculationToken) return;
 
-        controller.totalDistanceKm += returnDistance;
+        BitmapDescriptor endMarkerIcon = await createMarkerWithLabel(
+          endMarkerLabel,
+        );
+        if (!mounted || currentToken != _calculationToken) return;
+
+        _markers.add(
+          Marker(
+            markerId: MarkerId('start_$i'),
+            position: startLatLng,
+            infoWindow: InfoWindow(
+              title: "Point $startMarkerLabel",
+              snippet: startCity,
+            ),
+            icon: startMarkerIcon,
+          ),
+        );
+
+        _markers.add(
+          Marker(
+            markerId: MarkerId('end_${i + 1}'),
+            position: endLatLng,
+            infoWindow: InfoWindow(
+              title: "Point $endMarkerLabel",
+              snippet: endCity,
+            ),
+            icon: endMarkerIcon,
+          ),
+        );
+
+        // ✅ Fetch route and distance
+        double routeDistance = await _fetchRoutePolyline(
+          startLatLng,
+          endLatLng,
+          i,
+        );
+        if (!mounted || currentToken != _calculationToken) return;
+
+        controller.totalDistanceKm += routeDistance;
         controller.calculateAmount();
+
+        // ✅ Handle round trip
+        if (controller.isRoundTrip &&
+            i == controller.tripControllers.length - 2) {
+          double returnDistance = await _fetchRoutePolyline(
+            endLatLng,
+            startLatLng,
+            i + 100,
+          );
+          if (!mounted || currentToken != _calculationToken) return;
+
+          controller.totalDistanceKm += returnDistance;
+          controller.calculateAmount();
+        }
+      } catch (e) {
+        print("❌ Error while calculating distance: $e");
       }
-    } catch (e) {
-      print("❌ Error while calculating distance: $e");
     }
+
+    if (mounted && currentToken == _calculationToken) {
+      setState(() => isCalculatingDistance = false);
+      _adjustCameraBounds();
+    }
+
+    print(
+      "✅ Total Distance: ${controller.totalDistanceKm.toStringAsFixed(2)} km",
+    );
+    print(
+      "✅ Final Amount: ₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+    );
   }
 
-  if (mounted && currentToken == _calculationToken) {
-    setState(() => isCalculatingDistance = false);
-    _adjustCameraBounds();
-  }
-
-  print("✅ Total Distance: ${controller.totalDistanceKm.toStringAsFixed(2)} km");
-  print("✅ Final Amount: ₹${controller.calculatedAmountINR.toStringAsFixed(2)}");
-}
-
-
-   Future<double> _fetchRoutePolyline(
+  Future<double> _fetchRoutePolyline(
     LatLng start,
     LatLng end,
     int index,
@@ -239,32 +261,33 @@ int _calculationToken = 0;
     }
     return 0;
   }
-Future<Location?> getCoordinatesFromAddress(String address) async {
-  final encoded = Uri.encodeComponent(address);
-  const String apiKey = 'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
-  final url = Uri.parse(
-    'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
-  );
 
-  try {
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['results'] != null && data['results'].isNotEmpty) {
-        final loc = data['results'][0]['geometry']['location'];
-        return Location(
-          latitude: loc['lat'],
-          longitude: loc['lng'],
-          timestamp: DateTime.now(),
-        );
+  Future<Location?> getCoordinatesFromAddress(String address) async {
+    final encoded = Uri.encodeComponent(address);
+    const String apiKey =
+        'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['results'] != null && data['results'].isNotEmpty) {
+          final loc = data['results'][0]['geometry']['location'];
+          return Location(
+            latitude: loc['lat'],
+            longitude: loc['lng'],
+            timestamp: DateTime.now(),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint("❌ Geocode failed for $address: $e");
     }
-  } catch (e) {
-    debugPrint("❌ Geocode failed for $address: $e");
+    return null;
   }
-  return null;
-}
- 
 
   List<LatLng> _decodePolyline(String encoded) {
     List<LatLng> points = [];
@@ -452,356 +475,445 @@ Future<Location?> getCoordinatesFromAddress(String address) async {
     final screenHeight = MediaQuery.of(context).size.height;
     print("controller.calculatedAmountINR${shouldShow.value}");
     // shouldShow.value = widget.mileageId?.stepType != null;
-return WillPopScope(
-  onWillPop: () async {
-     controller.clearFormFields();
+    return WillPopScope(
+      onWillPop: () async {
+        controller.clearFormFields();
         controller.clearFormFieldsPerdiem();
-          controller.resetFieldsMileage();
-         controller.clearFormFieldsPerdiem();
-    // 🔹 Handle back button press here
-    // For example, confirm navigation or show a dialog:
-    // final shouldLeave = await _showExitConfirmationDialog(context);
-    // return shouldLeave;
+        controller.resetFieldsMileage();
+        controller.clearFormFieldsPerdiem();
+        // 🔹 Handle back button press here
+        // For example, confirm navigation or show a dialog:
+        // final shouldLeave = await _showExitConfirmationDialog(context);
+        // return shouldLeave;
 
-    // If you just want to allow back navigation:
-    return true;
-  },
-  child: GestureDetector(
-    onTap: () {
-      // Hide keyboard & remove focus when tapping outside
-      FocusScopeNode currentFocus = FocusScope.of(context);
-      if (!currentFocus.hasPrimaryFocus &&
-          currentFocus.focusedChild != null) {
-        FocusManager.instance.primaryFocus?.unfocus();
-      }
-    },
-    child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        body: Column(
-          children: [
-            // Header Section (Auto Height)
-            Container(
-              constraints: BoxConstraints(
-                maxHeight: screenHeight * 0.40,
-                // minHeight: screenHeight * 0.45, // Set maximum height
-              ),
-              decoration: const BoxDecoration(
-                color: const Color.fromARGB(255, 11, 1, 61),
-                // gradient: LinearGradient(
-                //   colors: [Color(0xFF3B3BD6), Color(0xFF7E1EFF)],
-                //   begin: Alignment.topLeft,
-                //   end: Alignment.bottomRight,
-                // ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-
-                  // Scrollable Trip Fields
-                Expanded(
-  child: SingleChildScrollView(
-    padding: EdgeInsets.zero,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        
-        /// ---------------------------
-        ///   TRIP LIST (A, B, C…)
-        /// ---------------------------
-        ListView.builder(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,  
-          itemCount: controller.tripControllers.length,
-          itemBuilder: (context, index) {
-            String fieldName;
-            if (index == 0) {
-              fieldName = AppLocalizations.of(context)!.startTrip;
-            } else if (index == controller.tripControllers.length - 1) {
-              fieldName = AppLocalizations.of(context)!.endTrip;
-            } else {
-              fieldName = "${AppLocalizations.of(context)!.addTrip} $index";
-            }
-
-            String stopLetter = String.fromCharCode(65 + index); // A, B, C…
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.blue,
-                    radius: 10,
-                    child: Text(
-                      stopLetter,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-
-                  /// ---------------------------
-                  /// Autocomplete Field
-                  /// ---------------------------
-                  Expanded(
-                    child: Autocomplete<String>(
-                      optionsBuilder: (TextEditingValue textEditingValue) async {
-                        if (textEditingValue.text.isEmpty) return [];
-                        return await fetchPlaceSuggestions(textEditingValue.text);
-                      },
-                      onSelected: (String selection) {
-                        controller.tripControllers[index].text = selection;
-                        controller.tripControllers[index].selection =
-                            TextSelection.fromPosition(
-                          TextPosition(offset: selection.length),
-                        );
-                        _onTripTextChanged();
-                        _zoomToLocation(selection);
-                      },
-                      fieldViewBuilder: (context, textCtrl, focusNode, onSubmit) {
-                        textCtrl.text = controller.tripControllers[index].text;
-                        textCtrl.selection = TextSelection.fromPosition(
-                          TextPosition(offset: textCtrl.text.length),
-                        );
-
-                        textCtrl.addListener(() {
-                          controller.tripControllers[index].text = textCtrl.text;
-                        });
-
-                        return TextField(
-                          controller: textCtrl,
-                          focusNode: focusNode,
-                          enabled: controller.isEnable.value,
-                          style: const TextStyle(fontSize: 12),
-                          decoration: InputDecoration(
-                            hintText: fieldName,
-                            hintStyle: const TextStyle(fontSize: 12),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 12,
-                            ),
-                            filled: true,
-                            fillColor: controller.isEnable.value
-                                ? Colors.white
-                                : Colors.grey.shade100,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide.none,
-                            ),
-                            errorText: isSubmitAttempted &&
-                                    controller.tripControllers[index].text
-                                        .trim()
-                                        .isEmpty
-                                ? "This field is required"
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            _onTripTextChanged();
-                            setState(() {});
-                          },
-                          onSubmitted: (_) => onSubmit(),
-                        );
-                      },
-                    ),
-                  ),
-
-                  /// Delete Button
-                  if (controller.isEnable.value)
-                    if (index > 0 &&
-                        index < controller.tripControllers.length - 1)
-                      IconButton(
-                        icon: const Icon(Icons.delete,
-                            color: Colors.redAccent, size: 18),
-                        onPressed: () {
-                          setState(() {
-                            controller.tripControllers.removeAt(index);
-                          });
-                          _calculateAllDistances();
-                        },
-                      ),
-                ],
-              ),
-            );
-          },
-        ),
-
-        /// ---------------------------
-        /// ROUND TRIP EXTRA FIELD
-        /// ---------------------------
-        if (controller.isRoundTrip && controller.tripControllers.length < 3)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: controller.tripControllers.first,
-                    readOnly: controller.isRoundTrip,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context)!.endTrip,
-                      hintStyle: const TextStyle(fontSize: 13),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 13,
-                        horizontal: 14,
-                      ),
-                      fillColor: controller.isRoundTrip
-                          ? Colors.grey.shade300
-                          : Colors.white,
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      errorText: isSubmitAttempted &&
-                              controller.tripControllers.first.text
-                                  .trim()
-                                  .isEmpty
-                          ? AppLocalizations.of(context)!.fieldRequired
-                          : null,
-                    ),
-                    onChanged: (value) {
-                      if (!controller.isRoundTrip) {
-                        _onTripTextChanged();
-                        setState(() {});
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        /// ---------------------------
-        /// SWITCH + ADD BUTTON
-        /// ---------------------------
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // If you just want to allow back navigation:
+        return true;
+      },
+      child: GestureDetector(
+        onTap: () {
+          // Hide keyboard & remove focus when tapping outside
+          FocusScopeNode currentFocus = FocusScope.of(context);
+          if (!currentFocus.hasPrimaryFocus &&
+              currentFocus.focusedChild != null) {
+            FocusManager.instance.primaryFocus?.unfocus();
+          }
+        },
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          body: Column(
             children: [
-              if (controller.tripControllers.length < 3 &&
-                  controller.isEnable.value)
-                Row(
+              // Header Section (Auto Height)
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: screenHeight * 0.40,
+                  // minHeight: screenHeight * 0.45, // Set maximum height
+                ),
+                decoration: const BoxDecoration(
+                  color: const Color.fromARGB(255, 11, 1, 61),
+                  // gradient: LinearGradient(
+                  //   colors: [Color(0xFF3B3BD6), Color(0xFF7E1EFF)],
+                  //   begin: Alignment.topLeft,
+                  //   end: Alignment.bottomRight,
+                  // ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(30),
+                    bottomRight: Radius.circular(30),
+                  ),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   children: [
-                    Switch(
-                      value: controller.isRoundTrip,
-                      onChanged: (value) {
-                        setState(() {
-                          controller.isRoundTrip = value;
-                          _calculateAllDistances();
-                        });
-                      },
-                      activeColor: Colors.white,
+                    const SizedBox(height: 10),
+
+                    // Scrollable Trip Fields
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            /// ---------------------------
+                            ///   TRIP LIST (A, B, C…)
+                            /// ---------------------------
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              padding: EdgeInsets.zero,
+                              itemCount: controller.tripControllers.length,
+                              itemBuilder: (context, index) {
+                                String fieldName;
+                                if (index == 0) {
+                                  fieldName = AppLocalizations.of(
+                                    context,
+                                  )!.startTrip;
+                                } else if (index ==
+                                    controller.tripControllers.length - 1) {
+                                  fieldName = AppLocalizations.of(
+                                    context,
+                                  )!.endTrip;
+                                } else {
+                                  fieldName =
+                                      "${AppLocalizations.of(context)!.addTrip} $index";
+                                }
+
+                                String stopLetter = String.fromCharCode(
+                                  65 + index,
+                                ); // A, B, C…
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Colors.blue,
+                                        radius: 10,
+                                        child: Text(
+                                          stopLetter,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+
+                                      /// ---------------------------
+                                      /// Autocomplete Field
+                                      /// ---------------------------
+                                      Expanded(
+                                        child: Autocomplete<String>(
+                                          optionsBuilder:
+                                              (
+                                                TextEditingValue
+                                                textEditingValue,
+                                              ) async {
+                                                if (textEditingValue
+                                                    .text
+                                                    .isEmpty)
+                                                  return [];
+                                                return await fetchPlaceSuggestions(
+                                                  textEditingValue.text,
+                                                );
+                                              },
+                                          onSelected: (String selection) {
+                                            controller
+                                                    .tripControllers[index]
+                                                    .text =
+                                                selection;
+                                            controller
+                                                    .tripControllers[index]
+                                                    .selection =
+                                                TextSelection.fromPosition(
+                                                  TextPosition(
+                                                    offset: selection.length,
+                                                  ),
+                                                );
+                                            _onTripTextChanged();
+                                            _zoomToLocation(selection);
+                                          },
+                                          fieldViewBuilder:
+                                              (
+                                                context,
+                                                textCtrl,
+                                                focusNode,
+                                                onSubmit,
+                                              ) {
+                                                textCtrl.text = controller
+                                                    .tripControllers[index]
+                                                    .text;
+                                                textCtrl.selection =
+                                                    TextSelection.fromPosition(
+                                                      TextPosition(
+                                                        offset: textCtrl
+                                                            .text
+                                                            .length,
+                                                      ),
+                                                    );
+
+                                                textCtrl.addListener(() {
+                                                  controller
+                                                      .tripControllers[index]
+                                                      .text = textCtrl
+                                                      .text;
+                                                });
+
+                                                return TextField(
+                                                  controller: textCtrl,
+                                                  focusNode: focusNode,
+                                                  enabled:
+                                                      controller.isEnable.value,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                  decoration: InputDecoration(
+                                                    hintText: fieldName,
+                                                    hintStyle: const TextStyle(
+                                                      fontSize: 12,
+                                                    ),
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 8,
+                                                          horizontal: 12,
+                                                        ),
+                                                    filled: true,
+                                                    fillColor:
+                                                        controller
+                                                            .isEnable
+                                                            .value
+                                                        ? Colors.white
+                                                        : Colors.grey.shade100,
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                      borderSide:
+                                                          BorderSide.none,
+                                                    ),
+                                                    errorText:
+                                                        isSubmitAttempted &&
+                                                            controller
+                                                                .tripControllers[index]
+                                                                .text
+                                                                .trim()
+                                                                .isEmpty
+                                                        ? "This field is required"
+                                                        : null,
+                                                  ),
+                                                  onChanged: (value) {
+                                                    _onTripTextChanged();
+                                                    setState(() {});
+                                                  },
+                                                  onSubmitted: (_) =>
+                                                      onSubmit(),
+                                                );
+                                              },
+                                        ),
+                                      ),
+
+                                      /// Delete Button
+                                      if (controller.isEnable.value)
+                                        if (index > 0 &&
+                                            index <
+                                                controller
+                                                        .tripControllers
+                                                        .length -
+                                                    1)
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.redAccent,
+                                              size: 18,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                controller.tripControllers
+                                                    .removeAt(index);
+                                              });
+                                              _calculateAllDistances();
+                                            },
+                                          ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+
+                            /// ---------------------------
+                            /// ROUND TRIP EXTRA FIELD
+                            /// ---------------------------
+                            if (controller.isRoundTrip &&
+                                controller.tripControllers.length < 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        controller:
+                                            controller.tripControllers.first,
+                                        readOnly: controller.isRoundTrip,
+                                        style: const TextStyle(fontSize: 12),
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(
+                                            context,
+                                          )!.endTrip,
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
+                                          ),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 13,
+                                                horizontal: 14,
+                                              ),
+                                          fillColor: controller.isRoundTrip
+                                              ? Colors.grey.shade300
+                                              : Colors.white,
+                                          filled: true,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          errorText:
+                                              isSubmitAttempted &&
+                                                  controller
+                                                      .tripControllers
+                                                      .first
+                                                      .text
+                                                      .trim()
+                                                      .isEmpty
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.fieldRequired
+                                              : null,
+                                        ),
+                                        onChanged: (value) {
+                                          if (!controller.isRoundTrip) {
+                                            _onTripTextChanged();
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            /// ---------------------------
+                            /// SWITCH + ADD BUTTON
+                            /// ---------------------------
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  if (controller.tripControllers.length < 3 &&
+                                      controller.isEnable.value)
+                                    Row(
+                                      children: [
+                                        Switch(
+                                          value: controller.isRoundTrip,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              controller.isRoundTrip = value;
+                                              _calculateAllDistances();
+                                            });
+                                          },
+                                          activeColor: Colors.white,
+                                        ),
+                                        Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.roundTrip,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                  if (controller.isEnable.value)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.add_circle,
+                                        color: Colors.white,
+                                        size: 28,
+                                      ),
+                                      onPressed: _addStopField,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    Text(
-                      AppLocalizations.of(context)!.roundTrip,
-                      style: const TextStyle(color: Colors.white),
+
+                    // Info Cards pinned at bottom of header
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _infoCard(
+                          AppLocalizations.of(context)!.totalDistance,
+                          "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
+                        ),
+                        _infoCard(
+                          '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                        ),
+                        _infoCard(
+                          '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                        ),
+                      ],
                     ),
                   ],
                 ),
-
-              if (controller.isEnable.value)
-                IconButton(
-                  icon: const Icon(Icons.add_circle,
-                      color: Colors.white, size: 28),
-                  onPressed: _addStopField,
-                ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-
-
-                  // Info Cards pinned at bottom of header
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _infoCard(
-                        AppLocalizations.of(context)!.totalDistance,
-                        "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
-                      ),
-                      _infoCard(
-                        AppLocalizations.of(context)!.amountInInr,
-                        "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
-                      ),
-                      _infoCard(
-                        AppLocalizations.of(context)!.amountInInr,
-                        "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
-                      ),
-                    ],
-                  ),
-                ],
               ),
-            ),
 
-            // Map Section (Takes Remaining Space)
-            Expanded(
-              child: Stack(
-                children: [
-                  GoogleMap(
-                    initialCameraPosition: const CameraPosition(
-                      target: LatLng(20.5937, 78.9629), // Center on India
-                      zoom: 4,
-                    ),
-                    markers: _markers,
-                    polylines: _polylines,
-                    mapType: _currentMapType,
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      _adjustCameraBounds();
-                    },
-                    zoomControlsEnabled: false,
-                    myLocationEnabled: true,
-                  ),
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: FloatingActionButton(
-                      heroTag: "toggleMapType",
-                      backgroundColor: Colors.white,
-                      onPressed: () {
-                        setState(() {
-                          _currentMapType = _currentMapType == MapType.normal
-                              ? MapType.hybrid
-                              : MapType.normal;
-                        });
+              // Map Section (Takes Remaining Space)
+              Expanded(
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: const CameraPosition(
+                        target: LatLng(20.5937, 78.9629), // Center on India
+                        zoom: 4,
+                      ),
+                      markers: _markers,
+                      polylines: _polylines,
+                      mapType: _currentMapType,
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        _adjustCameraBounds();
                       },
-                      child: Icon(
-                        _currentMapType == MapType.normal
-                            ? Icons.satellite
-                            : Icons.map,
-                        color: Colors.black,
+                      zoomControlsEnabled: false,
+                      myLocationEnabled: true,
+                    ),
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: FloatingActionButton(
+                        heroTag: "toggleMapType",
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          setState(() {
+                            _currentMapType = _currentMapType == MapType.normal
+                                ? MapType.hybrid
+                                : MapType.normal;
+                          });
+                        },
+                        child: Icon(
+                          _currentMapType == MapType.normal
+                              ? Icons.satellite
+                              : Icons.map,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
-                  ),
-                  if (widget.mileageId != null) ...[
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: MediaQuery.of(context).viewInsets.bottom ,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Submit Button
+                    if (widget.mileageId != null) ...[
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Submit Button
 
-                          // REVIEW SECTION
-                          if (widget.mileageId!.stepType == "Review")
-                        Column(
+                            // REVIEW SECTION
+                            if (widget.mileageId!.stepType == "Review")
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   // 🔵 Row 1: Update & Accept + Update
@@ -836,7 +948,7 @@ return WillPopScope(
                                                           );
                                                       try {
                                                         await controller
-                                                            .reviewMileageRegistration(
+                                                            .hubreviewMileageRegistration(
                                                               context,
                                                               true,
                                                               workitemrecid,
@@ -927,7 +1039,7 @@ return WillPopScope(
                                                           );
                                                       try {
                                                         await controller
-                                                            .reviewMileageRegistration(
+                                                            .hubreviewMileageRegistration(
                                                               context,
                                                               false,
                                                               workitemrecid,
@@ -1052,7 +1164,7 @@ return WillPopScope(
                                                     )!.reject,
                                                     style: const TextStyle(
                                                       color: Colors.white,
-                                                      fontSize: 12
+                                                      fontSize: 12,
                                                     ),
                                                   ),
                                           );
@@ -1111,7 +1223,7 @@ return WillPopScope(
                                                     )!.skip,
                                                     style: const TextStyle(
                                                       color: Colors.black,
-                                                       fontSize: 12
+                                                      fontSize: 12,
                                                     ),
                                                   ),
                                           );
@@ -1121,11 +1233,10 @@ return WillPopScope(
                                   ),
                                 ],
                               ),
-                            
 
-                          // APPROVAL SECTION
-                          if (widget.mileageId!.stepType == "Approval")
-                          Column(
+                            // APPROVAL SECTION
+                            if (widget.mileageId!.stepType == "Approval")
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
@@ -1353,19 +1464,20 @@ return WillPopScope(
                                   ),
                                 ],
                               ),
-                           SizedBox(height: 50,)
-                        ],
+                            SizedBox(height: 50),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            // const SizedBox(height: 30),
-          ],
+              // const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
-));
+    );
   }
 
   void showActionPopup(BuildContext context, String status) {
@@ -1447,7 +1559,10 @@ return WillPopScope(
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 16),
-                    Text('${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }', style: const TextStyle(fontSize: 16)),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
@@ -1483,7 +1598,7 @@ return WillPopScope(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                           onPressed: () {
+                          onPressed: () {
                             controller.closeField();
                             Navigator.pop(context);
                           },

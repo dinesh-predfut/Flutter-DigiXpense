@@ -37,7 +37,7 @@ class MultiColumnDropdownFieldState<T>
   late FocusNode _focusNode;
    Map<String, String> dateFormatMap = {
     'mm_dd_yyyy': 'MM/dd/yyyy',
-    'dd_mm_yyyy': 'dd/MM/yyyy',
+    'dd_mm_yyyy': 'dd-MM-yyyy',
     'yyyy_mm_dd': 'yyyy/MM/dd',
     'mm_dd_yyyy_dash': 'MM-dd-yyyy',
     'dd_mm_yyyy_dash': 'dd-MM-yyyy',
@@ -46,7 +46,7 @@ class MultiColumnDropdownFieldState<T>
     'dd_mm_yyyy_dot': 'dd.MM.yyyy',
     'yyyy_mm_dd_dot': 'yyyy.MM.dd',
     'MM_dd_yyyy': 'MM/dd/yyyy',
-    'dd_MM_yyyy': 'dd/MM/yyyy',
+    'dd_MM_yyyy': 'dd-MM-yyyy',
     'YYYY_MM_DD': 'yyyy/MM/dd',
     'MM_dd_yyyy_dash_alt': 'MM-dd-yyyy',
     'dd_MM_yyyy_dash_alt': 'dd-MM-yyyy',

@@ -1,4 +1,5 @@
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/models.dart';
@@ -30,6 +31,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   bool allowMultSelect = false;
   String selectedProject = '';
   String? projectError;
+  String? expenseIdError;
   String? vehicleError;
   String expenseId = '';
   String employeeId = '';
@@ -41,13 +43,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
     final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
-    
+
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.fetchMileageRates();
       await controller.fetchProjectName();
-
+      await controller.loadSequenceModules();
       await controller.configuration();
+
       _loadSettings();
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
@@ -73,11 +76,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
       final expense = widget.mileageId!;
       final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate);
-      final formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
+      final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
-
+      controller.accountingDistributions =
+          expense.accountingDistributions ?? [];
       controller.expenseID = expense.expenseId;
       controller.cashAdvReqIds = expense.cashAdvReqId;
       statusApproval = expense.approvalStatus;
@@ -213,7 +217,22 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     });
 
     bool isValid = true;
+    final hideField = controller.hasModule("Expense");
 
+    if (!hideField) {
+      if (controller.expenseIdController.text.trim().isEmpty) {
+        setState(() {
+          expenseIdError = AppLocalizations.of(
+            context,
+          )!.fieldRequired; // 🔥 create this variable
+        });
+        isValid = false;
+      } else {
+        setState(() {
+          expenseIdError = null;
+        });
+      }
+    }
     // if (controller.projectIdController.text.isEmpty) {
     //   setState(() {
     //     projectError = 'Please select a Project';
@@ -227,9 +246,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     } else {
       _showProjectError = false;
     }
-    if (controller.selectedVehicleType == null) {
+    if (controller.mileageVehicleID.text.isEmpty) {
       setState(() {
-        vehicleError = 'Please select a Vehicle Type';
+        vehicleError = AppLocalizations.of(
+                                    context,
+                                  )!.fieldRequired;
       });
       isValid = false;
     }
@@ -345,6 +366,27 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
               fontWeight: FontWeight.bold,
             ),
           ),
+          actions: [
+            if (widget.mileageId != null &&
+                widget.mileageId!.approvalStatus != "Cancelled" &&
+                widget.mileageId!.approvalStatus != "Approved" &&
+                (widget.mileageId!.approvalStatus != "Pending" ||
+                    widget.mileageId!.stepType == "Review") &&
+                PermissionHelper.canUpdate("Expense Registration"))
+              IconButton(
+                icon: Icon(
+                  controller.isEnable.value
+                      ? Icons.remove_red_eye
+                      : Icons.edit_document,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    controller.isEnable.value = !controller.isEnable.value;
+                  });
+                },
+              ),
+          ],
           // actions: [
           //   if (widget.mileageId != null &&
           //       widget.mileageId!.approvalStatus != "Cancelled" &&
@@ -436,6 +478,41 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              if (widget.mileageId == null) ...[
+                                Obx(() {
+                                  if (controller.isSequenceLoading.value) {
+                                    return const SizedBox();
+                                  }
+
+                                  final bool isCreate =
+                                      widget.mileageId == null;
+                                  final bool hideField = controller.hasModule(
+                                    "Expense",
+                                  );
+                                  print("hideField$hideField");
+                                  print("isCreate$isCreate");
+                                  // ✅ check both
+                                  if (hideField) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return Column(
+                                    children: [
+                                      TextFormField(
+                                        controller:
+                                            controller.expenseIdController,
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '${AppLocalizations.of(context)!.expenseId} *',
+                                          errorText: expenseIdError,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  );
+                                }),
+                              ],
+
                               if (widget.mileageId != null)
                                 buildTextField(
                                   AppLocalizations.of(context)!.expenseId,
@@ -569,7 +646,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                                   ),
                                               child: Row(
                                                 children: [
-                                                  SizedBox(width: 10,),
+                                                  SizedBox(width: 10),
                                                   Expanded(
                                                     child: Text(proj.name),
                                                   ),
@@ -603,9 +680,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const SizedBox(height: 8),
                                         inputField,
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 18),
                                       ],
                                     );
                                   })
@@ -674,7 +750,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 18),
                               // Vehicle Type Dropdown
                               SearchableMultiColumnDropdownField<VehicleType>(
                                 labelText:
@@ -726,10 +802,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                     ),
                                   ),
                                 ),
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 18),
                               // if (widget.mileageId != null)
                               buildTextField(
-                                "Vehicle ",
+                               AppLocalizations.of(
+                                    context,
+                                  )!.vehicle,
                                 controller.mileageVehicleName,
                                 false,
                               ),
@@ -753,9 +831,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
                                         if (snapshot.hasError) {
                                           return Center(
-                                            child: Text(
-                                              "No Data Available",
-                                            ),
+                                            child: Text("No Data Available"),
                                           );
                                         }
 
@@ -856,7 +932,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -960,7 +1036,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
             context: context,
             initialDate: initialDate,
             firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
+            lastDate: DateTime.now(),
           );
 
           if (picked != null) {
@@ -969,6 +1045,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();
+            loadAndAppendCashAdvanceList();
           }
         },
       ),

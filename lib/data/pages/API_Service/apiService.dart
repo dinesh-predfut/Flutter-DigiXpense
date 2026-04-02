@@ -5,6 +5,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/constant/Parames/params.dart';
 import '../../../core/constant/url.dart';
@@ -14,7 +15,7 @@ class ApiService {
   // SINGLE FLIGHT REFRESH PROTECTION
   // =============================================
   static Future<bool>? _refreshFuture;
-
+  static final String digiSessionId = const Uuid().v4();
   // =============================================
   // DEFAULT HEADERS
   // =============================================
@@ -25,6 +26,7 @@ class ApiService {
     return {
       'Content-Type': 'application/json',
       if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+      "DigiSessionID": digiSessionId.toString(),
     };
   }
 
@@ -62,6 +64,7 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $refreshToken',
+          
         },
         body: jsonEncode({'refresh_token': refreshToken}),
       );
@@ -107,13 +110,14 @@ class ApiService {
       if (refreshed) {
         // Retry with new token
         headers = await _getHeaders();
-        if (context != null) {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
-        }
+      
         return await requestFn(headers);
       } else {
+          if (context != null) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(AppRoutes.signin, (route) => false);
+        }
         await _logoutUser();
 
         throw Exception('Session expired. Login again.');
@@ -132,8 +136,7 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    Get.reset();
-    Get.offAllNamed(AppRoutes.login);
+  
   }
 
   // =============================================

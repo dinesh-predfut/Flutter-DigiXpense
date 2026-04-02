@@ -39,14 +39,17 @@ class FormCashAdvanceRequest extends StatefulWidget {
 
 class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     with TickerProviderStateMixin {
-  final controller = Get.put(Controller());
-  final controllerItems = Get.put(Controller());
+  final Controller controller = Get.find();
+  final controllerItems = Get.find<Controller>();
+  final Controller controllerFitch = Get.find();
   final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
+  late FocusNode paidAmountFocusNode;
   bool allowDocAttachments = false;
   int _currentStep = 0;
   RxBool showField = true.obs;
   int _itemizeCount = 1;
+  bool _isCalling = false;
   late FocusNode _focusNode;
   bool _isTyping = false;
   int _selectedItemizeIndex = 0;
@@ -68,6 +71,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   String? _paidTo;
   bool? isThereReferenceID = false;
   String? paidToError;
+  String? cashAdvanceError;
   final RxnString paidwithError = RxnString();
   String? selectDate;
   String? selectReferenceIDError;
@@ -78,7 +82,15 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    paidAmountFocusNode = FocusNode();
     controller.selectedDate ??= DateTime.now();
+    paidAmountFocusNode.addListener(() async {
+      if (!paidAmountFocusNode.hasFocus) {
+        if (controllerItems.paidAmountCA1.text.trim().isNotEmpty) {
+          await calculateAmountSafe();
+        }
+      }
+    });
     _focusNode.addListener(() {
       setState(() {
         _isTyping = _focusNode.hasFocus;
@@ -93,31 +105,45 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
     // controller.fetchPaidto();
 
-    itemizeControllers.add(Controller());
-   
     controller.isManualEntryMerchant = false;
     _loadSettings();
-    _initializeUnits();
+
+    itemizeControllers.add(Controller());
+
+    //  controller.loadSequenceModules();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.isLoadingCAForm.value = true;
       loadSequenceAndUpdateUI();
- controller.configuration();
+      controller.configuration();
       controller.fetchPaidto();
-      controller.loadSequenceModules();
+
+      await _initializeUnits();
       await controller.fetchMaxAllowedPercentage();
+
       controller.fetchCashAdvanceRequests();
       controller.getconfigureFieldCashAdvance();
 
       controller.fetchPaidwith();
       controller.fetchProjectName();
       controller.fetchTaxGroup();
-      controller.fetchUnit();
+
       controller.currencyDropDown();
       controller.getUserPref(context);
-      controller.fetchExpenseCategory();
+      await controller.fetchExpenseCategory();
 
       controller.fetchBusinessjustification();
       controller.fetchLocation();
+      controller.isLoadingCAForm.value = false;
     });
+  }
+
+  final FocusNode percentageFocusNode = FocusNode();
+  Future<void> calculateAmountSafe() async {
+    if (_isCalling) return;
+
+    _isCalling = true;
+    // await calculateAmount();
+    _isCalling = false;
   }
 
   void loadSequenceAndUpdateUI() async {
@@ -129,6 +155,57 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       showField.value = false;
     } else {
       showField.value = true; // show the field
+    }
+  }
+
+  Future<void> calculatePercentage(
+    String value,
+    Controller controller,
+    int index,
+  ) async {
+    // if (value.trim().isEmpty) {
+    //   controller.totalRequestedAmount.clear();
+    //   controller.amountINRCA2.clear();
+    //   controller.percentageError.value = false;
+    //   return;
+    // }
+
+    final percentage = double.tryParse(value) ?? 0.0;
+
+    final maxPercentage =
+        double.tryParse(controller.allowedPercentage.text) ?? 0.0;
+
+    setState(() {
+      _showPercentageError = percentage > maxPercentage || percentage <= 0;
+    });
+
+    if (_showPercentageError) return;
+
+    final paidAmount = double.tryParse(controller.paidAmountCA1.text) ?? 0.0;
+
+    if (paidAmount > 0 && percentage > 0) {
+      final requestedAmount = (paidAmount * percentage) / 100;
+
+      controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
+
+      final reqCurrency = controller.currencyDropDowncontrollerCA2.text;
+
+      if (reqCurrency.isNotEmpty) {
+        final exchangeResponse = await controller.fetchExchangeRateCA(
+          reqCurrency,
+          requestedAmount.toString(),
+        );
+
+        if (exchangeResponse != null) {
+          controller.unitRateCA2.text = exchangeResponse.exchangeRate
+              .toString();
+
+          controller.amountINRCA2.text = exchangeResponse.totalAmount
+              .toStringAsFixed(2);
+        }
+      }
+    } else {
+      controller.amountINRCA2.text = '0.00';
     }
   }
 
@@ -171,7 +248,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     // Validate Paid To
     if (controller.selectedjustification == null) {
       setState(() {
-        paidToError = 'Please select a Business Justification';
+        paidToError = AppLocalizations.of(context)!.fieldRequired;
         isValid = false;
       });
     } else if (showField.value) {
@@ -186,7 +263,20 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         paidToError = null;
       });
     }
+    final hideCashAdvanceField = controller.hasModule("CashAdvance");
 
+    if (!hideCashAdvanceField) {
+      if (controller.cashAdvanceRequisitionID.text.trim().isEmpty) {
+        setState(() {
+          cashAdvanceError = AppLocalizations.of(context)!.fieldRequired;
+        });
+        isValid = false;
+      } else {
+        setState(() {
+          cashAdvanceError = null;
+        });
+      }
+    }
     // Validate Paid With
     // if (controller.paidWith == null) {
     //   print("PaidWithError");
@@ -215,7 +305,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     // Validate Reference ID
     if (isThereReferenceID == true && controller.referenceID.text.isEmpty) {
       setState(() {
-        selectReferenceIDError = 'Please select a Reference ID';
+        selectReferenceIDError = AppLocalizations.of(context)!.fieldRequired;
       });
       isValid = false;
     } else {
@@ -234,15 +324,27 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
+
     if (picked != null && picked != controller.selectedDate) {
       setState(() {
         controller.selectedDate = picked;
         selectDate = null;
+        controller.selectedProject = null;
+        for (var c in itemizeControllers) {
+          c.expenseCategory.value = [];
+          c.categoryController.clear();
+          c.projectDropDowncontroller.clear();
+        }
       });
+
+      controller.fetchCashAdvanceExpenseCategory();
+      controller.fetchProjectName();
+      controller.selectedDate = picked;
     }
   }
 
   void _nextStep() {
+    FocusScope.of(context).unfocus();
     if (_currentStep < 2) {
       setState(() => _currentStep++);
       _pageController.animateToPage(
@@ -636,6 +738,116 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   }
 
   Widget expenseCreateForm2(BuildContext context, Controller controller) {
+    bool _isCalling = false;
+
+    /// ✅ Validates ALL itemize pages, returns index of first invalid one or -1 if all valid
+    int _getFirstInvalidItemizeIndex() {
+      for (int i = 0; i < itemizeControllers.length; i++) {
+        final c = itemizeControllers[i];
+
+        // Check category
+        if (c.selectedCategoryId.isEmpty) return i;
+
+        // Check paid amount
+        final paidAmount = double.tryParse(c.paidAmountCA1.text.trim()) ?? 0.0;
+        if (paidAmount <= 0) return i;
+
+        // Check requested amount
+        final requestedAmount =
+            double.tryParse(c.totalRequestedAmount.text.trim()) ?? 0.0;
+        if (requestedAmount <= 0) return i;
+
+        // Check percentage
+        final percentage =
+            double.tryParse(
+              c.requestedPercentage.text.replaceAll('%', '').trim(),
+            ) ??
+            0.0;
+        if (percentage <= 0 || percentage > 100) return i;
+
+        // Check INR amounts
+        final amountINR1 = double.tryParse(c.amountINRCA1.text.trim()) ?? 0.0;
+        if (amountINR1 <= 0) return i;
+
+        final amountINR2 = double.tryParse(c.amountINRCA2.text.trim()) ?? 0.0;
+        if (amountINR2 <= 0) return i;
+
+        // Check itemize-specific fields (only when itemizeCount > 1)
+        if (_itemizeCount > 1) {
+          if (c.quantity.text.isEmpty) return i;
+          if (c.unitAmount.text.isEmpty) return i;
+          if (c.selectedunit == null) return i;
+        }
+      }
+      return -1; // All valid
+    }
+
+    Future<void> calculateAmount() async {
+      controller.isAmountCalculating.value = true;
+
+      final paidAmountText = controller.paidAmountCA1.text.trim();
+
+      final double paidAmounts = double.tryParse(paidAmountText) ?? 0.0;
+
+      final currency1 = controller.currencyDropDowncontrollerCA3.text;
+
+      if (currency1.isEmpty || paidAmounts <= 0) {
+        controller.isAmountCalculating.value = false;
+        return;
+      }
+
+      /// 🔥 GET EXCHANGE RATE (Only once)
+      final exchangeRate1 = await controller.fetchExchangeRatecalculated(
+        currency1,
+      );
+
+      if (exchangeRate1 != null) {
+        controller.unitRateCA1.text = exchangeRate1.toString();
+
+        controller.amountINRCA1.text = (paidAmounts * exchangeRate1)
+            .toStringAsFixed(2);
+
+        controller.isVisible.value = true;
+      }
+
+      /// -----------------------
+      /// Requested %
+      /// -----------------------
+      final requestedPercentage =
+          double.tryParse(
+            controller.requestedPercentage.text.replaceAll('%', '').trim(),
+          ) ??
+          0.0;
+
+      double requestedAmount = 0.0;
+
+      if (requestedPercentage > 0) {
+        requestedAmount = (paidAmounts * requestedPercentage) / 100;
+      }
+
+      controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
+
+      /// -----------------------
+      /// CA2 Exchange
+      /// -----------------------
+      final currency2 = controller.currencyDropDowncontrollerCA2.text;
+
+      if (currency2.isNotEmpty && requestedAmount > 0) {
+        final exchangeRate2 = await controller.fetchExchangeRatecalculated(
+          currency2,
+        );
+
+        if (exchangeRate2 != null) {
+          controller.unitRateCA2.text = exchangeRate2.toString();
+
+          controller.amountINRCA2.text = (requestedAmount * exchangeRate2)
+              .toStringAsFixed(2);
+        }
+      }
+
+      controller.isAmountCalculating.value = false;
+    }
+
     final theme = Theme.of(context);
     print(
       "controllerItems.requestedPercentage.text${controllerItems.selectedunit}",
@@ -648,13 +860,18 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       controller.requestedPercentage.text =
           controllerItems.requestedPercentage.text;
     }
+    // ✅ Copy TEXT value only, not the controller reference
     if (controller.currencyDropDowncontrollerCA3.text.isEmpty) {
-      controller.currencyDropDowncontrollerCA3 =
-          controllerItems.currencyDropDowncontroller;
+      controller.currencyDropDowncontrollerCA3.text =
+          controllerItems.currencyDropDowncontroller.text;
+      controller.selectedCurrencyCA1.value =
+          controllerItems.selectedCurrencyCA1.value;
     }
     if (controller.currencyDropDowncontrollerCA2.text.isEmpty) {
-      controller.currencyDropDowncontrollerCA2 =
-          controllerItems.currencyDropDowncontroller2;
+      controller.currencyDropDowncontrollerCA2.text =
+          controllerItems.currencyDropDowncontroller2.text;
+      controller.selectedCurrencyCA2.value =
+          controllerItems.selectedCurrencyCA2.value;
     }
     // controller.isReimbursite.vale = true;
     // controller.isReimbursite.vale = true;
@@ -664,177 +881,92 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         controller.quantity.text = '1.00';
       }
     }
-  Future<void> calculateAndFetchExchange() async {
-  try {
-    final unitText = controller.unitAmount.text.trim();
-    final qtyText = controller.quantity.text.trim();
 
-    final double? unit = double.tryParse(unitText);
-    final double qty = double.tryParse(qtyText) ?? 0.0;
+    Future<void> calculateAndFetchExchange() async {
+      try {
+        final unitText = controller.unitAmount.text.trim();
+        final qtyText = controller.quantity.text.trim();
 
-    // ✅ Validation
-    if (unitText.isEmpty || unit == null || unit <= 0) {
-      controller.showUnitAmountError.value = true;
-      return;
-    }
+        final double? unit = double.tryParse(unitText);
+        final double qty = double.tryParse(qtyText) ?? 0.0;
 
-    /// -----------------------------
-    /// STEP 1: Line Total
-    /// -----------------------------
-    final calculatedLineAmount = qty * unit;
+        // ✅ Validation
+        if (unitText.isEmpty || unit == null || unit <= 0) {
+          controller.showUnitAmountError.value = true;
+          return;
+        }
 
-    controller.paidAmountCA1.text =
-        calculatedLineAmount.toStringAsFixed(2);
-    controller.paidAmount.text =
-        calculatedLineAmount.toStringAsFixed(2);
+        /// -----------------------------
+        /// STEP 1: Line Total
+        /// -----------------------------
+        final calculatedLineAmount = qty * unit;
 
-    /// -----------------------------
-    /// STEP 2: Requested %
-    /// -----------------------------
-    final requestedPercentage =
-        double.tryParse(
-              controller.requestedPercentage.text
-                  .replaceAll('%', '')
-                  .trim(),
+        controller.paidAmountCA1.text = calculatedLineAmount.toStringAsFixed(2);
+        controller.paidAmount.text = calculatedLineAmount.toStringAsFixed(2);
+
+        /// -----------------------------
+        /// STEP 2: Requested %
+        /// -----------------------------
+        final requestedPercentage =
+            double.tryParse(
+              controller.requestedPercentage.text.replaceAll('%', '').trim(),
             ) ??
             0.0;
 
-    double calculatedRequestedAmount = 0.0;
+        double calculatedRequestedAmount = 0.0;
 
-    if (requestedPercentage > 0) {
-      calculatedRequestedAmount =
-          (calculatedLineAmount * requestedPercentage) / 100;
-    }
+        if (requestedPercentage > 0) {
+          calculatedRequestedAmount =
+              (calculatedLineAmount * requestedPercentage) / 100;
+        }
 
-    controller.totalRequestedAmount.text =
-        calculatedRequestedAmount.toStringAsFixed(2);
-
-    controller.calculatedPercentage.value =
-        calculatedRequestedAmount;
-
-    /// -----------------------------
-    /// STEP 3: Get Exchange Rate CA1 (Only Rate)
-    /// -----------------------------
-    final currency1 =
-        controller.currencyDropDowncontrollerCA3.text.trim();
-
-    if (currency1.isNotEmpty) {
-      final exchangeRate1 =
-          await controller.fetchExchangeRatecalculated(currency1);
-
-      if (exchangeRate1 != null) {
-        controller.unitRateCA1.text =
-            exchangeRate1.toString();
-
-        controller.amountINRCA1.text =
-            (calculatedLineAmount * exchangeRate1)
-                .toStringAsFixed(2);
-
-        controller.isVisible.value = true;
-      }
-    }
-
-    /// -----------------------------
-    /// STEP 4: Get Exchange Rate CA2
-    /// -----------------------------
-    final currency2 =
-        controller.currencyDropDowncontrollerCA2.text.trim();
-
-    if (currency2.isNotEmpty &&
-        calculatedRequestedAmount > 0) {
-      final exchangeRate2 =
-          await controller.fetchExchangeRatecalculated(currency2);
-
-      if (exchangeRate2 != null) {
-        controller.unitRateCA2.text =
-            exchangeRate2.toString();
-
-        controller.amountINRCA2.text =
-            (calculatedRequestedAmount * exchangeRate2)
-                .toStringAsFixed(2);
-      }
-    }
-  } catch (e) {
-    debugPrint("Calculation Error: $e");
-  }
-}
-    Future<void> calculateAmount() async {
-  controller.isAmountCalculating.value = true;
-
-  final paidAmountText =
-      controller.paidAmountCA1.text.trim();
-
-  final double paidAmounts =
-      double.tryParse(paidAmountText) ?? 0.0;
-
-  final currency1 =
-      controller.currencyDropDowncontrollerCA3.text;
-
-  if (currency1.isEmpty || paidAmounts <= 0) {
-    controller.isAmountCalculating.value = false;
-    return;
-  }
-
-  /// 🔥 GET EXCHANGE RATE (Only once)
-  final exchangeRate1 =
-      await controller.fetchExchangeRatecalculated
-      (currency1);
-
-  if (exchangeRate1 != null) {
-    controller.unitRateCA1.text =
-        exchangeRate1.toString();
-
-    controller.amountINRCA1.text =
-        (paidAmounts * exchangeRate1)
+        controller.totalRequestedAmount.text = calculatedRequestedAmount
             .toStringAsFixed(2);
 
-    controller.isVisible.value = true;
-  }
+        controller.calculatedPercentage.value = calculatedRequestedAmount;
 
-  /// -----------------------
-  /// Requested %
-  /// -----------------------
-  final requestedPercentage =
-      double.tryParse(
-            controller.requestedPercentage.text
-                .replaceAll('%', '')
-                .trim(),
-          ) ??
-          0.0;
+        /// -----------------------------
+        /// STEP 3: Get Exchange Rate CA1 (Only Rate)
+        /// -----------------------------
+        final currency1 = controller.currencyDropDowncontrollerCA3.text.trim();
 
-  double requestedAmount = 0.0;
+        if (currency1.isNotEmpty) {
+          final exchangeRate1 = await controller.fetchExchangeRatecalculated(
+            currency1,
+          );
 
-  if (requestedPercentage > 0) {
-    requestedAmount =
-        (paidAmounts * requestedPercentage) / 100;
-  }
+          if (exchangeRate1 != null) {
+            controller.unitRateCA1.text = exchangeRate1.toString();
 
-  controller.totalRequestedAmount.text =
-      requestedAmount.toStringAsFixed(2);
+            controller.amountINRCA1.text =
+                (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
 
-  /// -----------------------
-  /// CA2 Exchange
-  /// -----------------------
-  final currency2 =
-      controller.currencyDropDowncontrollerCA2.text;
+            controller.isVisible.value = true;
+          }
+        }
 
-  if (currency2.isNotEmpty && requestedAmount > 0) {
-    final exchangeRate2 =
-        await controller.fetchExchangeRatecalculated
-        (currency2);
+        /// -----------------------------
+        /// STEP 4: Get Exchange Rate CA2
+        /// -----------------------------
+        final currency2 = controller.currencyDropDowncontrollerCA2.text.trim();
 
-    if (exchangeRate2 != null) {
-      controller.unitRateCA2.text =
-          exchangeRate2.toString();
+        if (currency2.isNotEmpty && calculatedRequestedAmount > 0) {
+          final exchangeRate2 = await controller.fetchExchangeRatecalculated(
+            currency2,
+          );
 
-      controller.amountINRCA2.text =
-          (requestedAmount * exchangeRate2)
-              .toStringAsFixed(2);
+          if (exchangeRate2 != null) {
+            controller.unitRateCA2.text = exchangeRate2.toString();
+
+            controller.amountINRCA2.text =
+                (calculatedRequestedAmount * exchangeRate2).toStringAsFixed(2);
+          }
+        }
+      } catch (e) {
+        debugPrint("Calculation Error: $e");
+      }
     }
-  }
 
-  controller.isAmountCalculating.value = false;
-}
     _calculateTotalLineAmount(controller);
     _calculateTotalLineAmount2(controller);
     if (clearField) {
@@ -1119,6 +1251,20 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                     ? controller.expenseCategory
                     : controllerItems.expenseCategory;
 
+                // 👉 Handle empty state
+                if (fetchCategory.isEmpty) {
+                  return Center(
+                    child: Text(
+                      AppLocalizations.of(context)!.noDataFound,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  );
+                }
+
                 return GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -1146,60 +1292,148 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
               const SizedBox(height: 16),
               TextField(
                 controller: controller.requestedPercentage,
+                // focusNode: percentageFocusNode,
                 keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                ],
+
+                textInputAction: TextInputAction.done,
+
                 decoration: InputDecoration(
                   labelText:
-                      "${AppLocalizations.of(context)!.requestedPercentage} %",
+                      "${AppLocalizations.of(context)!.requestedPercentage} *",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onChanged: (value) async {
-                  final percentage = double.tryParse(value) ?? 0.0;
-                  final paidAmount =
-                      double.tryParse(controller.paidAmountCA1.text) ?? 0.0;
 
-                  if (paidAmount > 0 && percentage > 0) {
-                    // Step 1: Calculate requested amount (foreign currency)
-                    final requestedAmount = (paidAmount * percentage) / 100;
-                    controller.totalRequestedAmount.text = requestedAmount
-                        .toStringAsFixed(2);
+                /// Press ENTER
+                onSubmitted: (value) {
+                  calculatePercentage(value, controller, 0);
+                },
+                onChanged: (val) {
+                  controller.validatePercentage(
+                    val,
+                    controller.allowedPercentage.text,
+                    controller,
+                  );
+                  if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-                    // Step 2: Update INR value (CA2)
-                    final reqCurrency =
-                        controller.currencyDropDowncontrollerCA2.text;
-                    if (reqCurrency.isNotEmpty) {
-                      final exchangeResponse = await controller
-                          .fetchExchangeRateCA(
-                            reqCurrency,
-                            requestedAmount.toString(),
-                          );
-                      if (exchangeResponse != null) {
-                        controller.unitRateCA2.text = exchangeResponse
-                            .exchangeRate
-                            .toString();
-                        controller.amountINRCA2.text = exchangeResponse
-                            .totalAmount
-                            .toStringAsFixed(2);
-                      }
-                    }
-                  } else {
-                    controller.amountINRCA2.text = '0.00';
-                  }
+                  // Start new timer (3 seconds)
+                  _debounce = Timer(const Duration(seconds: 2), () async {
+                    await calculatePercentage(
+                      controller.requestedPercentage.text,
+                      controller,
+                      0,
+                    );
+                  });
+                },
+                // onChanged: (value) {
+                //   final allowed = controller.allowedPercentage.text;
+
+                //   validatePercentage(value, allowed, controller);
+                // },
+
+                /// Click outside
+                onEditingComplete: () {
+                  calculatePercentage(
+                    controller.requestedPercentage.text,
+                    controller,
+                    0,
+                  );
+                  FocusScope.of(context).unfocus();
                 },
               ),
+              Obx(
+                () => controller.percentageError.value
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          "Percentage cannot exceed ${controller.allowedPercentage.text}",
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    : const SizedBox(),
+              ),
+              // TextField(
+              //   controller: controller.requestedPercentage,
+              //   keyboardType: TextInputType.number,
+              //   inputFormatters: [
+              //     FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              //   ],
+              //   decoration: InputDecoration(
+              //     labelText:
+              //         "${AppLocalizations.of(context)!.requestedPercentage} %",
+              //     border: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(10),
+              //     ),
+              //   ),
+              //   onChanged: (value) async {
+              //     // // ✅ Allow empty while editing
+              //     // if (value.isEmpty) {
+              //     //   setState(() {
+              //     //     _showPercentageError = false;
+              //     //   });
+              //     //   controller.totalRequestedAmount.clear();
+              //     //   controller.amountINRCA2.clear();
+              //     //   return;
+              //     // }
 
-              if (_showPercentageError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Please enter a valid percentage between 1-100',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
+              //     final percentage = double.tryParse(value) ?? 0.0;
+
+              //     final maxPercentage =
+              //         double.tryParse(controller.allowedPercentage.text) ?? 0.0;
+
+              //     setState(() {
+              //       _showPercentageError =
+              //           percentage > maxPercentage || percentage <= 0;
+              //     });
+
+              //     if (_showPercentageError) return;
+
+              //     final paidAmount =
+              //         double.tryParse(controller.paidAmountCA1.text) ?? 0.0;
+
+              //     if (paidAmount > 0 && percentage > 0) {
+              //       final requestedAmount = (paidAmount * percentage) / 100;
+
+              //       controller.totalRequestedAmount.text = requestedAmount
+              //           .toStringAsFixed(2);
+
+              //       final reqCurrency =
+              //           controller.currencyDropDowncontrollerCA2.text;
+
+              //       if (reqCurrency.isNotEmpty) {
+              //         final exchangeResponse = await controller
+              //             .fetchExchangeRateCA(
+              //               reqCurrency,
+              //               requestedAmount.toString(),
+              //             );
+
+              //         if (exchangeResponse != null) {
+              //           controller.unitRateCA2.text = exchangeResponse
+              //               .exchangeRate
+              //               .toString();
+
+              //           controller.amountINRCA2.text = exchangeResponse
+              //               .totalAmount
+              //               .toStringAsFixed(2);
+              //         }
+              //       }
+              //     } else {
+              //       controller.amountINRCA2.text = '0.00';
+              //     }
+              //   },
+              // ),
+              // if (_showPercentageError)
+              //   Padding(
+              //     padding: const EdgeInsets.only(top: 4),
+              //     child: Text(
+              //       'Percentage cannot exceed ${controller.allowedPercentage.text}',
+              //       style: const TextStyle(color: Colors.red, fontSize: 12),
+              //     ),
+              //   ),
               if (showItemizeDetails) const SizedBox(height: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1207,7 +1441,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                   const SizedBox(height: 10),
                   if (showItemizeDetails)
                     SearchableMultiColumnDropdownField<Unit>(
-                      labelText: 'Unit *',
+                      labelText: '${AppLocalizations.of(context)!.unit} *',
                       columnHeaders: const ['Uom Id', 'Uom Name'],
                       items: controllerItems.unit,
                       selectedValue: controller.selectedunit,
@@ -1240,31 +1474,46 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       children: [
                         Expanded(
                           child: TextFormField(
-  controller: controller.unitAmount,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  textInputAction: TextInputAction.done,
+                            // focusNode: paidAmountFocusNode,
+                            controller: controller.unitAmount,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textInputAction: TextInputAction.done,
 
-  // enabled: !showItemizeDetails,
+                            // enabled: !showItemizeDetails,
 
-  // ✅ When user presses Done
-  onFieldSubmitted: (_) async {
-    FocusScope.of(context).unfocus();
-    await calculateAndFetchExchange();
-  },
+                            // ✅ When user presses Done
+                            onFieldSubmitted: (_) async {
+                              FocusScope.of(context).unfocus();
+                              await calculateAndFetchExchange();
+                            },
 
-  // ✅ When focus lost
-  onEditingComplete: () async {
-    FocusScope.of(context).unfocus();
-      await calculateAndFetchExchange();
-  },
+                            // ✅ When focus lost
+                            onEditingComplete: () async {
+                              FocusScope.of(context).unfocus();
+                              await calculateAndFetchExchange();
+                            },
+                            onChanged: (value) {
+                              // Cancel previous timer
+                              if (_debounce?.isActive ?? false)
+                                _debounce!.cancel();
 
-  inputFormatters: [
-    FilteringTextInputFormatter.allow(
-      RegExp(r'^\d*\.?\d{0,2}'),
-    ),
-  ],
+                              // Start new timer (3 seconds)
+                              _debounce = Timer(
+                                const Duration(seconds: 2),
+                                () async {
+                                  await calculateAndFetchExchange();
+                                },
+                              );
+                            },
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d{0,2}'),
+                              ),
+                            ],
 
-  decoration: InputDecoration(
+                            decoration: InputDecoration(
                               labelText:
                                   "${AppLocalizations.of(context)!.unitEstimatedAmount}*",
                               errorText: controller.showUnitAmountError.value
@@ -1275,8 +1524,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
-  ),
-)
+                            ),
+                          ),
                         ),
                         if (showItemizeDetails) const SizedBox(width: 12),
                         if (showItemizeDetails)
@@ -1555,43 +1804,62 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(
-  controller: controller.paidAmountCA1,
-  enabled: !showItemizeDetails,
-  keyboardType: TextInputType.number,
-  textInputAction: TextInputAction.done,
+                                  // focusNode: paidAmountFocusNode,
+                                  controller: controller.paidAmountCA1,
+                                  enabled: !showItemizeDetails,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.done,
 
-  // ✅ When user presses Enter
-  onFieldSubmitted: (_) async {
-    FocusScope.of(context).unfocus();
-    await calculateAmount();
-  },
+                                  // ✅ When user presses Enter
+                                  onFieldSubmitted: (_) async {
+                                    FocusScope.of(context).unfocus();
+                                    await calculateAmount();
+                                  },
 
-  // ✅ When user taps outside (focus lost)
-  onEditingComplete: () async {
-    FocusScope.of(context).unfocus();
-    await calculateAmount();
-  },
+                                  // ✅ When user taps outside (focus lost)
+                                  onEditingComplete: () async {
+                                    FocusScope.of(context).unfocus();
+                                    await calculateAmount();
+                                  },
 
-  inputFormatters: [
-    FilteringTextInputFormatter.allow(
-      RegExp(r'^\d*\.?\d{0,2}'),
-    ),
-  ],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,2}'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value.trim().isNotEmpty) {
+                                      setState(() {
+                                        _showRequestedAmountError = false;
+                                      });
 
-  decoration: InputDecoration(
-    hintText:
-        AppLocalizations.of(context)!
-            .totalEstimatedAmountIn,
-    isDense: true,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(10),
-        bottomLeft: Radius.circular(10),
-      ),
-    ),
-  ),
-)
-                              ),     
+                                      // Cancel previous timer
+                                      if (_debounce?.isActive ?? false)
+                                        _debounce!.cancel();
+
+                                      // Start new timer (3 seconds)
+                                      _debounce = Timer(
+                                        const Duration(seconds: 3),
+                                        () async {
+                                          await calculateAmount();
+                                        },
+                                      );
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: AppLocalizations.of(
+                                      context,
+                                    )!.totalEstimatedAmountIn,
+                                    isDense: true,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.only(
+                                        topLeft: Radius.circular(10),
+                                        bottomLeft: Radius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
 
                               /// Currency Dropdown
                               Obx(
@@ -1758,9 +2026,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             enabled: false,
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: AppLocalizations.of(
-                                context,
-                              )!.totalEstimatedAmountInInr,
+                              labelText:
+                                  '${AppLocalizations.of(context)!.lineEstimatedAmountInINR} ${controllerFitch.organizationCurrency}',
                               filled: true,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -1998,7 +2265,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             decoration: InputDecoration(
                               isDense: true,
                               labelText:
-                                  '${AppLocalizations.of(context)!.totalRequestedAmount} (${controller.currencyDropDowncontrollerCA2.text})',
+                                  '${AppLocalizations.of(context)!.totalRequestedAmountInINR} ${controllerFitch.organizationCurrency}',
                               filled: true,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -2071,11 +2338,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           }
 
                           final featureStates = snapshot.data!;
-                          final isEnabled =
-                              featureStates['EnableItemization'] ?? false;
+                          // final isEnabled =
+                          //     featureStates['EnableItemization'] ?? false;
 
-                          // ❌ Hide button completely if feature disabled
-                          if (!isEnabled) return const SizedBox.shrink();
+                          // // ❌ Hide button completely if feature disabled
+                          // if (!isEnabled) return const SizedBox.shrink();
 
                           // ✅ Show button only when feature is enabled
                           return OutlinedButton.icon(
@@ -2088,7 +2355,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 _showTaxAmountError = false;
                                 _showRequestedAmountError = false;
                                 _showPaidAmountError = false;
-                                _showPercentageError = false;
+                                // _showPercentageError = false;
                                 controller.showPaidForError.value = false;
                                 controller.showProjectError.value = false;
                               });
@@ -2140,7 +2407,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 );
                                 isValid = false;
                               }
-
                               // 2. Validate Category
                               if (controller.selectedCategoryId.isEmpty) {
                                 setState(
@@ -2157,6 +2423,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   .trim();
                               final paidAmount =
                                   double.tryParse(paidAmountText) ?? 0.0;
+                              controller.unitAmount.text = paidAmount
+                                  .toString();
+
                               if (paidAmountText.isEmpty || paidAmount <= 0) {
                                 setState(() => _showPaidAmountError = true);
                                 isValid = false;
@@ -2193,7 +2462,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 setState(() => _showPercentageError = true);
                                 isValid = false;
                               }
-
+                              if (_showPercentageError) {
+                                isValid = false;
+                              }
                               // 6. Validate itemized fields only if itemization is active
                               if (_itemizeCount > 1) {
                                 if (controller.quantity.text.isEmpty) {
@@ -2292,7 +2563,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           const SizedBox(),
                         const Spacer(),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             // Reset error states
                             setState(() {
                               controller.showQuantityError.value = false;
@@ -2301,7 +2572,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               _showTaxAmountError = false;
                               _showRequestedAmountError = false;
                               _showPaidAmountError = false;
-                              _showPercentageError = false;
+                              // _showPercentageError = false;
                               controller.showPaidForError.value = false;
                               controller.showProjectError.value = false;
                             });
@@ -2392,7 +2663,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               setState(() => _showPercentageError = true);
                               isValid = false;
                             }
-
+                            if (_showPercentageError) {
+                              isValid = false;
+                            }
                             // 6. Validate itemized fields only if itemization is active
                             if (_itemizeCount > 1) {
                               if (controller.quantity.text.isEmpty) {
@@ -2422,20 +2695,38 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
                             if (isValid) {
                               try {
-                                final items = itemizeControllers
-                                    .map((c) => c.toCashAdvanceRequestItemize())
-                                    .toList();
+                                final invalidIndex =
+                                    _getFirstInvalidItemizeIndex();
+                                if (invalidIndex != -1) {
+                                  setState(() {
+                                    _selectedItemizeIndex = invalidIndex;
+                                  });
 
-                                // Debug: Print each item
-                                for (var i = 0; i < items.length; i++) {
-                                  print(
-                                    "📝 Item $i: ${jsonEncode(items[i].toJson())}",
+                                  Fluttertoast.showToast(
+                                    msg:
+                                        "Please fill all required fields in item ${invalidIndex + 1}",
+                                    backgroundColor: Colors.red,
+                                    toastLength: Toast.LENGTH_LONG,
                                   );
-                                }
+                                } else {
+                                  final items = itemizeControllers
+                                      .map(
+                                        (c) => c.toCashAdvanceRequestItemize(),
+                                      )
+                                      .toList();
 
-                                controllerItems.finalItemsCashAdvanceNew =
-                                    items;
-                                _nextStep();
+                                  // Debug: Print each item
+                                  for (var i = 0; i < items.length; i++) {
+                                    print(
+                                      "📝 Item $i: ${jsonEncode(items[i].toJson())}",
+                                    );
+                                  }
+
+                                  controllerItems.finalItemsCashAdvanceNew =
+                                      items;
+                                  await calculateAmount();
+                                  _nextStep();
+                                }
                               } catch (e) {
                                 print(
                                   '❌ Error converting to CashAdvanceRequestItemize: $e',
@@ -2721,7 +3012,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   Widget expenseCreationFormStep1(BuildContext context) {
     return Scaffold(
       body: Obx(() {
-        return controller.isLoadingGE2.value
+        return controller.isLoadingCAForm.value
             ? const SkeletonLoaderPage()
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),
@@ -2730,7 +3021,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 16),
+                      // const SizedBox(height: 16),
                       FormField<DateTime>(
                         validator: (value) {
                           if (controller.selectedDate == null) {
@@ -2763,6 +3054,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       decoration: InputDecoration(
                                         labelText:
                                             '${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *',
+                                        errorText: cashAdvanceError,
                                       ),
                                     ),
                                     const SizedBox(height: 16),
@@ -2797,7 +3089,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
-                                    labelText: 'Request Date *',
+                                    labelText:
+                                        '${AppLocalizations.of(context)!.requestDate} * ',
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -2810,7 +3103,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       Text(
                                         controller.selectedDate == null
                                             ? 'Select date'
-                                            : DateFormat('dd/MM/yyyy').format(
+                                            : DateFormat('dd-MM-yyyy').format(
                                                 controller.selectedDate!,
                                               ),
                                       ),
@@ -2827,7 +3120,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         },
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
                       Obx(() {
                         return Column(
                           children: controller.configListAdvance
@@ -3045,7 +3338,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       Icon(icons[index % icons.length]),
                                       const SizedBox(width: 10),
                                       Expanded(
-                                        child: Text(method.paymentMethodName),
+                                        child: Text(method.paymentMethodId),
                                       ),
                                     ],
                                   ),
@@ -3265,7 +3558,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   final _formKey = GlobalKey<FormState>();
   final FocusNode _focusNode = FocusNode();
   final PhotoViewController _photoViewController = PhotoViewController();
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
 
@@ -3413,22 +3706,14 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   }
 
   Future<void> _pickFile() async {
+    print("PickSomethink");
     try {
       controller.isImageLoading.value = true;
 
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -3464,12 +3749,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
-
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+    setState(() {
+      controller.imageFiles.add(file);
+    });
   }
 
   Widget _buildImageArea() {
@@ -3496,10 +3778,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       children: [
         Obx(() {
           return GestureDetector(
-            onTap: () => {
-              if (controller.imageFiles.isEmpty) {_pickFile},
-            },
-
+            onTap: _pickFile,
             child: Container(
               width: MediaQuery.of(context).size.width * 0.9,
               height: MediaQuery.of(context).size.height * 0.3,
@@ -3530,8 +3809,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             final path = file.path;
 
                             return GestureDetector(
-                              onTap: () =>
-                                  controller.openFile(context, file, index),
+                              onTap: () => controller.openFilewhileCreate(
+                                context,
+                                file,
+                                index,
+                              ),
 
                               child: Container(
                                 margin: const EdgeInsets.all(8),
@@ -3719,7 +4001,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.upload_file),
                         label: Text(AppLocalizations.of(context)!.upload),
-                        onPressed: () => _pickImage(ImageSource.gallery),
+                        onPressed: _pickFile,
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
@@ -3738,7 +4020,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       enabled: false,
                       decoration: InputDecoration(
                         labelText:
-                            '${AppLocalizations.of(context)!.totalEstimatedAmountInInr} *',
+                            '${AppLocalizations.of(context)!.totalEstimatedAmountInInr} ${controller.organizationCurrency}',
                         filled: true,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -3752,7 +4034,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       enabled: false,
                       decoration: InputDecoration(
                         labelText:
-                            '${AppLocalizations.of(context)!.totalRequestedAmount} *',
+                            '${AppLocalizations.of(context)!.totalRequestedAmountInINR} ${controller.organizationCurrency}',
                         filled: true,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -3961,7 +4243,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                       controller.isPageLoading.value = true;
 
                                       try {
-                                        controller.chancelButton(context);
+                                        controller.chancelButtonCA(context);
                                       } finally {
                                         controller.setButtonLoading(
                                           'cancel',

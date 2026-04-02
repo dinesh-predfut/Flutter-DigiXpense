@@ -1,0 +1,845 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
+import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/Reports/reportMIS.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../models.dart';
+import 'package:diginexa/l10n/app_localizations.dart';
+
+class CashAdvanceMyReportsDashboard extends StatefulWidget {
+  const CashAdvanceMyReportsDashboard({super.key});
+
+  @override
+  State<CashAdvanceMyReportsDashboard> createState() =>
+      _CashAdvanceMyReportsDashboardState();
+}
+
+class _CashAdvanceMyReportsDashboardState
+    extends State<CashAdvanceMyReportsDashboard>
+    with TickerProviderStateMixin {
+  late final Controller controller;
+  late final ScrollController _scrollController;
+  late final AnimationController _animationController;
+  late final Animation<double> _animation;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+  Rxn<File> profileImage = Rxn<File>();
+  bool isLoading = false;
+  final List<String> statusOptionsmyTeam = ["In Process", "All"];
+  // late Future<List<ReportModel>> futureReports;
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
+      controller.searchControllerReports.clear();
+      loadProfileImage();
+      controller.fetchNotifications();
+      controller.getPersonalDetails(context);
+      controller.fetchAndAppendReports("CashAdvanceRequisition").then((_) {
+        controller.isLoadingGE1.value = false;
+      });
+    });
+    // / Use existing controller
+    controller.selectedStatusmyteam = "In Process";
+    _scrollController = ScrollController();
+
+    // Load data
+    // controller.loadProfilePictureFromStorage();
+
+    // controller.fetchMileageRates();
+    // controller.fetchManageExpensesCards().then((_) {
+    //   if (controller.manageExpensesCards.isNotEmpty && mounted) {
+    //     _animationController = AnimationController(
+    //       vsync: this,
+    //       duration: const Duration(seconds: 10),
+    //     );
+    //     _animation =
+    //         Tween<double>(begin: 0, end: 1).animate(_animationController)
+    //           ..addListener(() {
+    //             if (_scrollController.hasClients &&
+    //                 _animationController.isAnimating) {
+    //               final max = _scrollController.position.maxScrollExtent;
+    //               _scrollController.jumpTo(_animation.value * max);
+    //             }
+    //           });
+    //     _animationController.repeat();
+    //   }
+    // });
+  }
+
+  void loadProfileImage() async {
+    controller.isImageLoading.value = true;
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('profileImagePath');
+    if (path != null && File(path).existsSync()) {
+      profileImage.value = File(path);
+      controller.isImageLoading.value = false;
+    } else {
+      // await controller.getProfilePicture();
+      controller.isImageLoading.value = false;
+    }
+  }
+
+  void _openMenu() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Restart animation after user scrolls
+  // void _onUserScroll() {
+  //   if (_animationController.isAnimating) {
+  //     _animationController.stop();
+  //   }
+  //   Future.delayed(const Duration(seconds: 8), () {
+  //     if (!mounted) return;
+  //     if (!_animationController.isAnimating) {
+  //       _animationController.repeat();
+  //     }
+  //   });
+  // }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+        return true;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        drawer: const MyDrawer(),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 600;
+            final theme = Theme.of(context);
+            final primaryColor = theme.primaryColor;
+            return Column(
+              children: [
+                Stack(
+                  children: [
+                    if (primaryColor != const Color(0xFF1e4db7))
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              primaryColor,
+                              primaryColor.withOpacity(
+                                0.7,
+                              ), // Lighter primary color
+                            ],
+                          ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              flex: 4,
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(5),
+                                    ),
+                                  ),
+
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 60 : 80,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const Spacer(),
+                            Flexible(
+                              flex: 9,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    const LanguageDropdown(),
+
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.fingerprint,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.punchScreen,
+                                        );
+                                      },
+                                    ),
+
+                                    _buildNotificationBadge(),
+                                    _buildProfileAvatar(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (primaryColor == const Color(0xFF1e4db7))
+                      Container(
+                        width: double.infinity,
+                        height: 100,
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/Vector.png'),
+                            fit: BoxFit.cover,
+                          ),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              flex: 4,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(5),
+                                    ),
+                                  ),
+
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 60 : 80,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const Spacer(),
+                            Flexible(
+                              flex: 9,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    const LanguageDropdown(),
+
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.fingerprint,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.punchScreen,
+                                        );
+                                      },
+                                    ),
+
+                                    _buildNotificationBadge(),
+                                    _buildProfileAvatar(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                    ), // Like margin-left
+                    child: Text(
+                      '${AppLocalizations.of(context)!.cashAdvance} ${AppLocalizations.of(context)!.reports}',
+                      style: const TextStyle(
+                        // color: AppColors.gradientEnd, // Text color
+                        fontSize: 20, // font-size
+                        fontWeight: FontWeight.bold, // font-weight: bold
+                        fontFamily: 'Roboto', // font-family (if used)
+                        letterSpacing: 0.5, // letter-spacing
+                        // height: 1.2,                          // line-height
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 🔹 Auto-Scrolling Cards
+                const SizedBox(height: 16),
+
+                // 🔹 Responsive Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextField(
+                      controller: controller.searchControllerReports,
+                      onChanged: (value) {
+                        controller.searchQuery.value = value.toLowerCase();
+                      },
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(context)!.search,
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+                if (PermissionHelper.canWrite("Cash Advance Reports"))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // 🔹 Responsive Dropdown Filter
+                        const Expanded(
+                          flex: 3, // Takes 3 parts of available space
+                          child: SizedBox(width: 1),
+                        ),
+
+                        const SizedBox(
+                          width: 12,
+                        ), // Spacing between dropdown and button
+                        // 🔹 Add Request Button
+                        Expanded(
+                          flex:
+                              3, // Takes 2 parts of space (smaller than dropdown)
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.cashAdvancereportCreateScreen,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add_circle,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              AppLocalizations.of(context)!.addReport,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.blue.shade800,
+                              elevation: 4,
+                              shadowColor: Colors.blue.shade900.withOpacity(
+                                0.4,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              textStyle: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 12),
+                Expanded(
+                  // height: MediaQuery.of(context).size.height * 0.45,
+                  child: Obx(() {
+                    if (controller.isLoadingGE1.value) {
+                      return const SkeletonLoaderPage();
+                    }
+
+                    final expenses = controller.getAllListReport;
+                    final filteredExpenses = expenses.where((item) {
+                      final query = controller.searchQuery.value;
+                      if (query.isEmpty) return true;
+                      return (item.availableFor?.toLowerCase() ?? '').contains(
+                            query,
+                          ) ||
+                          item.name.toLowerCase().contains(query) ||
+                          item.functionalArea.toLowerCase().contains(query);
+                    }).toList();
+                    if (expenses.isEmpty) {
+                      return const CommonNoDataWidget();
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: filteredExpenses.length,
+                      itemBuilder: (ctx, idx) {
+                        final item = filteredExpenses[idx];
+
+                        return Dismissible(
+                          key: ValueKey(item.recId),
+                          background: _buildSwipeActionLeft(isLoading),
+                          secondaryBackground: _buildSwipeActionLeft(isLoading),
+                          confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.startToEnd) {
+                              setState(() => isLoading = true);
+
+                              // if (item.expenseType == "PerDiem") {
+                              //   await controller.fetchSecificPerDiemItem(
+                              //       context, item.recId, true);
+                              // } else if (item.expenseType ==
+                              //     "General Expenses") {
+                              //   await controller.fetchSecificExpenseItem(
+                              //       context, item.recId);
+                              //   controller.fetchExpenseHistory(item.recId);
+                              // } else if (item.expenseType == "Mileage") {
+                              //   print("Its Call");
+                              //   Navigator.pushNamed(
+                              //       context, AppRoutes.mileageDetailsPage);
+                              // }
+                              controller.navigateToEditReportScreen(
+                                context,
+                                item.recId,
+                                true,
+                              );
+                              setState(() => isLoading = false);
+                              return false;
+                            } else {
+                              setState(() => isLoading = true);
+
+                              // if (item.expenseType == "PerDiem") {
+                              //   await controller.fetchSecificPerDiemItem(
+                              //       context, item.recId, true);
+                              // } else if (item.expenseType ==
+                              //     "General Expenses") {
+                              //   await controller.fetchSecificExpenseItem(
+                              //       context, item.recId);
+                              //   controller.fetchExpenseHistory(item.recId);
+                              // } else if (item.expenseType == "Mileage") {
+                              //   print("Its Call");
+                              //   Navigator.pushNamed(
+                              //       context, AppRoutes.mileageDetailsPage);
+                              // }
+                              controller.navigateToEditReportScreen(
+                                context,
+                                item.recId,
+                                true,
+                              );
+                              setState(() => isLoading = false);
+                              return false;
+                            }
+                          },
+                          child: _buildStyledCard(item, context),
+                        );
+                      },
+                    );
+                  }),
+                ),
+                // 🔹 Expense List (Flexible height)
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBadge() {
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.notification),
+        ),
+        Obx(() {
+          final count = controller.unreadNotifications.length;
+          if (count == 0) return const SizedBox();
+          return Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  fontSize: 8,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildProfileAvatar() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.personalInfo);
+      },
+      child: Obx(
+        () => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 200),
+            scale: controller.isImageLoading.value ? 1.0 : 1.05,
+            child: ClipOval(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    /// Avatar / Placeholder
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[800],
+                      ),
+                      child: profileImage.value != null
+                          ? Image.file(
+                              profileImage.value!,
+                              key: ValueKey(profileImage.value!.path),
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
+                    ),
+
+                    /// Loader Overlay
+                    // if (controller.isImageLoading.value)
+                    //   Container(
+                    //     width: 30,
+                    //     height: 30,
+                    //     decoration: BoxDecoration(
+                    //       shape: BoxShape.circle,
+                    //       color: Colors.black.withOpacity(0.35),
+                    //     ),
+                    //     child: const Center(
+                    //       child: SizedBox(
+                    //         width: 14,
+                    //         height: 14,
+                    //         child: CircularProgressIndicator(
+                    //           strokeWidth: 2,
+                    //           valueColor: AlwaysStoppedAnimation<Color>(
+                    //             Colors.white,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwipeActionLeft(bool isLoading) {
+    return Container(
+      alignment: Alignment.centerLeft,
+      color: Colors.blue.shade100,
+      padding: const EdgeInsets.only(left: 20),
+      child: Row(
+        children: [
+          if (isLoading)
+            const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            )
+          else
+            const Icon(Icons.remove_red_eye, color: Colors.blue),
+          const SizedBox(width: 8),
+          Text(
+            isLoading
+                ? AppLocalizations.of(context)!.loading
+                : AppLocalizations.of(context)!.view,
+            style: const TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwipeActionRight() {
+    return Container(
+      alignment: Alignment.centerRight,
+      color: const Color.fromARGB(255, 115, 142, 229),
+      padding: const EdgeInsets.only(right: 20),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            AppLocalizations.of(context)!.delete,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.delete, color: Colors.white),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStyledCard(ReportModels item, BuildContext context) {
+    // print("itemxxx ${item.expenseType}");
+    final controller = Get.find<Controller>();
+    final theme = Theme.of(context);
+    final primaryColor = theme.secondaryHeaderColor;
+    final textColot = theme.primaryColorDark;
+    return GestureDetector(
+      onTap: () {
+        // if (item.expenseType == "PerDiem") {
+        controller.navigateToEditReportScreen(context, item.recId, true);
+        //   controller.isEditModePerdiem = false;
+        // } else if (item.expenseType == "General Expenses") {
+        //   print("Expenses${item.recId}");
+        //   controller.fetchSecificExpenseItem(context, item.recId, false);
+        //   controller.fetchExpenseHistory(item.recId);
+        // } else if (item.expenseType == "Mileage") {
+        //   controller.fetchMileageDetails(context, item.recId);
+        // } else if (item.expenseType == "CashAdvanceReturn") {
+        //   controller.fetchSecificCashAdvanceReturn(context, item.recId, false);
+        // } else {
+        //   ScaffoldMessenger.of(context).showSnackBar(
+        //     SnackBar(
+        //         content: Text("Unknown expense type: ${item.expenseType}")),
+        //   );
+        // }
+      },
+      child: Card(
+        color: primaryColor,
+        shadowColor: const Color.fromARGB(255, 82, 78, 78),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER: Name (Bold Label + Value) + Report Icon
+              Row(
+                children: [
+                  // Name: John Doe (Bold Label)
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: textColot,
+                          fontSize: 16,
+                          height: 1.4,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: "${AppLocalizations.of(context)!.name}: ",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: item.name ?? 'N/A'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Report Icon (Clickable)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.receipt_outlined,
+                      color: Color.fromARGB(255, 0, 110, 255),
+                      size: 24,
+                    ),
+                    onPressed: () async {
+                      setState(() => controller.isLoadingGE1.value = true);
+                      try {
+                        final data = await controller.fetchDataset(
+                          item.reportMetaData,
+                          context,
+                        );
+
+                        if (data != null) {
+                          if (!mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReportScreen(
+                                data: data,
+                                logicalOperator: '',
+                                rules: item.reportMetaData.isNotEmpty
+                                    ? item.reportMetaData[0].rules
+                                    : <Rule>[],
+                              ),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to load report data'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint("Error fetching dataset: $e");
+                      } finally {
+                        if (mounted)
+                          setState(() => controller.isLoadingGE1.value = false);
+                      }
+                    },
+                    splashRadius: 20,
+                    padding: const EdgeInsets.all(6),
+                  ),
+                ],
+              ),
+
+              // CATEGORY: Finance / HR (Bold Label)
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: textColot, fontSize: 14),
+                  children: [
+                    TextSpan(
+                      text: "${AppLocalizations.of(context)!.functionalArea}: ",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(text: item.functionalArea ?? 'N/A'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 10),
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(color: textColot, fontSize: 14),
+                  children: [
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(context)!.reportAvailability}: ",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(text: item.reportAvailability ?? 'N/A'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

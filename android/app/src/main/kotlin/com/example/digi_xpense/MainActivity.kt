@@ -1,4 +1,4 @@
-package com.example.digi_xpense1
+package com.stayconnect.diginexa
 
 import io.flutter.embedding.android.FlutterActivity
 

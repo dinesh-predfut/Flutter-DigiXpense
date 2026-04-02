@@ -38,25 +38,30 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isProcessing = false;
   List<ChatMessage> _chatMessages = [];
+  final controller = Get.find<Controller>();
 
   final List<String> exampleQuestions = [
     "Expenses by Employees in the last 30 days?",
     "Which month had the most expenses submitted this year?",
     "Top 10 Expenses by Categories?",
-    "How many expenses got approved in the last 30 days?"
+    "How many expenses got approved in the last 30 days?",
   ];
 
   @override
   void initState() {
     super.initState();
-    _chatMessages.add(ChatMessage(
-      text:
-          "Welcome to AI Analytics! I can help you analyze your expense data. Ask me anything!",
-      isUser: false,
-    ));
+
+    _chatMessages.add(
+      ChatMessage(
+        text:
+            "Welcome to AI Analytics! I can help you analyze your expense data. Ask me anything!",
+        isUser: false,
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
+      controller.checkAiHealth();
     });
   }
 
@@ -88,8 +93,11 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
               'xkzeri-yqtLSxh6DqV3abO7gqehZtwaZgKt-hbgs1Iok7n51Pc0pK6jzXY2HDIPS1Wd2WCw4BeBauzpIGvC1fhAgW_14E-8847bL2qSgU5EZIU9pi3Kw',
           'Authorization': 'Bearer ${Params.userToken}',
         },
-        body: jsonEncode(
-            {'question': question.trim(), 'name': 'digiexpense', 'server': ''}),
+        body: jsonEncode({
+          'question': question.trim(),
+          'name': 'digiexpense',
+          'server': '',
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -101,35 +109,43 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
           _chatMessages.add(ChatMessage(text: answer, isUser: false));
 
           if (tableData.isNotEmpty) {
-            _chatMessages.add(ChatMessage(
-              text: 'Here is the breakdown:',
-              isUser: false,
-              isTable: true,
-              tableData: tableData,
-            ));
+            _chatMessages.add(
+              ChatMessage(
+                text: 'Here is the breakdown:',
+                isUser: false,
+                isTable: true,
+                tableData: tableData,
+              ),
+            );
 
-            _chatMessages.add(ChatMessage(
-              text: 'Expense Chart',
-              isUser: false,
-              isPlot: true,
-              tableData: tableData,
-            ));
+            _chatMessages.add(
+              ChatMessage(
+                text: 'Expense Chart',
+                isUser: false,
+                isPlot: true,
+                tableData: tableData,
+              ),
+            );
           }
         });
       } else {
         setState(() {
-          _chatMessages.add(ChatMessage(
-            text: "Sorry, I couldn't process your request. Please try again.",
-            isUser: false,
-          ));
+          _chatMessages.add(
+            ChatMessage(
+              text: "Sorry, I couldn't process your request. Please try again.",
+              isUser: false,
+            ),
+          );
         });
       }
     } catch (e) {
       setState(() {
-        _chatMessages.add(ChatMessage(
-          text: "Network error. Please check your connection.",
-          isUser: false,
-        ));
+        _chatMessages.add(
+          ChatMessage(
+            text: "Network error. Please check your connection.",
+            isUser: false,
+          ),
+        );
       });
     } finally {
       setState(() {
@@ -192,55 +208,94 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     final controller = Get.find<Controller>();
 
     return WillPopScope(
-        onWillPop: () async {
-          controller.resetFieldsMileage();
-          controller.clearFormFieldsPerdiem();
-          Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+      onWillPop: () async {
+        controller.resetFieldsMileage();
+        controller.clearFormFieldsPerdiem();
+        Navigator.pushNamed(context, AppRoutes.dashboard_Main);
 
-          return true; // allow back navigation
-        },
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(AppLocalizations.of(context)!.aiAnalytics,
-                style: const TextStyle(color: Colors.white)),
-            // backgroundColor: const Color(0xFF4A148C),
-            iconTheme: const IconThemeData(color: Colors.white),
+        return true; // allow back navigation
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            '${AppLocalizations.of(context)!.aiAnalytics} ',
+            style: const TextStyle(color: Colors.white),
           ),
-          body: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: const Color(0xFFF3E5F5),
-                child: Row(
-                  children: [
-                    const Icon(Icons.analytics, color: Color(0xFF4A148C)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context)!.askQuestionPrompt,
-                        style: const TextStyle(
-                          color: Color(0xFF4A148C),
-                          fontWeight: FontWeight.w500,
+          // backgroundColor: const Color(0xFF4A148C),
+          iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            Obx(() {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: TextButton(
+                  onPressed: controller.isAiActive.value
+                      ? () {
+                          // AI Action
+                        }
+                      : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: controller.isAiActive.value
+                        ? Colors.white
+                        : Colors.white54,
+                  ),
+                  child: controller.isAiLoading.value
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          controller.isAiActive.value ? "Active" : "In Active",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
+                ),
+              );
+            }),
+          ],
+        ),
+
+        body: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: const Color(0xFFF3E5F5),
+              child: Row(
+                children: [
+                  const Icon(Icons.analytics, color: Color(0xFF4A148C)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(context)!.askQuestionPrompt,
+                      style: const TextStyle(
+                        color: Color(0xFF4A148C),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _chatMessages.length,
-                  itemBuilder: (context, index) {
-                    return _buildChatBubble(_chatMessages[index]);
-                  },
-                ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _chatMessages.length,
+                itemBuilder: (context, index) {
+                  return _buildChatBubble(_chatMessages[index]);
+                },
               ),
-              _buildInputSection(context),
-            ],
-          ),
-        ));
+            ),
+            _buildInputSection(context),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildInputSection(BuildContext context) {
@@ -267,8 +322,10 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
-                    label: Text(exampleQuestions[index],
-                        style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      exampleQuestions[index],
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     onPressed: () => _onExamplePressed(exampleQuestions[index]),
                     backgroundColor: const Color(0xFF4A148C).withAlpha(30),
                   ),
@@ -288,7 +345,9 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     // filled: true,
                     // fillColor: Colors.white,
                     suffixIcon: _isProcessing
@@ -332,8 +391,9 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           if (!isUser)
             Container(
@@ -348,15 +408,17 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
           if (!isUser) const SizedBox(width: 8),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 if (!message.isPlot && !message.isTable)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color:
-                          isUser ? const Color(0xFF4A148C) : Colors.grey[100],
+                      color: isUser
+                          ? const Color(0xFF4A148C)
+                          : Colors.grey[100],
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
@@ -397,62 +459,63 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
   /// ✅ Dynamic table builder
   Widget _buildTable(List<Map<String, String>> data) {
-  if (data.isEmpty) return const SizedBox.shrink();
+    if (data.isEmpty) return const SizedBox.shrink();
 
-  final columns = data.first.keys.toList();
+    final columns = data.first.keys.toList();
 
-  return Container(
-    margin: const EdgeInsets.only(top: 8),
-    decoration: BoxDecoration(
-      border: Border.all(color: Colors.grey[300]!),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowColor: MaterialStateProperty.all(
-          const Color(0xFF4A148C).withOpacity(0.1),
-        ),
-        columnSpacing: 20,
-        columns: columns
-            .map((col) => DataColumn(
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: MaterialStateProperty.all(
+            const Color(0xFF4A148C).withOpacity(0.1),
+          ),
+          columnSpacing: 20,
+          columns: columns
+              .map(
+                (col) => DataColumn(
                   label: Text(
                     col,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ))
-            .toList(),
-        rows: data.map((row) {
-          return DataRow(
-            cells: columns.map((col) {
-              return DataCell(
-                SizedBox(
-                  width: 120,
-                  child: Text(
-                    _formatValue(row[col]),
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ),
-              );
-            }).toList(),
-          );
-        }).toList(),
+              )
+              .toList(),
+          rows: data.map((row) {
+            return DataRow(
+              cells: columns.map((col) {
+                return DataCell(
+                  SizedBox(
+                    width: 120,
+                    child: Text(
+                      _formatValue(row[col]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          }).toList(),
+        ),
       ),
-    ),
-  );
-}
-
-String _formatValue(String? value) {
-  if (value == null || value.isEmpty) return "";
-
-  final numVal = double.tryParse(value);
-  if (numVal != null) {
-    return numVal.toStringAsFixed(2);
+    );
   }
 
-  return value;
-}
+  String _formatValue(String? value) {
+    if (value == null || value.isEmpty) return "";
 
+    final numVal = double.tryParse(value);
+    if (numVal != null) {
+      return numVal.toStringAsFixed(2);
+    }
+
+    return value;
+  }
 
   /// ✅ Always bar chart
   Widget _buildChart(List<Map<String, String>> data) {
@@ -475,8 +538,9 @@ String _formatValue(String? value) {
     );
 
     final labels = data.map((row) => row[labelCol!] ?? "").toList();
-    final values =
-        data.map((row) => double.tryParse(row[valueCol!] ?? "0") ?? 0).toList();
+    final values = data
+        .map((row) => double.tryParse(row[valueCol!] ?? "0") ?? 0)
+        .toList();
 
     return Container(
       height: 280,

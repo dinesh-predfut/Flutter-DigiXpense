@@ -41,7 +41,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerCashAdvanceMyteams.clear();
-
+      controller.selectedStatusDropDownmyteamCashAdvance.value = "In Process";
       loadProfileImage();
     });
     _scrollController = ScrollController();
@@ -504,7 +504,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
                               setState(() => isLoading = false);
                               return false;
                             } else {
-                               setState(() => isLoading = true);
+                              setState(() => isLoading = true);
                               controller.fetchSpecificCashAdvanceItem(
                                 context,
                                 item.recId,
@@ -700,7 +700,7 @@ Widget _buildCard(
 
         // ✅ Show count
         Text(
-          'Count: ${card.count}',
+          '${AppLocalizations.of(context)!.count}: ${card.count}',
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -831,7 +831,7 @@ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
                   item.requisitionId ?? "",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                   Text(
+                Text(
                   item.requestDate != null
                       ? DateFormat('dd-MM-yyyy').format(
                           DateTime.fromMillisecondsSinceEpoch(item.requestDate),
@@ -844,10 +844,10 @@ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
 
             const SizedBox(height: 4),
 
-          Text(
-                    '${AppLocalizations.of(context)!.employeeId}: ${item.employeeId} | ${AppLocalizations.of(context)!.employeeName}: ${item.employeeName}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+            Text(
+              '${AppLocalizations.of(context)!.employeeId}: ${item.employeeId} | ${AppLocalizations.of(context)!.employeeName}: ${item.employeeName}',
+              style: const TextStyle(fontSize: 12),
+            ),
             const SizedBox(height: 6),
 
             // Status and Amount

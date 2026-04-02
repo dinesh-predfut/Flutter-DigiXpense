@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -87,7 +89,7 @@ class _ApprovalViewEditExpensePageState
     initializeCashAdvanceSelection();
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-      'dd/MM/yyyy',
+      'dd-MM-yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
@@ -338,6 +340,7 @@ class _ApprovalViewEditExpensePageState
           actions: [
             if (widget.isReadOnly &&
                 widget.items != null &&
+                PermissionHelper.canUpdate("Cash Advance Requisition") &&
                 widget.items!.approvalStatus != "Cancelled" &&
                 widget.items!.stepType != "Approval")
               IconButton(
@@ -2146,7 +2149,7 @@ class _ApprovalViewEditExpensePageState
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  controller.chancelButton(context);
+                                  Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey,
@@ -2161,7 +2164,7 @@ class _ApprovalViewEditExpensePageState
                           !controller.isApprovalEnable.value)
                         ElevatedButton(
                           onPressed: () {
-                            controller.chancelButton(context);
+                            Navigator.pop(context);
                             controller.isApprovalEnable.value = false;
                           },
                           style: ElevatedButton.styleFrom(
@@ -2211,15 +2214,26 @@ class _ApprovalViewEditExpensePageState
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                      lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
-                    controller.selectedDate = picked;
+                    setState(() {
+                      controller.selectedDate = picked;
+
+                      controller.selectedProject = null;
+                      for (var c in itemizeControllers) {
+                        c.expenseCategory.value = [];
+                        c.categoryController.clear();
+                        c.projectDropDowncontroller.clear();
+                      }
+                    });
+
+                    controller.fetchCashAdvanceExpenseCategory();
                     controller.fetchProjectName();
+                    controller.selectedDate = picked;
+                    ;
                   }
                 },
         ),
@@ -2377,7 +2391,7 @@ class _ApprovalViewEditExpensePageState
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -2468,7 +2482,10 @@ class _ApprovalViewEditExpensePageState
                       const SizedBox(height: 16),
                     ],
                     const SizedBox(height: 16),
-                     Text('${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }', style: TextStyle(fontSize: 16)),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      style: TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,

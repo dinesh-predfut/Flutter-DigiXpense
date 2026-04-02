@@ -44,6 +44,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
       await controller.fetchProjectName();
       await controller.fetchMileageRates();
       await controller.configuration();
+      _initializeData();
       if (widget.mileageId!.stepType == "Review") {
         controller.isEnable.value = true;
       } else {
@@ -71,7 +72,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
 
       final expense = widget.mileageId!;
       final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate);
-      final formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
+      final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
@@ -242,7 +243,41 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
     // Save logic here
     print("Save clicked");
   }
+ Future<void> _initializeData() async {
+    await loadAndAppendCashAdvanceList();
+    initializeCashAdvanceSelection();
+  }
 
+  void initializeCashAdvanceSelection() {
+    String? backendSelectedIds = controller.cashAdvReqIds;
+    print("controller.cashAdvReqIds$backendSelectedIds");
+    controller.preloadCashAdvanceSelections(
+      controller.cashAdvanceListDropDown,
+      backendSelectedIds,
+    );
+  }
+    Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+
+      final existingIds = controller.cashAdvanceListDropDown
+          .map((e) => e.cashAdvanceReqId)
+          .toSet();
+
+      final uniqueNewItems = newItems.where(
+        (item) => !existingIds.contains(item.cashAdvanceReqId),
+      );
+
+      controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
+
+      print(
+        "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
+      );
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    }
+  }
   @override
   Widget build(BuildContext context) {
     print("controller.calculatedAmountINR1");
@@ -636,7 +671,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -732,7 +767,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
             context: context,
             initialDate: initialDate,
             firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
+            lastDate: DateTime.now(),
           );
 
           if (picked != null) {
@@ -741,6 +776,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();
+             loadAndAppendCashAdvanceList();
           }
         },
       ),

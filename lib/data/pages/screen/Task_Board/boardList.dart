@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart'
     show MultiSelectMultiColumnDropdownField;
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/core/constant/url.dart';
@@ -61,8 +62,27 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   final TextEditingController searchCtrl = TextEditingController();
   String selectedPriority = 'All';
   String selectedShelf = 'All';
+  String selectedLable = 'All';
   String selectedUser = 'All';
+  String createBy = 'All';
   String selectedDueDate = 'No Date';
+  List<String> getTabTitles(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    List<String> tabs = [loc.board];
+
+    // 👇 Show Grid only if Read permission
+    if (PermissionHelper.canRead("Board Management")) {
+      tabs.add(loc.grid);
+    }
+
+    // 👇 Show Settings only if Update permission
+    if (PermissionHelper.canUpdate("Board Management")) {
+      tabs.add(loc.boardSettings);
+    }
+
+    return tabs;
+  }
 
   @override
   void initState() {
@@ -121,6 +141,23 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     'All',
     ...originalBoard!.shelfs.map((e) => e.shelfName),
   ];
+  List<String> get tags {
+    if (originalBoard == null) return ['All'];
+
+    final tagSet = <String>{};
+
+    for (final shelf in originalBoard!.shelfs) {
+      for (final task in shelf.tasks) {
+        for (final tag in task.tags) {
+          if (tag.tagName != null && tag.tagName.isNotEmpty) {
+            tagSet.add(tag.tagName);
+          }
+        }
+      }
+    }
+
+    return ['All', ...tagSet];
+  }
 
   List<String> get users {
     final set = <String>{};
@@ -136,24 +173,34 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     return ['All', ...set];
   }
 
+  List<String> get createusers {
+    final set = <String>{};
+
+    for (final s in originalBoard!.shelfs) {
+      for (final t in s.tasks) {
+        for (final u in t.assignedTo) {
+          set.add(u.employeeName);
+        }
+      }
+    }
+
+    return ['ALL', ...set];
+  }
+
   /* ---------------- APPLY FILTERS ---------------- */
-  void applyFilters([String? value]) {
+  void applyFilters([String? dueDateValue]) {
     if (originalBoard == null) return;
 
     final String keyword = searchCtrl.text.toLowerCase();
     final List<Shelf> filteredShelves = [];
 
     for (final shelf in originalBoard!.shelfs) {
-      /// Shelf name filter
-      if (selectedShelf != 'All' && shelf.shelfName != selectedShelf) {
-        continue;
-      }
+      // Shelf name filter
+      if (selectedShelf != 'All' && shelf.shelfName != selectedShelf) continue;
 
       final List<TaskItem> filteredTasks = [];
 
       for (final task in shelf.tasks) {
-        print("task.dueDate${task.dueDate}");
-
         /// 🔍 SEARCH FILTER
         final bool matchesSearch =
             keyword.isEmpty ||
@@ -165,38 +212,49 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         /// ⚡ PRIORITY FILTER
         final bool matchesPriority =
             selectedPriority == 'All' || task.priority == selectedPriority;
-        isFiltered = true;
-        print("selectedUser$selectedUser");
 
-        /// 👤 USER FILTER
+        /// 👤 ASSIGNED USER FILTER
         final bool matchesUser =
             selectedUser == 'All' ||
             task.assignedTo.any((user) => user.employeeName == selectedUser);
 
+        /// ✏️ CREATED BY FILTER
+        final bool matchesCreatedBy =
+            createBy == 'All' ||
+            (task.createdBy != null && task.createdBy!.userName == createBy);
+
+        /// 🏷️ TAG FILTER (NEW)
+        final bool matchesTag =
+            selectedLable == 'All' ||
+            task.tags.any((tag) => tag.tagName == selectedLable);
+
+        /// 📅 DUE DATE FILTER
         final today = DateTime.now();
         final todayOnly = DateTime(today.year, today.month, today.day);
 
         bool matchesDueDate = true;
 
-        if (value == 'Today') {
+        if (dueDateValue == 'Today') {
           matchesDueDate =
-              task.dueDate != null &&
-              DateUtils.isSameDay(task.dueDate!, todayOnly);
-        } else if (value == 'Late') {
+              task.plannedStartDate != null &&
+              DateUtils.isSameDay(task.plannedStartDate!, todayOnly);
+        } else if (dueDateValue == 'Late') {
           matchesDueDate =
-              task.dueDate != null && task.dueDate!.isBefore(todayOnly);
-        } else if (value == 'No Date') {
-          matchesDueDate = true;
-        } else {
-          matchesDueDate = true; // All
+              task.plannedStartDate != null &&
+              task.plannedStartDate!.isBefore(todayOnly);
         }
 
-        if (matchesSearch && matchesPriority && matchesUser && matchesDueDate) {
+        /// ✅ FINAL CONDITION
+        if (matchesSearch &&
+            matchesPriority &&
+            matchesUser &&
+            matchesCreatedBy &&
+            matchesTag &&
+            matchesDueDate) {
           filteredTasks.add(task);
         }
       }
 
-      /// 🔁 CREATE NEW SHELF (NO copyWith)
       filteredShelves.add(
         Shelf(
           image: shelf.image,
@@ -258,66 +316,67 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Container(
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: isDarkBoard ? Colors.black : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Row(
-                    children: List.generate(_tabTitles.length, (index) {
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedTabIndex = index;
-                              if (index == 0) {
-                                withOutLoadloadKanbanBoard();
-                              }
-                            });
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _selectedTabIndex == index
-                                  ? theme.primaryColor
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: _selectedTabIndex == index
-                                  ? [
-                                      BoxShadow(
-                                        color: theme.primaryColor.withOpacity(
-                                          0.3,
+              if (PermissionHelper.canRead("Board Management"))
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Container(
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: isDarkBoard ? Colors.black : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Row(
+                      children: List.generate(_tabTitles.length, (index) {
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedTabIndex = index;
+                                if (index == 0) {
+                                  withOutLoadloadKanbanBoard();
+                                }
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _selectedTabIndex == index
+                                    ? theme.primaryColor
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: _selectedTabIndex == index
+                                    ? [
+                                        BoxShadow(
+                                          color: theme.primaryColor.withOpacity(
+                                            0.3,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : [],
-                            ),
-                            margin: const EdgeInsets.all(4),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Center(
-                              child: Text(
-                                _tabTitles[index],
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: _selectedTabIndex == index
-                                      ? Colors.white
-                                      : Colors.grey[700],
+                                      ]
+                                    : [],
+                              ),
+                              margin: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: Text(
+                                  _tabTitles[index],
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: _selectedTabIndex == index
+                                        ? Colors.white
+                                        : Colors.grey[700],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      }),
+                    ),
                   ),
                 ),
-              ),
               if (_selectedTabIndex == 0) ...[
                 _buildSearchBar(),
                 _buildFilterRow(),
@@ -537,7 +596,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               //   right: 0,
               //   top: 0,
               //   child: Text(
-              //     formatTaskDate(task.dueDate),
+              //     formatTaskDate(task.plannedStartDate),
               //     style: TextStyle(
               //       fontSize: 11,
               //       color: Colors.grey[600],
@@ -604,7 +663,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   String formatDate(DateTime? date) {
     if (date == null) return 'No Due Date';
-    return DateFormat('dd MMM yyyy').format(date);
+    return DateFormat('dd-MM-yyyy').format(date);
   }
 
   Widget _buildSwipeActionLeft(bool isLoading) {
@@ -675,7 +734,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     final TextEditingController shelfNameCtrl = TextEditingController();
     final TextEditingController descCtrl = TextEditingController();
 
-    ;
+    bool isCreating = false;
 
     File? selectedImage;
     String? base64Image;
@@ -818,7 +877,8 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                       controller: shelfNameCtrl,
 
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.shelfName,
+                        labelText:
+                            '${AppLocalizations.of(context)!.shelfName} *',
                         labelStyle: TextStyle(
                           color: isDarkBoard ? Colors.white : Colors.black,
                         ),
@@ -857,6 +917,16 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                             onPressed: isCreating
                                 ? null
                                 : () async {
+                                    if (shelfNameCtrl.text.trim().isEmpty) {
+                                      Fluttertoast.showToast(
+                                        msg: AppLocalizations.of(
+                                          context,
+                                        )!.shelfNameRequired,
+                                        backgroundColor: Colors.red[200],
+                                        textColor: Colors.red[800],
+                                      );
+                                      return;
+                                    }
                                     setState(() => isCreating = true);
                                     final payload = {
                                       "BoardId": boardId,
@@ -934,6 +1004,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 25),
                   ],
                 ),
               ),
@@ -999,7 +1070,16 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 applyFilters();
               },
             ),
-
+            _filterDropdown(
+              icon: Icons.view_column,
+              label: AppLocalizations.of(context)!.label,
+              value: selectedLable,
+              items: tags,
+              onChanged: (v) {
+                selectedLable = v;
+                applyFilters();
+              },
+            ),
             _filterDropdownEmployee(
               icon: Icons.person_outline,
               label: AppLocalizations.of(context)!.assignUsers,
@@ -1010,7 +1090,16 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 applyFilters();
               },
             ),
-
+            _filterDropdownEmployee(
+              icon: Icons.person_outline,
+              label: AppLocalizations.of(context)!.createdBy,
+              value: createBy,
+              items: createusers,
+              onChanged: (v) {
+                createBy = v;
+                applyFilters();
+              },
+            ),
             _dateFilterDropdown(
               value: selectedDueDate,
               onChanged: (String value) {
@@ -1039,6 +1128,8 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     selectedShelf = 'All';
     selectedPriority = 'All';
     selectedUser = 'All';
+    selectedLable = 'All';
+    createBy = 'All';
     selectedDueDate = 'No Date';
 
     applyFilters();
@@ -1050,8 +1141,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       selectedPriority = 'All';
       selectedShelf = 'All';
       selectedUser = 'All';
+      selectedLable = 'All';
       selectedDueDate = 'No Date';
-
+      createBy = 'All';
       // Reset board view
       filteredBoard = null;
     });
@@ -1060,7 +1152,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   bool _hasActiveFilters() {
     return selectedPriority != 'All' ||
         selectedShelf != 'All' ||
+        createBy != 'All' ||
         selectedUser != 'All' ||
+        selectedLable != 'All' ||
         selectedDueDate != 'No Date' ||
         searchCtrl.text.isNotEmpty;
   }
@@ -1252,11 +1346,18 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   Widget _filterDropdownEmployee({
     required IconData icon,
     required String label,
-    required String value,
+    required String? value, // allow null
     required List<String> items,
     required ValueChanged<String> onChanged,
   }) {
-    final bool isActive = value != 'All';
+    // Ensure value exists in items, else fallback to null
+    final String? safeValue = items.contains(value) ? value : null;
+
+    // Determine if active (anything other than 'All')
+    final bool isActive = safeValue != null && safeValue != 'All';
+
+    // Remove duplicates
+    final List<String> uniqueItems = items.toSet().toList();
 
     return Padding(
       padding: const EdgeInsets.only(right: 12),
@@ -1274,25 +1375,32 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: value,
+            value: safeValue,
             isDense: true,
             icon: const Icon(Icons.arrow_drop_down),
-            onChanged: (v) => onChanged(v!),
+            hint: Text(
+              label,
+              style: TextStyle(fontSize: 8, color: Colors.grey.shade600),
+            ),
+            onChanged: (v) {
+              if (v != null) {
+                onChanged(v);
+                setState(() {}); // rebuild to update styles
+              }
+            },
             dropdownColor: Theme.of(context).cardColor,
-            items: items
-                .map(
-                  (e) => DropdownMenuItem<String>(
-                    value: e,
-                    child: Text(
-                      e,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 8),
-                    ),
-                  ),
-                )
-                .toList(),
+            items: uniqueItems.map((e) {
+              return DropdownMenuItem<String>(
+                value: e,
+                child: Text(
+                  e,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 8),
+                ),
+              );
+            }).toList(),
             selectedItemBuilder: (context) {
-              return items.map((e) {
+              return uniqueItems.map((e) {
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1746,7 +1854,7 @@ Future<void> showAddShelfBottomSheet(
     backgroundColor: Colors.transparent,
     builder: (context) {
       bool isSheetAlive = true;
-
+      bool isCreating = false;
       return StatefulBuilder(
         builder: (context, setState) {
           return AnimatedPadding(
@@ -1764,7 +1872,7 @@ Future<void> showAddShelfBottomSheet(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.85,
+                    maxHeight: MediaQuery.of(context).size.height * 0.50,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -1893,7 +2001,8 @@ Future<void> showAddShelfBottomSheet(
                         TextField(
                           controller: shelfNameCtrl,
                           decoration: InputDecoration(
-                            labelText: AppLocalizations.of(context)!.shelfName,
+                            labelText:
+                                '${AppLocalizations.of(context)!.shelfName} *',
                           ),
                         ),
 
@@ -1929,7 +2038,17 @@ Future<void> showAddShelfBottomSheet(
                                 onPressed: controller.isCreating
                                     ? null
                                     : () async {
-                                        controller.isCreating = true;
+                                        if (shelfNameCtrl.text.trim().isEmpty) {
+                                          Fluttertoast.showToast(
+                                            msg: AppLocalizations.of(
+                                              context,
+                                            )!.shelfNameRequired,
+                                            backgroundColor: Colors.red[200],
+                                            textColor: Colors.red[800],
+                                          );
+                                          return;
+                                        }
+                                        setState(() => isCreating = true);
 
                                         final payload = {
                                           "BoardId": boardId,
@@ -1965,11 +2084,13 @@ Future<void> showAddShelfBottomSheet(
                                               msg: message,
                                               backgroundColor: Colors.green,
                                             );
+                                            setState(() => isCreating = true);
                                           } else {
                                             Fluttertoast.showToast(
                                               msg: message,
                                               backgroundColor: Colors.red,
                                             );
+                                            setState(() => isCreating = true);
                                           }
                                         } catch (_) {
                                           if (!isSheetAlive) return;
@@ -1982,9 +2103,9 @@ Future<void> showAddShelfBottomSheet(
                                           );
                                         }
 
-                                        controller.isCreating = false;
+                                        setState(() => isCreating = false);
                                       },
-                                child: controller.isCreating
+                                child: isCreating
                                     ? const SizedBox(
                                         height: 20,
                                         width: 20,
@@ -1993,7 +2114,9 @@ Future<void> showAddShelfBottomSheet(
                                           color: Colors.white,
                                         ),
                                       )
-                                    : Text(AppLocalizations.of(context)!.save),
+                                    : Text(
+                                        AppLocalizations.of(context)!.update,
+                                      ),
                               ),
                             ),
                           ],
@@ -2076,6 +2199,7 @@ class _TaskCardState extends State<_TaskCard> {
   void initState() {
     super.initState();
     checklist = List.from(widget.task.checkLists);
+    controller.fetchCardFields(widget.boardIdNumb);
   }
 
   @override
@@ -2102,257 +2226,466 @@ class _TaskCardState extends State<_TaskCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// TITLE + MENU
-            if (widget.task.taskName.isNotEmpty)
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.task.taskName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
+            /// 🔹 HEADER
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.task.taskName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
                     ),
                   ),
-                  PopupMenuButton<int>(
-                    onSelected: (value) {
-                      if (value == 2) {
-                        _showDeleteConfirm(
-                          context,
-                          widget.task.recId,
-                          widget.callApi,
-                        );
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 2, child: Text('Delete')),
-                    ],
-                  ),
-                ],
-              ),
-
-            const SizedBox(height: 6),
-
-            /// DATE + PRIORITY
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (widget.task.dueDate != null)
-                  Text(
-                    DateFormat('dd/MM/yyyy').format(widget.task.dueDate!),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
+                    color: const Color.fromARGB(
+                      255,
+                      197,
+                      196,
+                      195,
+                    ), // 👈 background color
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'Priority: ${widget.task.priority}',
-                    style: const TextStyle(fontSize: 12),
+                    widget.task.statusName,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<int>(
+                  icon: const Icon(Icons.more_vert, size: 18),
+                  onSelected: (value) {
+                    if (value == 2) {
+                      _showDeleteConfirm(
+                        context,
+                        widget.task.recId,
+                        widget.callApi,
+                      );
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 2, child: Text('Delete')),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                /// 🔹 LEFT → CALENDAR + DATE
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      widget.task.plannedEndDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.plannedEndDate!)
+                          : "No Date",
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    widget.task.priority,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 10),
-
-            /// ASSIGNED USERS
-            if (widget.task.assignedTo.isNotEmpty)
-              Row(
-                children: widget.task.assignedTo.map((user) {
-                  return Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    width: 28,
-                    height: 28,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _getUserColor(user.toString()),
-                    ),
-                    child: Text(
-                      _getInitials(user.employeeName),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-            if (widget.task.assignedTo.isNotEmpty) const SizedBox(height: 10),
-
-            /// CARD TYPE
-            if (widget.task.cardType?.cardName != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  widget.task.cardType!.cardName!,
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-
-            if (widget.task.cardType?.cardName != null)
-              const SizedBox(height: 10),
-
-            /// ATTACHMENTS
-            if (widget.task.taskDocuments.isNotEmpty) ...[
+            /// 🔹 DATE + PRIORITY
+            ///
+            if (controller.isEnabled('PlannedEndDate') &&
+                widget.task.plannedEndDate != null)
               Row(
                 children: [
-                  const Icon(Icons.attach_file, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${widget.task.taskDocuments.length} Attachment(s)',
-                    style: const TextStyle(fontSize: 12),
+                  Expanded(
+                    flex: 1,
+                    child: const Text(
+                      "Planned End Date",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.plannedEndDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.plannedStartDate!)
+                          : '-',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: widget.task.taskDocuments.map((doc) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      doc.fileName ?? 'File',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
+            if (controller.isEnabled('PlannedStartDate') &&
+                widget.task.plannedEndDate != null)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: const Text(
+                      "Planned Start",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
-                  );
-                }).toList(),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.plannedStartDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.plannedStartDate!)
+                          : '-',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            if (controller.isEnabled('ActualStartDate') &&
+                widget.task.actualStartDate != null)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: const Text(
+                      "Actual StartDate",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.actualStartDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.actualStartDate!)
+                          : '-',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            if (controller.isEnabled('ActualEndDate') &&
+                widget.task.actualEndDate != null)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: const Text(
+                      "Actual EndDate",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.actualEndDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.actualEndDate!)
+                          : '-',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 10),
-            ],
-            if (widget.task.showNotes) ...[
-              Text(
-                widget.task.description!,
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            if (controller.isEnabled('PlannedStartDate') &&
+                widget.task.plannedEndDate != null)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: const Text(
+                      "Planned Start",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      widget.task.plannedStartDate != null
+                          ? DateFormat(
+                              'dd-MM-yyyy',
+                            ).format(widget.task.plannedStartDate!)
+                          : '-',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
-            ],
+
             const SizedBox(height: 6),
 
-            /// CHECKLIST
-            if (widget.task.showChecklist && checklist.isNotEmpty) ...[
+            /// 🔹 CREATED BY
+            _fieldRow("Created By", widget.task.createdBy?.userName ?? 'N/A'),
+            if (controller.isEnabled('ParentTaskId') &&
+                widget.task.parentTaskId != null)
+              _fieldRow("parent Task Id", widget.task.parentTaskId!),
+            if (controller.isEnabled('Dependent') &&
+                widget.task.dependent != null)
+              _fieldRow("Dependent", widget.task.dependent!),
+
+            /// 🔹 ESTIMATED HOURS
+            if (controller.isEnabled('EstimatedHours') &&
+                widget.task.estimatedHours > 0)
+              _fieldRow("Estimated Hours", "${widget.task.estimatedHours} h"),
+
+            /// 🔹 ACTUAL HOURS
+            if (controller.isEnabled('ActualHours') &&
+                widget.task.actualHours > 0)
+              _fieldRow("Actual Hours", "${widget.task.actualHours} h"),
+
+            /// 🔹 ACTUAL HOURS
+            if (controller.isEnabled('ChecklistsCount') &&
+                widget.task.checklistsCount.isNotEmpty)
+              _fieldRow("ChecklistsCount", widget.task.checklistsCount),
+
+            /// 🔹 START DATE
+            const SizedBox(height: 10),
+
+            /// 🔹 ASSIGNED USERS
+            if (widget.task.assignedTo.isNotEmpty) ...[
               const Text(
-                'Checklist',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                "Assigned To",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Builder(
+                builder: (_) {
+                  final users = widget.task.assignedTo;
+                  final visibleUsers = users.take(2).toList();
+                  final remainingCount = users.length - visibleUsers.length;
+
+                  return Row(
+                    children: [
+                      /// 🔹 FIRST 2 USERS
+                      ...visibleUsers.map((user) {
+                        return Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _getUserColor(user.employeeName),
+                          ),
+                          child: Text(
+                            _getInitials(user.employeeName),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }),
+
+                      /// 🔹 +N USERS
+                      if (remainingCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey.shade300,
+                          ),
+                          child: Text(
+                            "+$remainingCount",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+
+            const SizedBox(height: 10),
+
+            /// 🔹 CARD TYPE
+            if (widget.task.cardType?.cardName != null)
+              _chipField(
+                "Card Type",
+                widget.task.cardType!.cardName!,
+                Colors.red,
+              ),
+
+            const SizedBox(height: 10),
+
+            /// 🔹 TAGS
+            if (widget.task.tags.isNotEmpty) ...[
+              const Text(
+                "Tags",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 6),
 
-              Column(
-                children: checklist.map((item) {
-                  return Row(
+              Builder(
+                builder: (_) {
+                  final tags = widget.task.tags;
+                  final visibleTags = tags.take(2).toList();
+                  final remainingCount = tags.length - visibleTags.length;
+
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
                     children: [
-                      Checkbox(
-                        value: item.status,
-                        onChanged: (val) async {
-                          if (val == null) return;
+                      /// 🔹 FIRST 2 TAGS
+                      ...visibleTags.map((tag) {
+                        final color = Color(
+                          int.parse(tag.tagColor.replaceAll('#', '0xFF')),
+                        );
 
-                          final oldValue = item.status;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            tag.tagName,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: color,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }),
 
-                          // optimistic update
-                          setState(() {
-                            item.status = val;
-                          });
-
-                          final ok = await controller.updateChecklistStatus(
-                            recId: item.recId,
-                            status: val,
-                          );
-
-                          if (!ok && mounted) {
-                            setState(() {
-                              item.status = oldValue;
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Checklist update failed'),
-                              ),
-                            );
-                          }
-
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.kanbanBoardPage,
-                            arguments: {"boardId": widget.boardIdNumb},
-                          );
-                        },
-                      ),
-
-                      Expanded(
-                        child: Text(
-                          item.description,
-                          style: TextStyle(
-                            fontSize: 13,
-                            decoration: item.status
-                                ? TextDecoration.lineThrough
-                                : null,
+                      /// 🔹 +N MORE TAGS
+                      if (remainingCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            "+$remainingCount",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   );
-                }).toList(),
+                },
               ),
-
-              const SizedBox(height: 10),
             ],
-
-            /// TAGS
-            if (widget.task.tags.isNotEmpty)
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: widget.task.tags.map((tag) {
-                  final color = Color(
-                    int.parse(tag.tagColor.replaceAll('#', '0xFF')),
-                  );
-
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      border: Border.all(color: color.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      tag.tagName,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: color,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _fieldRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipField(String label, String value, Color color) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 11,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2823,9 +3156,7 @@ Future<void> showAddTaskBottomSheetInSecond(
                               items: controller.shelves,
                               selectedValue: controller.selectedBoard.value,
 
-                              labelText: AppLocalizations.of(
-                                context,
-                              )!.shelfName,
+                              labelText: AppLocalizations.of(context)!.stage,
                               displayText: (e) => e.shelfName,
                               searchValue: (e) => e.shelfName,
                               columnHeaders: const ["ShelfName"],
@@ -2849,7 +3180,16 @@ Future<void> showAddTaskBottomSheetInSecond(
                               onPressed: isCreatingTask
                                   ? null
                                   : () async {
-                                      if (taskNameCtrl.text.isEmpty) return;
+                                      print('isCreatingTask$isCreatingTask');
+                                      if (taskNameCtrl.text.isEmpty) {
+                                        Fluttertoast.showToast(
+                                          msg:
+                                              '${AppLocalizations.of(context)!.taskName}${AppLocalizations.of(context)!.fieldRequired}',
+                                          backgroundColor: Colors.red[200],
+                                          textColor: Colors.red[800],
+                                        );
+                                        return;
+                                      }
 
                                       setState(() => isCreatingTask = true);
 
@@ -2913,7 +3253,8 @@ Future<void> showAddTaskBottomSheetInSecond(
                                         } else {
                                           throw Exception();
                                         }
-                                      } catch (_) {
+                                      } catch (e) {
+                                        print("$e");
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
@@ -3532,7 +3873,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
             return TabBarView(
               controller: tabController,
               children: [
-                _generalSettingsUI(),
+                _generalSettingsUI(widget.boardId),
                 _membersUI(widget.boardId, loadMembers),
               ],
             );
@@ -3570,7 +3911,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
   }
 
   /// ================= GENERAL SETTINGS =================
-  Widget _generalSettingsUI() {
+  Widget _generalSettingsUI(String boardId) {
     return Obx(() {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -3583,12 +3924,12 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 _text(
                   AppLocalizations.of(context)!.boardName,
                   boardNameCtrl,
-                  true,
+                  PermissionHelper.canUpdate("Board Management"),
                 ),
                 _text(
                   AppLocalizations.of(context)!.description,
                   descriptionCtrl,
-                  true,
+                  PermissionHelper.canUpdate("Board Management"),
                   maxLines: 3,
                 ),
 
@@ -3603,6 +3944,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                     AppLocalizations.of(context)!.private,
                   ],
                   selectedValue: boardType.value,
+                  enabled: PermissionHelper.canUpdate("Board Management"),
                   searchValue: (type) => type,
                   displayText: (type) => type,
                   onChanged: (type) => boardType.value = type!,
@@ -3620,10 +3962,11 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
                 /// BOARD OWNER
                 MultiSelectMultiColumnDropdownField<BoardMember>(
-                  enabled: true,
+                  enabled: PermissionHelper.canUpdate("Board Management"),
                   labelText: AppLocalizations.of(context)!.boardOwnerName,
                   items: controller.boardMembers,
                   controller: ownerNameController,
+
                   selectedValues: controller.selectedMembers,
                   isMultiSelect: false,
                   searchValue: (emp) => '${emp.userId} ${emp.userName}',
@@ -3659,6 +4002,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                     AppLocalizations.of(context)!.priority,
                   ],
                   selectedValue: sortingOrder.value,
+                  enabled: PermissionHelper.canUpdate("Board Management"),
                   searchValue: (type) => type,
                   displayText: (type) => type,
                   onChanged: (type) => sortingOrder.value = type!,
@@ -3678,14 +4022,22 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   children: [
                     Text(
                       AppLocalizations.of(context)!.enableTimeTracking,
-                      style: TextStyle(fontSize: 14),
+                      style: const TextStyle(fontSize: 14),
                     ),
                     Transform.scale(
                       scale: 0.75,
-                      child: Switch(
-                        value: enableTimeTracking.value,
-                        onChanged: (v) => enableTimeTracking.value = v,
-                      ),
+                      child: Obx(() {
+                        final canUpdate = PermissionHelper.canUpdate(
+                          "Board Management",
+                        );
+
+                        return Switch(
+                          value: enableTimeTracking.value,
+                          onChanged: canUpdate
+                              ? (v) => enableTimeTracking.value = v
+                              : null, // 🔒 disables switch
+                        );
+                      }),
                     ),
                   ],
                 ),
@@ -3720,8 +4072,12 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 ),
                 const SizedBox(height: 8),
 
-                Obx(
-                  () => Row(
+                Obx(() {
+                  final canUpdate = PermissionHelper.canUpdate(
+                    "Board Management",
+                  );
+
+                  return Row(
                     children: ["Dark", "Light", "SystemDefault"]
                         .map(
                           (e) => Padding(
@@ -3732,66 +4088,88 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                                 style: const TextStyle(fontSize: 10),
                               ),
                               selected: boardTheme.value == e,
-                              onSelected: (_) => boardTheme.value = e,
+                              onSelected: canUpdate
+                                  ? (_) => boardTheme.value = e
+                                  : null,
                             ),
                           ),
                         )
                         .toList(),
-                  ),
-                ),
-
+                  );
+                }),
                 const SizedBox(height: 16),
 
-                /// BACKGROUND IMAGE
-                Text(
-                  AppLocalizations.of(context)!.backgroundImage,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                Obx(() {
+                  final canUpdate = PermissionHelper.canUpdate(
+                    "Board Management",
+                  );
 
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => showUrlUpload.value = true,
-                      child: Text(AppLocalizations.of(context)!.url),
-                    ),
-                    TextButton(
-                      onPressed: () => showUrlUpload.value = false,
-                      child: Text(AppLocalizations.of(context)!.fileUpload),
-                    ),
-                  ],
-                ),
-
-                showUrlUpload.value
-                    ? _text(
-                        AppLocalizations.of(context)!.imageUrl,
-                        imageUrlCtrl,
-                        true,
-                      )
-                    : InkWell(
-                        onTap: pickImage,
-                        child: Container(
-                          height: 80,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.upload_file, size: 36),
-                              const SizedBox(height: 4),
-                              Text(
-                                imageUrlCtrl.text.isEmpty
-                                    ? AppLocalizations.of(context)!.uploadImage
-                                    : imageUrlCtrl.text,
-                                style: const TextStyle(fontSize: 12),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// BACKGROUND IMAGE
+                      Text(
+                        AppLocalizations.of(context)!.backgroundImage,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: canUpdate
+                                ? () => showUrlUpload.value = true
+                                : null, // 🔒 disable
+                            child: Text(AppLocalizations.of(context)!.url),
+                          ),
+                          TextButton(
+                            onPressed: canUpdate
+                                ? () => showUrlUpload.value = false
+                                : null, // 🔒 disable
+                            child: Text(
+                              AppLocalizations.of(context)!.fileUpload,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      showUrlUpload.value
+                          ? _text(
+                              AppLocalizations.of(context)!.imageUrl,
+                              imageUrlCtrl,
+                              canUpdate, // 🔒 pass editable flag
+                            )
+                          : InkWell(
+                              onTap: canUpdate
+                                  ? pickImage
+                                  : null, // 🔒 disable tap
+                              child: Container(
+                                height: 80,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.upload_file, size: 36),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      imageUrlCtrl.text.isEmpty
+                                          ? AppLocalizations.of(
+                                              context,
+                                            )!.uploadImage
+                                          : imageUrlCtrl.text,
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                    ],
+                  );
+                }),
 
                 const SizedBox(height: 24),
 
@@ -3800,24 +4178,34 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: controller.resetForm,
+                      onPressed: () {
+                        controller.resetForm();
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.kanbanBoardPage,
+                          arguments: {"boardId":boardId},
+                        );
+                      },
                       child: Text(AppLocalizations.of(context)!.cancel),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: isUpdating.value ? null : updateBoardSettings,
-                      child: Obx(() {
-                        return isUpdating.value
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(AppLocalizations.of(context)!.update);
-                      }),
-                    ),
+                    if (PermissionHelper.canUpdate("Board Management"))
+                      ElevatedButton(
+                        onPressed: isUpdating.value
+                            ? null
+                            : updateBoardSettings,
+                        child: Obx(() {
+                          return isUpdating.value
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(AppLocalizations.of(context)!.update);
+                        }),
+                      ),
                   ],
                 ),
               ],
@@ -3844,19 +4232,21 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     return Column(
       children: [
         /// ADD MEMBER BUTTON
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.person_add),
-              label: Text(AppLocalizations.of(context)!.addBoardMembers),
-              onPressed: () {
-                _openAddMemberDialog(context, boardId, loadMembers);
-              },
+        /// if
+        if (PermissionHelper.canUpdate("Board Management"))
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.person_add),
+                label: Text(AppLocalizations.of(context)!.addBoardMembers),
+                onPressed: () {
+                  _openAddMemberDialog(context, boardId, loadMembers);
+                },
+              ),
             ),
           ),
-        ),
 
         const SizedBox(height: 8),
 

@@ -43,7 +43,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
   void initState() {
     super.initState();
     isEditableField = widget.existingReport == null;
-    isPreviousData = widget.isEditable ;
+    isPreviousData = widget.isEditable;
     if (widget.existingReport != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _fetchDatasets();
@@ -145,45 +145,66 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final reportModel = Provider.of<ReportModel>(context);
+    final reportModel = context.watch<ReportModel>();
 
     final List availableColumns = () {
       if (reportModel.dataSet.isEmpty) return [];
+
       final recId = int.tryParse(reportModel.dataSet);
+      if (recId == null) return [];
+
       final dataset = reportModel.allDatasets.firstWhereOrNull(
         (ds) => ds['RecId'] == recId,
       );
+
       if (dataset == null) return [];
+
+      final schema = dataset['Schema'] ?? {};
+      final List chooserTables = schema['columnchooser'] ?? [];
+
       final List<Map<String, dynamic>> columns = [];
-      final List chooserTables = dataset['Schema']['columnchooser'] ?? [];
+
       for (var table in chooserTables) {
-        if (table is Map && table.containsKey('Columns')) {
+        if (table is Map && table['Columns'] is List) {
           columns.addAll(List<Map<String, dynamic>>.from(table['Columns']));
         }
       }
+
       return columns;
     }();
 
     final List linesFieldsColumns = () {
       if (reportModel.dataSet.isEmpty) return [];
+
       final recId = int.tryParse(reportModel.dataSet);
+      if (recId == null) return [];
+
       final dataset = reportModel.allDatasets.firstWhereOrNull(
         (ds) => ds['RecId'] == recId,
       );
+
       if (dataset == null) return [];
+
+      final schema = dataset['Schema'] ?? {};
+      final List linesFields = schema['LinesFields'] ?? [];
+
       final List<Map<String, dynamic>> columns = [];
-      final List linesFields = dataset['Schema']['LinesFields'] ?? [];
+
       for (var field in linesFields) {
-        if (field is Map &&
-            field.containsKey('dataField') &&
-            field.containsKey('caption')) {
-          columns.add({
-            'Colname': field['dataField'],
-            'Label': field['caption'],
-            'Type': 'string',
-          });
+        if (field is Map) {
+          final dataField = field['dataField'];
+          final caption = field['caption'];
+
+          if (dataField != null && caption != null) {
+            columns.add({
+              'Colname': dataField.toString(),
+              'Label': caption.toString(),
+              'Type': 'string',
+            });
+          }
         }
       }
+
       return columns;
     }();
 
@@ -230,8 +251,8 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
           title: Text(
             widget.isEdit
                 ? isEditableField
-                      ? AppLocalizations.of(context)!.editReport
-                      : AppLocalizations.of(context)!.viewReport
+                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.timesheet} ${AppLocalizations.of(context)!.reports}'
+                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.timesheet} ${AppLocalizations.of(context)!.reports}'
                 : AppLocalizations.of(context)!.createReport,
           ),
           elevation: 1,
@@ -267,8 +288,8 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                       }
                       return null;
                     },
-                   
-                    isEditable: isEditableField  && isPreviousData,
+
+                    isEditable: isEditableField && isPreviousData,
                   ),
                   const SizedBox(height: 16),
                   CustomDropdown(
@@ -289,7 +310,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                             _fetchDatasets();
                           }
                         : null,
-                    isEditable: isEditableField  && isPreviousData,
+                    isEditable: isEditableField && isPreviousData,
                   ),
                   const SizedBox(height: 16),
                   CustomDropdownList<Map<String, dynamic>>(
@@ -324,9 +345,9 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                     hintText: AppLocalizations.of(context)!.selectDataset,
                     enabled:
                         isEditableField && reportModel.allDatasets.isNotEmpty,
-                    isEditable: isEditableField  && isPreviousData,
+                    isEditable: isEditableField && isPreviousData,
                   ),
-                      const SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _buildTextField(
                     label: AppLocalizations.of(context)!.tags,
                     hint: AppLocalizations.of(context)!.enterTags,
@@ -340,7 +361,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                     controller: reportModel.tags,
                     isEditable: isEditableField,
                   ),
-              
+
                   const SizedBox(height: 16),
                   _buildTextField(
                     label: AppLocalizations.of(context)!.description,
@@ -351,7 +372,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                     isEditable: isEditableField,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   CustomDropdownList<String>(
                     labelText:
                         '${AppLocalizations.of(context)!.applicableFor}*',
@@ -592,6 +613,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
                                   Navigator.pushNamed(
                                     context,
                                     AppRoutes.reportsAssignUser,
+                                    arguments: {'page': true, "team": true},
                                   );
                                 } else {
                                   await reportModel.saveReport(context);
@@ -621,7 +643,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
     String? hint,
     int maxLines = 1,
     String? Function(String?)? validator,
-     ValueChanged<String>? onChanged,
+    ValueChanged<String>? onChanged,
     required bool isEditable,
   }) {
     return TextFormField(
@@ -646,14 +668,14 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
 
   Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
-    if (widget.existingReport != null) {
-      reportModel.selectTableForFilterAppendData(
-        groupIndex,
-        ruleIndex,
-        rule.table,
-        rule.column,
-      );
-    }
+    // if (widget.existingReport != null) {
+    //   reportModel.selectTableForFilterAppendData(
+    //     groupIndex,
+    //     ruleIndex,
+    //     rule.table,
+    //     rule.column,
+    //   );
+    // }
     print("rule.column&${rule.column}");
     return Container(
       child: Padding(
@@ -954,7 +976,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
   }
 }
 
-class CustomDropdown extends StatelessWidget {
+class CustomDropdown extends StatefulWidget {
   final String labelText;
   final List<String> items;
   final String? value;
@@ -971,38 +993,71 @@ class CustomDropdown extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<CustomDropdown> createState() => _CustomDropdownState();
+}
+
+class _CustomDropdownState extends State<CustomDropdown> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // ✅ Update text when value changes
+    if (oldWidget.value != widget.value) {
+      _controller.text = widget.value ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      decoration: InputDecoration(
-        labelText: labelText,
-        suffixIcon: const Icon(Icons.arrow_drop_down),
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        filled: !isEditable,
-        // fillColor: !isEditable ? Colors.grey[200] : null,
-      ),
-     readOnly: !isEditable,
-      enabled: isEditable,
-      onTap: isEditable
+    return GestureDetector(
+      onTap: widget.isEditable
           ? () {
-              if (items.isEmpty) return;
+              if (widget.items.isEmpty) return;
               FocusScope.of(context).unfocus();
               _showPopupMenu(context);
             }
           : null,
-      controller: TextEditingController(text: value ?? ''),
+      child: AbsorbPointer(
+        child: TextFormField(
+          controller: _controller,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: widget.labelText,
+            suffixIcon: const Icon(Icons.arrow_drop_down),
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            filled: !widget.isEditable,
+            fillColor: !widget.isEditable ? Colors.grey[200] : null,
+          ),
+        ),
+      ),
     );
   }
 
   void _showPopupMenu(BuildContext context) {
-    if (items.isEmpty) return;
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
+
     final Offset position = button.localToGlobal(
       Offset.zero,
       ancestor: overlay,
     );
+
     final double y = position.dy + button.size.height;
 
     showMenu<String>(
@@ -1014,17 +1069,15 @@ class CustomDropdown extends StatelessWidget {
         ),
         Offset.zero & overlay.size,
       ),
-      items: items
-          .map((item) => PopupMenuItem(value: item, child: Text(item)))
+      items: widget.items
+          .map((item) => PopupMenuItem<String>(value: item, child: Text(item)))
           .toList(),
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        // side: BorderSide(color: Colors.grey.shade300),
-      ),
       constraints: BoxConstraints(maxHeight: 200, minWidth: button.size.width),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ).then((selectedValue) {
-      if (selectedValue != null && onChanged != null) onChanged!(selectedValue);
+      if (selectedValue != null && widget.onChanged != null) {
+        widget.onChanged!(selectedValue);
+      }
     });
   }
 }

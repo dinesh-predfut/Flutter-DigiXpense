@@ -5,6 +5,7 @@ import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/models.dart';
@@ -25,6 +26,7 @@ import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,7 +43,7 @@ class LeaveDashboard extends StatefulWidget {
 class _LeaveDashboardState extends State<LeaveDashboard>
     with TickerProviderStateMixin {
   final controller = Get.find<Controller>();
-
+  final GlobalKey _bottomSectionKey = GlobalKey();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -59,6 +61,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final Map<DateTime, List<LeaveRequisition>> _events = {};
+  CalendarFormat _viewMode = CalendarFormat.month;
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
   Rxn<File> profileImage = Rxn<File>();
@@ -98,6 +101,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
+      controller.selectedLeaveStatusDropDown.value = "Un Reported";
       loadLeaveAnalytics();
       _initializeCalendarEvents();
       controller.fetchLeaveCodes();
@@ -111,7 +115,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
     _scrollController = ScrollController();
 
     loadEmployee();
-
+    controller.selectedStatus = "Un Reported";
     // Load data
     // controller.loadProfilePictureFromStorage();
 
@@ -207,16 +211,13 @@ class _LeaveDashboardState extends State<LeaveDashboard>
 
   @override
   Widget build(BuildContext context) {
-    if (controller.isLoadingLeaves.value) {
-      return const Scaffold(body: Center(child: SkeletonLoaderPage()));
-    }
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return WillPopScope(
       onWillPop: () async {
-        controller.selectedExpenseType = "All Expenses".obs;
-        controller.selectedLeaveStatusDropDown = "Un Reported".obs;
+        controller.selectedExpenseType.value = "All Expenses";
+        controller.selectedLeaveStatusDropDown.value = "Un Reported";
         controller.selectedStatus = "Un Reported";
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
@@ -628,41 +629,42 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.add, size: 16),
-                            label: Text(
-                              AppLocalizations.of(context)!.addLeaveRequest,
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.secondary,
-                              foregroundColor: theme.colorScheme.onSecondary,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                      if (PermissionHelper.canWrite("Leave Requisition"))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add, size: 16),
+                              label: Text(
+                                AppLocalizations.of(context)!.addLeaveRequest,
+                                style: TextStyle(fontSize: 12),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.secondary,
+                                foregroundColor: theme.colorScheme.onSecondary,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.viewLeave,
+                                  arguments: {
+                                    'item': null,
+                                    'readOnly': false,
+                                    'status': false,
+                                  },
+                                );
+                              },
                             ),
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.viewLeave,
-                                arguments: {
-                                  'item': null,
-                                  'readOnly': false,
-                                  'status': false,
-                                },
-                              );
-                            },
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ],
@@ -825,13 +827,13 @@ class _LeaveDashboardState extends State<LeaveDashboard>
 
   Widget _buildCalendarViewContent(BuildContext context) {
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          // Calendar Navigation Header
           const SizedBox(height: 12),
 
-          // Calendar Format Selector
+          /// Month Week Day Buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -853,7 +855,9 @@ class _LeaveDashboardState extends State<LeaveDashboard>
             ),
           ),
 
-          // const SizedBox(height: 8),
+          const SizedBox(height: 12),
+
+          /// Today + Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -861,16 +865,18 @@ class _LeaveDashboardState extends State<LeaveDashboard>
               children: [
                 SizedBox(
                   height: 32,
+                  child: OutlinedButton(
+                    onPressed: _goToToday,
+                    child: const Text("Today", style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
                   child: OutlinedButton.icon(
                     onPressed: () => _openFilterBottomSheet(context),
                     icon: const Icon(Icons.filter_alt_outlined, size: 16),
-                    label: const Text('Filter', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    label: const Text("Filter", style: TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
@@ -879,228 +885,304 @@ class _LeaveDashboardState extends State<LeaveDashboard>
 
           const SizedBox(height: 12),
 
-          // Table Calendar Container with Fixed Height
-          Container(
-            height: 500, // Fixed height for calendar
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Calendar - Takes most of the space
-                Expanded(
-                  child: Obx(() {
-                    return Stack(
-                      children: [
-                        TableCalendar<LeaveDetailsModel>(
-                          firstDay: DateTime.utc(2000, 1, 1),
-                          lastDay: DateTime.utc(2050, 12, 31),
-                          focusedDay: controller.focusedDay,
-                          calendarFormat: _calendarFormat,
+          /// CALENDAR VIEW
+          if (_viewMode != CalendarFormat.twoWeeks)
+            Container(
+              height: 500,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Obx(() {
+                return Stack(
+                  children: [
+                    TableCalendar<LeaveDetailsModel>(
+                      firstDay: DateTime.utc(2000, 1, 1),
+                      lastDay: DateTime.utc(2050, 12, 31),
+                      focusedDay: controller.focusedDay,
+                      calendarFormat: _calendarFormat,
 
-                          eventLoader: (date) {
-                            final key = DateTime(
-                              date.year,
-                              date.month,
-                              date.day,
-                            );
-                            return controller.events[key] ?? [];
-                          },
+                      eventLoader: (date) {
+                        final key = DateTime(date.year, date.month, date.day);
+                        return controller.events[key] ?? [];
+                      },
 
-                          selectedDayPredicate: (d) =>
-                              isSameDay(d, controller.selectedDay),
+                      selectedDayPredicate: (day) {
+                        return isSameDay(controller.selectedDay, day);
+                      },
 
-                          headerStyle: const HeaderStyle(
-                            titleCentered: true,
-                            formatButtonVisible: false,
-                          ),
+                      headerStyle: const HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                      ),
 
-                          calendarStyle: CalendarStyle(
-                            markerDecoration: BoxDecoration(),
-                            markersAlignment: Alignment.bottomCenter,
-                            markersMaxCount: 3,
-                          ),
+                      calendarStyle: CalendarStyle(
+                        markersAlignment: Alignment.bottomCenter,
+                        markersMaxCount: 3,
 
-                          calendarBuilders: CalendarBuilders(
-                            markerBuilder: (context, date, events) {
-                              if (events.isEmpty)
-                                return const SizedBox.shrink();
-
-                              final dots = events
-                                  .take(3)
-                                  .map((e) => (e).leaveColor ?? '#e13333')
-                                  .toList();
-
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: dots.map((hex) {
-                                  return Container(
-                                    width: 6,
-                                    height: 6,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _colorFromHex(hex),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-
-                          onDaySelected: (selected, focused) {
-                            controller.onDaySelected(selected, focused);
-                            setState(() {});
-                          },
-
-                          onPageChanged: (focused) {
-                            controller.focusedDay = focused;
-
-                            final range = controller.getMonthRangeEpoch(
-                              focused,
-                            );
-
-                            controller.loadCalendarLeaves(
-                              fromDate: range['from']!,
-                              toDate: range['to']!,
-                            );
-                          },
+                        todayDecoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
                         ),
 
-                        // 🔄 Loader overlay
-                        if (controller.isCalendarLoading.value)
-                          Positioned.fill(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.08),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }),
-                ),
+                        selectedDecoration: const BoxDecoration(
+                          color: Colors.deepPurple,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
 
-                // Selected Day Events - Only shows when there are events
-              ],
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, date, events) {
+                          if (events.isEmpty) return const SizedBox();
+
+                          final dots = events
+                              .take(3)
+                              .map((e) => e.leaveColor ?? "#e13333")
+                              .toList();
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: dots.map((hex) {
+                              return Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _colorFromHex(hex),
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+
+                      onDaySelected: (selected, focused) {
+                        controller.onDaySelected(selected, focused);
+                        setState(() {});
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+
+                      onPageChanged: (focused) {
+                        controller.focusedDay = focused;
+
+                        final range = controller.getMonthRangeEpoch(focused);
+
+                        controller.loadCalendarLeaves(
+                          fromDate: range['from']!,
+                          toDate: range['to']!,
+                        );
+                      },
+                    ),
+
+                    if (controller.isCalendarLoading.value)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.08),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ),
-          ),
+
+          /// DAY VIEW (TODAY CARD)
+          if (_viewMode == CalendarFormat.twoWeeks)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildTodayLeaveCard(),
+            ),
+
+          const SizedBox(height: 12),
+
+          /// Bottom Leave List
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _buildBottomList(),
           ),
 
-          // Add some bottom padding for better scrolling
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
+  void _goToToday() {
+    final today = DateTime.now();
+
+    controller.focusedDay = today;
+    controller.selectedDay = today;
+
+    final range = controller.getMonthRangeEpoch(today);
+
+    controller.loadCalendarLeaves(
+      fromDate: range['from']!,
+      toDate: range['to']!,
+    );
+
+    setState(() {});
+
+    /// Scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   void _openFilterBottomSheet(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final controller = Get.find<Controller>(); // adjust to your controller
+    final controller = Get.find<Controller>();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.95,
-        minChildSize: 0.7,
-        maxChildSize: 1.0,
-        expand: true,
-        builder: (_, scrollController) => SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
-              ),
-            ),
-            child: Padding(
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.6,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) {
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
               padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                physics: const ClampingScrollPhysics(),
-                child: Form(
-                  key: controller.filterFormKey, // optional: use a form key
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDragHandle(),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: Text(
-                          localizations.filterations,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Form(
+                      key: controller.filterFormKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDragHandle(),
+                          const SizedBox(height: 16),
+
+                          /// Title
+                          Center(
+                            child: Text(
+                              localizations.filterations,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
+
+                          const SizedBox(height: 24),
+
+                          _buildDatePickerField(context),
+                          const SizedBox(height: 16),
+
+                          _buildViewTypeDropdown(context, controller),
+                          const SizedBox(height: 16),
+
+                          Obx(
+                            () => controller.showEmployeeField.value
+                                ? _buildEmployeeMultiSelect(context, controller)
+                                : const SizedBox(),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          _buildStatusDropdown(context, controller),
+
+                          const SizedBox(height: 16),
+
+                          _buildLeaveCodeMultiSelect(context, controller),
+
+                          const SizedBox(height: 16),
+
+                          _buildNotifyingUsersMultiSelect(context, controller),
+
+                          const SizedBox(height: 28),
+
+                          _buildActionButtons(context, controller),
+
+                          const SizedBox(height: 10),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-
-                      _buildDatePickerField(context),
-                      const SizedBox(height: 16),
-
-                      _buildViewTypeDropdown(context, controller),
-                      const SizedBox(height: 16),
-
-                      Obx(
-                        () => controller.showEmployeeField.value
-                            ? _buildEmployeeMultiSelect(context, controller)
-                            : const SizedBox(),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildStatusDropdown(context, controller),
-                      const SizedBox(height: 16),
-
-                      _buildLeaveCodeMultiSelect(context, controller),
-                      const SizedBox(height: 16),
-
-                      _buildNotifyingUsersMultiSelect(context, controller),
-                      const SizedBox(height: 24),
-
-                      _buildActionButtons(context, controller),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Helper widgets
-  // ---------------------------------------------------------------------------
+  Widget _buildTodayLeaveCard() {
+    final today = DateTime.now();
+    final key = DateTime(today.year, today.month, today.day);
+
+    final leaves = controller.events[key] ?? [];
+
+    if (leaves.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text("No Leave Today", style: TextStyle(fontSize: 14)),
+          ),
+        ),
+      );
+    }
+
+    final leave = leaves.first;
+
+    return Card(
+      color: Colors.amber,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ListTile(
+        title: Text(
+          leave.leaveCode ?? "Leave",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(leave.employeeName ?? ""),
+      ),
+    );
+  }
 
   Widget _buildDragHandle() {
     return Center(
@@ -1134,7 +1216,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd/MM/yyyy',
+                      'dd-MM-yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -1218,9 +1300,11 @@ class _LeaveDashboardState extends State<LeaveDashboard>
         } else {
           controller.showEmployeeField.value = false;
           controller.scopeFilters = "my_leaves";
+          controller.fetchEmployeesFilter();
         }
         // Clear previous employee selection when type changes
         controller.selectedEmployeesFilter.clear();
+        controller.fetchEmployeesFilter();
       },
       controller: controller.typeController,
       rowBuilder: (option, _) => Padding(
@@ -1338,33 +1422,29 @@ class _LeaveDashboardState extends State<LeaveDashboard>
   ) {
     final localizations = AppLocalizations.of(context)!;
 
-    return MultiSelectMultiColumnDropdownField<Employee>(
+    return MultiSelectMultiColumnDropdownField<LeaveEmployee>(
       labelText: '${localizations.all} ${localizations.employees}',
-      items: controller.employees,
-      selectedValues: controller.selectedNotifyingUsers,
+      items: controller.employeesFilter,
+      selectedValues: controller.selectedEmployeesFilter,
       isMultiSelect: true,
-      searchValue: (user) => '${user.id} ${user.firstName}',
-      displayText: (user) => user.firstName,
+      searchValue: (user) => '${user.employeeId} ${user.employeeName}',
+      displayText: (user) => user.employeeName,
       validator: (values) {
-        if (controller.selectedNotifyingUsers.isEmpty) {
+        if (controller.selectedEmployeesFilter.isEmpty) {
           return '${localizations.notifyingUsers} ${localizations.fieldRequired}';
         }
         return null;
       },
       onMultiChanged: (users) {
-        controller.selectedNotifyingUsers.assignAll(users);
+        controller.selectedEmployeesFilter.assignAll(users);
       },
       columnHeaders: [localizations.employeeId, localizations.name],
       rowBuilder: (emp, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Row(
           children: [
-            Expanded(child: Text(emp.id)),
-            Expanded(
-              child: Text(
-                '${emp.firstName} ${emp.middleName} ${emp.lastName}'.trim(),
-              ),
-            ),
+            Expanded(child: Text(emp.employeeId)),
+            Expanded(child: Text(emp.employeeName)),
           ],
         ),
       ),
@@ -1412,7 +1492,27 @@ class _LeaveDashboardState extends State<LeaveDashboard>
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              controller.resetFilters(); // reset filters
+              final now = DateTime.now();
+              final fromDate = DateTime(
+                now.year,
+                now.month,
+                1,
+              ).millisecondsSinceEpoch;
+
+              final toDate = DateTime(
+                now.year,
+                now.month + 1,
+                0,
+                23,
+                59,
+                59,
+              ).millisecondsSinceEpoch;
+
+              controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
+              Navigator.pop(context); // close dialog/page
+            },
             child: Text(localizations.cancel),
           ),
         ),
@@ -1445,17 +1545,22 @@ class _LeaveDashboardState extends State<LeaveDashboard>
         return GestureDetector(
           onTap: () => _openDetail(ev),
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
               ],
             ),
             child: Row(
               children: [
+                /// Leave Color Dot
                 Container(
                   width: 12,
                   height: 12,
@@ -1465,36 +1570,67 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                     shape: BoxShape.circle,
                   ),
                 ),
+
+                /// Main Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      /// Leave Type
                       Text(
                         ev.leaveCode,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
                       ),
+
                       const SizedBox(height: 6),
+
+                      /// Employee Name + ID
                       Text(
-                        ev.employeeName, // Show employee name instead
+                        ev.employeeName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      Text(
+                        "ID: ${ev.employeeId}",
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${ev.duration} day${ev.duration != 1 ? 's' : ''}', // Show duration
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
+
+                      const SizedBox(height: 6),
+
+                      /// Duration Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${ev.duration} day${ev.duration != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                /// Date Section
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -1513,8 +1649,9 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                     ),
                   ],
                 ),
+
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, size: 18),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
               ],
             ),
           ),
@@ -1554,34 +1691,35 @@ class _LeaveDashboardState extends State<LeaveDashboard>
     );
   }
 
-  Widget _buildFormatButton(String text, CalendarFormat format) {
-    final isSelected = _calendarFormat == format;
+  Widget _buildFormatButton(String text, CalendarFormat mode) {
+    final bool isSelected = _viewMode == mode;
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        onPressed: () {
           setState(() {
-            _calendarFormat = format;
+            _viewMode = mode;
+
+            if (mode == CalendarFormat.month) {
+              _calendarFormat = CalendarFormat.month;
+            } else if (mode == CalendarFormat.week) {
+              _calendarFormat = CalendarFormat.week;
+            } else {
+              controller.onDaySelected(DateTime.now(), DateTime.now());
+            }
           });
         },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).primaryColor
-                : Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.grey[700],
-              ),
-            ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.white,
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.white : Colors.black,
           ),
         ),
       ),
@@ -1808,7 +1946,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
 
   Widget _buildCardViewContent(BuildContext context) {
     return Obx(() {
-      return controller.isLoadingLeaves.value  
+      return controller.isLoadingLeaves.value
           ? const SkeletonLoaderPage()
           : controller.filteredLeaves.isEmpty
           ? const CommonNoDataWidget()
@@ -1824,14 +1962,36 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                   secondaryBackground: _buildSwipeActionRight(),
                   confirmDismiss: (direction) async {
                     if (direction == DismissDirection.startToEnd) {
+                      ;
                       await controller.fetchSpecificLeaveDetails(
                         context,
                         item.recId,
                         true,
                       );
+                      return false; // important
                     }
-                    if (direction == DismissDirection.endToStart &&
-                        item.approvalStatus == "Created") {
+
+                    if (direction == DismissDirection.endToStart) {
+                      final canDelete = PermissionHelper.canWrite(
+                        "Leave Requisition",
+                      ); // or canDelete
+
+                      final isDeletable = item.approvalStatus == "Created";
+
+                      // ❌ No permission
+                      if (!canDelete) {
+                        Fluttertoast.showToast(msg: "No delete permission");
+                        return false;
+                      }
+
+                      // ❌ Wrong status
+                      if (!isDeletable) {
+                        Fluttertoast.showToast(
+                          msg: "Only 'Created' leaves can be deleted",
+                        );
+                        return false;
+                      }
+
                       final shouldDelete = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
@@ -1856,12 +2016,16 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                       );
 
                       if (shouldDelete == true) {
-                        setState(() => isLoading = true);
                         await controller.deleteLeave(item.recId);
-                        setState(() => isLoading = false);
-                        return true;
+                        // controller.leaveList.removeWhere(
+                        //   (e) => e.leaveId == item.leaveId,
+                        // );
+                        controller.update(); // if using GetX
                       }
+
+                      return shouldDelete ?? false;
                     }
+
                     return false;
                   },
                   child: _buildStyledCard(item, context),

@@ -84,7 +84,7 @@ class _HubApprovalViewEditExpensePageState
     _pageController = PageController(
       initialPage: controller.currentIndex.value,
     );
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.fetchExpenseDocImage(widget.items!.recId);
       controller.configuration();
@@ -95,13 +95,13 @@ class _HubApprovalViewEditExpensePageState
       controller.fetchExpenseCategory();
       controller.fetchUnit();
       controller.fetchTaxGroup();
-
+      _initializeData();
       controller.fetchUsers();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
       final formatted = DateFormat(
-        'dd/MM/yyyy',
+        'dd-MM-yyyy',
       ).format(widget.items!.receiptDate);
       controller.selectedDate = widget.items!.receiptDate;
       receiptDateController.text = formatted;
@@ -154,10 +154,22 @@ class _HubApprovalViewEditExpensePageState
       isRefrenceIDConfig = controller.getFieldConfig("Refrence Id");
       isBillableConfig = controller.getFieldConfig("Is Billable");
       isLocationConfig = controller.getFieldConfig("Location");
-          waitForDropdownDataAndSetValues();
-
+      waitForDropdownDataAndSetValues();
     });
+  }
 
+  Future<void> _initializeData() async {
+    await loadAndAppendCashAdvanceList();
+    initializeCashAdvanceSelection();
+  }
+
+  void initializeCashAdvanceSelection() {
+    String? backendSelectedIds = controller.cashAdvReqIds;
+    print("controller.cashAdvReqIds$backendSelectedIds");
+    controller.preloadCashAdvanceSelections(
+      controller.cashAdvanceListDropDown,
+      backendSelectedIds,
+    );
   }
 
   Future<void> _loadSettings() async {
@@ -244,14 +256,35 @@ class _HubApprovalViewEditExpensePageState
           amount: dist.transAmount ?? 0.0,
         );
       }).toList();
+      // ✅ 🔥 ADD CATEGORY LOGIC HERE
+      if (controller.categoryController.text.isNotEmpty &&
+          this.controller.expenseCategory.isNotEmpty) {
+        final matchingCategory = this.controller.expenseCategory.firstWhere(
+          (e) => e.categoryId == controller.categoryController.text,
+          orElse: () => this.controller.expenseCategory.first,
+        );
+
+        controller.selectedCategory = matchingCategory;
+
+        controller.itemisationMandatory.value =
+            matchingCategory.itemisationMandatory;
+
+        controller.minExpenseAmount.value =
+            (matchingCategory.minExpensesAmount ?? 0).toDouble();
+
+        controller.maxExpenseAmount.value =
+            (matchingCategory.maxExpenseAmount ?? 0).toDouble();
+
+        controller.receiptRequiredLimit.value =
+            (matchingCategory.receiptRequiredLimit ?? 0).toDouble();
+      }
+
       return controller;
     }).toList();
     _itemizeCount = widget.items!.expenseTrans.length;
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
- 
-
     int retries = 0;
     while ((controller.paymentMethods.isEmpty ||
             controller.expenseCategory.isEmpty) &&
@@ -272,14 +305,14 @@ class _HubApprovalViewEditExpensePageState
         orElse: () => controller.currencies.first,
       );
     }
-      
-      controller.selectedPaidWith = controller.paymentMethods.firstWhere(
-        (e) => e.paymentMethodId == widget.items!.paymentMethod,
-        orElse: () => controller.paymentMethods.first,
-      );
-      controller.isReimbursableEnabled.value =
-          controller.selectedPaidWith!.reimbursible;
-    
+
+    controller.selectedPaidWith = controller.paymentMethods.firstWhere(
+      (e) => e.paymentMethodId == widget.items!.paymentMethod,
+      orElse: () => controller.paymentMethods.first,
+    );
+    controller.isReimbursableEnabled.value =
+        controller.selectedPaidWith!.reimbursible;
+
     setState(() {});
   }
 
@@ -289,7 +322,7 @@ class _HubApprovalViewEditExpensePageState
         // Create new ExpenseItem with default values
         final newItem = ExpenseItemUpdate(
           description: '',
-          quantity: 0,
+          quantity: 1.00,
           unitPriceTrans: 0,
           lineAmountTrans: 0,
           lineAmountReporting: 0,
@@ -451,7 +484,7 @@ class _HubApprovalViewEditExpensePageState
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd/MM/yyyy').parseStrict(value);
+        DateFormat('dd-MM-yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.requestError}';
       }
@@ -466,16 +499,7 @@ class _HubApprovalViewEditExpensePageState
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -511,12 +535,200 @@ class _HubApprovalViewEditExpensePageState
   Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
+    setState(() {
+      controller.imageFiles.add(file);
+    });
+  }
 
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+  bool _validateForm() {
+    bool isValid = true;
+
+    if (_validateRequiredField(
+          expenseIdController.text,
+          AppLocalizations.of(context)!.expenseId,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (_validateDateField(
+          receiptDateController.text,
+          AppLocalizations.of(context)!.receiptDate,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (_validateRequiredField(
+          controller.employeeIdController.text,
+          AppLocalizations.of(context)!.employeeId,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (_validateRequiredField(
+          controller.employeeName.text,
+          AppLocalizations.of(context)!.employeeName,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (!controller.isManualEntryMerchant) {
+      if (_validateRequiredField(
+            controller.paidToController.text,
+            AppLocalizations.of(context)!.selectMerchant,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+    } else {
+      if (_validateRequiredField(
+            controller.manualPaidToController.text,
+            AppLocalizations.of(context)!.enterMerchantName,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+    }
+
+    if (_validateNumericField(
+          controller.paidAmount.text,
+          AppLocalizations.of(context)!.paidAmount,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (_validateRequiredField(
+          controller.currencyDropDowncontroller.text,
+          AppLocalizations.of(context)!.currency,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (_validateNumericField(
+          controller.unitRate.text,
+          AppLocalizations.of(context)!.rate,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
+
+    if (isRefrenceIDConfig.isEnabled && isRefrenceIDConfig.isMandatory) {
+      if (_validateRequiredField(
+            controller.referenceID.text,
+            AppLocalizations.of(context)!.referenceId,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+    }
+
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final itemController = itemizeControllers[i];
+
+      if (projectConfig.isEnabled && projectConfig.isMandatory) {
+        if (_validateRequiredField(
+              itemController.projectDropDowncontroller.text,
+              AppLocalizations.of(context)!.projectId,
+              true,
+            ) !=
+            null) {
+          isValid = false;
+        }
+      }
+
+      if (_validateRequiredField(
+            itemController.categoryController.text,
+            AppLocalizations.of(context)!.paidFor,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (_validateRequiredField(
+            itemController.uomId.text,
+            AppLocalizations.of(context)!.unit,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (_validateNumericField(
+            itemController.quantity.text,
+            AppLocalizations.of(context)!.quantity,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (_validateNumericField(
+            itemController.unitPriceTrans.text,
+            AppLocalizations.of(context)!.unitAmount,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (_validateNumericField(
+            itemController.lineAmount.text,
+            AppLocalizations.of(context)!.lineAmount,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (_validateNumericField(
+            itemController.lineAmountINR.text,
+            AppLocalizations.of(context)!.lineAmountInInr,
+            true,
+          ) !=
+          null) {
+        isValid = false;
+      }
+
+      if (taxGroupConfig.isEnabled && taxGroupConfig.isMandatory) {
+        if (_validateRequiredField(
+              itemController.taxGroupController.text,
+              AppLocalizations.of(context)!.taxGroup,
+              true,
+            ) !=
+            null) {
+          isValid = false;
+        }
+      }
+
+      if (taxAmountConfig.isEnabled && taxAmountConfig.isMandatory) {
+        if (_validateNumericField(
+              itemController.taxAmount.text,
+              AppLocalizations.of(context)!.taxAmount,
+              true,
+            ) !=
+            null) {
+          isValid = false;
+        }
+      }
+    }
+
+    return isValid;
   }
 
   @override
@@ -541,204 +753,245 @@ class _HubApprovalViewEditExpensePageState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                    Obx(() {
-                          return Stack(
-                            children: [
-                               Obx(() {
-          return GestureDetector(
-            onTap: () {
-                                  if (controller.imageFiles.isEmpty &&
-                                      controller.isEnable.value &&
-                                      !controller.isLoadingviewImage.value) {
-                                    _pickFile();
-                                  }
-                                },
-           
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.3,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-
-              /// ✅ EMPTY VIEW
-              child: controller.imageFiles.isEmpty
-                  ? Center(
-                      child: Text(
-                        AppLocalizations.of(context)!.tapToUploadDocs,
-                      ),
-                    )
-                  /// ✅ FILE PREVIEW VIEW
-                  : Stack(
+                  Obx(() {
+                    return Stack(
                       children: [
-                        PageView.builder(
-                          controller: _pageController,
-                          itemCount: controller.imageFiles.length,
-                          onPageChanged: (index) {
-                            controller.currentIndex.value = index;
-                          },
+                        Obx(() {
+                          return GestureDetector(
+                            onTap: () {
+                              if (controller.imageFiles.isEmpty &&
+                                  controller.isEnable.value &&
+                                  !controller.isLoadingviewImage.value) {
+                                _pickFile();
+                              }
+                            },
 
-                          itemBuilder: (_, index) {
-                            final file = controller.imageFiles[index];
-                            final path = file.path;
-
-                            return GestureDetector(
-                             onTap: () =>
-    controller.openFile(context, file, index),
-
-                              child: Container(
-                                margin: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.deepPurple),
-                                  borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 0.9,
+                              height: MediaQuery.of(context).size.height * 0.3,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey,
+                                  width: 2,
                                 ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
 
-                                /// ✅ IMAGE
-                                child: controller.isImage(path)
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          file,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
+                              /// ✅ EMPTY VIEW
+                              child: controller.imageFiles.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.tapToUploadDocs,
+                                      ),
+                                    )
+                                  /// ✅ FILE PREVIEW VIEW
+                                  : Stack(
+                                      children: [
+                                        PageView.builder(
+                                          controller: _pageController,
+                                          itemCount:
+                                              controller.imageFiles.length,
+                                          onPageChanged: (index) {
+                                            controller.currentIndex.value =
+                                                index;
+                                          },
+
+                                          itemBuilder: (_, index) {
+                                            final file =
+                                                controller.imageFiles[index];
+                                            final path = file.path;
+
+                                            return GestureDetector(
+                                              onTap: () => controller.openFile(
+                                                context,
+                                                file,
+                                                index,
+                                              ),
+
+                                              child: Container(
+                                                margin: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: Colors.deepPurple,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+
+                                                /// ✅ IMAGE
+                                                child: controller.isImage(path)
+                                                    ? ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        child: Image.file(
+                                                          file,
+                                                          fit: BoxFit.cover,
+                                                          width:
+                                                              double.infinity,
+                                                        ),
+                                                      )
+                                                    /// ✅ PDF
+                                                    : controller.isPdf(path)
+                                                    ? Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .picture_as_pdf,
+                                                            size: 70,
+                                                            color: Colors.red,
+                                                          ),
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  8,
+                                                                ),
+                                                            child: Text(
+                                                              file.path
+                                                                  .split('/')
+                                                                  .last,
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      )
+                                                    /// ✅ EXCEL
+                                                    : controller.isExcel(path)
+                                                    ? Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.table_chart,
+                                                            size: 70,
+                                                            color: Colors.green,
+                                                          ),
+                                                          Text(
+                                                            file.path
+                                                                .split('/')
+                                                                .last,
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                          ),
+                                                        ],
+                                                      )
+                                                    /// ✅ OTHER FILE
+                                                    : Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .insert_drive_file,
+                                                            size: 70,
+                                                          ),
+                                                          Text(
+                                                            file.path
+                                                                .split('/')
+                                                                .last,
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                          ),
+                                                        ],
+                                                      ),
+                                              ),
+                                            );
+                                          },
                                         ),
-                                      )
-                                    /// ✅ PDF
-                                    : controller.isPdf(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.picture_as_pdf,
-                                            size: 70,
-                                            color: Colors.red,
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: Text(
-                                              file.path.split('/').last,
-                                              textAlign: TextAlign.center,
+
+                                        /// ✅ PAGE COUNT
+                                        Positioned(
+                                          bottom: 40,
+                                          left: 0,
+                                          right: 0,
+                                          child: Center(
+                                            child: Obx(
+                                              () => Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 8,
+                                                      horizontal: 16,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ],
-                                      )
-                                    /// ✅ EXCEL
-                                    : controller.isExcel(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.table_chart,
-                                            size: 70,
-                                            color: Colors.green,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      )
-                                    /// ✅ OTHER FILE
-                                    : Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.insert_drive_file,
-                                            size: 70,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            );
-                          },
-                        ),
+                                        ),
 
-                        /// ✅ PAGE COUNT
-                        Positioned(
-                          bottom: 40,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Obx(
-                              () => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
+                                        /// ✅ ADD BUTTON
+                                        if (controller.isEnable.value)
+                                          Positioned(
+                                            bottom: 16,
+                                            right: 16,
+                                            child: GestureDetector(
+                                              onTap: _pickFile,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.deepPurple,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  8,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.add,
+                                                  color: Colors.white,
+                                                  size: 28,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
 
-                        /// ✅ ADD BUTTON
-                        if (controller.isEnable.value)
-                          Positioned(
-                            bottom: 16,
-                            right: 16,
-                            child: GestureDetector(
-                              onTap: _pickFile,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.deepPurple,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(
-                                  Icons.add,
+                        // 🔥 CIRCULAR LOADER OVERLAY
+                        if (controller.isLoadingviewImage.value)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
                                   color: Colors.white,
-                                  size: 28,
                                 ),
                               ),
                             ),
                           ),
                       ],
-                    ),
-            ),
-          );
-        }),
-                              
-                              // 🔥 CIRCULAR LOADER OVERLAY
-                              if (controller.isLoadingviewImage.value)
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.25),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          );
-                        }),
+                    );
+                  }),
 
                   const SizedBox(height: 20),
                   Text(
@@ -817,7 +1070,11 @@ class _HubApprovalViewEditExpensePageState
                             searchValue: (p) =>
                                 '${p.merchantNames} ${p.merchantId}',
                             displayText: (p) => p.merchantNames,
-                            validator: (_) => null,
+                            validator: (value) => _validateRequiredField(
+                              controller.paidToController.text,
+                              AppLocalizations.of(context)!.selectMerchant,
+                              true,
+                            ),
                             onChanged: (p) {
                               setState(() {
                                 controller.selectedPaidto = p;
@@ -825,6 +1082,7 @@ class _HubApprovalViewEditExpensePageState
                                     p!.merchantId;
                               });
                             },
+
                             controller: controller.paidToController,
                             rowBuilder: (p, searchQuery) {
                               return Padding(
@@ -848,6 +1106,11 @@ class _HubApprovalViewEditExpensePageState
                           enabled: controller
                               .isEnable
                               .value, // 🔥 disables text field
+                          validator: (value) => _validateRequiredField(
+                            controller.manualPaidToController.text,
+                            AppLocalizations.of(context)!.enterMerchantName,
+                            true,
+                          ),
                           decoration: InputDecoration(
                             labelText: AppLocalizations.of(
                               context,
@@ -965,7 +1228,7 @@ class _HubApprovalViewEditExpensePageState
                         displayText: (p) => p.paymentMethodName,
                         validator: (_) => null,
                         onChanged: (p) {
-                          // loadAndAppendCashAdvanceList();
+                          loadAndAppendCashAdvanceList();
                           setState(() {
                             controller.selectedPaidWith = p;
                             controller.paymentMethodID = p!.paymentMethodId;
@@ -1124,7 +1387,11 @@ class _HubApprovalViewEditExpensePageState
                                 ),
                               ),
                             ),
-                            validator: (c) => c == null
+                            validator: (c) =>
+                                controller
+                                    .currencyDropDowncontroller
+                                    .text
+                                    .isEmpty
                                 ? AppLocalizations.of(
                                     context,
                                   )!.pleaseSelectCurrency
@@ -1222,7 +1489,7 @@ class _HubApprovalViewEditExpensePageState
                     enabled: false,
                     decoration: InputDecoration(
                       labelText:
-                          '${AppLocalizations.of(context)!.amountInInr} *',
+                          '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency} *',
                       filled: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1614,6 +1881,29 @@ class _HubApprovalViewEditExpensePageState
                                                     .categoryController
                                                     .text =
                                                 p.categoryId;
+                                            itemController
+                                                    .categoryController
+                                                    .text =
+                                                p.categoryId;
+                                            itemController
+                                                    .itemisationMandatory
+                                                    .value =
+                                                p.itemisationMandatory;
+                                            itemController
+                                                    .minExpenseAmount
+                                                    .value =
+                                                (p.minExpensesAmount ?? 0)
+                                                    .toDouble();
+                                            itemController
+                                                    .receiptRequiredLimit
+                                                    .value =
+                                                (p.receiptRequiredLimit ?? 0)
+                                                    .toDouble();
+                                            itemController
+                                                    .maxExpenseAmount
+                                                    .value =
+                                                (p.maxExpenseAmount ?? 0)
+                                                    .toDouble();
                                           });
                                         },
                                         controller:
@@ -1667,7 +1957,8 @@ class _HubApprovalViewEditExpensePageState
                                         searchValue: (tax) =>
                                             '${tax.code} ${tax.name}',
                                         displayText: (tax) => tax.name,
-                                        validator: (tax) => tax == null
+                                        validator: (tax) =>
+                                            itemController.uomId.text.isEmpty
                                             ? AppLocalizations.of(
                                                 context,
                                               )!.pleaseSelectUnit
@@ -1710,6 +2001,14 @@ class _HubApprovalViewEditExpensePageState
                                             "${AppLocalizations.of(context)!.quantity} *",
                                         controller: itemController.quantity,
                                         isReadOnly: controller.isEnable.value,
+                                        validator: (value) =>
+                                            _validateNumericField(
+                                              value!,
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.quantity,
+                                              true,
+                                            ),
                                         onChanged: (value) {
                                           controller.fetchExchangeRate().then((
                                             _,
@@ -1730,35 +2029,149 @@ class _HubApprovalViewEditExpensePageState
                                           });
                                         },
                                       ),
-                                      _buildTextField(
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(
-                                            RegExp(r'^\d*\.?\d{0,2}'),
-                                          ), // Allows numbers with up to 2 decimal places
-                                        ],
-                                        label:
-                                            "${AppLocalizations.of(context)!.unitAmount} *",
-                                        controller:
-                                            itemController.unitPriceTrans,
-                                        isReadOnly: controller.isEnable.value,
+                                      Obx(() {
+                                        final error = itemController
+                                            .paidAmountError
+                                            .value;
 
-                                        onChanged: (value) async {
-                                          controller.fetchExchangeRate().then((
-                                            _,
-                                          ) {
-                                            _updateAllLineItems();
-                                          });
-                                          itemController.calculateLineAmounts(
-                                            itemController,
-                                          );
-                                          setState(() {
-                                            widget.items!.expenseTrans[index] =
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize
+                                              .min, // 🔥 IMPORTANT (removes extra space)
+                                          children: [
+                                            _buildTextFieldUnitAmount(
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.allow(
+                                                  RegExp(r'^\d*\.?\d{0,2}'),
+                                                ),
+                                              ],
+                                              label:
+                                                  "${AppLocalizations.of(context)!.unitAmount} *",
+                                              controller:
+                                                  itemController.unitPriceTrans,
+                                              isReadOnly:
+                                                  controller.isEnable.value,
+
+                                              // ❌ DO NOT USE errorText here
+                                              validator: (value) {
+                                                final basicValidation =
+                                                    _validateNumericField(
+                                                      value!,
+                                                      AppLocalizations.of(
+                                                        context,
+                                                      )!.unitAmount,
+                                                      true,
+                                                    );
+
+                                                if (basicValidation != null)
+                                                  return basicValidation;
+
+                                                final parsed =
+                                                    double.tryParse(
+                                                      itemController
+                                                          .lineAmountINR
+                                                          .text,
+                                                    ) ??
+                                                    0.0;
+
+                                                final min = itemController
+                                                    .minExpenseAmount
+                                                    .value;
+                                                final max = itemController
+                                                    .maxExpenseAmount
+                                                    .value;
+                                                final receiptLimit =
+                                                    itemController
+                                                        .receiptRequiredLimit
+                                                        .value;
+
+                                                if (parsed < min &&
+                                                    itemController
+                                                            .finalItems
+                                                            .length <=
+                                                        1) {
+                                                  itemController
+                                                          .paidAmountError
+                                                          .value =
+                                                      AppLocalizations.of(context)!.reportedAmountNotWithinRange;;
+                                                  return '';
+                                                }
+
+                                                if (parsed > max &&
+                                                    itemController
+                                                            .finalItems
+                                                            .length <=
+                                                        1 &&
+                                                    max != 0.0) {
+                                                  itemController
+                                                          .paidAmountError
+                                                          .value =
+                                                       AppLocalizations.of(context)!.reportedAmountNotWithinRange;
+                                                  return '';
+                                                }
+
+                                                if (receiptLimit > 0 &&
+                                                    parsed >= receiptLimit) {
+                                                  itemController
+                                                          .isReceiptRequired
+                                                          .value =
+                                                      true;
+                                                } else {
+                                                  itemController
+                                                          .isReceiptRequired
+                                                          .value =
+                                                      false;
+                                                }
+
                                                 itemController
-                                                    .toExpenseItemUpdateModel();
-                                          });
-                                        },
-                                      ),
+                                                        .paidAmountError
+                                                        .value =
+                                                    ''; // ✅ clear error
+                                                return null;
+                                              },
+                                              onChanged: (value) async {
+                                                controller
+                                                    .fetchExchangeRate()
+                                                    .then((_) {
+                                                      _updateAllLineItems();
+                                                    });
+
+                                                itemController
+                                                    .calculateLineAmounts(
+                                                      itemController,
+                                                    );
+
+                                                setState(() {
+                                                  widget
+                                                          .items!
+                                                          .expenseTrans[index] =
+                                                      itemController
+                                                          .toExpenseItemUpdateModel();
+                                                });
+                                              },
+                                            ),
+
+                                            /// ✅ ONLY SHOW ERROR WHEN EXISTS (no extra space)
+                                            if (error.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 2,
+                                                ),
+                                                child: Text(
+                                                  error,
+                                                  style: const TextStyle(
+                                                    color: Colors.red,
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      }),
+                                      const SizedBox(height: 12),
                                       _buildTextField(
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
@@ -1787,9 +2200,8 @@ class _HubApprovalViewEditExpensePageState
                                         },
                                       ),
                                       _buildTextField(
-                                        label: AppLocalizations.of(
-                                          context,
-                                        )!.lineAmountInInr,
+                                        label:
+                                            '${AppLocalizations.of(context)!.lineAmount} ${controller.organizationCurrency}',
                                         controller:
                                             itemController.lineAmountINR,
                                         isReadOnly: false,
@@ -2468,23 +2880,28 @@ class _HubApprovalViewEditExpensePageState
                                       isAnyLoading)
                                   ? null
                                   : () {
-                                      controller.setButtonLoading(
-                                        'update',
-                                        true,
-                                      );
-                                      controller.addToFinalItems(widget.items!);
-                                      controller
-                                          .hubreviewGendralExpense(
-                                            context,
-                                            false,
-                                            widget.items!.workitemrecid!,
-                                          )
-                                          .whenComplete(() {
-                                            controller.setButtonLoading(
-                                              'update',
+                                      if (_formKey.currentState!.validate() &&
+                                          _validateForm()) {
+                                        controller.setButtonLoading(
+                                          'update',
+                                          true,
+                                        );
+                                        controller.addToFinalItems(
+                                          widget.items!,
+                                        );
+                                        controller
+                                            .hubreviewGendralExpense(
+                                              context,
                                               false,
-                                            );
-                                          });
+                                              widget.items!.workitemrecid!,
+                                            )
+                                            .whenComplete(() {
+                                              controller.setButtonLoading(
+                                                'update',
+                                                false,
+                                              );
+                                            });
+                                      }
                                     },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color.fromARGB(
@@ -2536,23 +2953,28 @@ class _HubApprovalViewEditExpensePageState
                                       isAnyLoading)
                                   ? null
                                   : () {
-                                      controller.setButtonLoading(
-                                        'update_accept',
-                                        true,
-                                      );
-                                      controller.addToFinalItems(widget.items!);
-                                      controller
-                                          .hubreviewGendralExpense(
-                                            context,
-                                            true,
-                                            widget.items!.workitemrecid!,
-                                          )
-                                          .whenComplete(() {
-                                            controller.setButtonLoading(
-                                              'update_accept',
-                                              false,
-                                            );
-                                          });
+                                      if (_formKey.currentState!.validate() &&
+                                          _validateForm()) {
+                                        controller.setButtonLoading(
+                                          'update_accept',
+                                          true,
+                                        );
+                                        controller.addToFinalItems(
+                                          widget.items!,
+                                        );
+                                        controller
+                                            .hubreviewGendralExpense(
+                                              context,
+                                              true,
+                                              widget.items!.workitemrecid!,
+                                            )
+                                            .whenComplete(() {
+                                              controller.setButtonLoading(
+                                                'update_accept',
+                                                false,
+                                              );
+                                            });
+                                      }
                                     },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color.fromARGB(
@@ -2835,6 +3257,29 @@ class _HubApprovalViewEditExpensePageState
     );
   }
 
+  Future<void> loadAndAppendCashAdvanceList() async {
+    controller.cashAdvanceListDropDown.clear();
+    try {
+      final newItems = await controller.fetchExpenseCashAdvanceList();
+
+      final existingIds = controller.cashAdvanceListDropDown
+          .map((e) => e.cashAdvanceReqId)
+          .toSet();
+
+      final uniqueNewItems = newItems.where(
+        (item) => !existingIds.contains(item.cashAdvanceReqId),
+      );
+
+      controller.cashAdvanceListDropDown.addAll(uniqueNewItems);
+
+      print(
+        "✅ Updated cashAdvanceListDropDown: ${controller.cashAdvanceListDropDown.length}",
+      );
+    } catch (e) {
+      Get.snackbar('Error', e.toString());
+    }
+  }
+
   Widget buildDateField(
     String label,
     TextEditingController controllers, {
@@ -2856,7 +3301,7 @@ class _HubApprovalViewEditExpensePageState
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat('yyyy-MM-dd') // Adjust your format
+                          DateFormat('dd-MM-yyyy') // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -2868,13 +3313,24 @@ class _HubApprovalViewEditExpensePageState
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                     lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('yyyy-MM-dd').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
+                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    setState(() {
+                      controller.selectedDate = picked;
+
+                      controller.selectedProject = null;
+                      for (var c in itemizeControllers) {
+                        c.expenseCategory.value = [];
+                        c.categoryController.clear();
+                        c.projectDropDowncontroller.clear();
+                      }
+                    });
+                    loadAndAppendCashAdvanceList();
+                    controller.fetchExpenseCategory();
+                    controller.fetchProjectName();
                     controller.selectedDate = picked;
                     controller.fetchProjectName();
                   }
@@ -3034,7 +3490,7 @@ class _HubApprovalViewEditExpensePageState
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -3337,6 +3793,39 @@ class _HubApprovalViewEditExpensePageState
         ),
         if (expanded)
           Padding(padding: const EdgeInsets.only(top: 10), child: child),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldUnitAmount({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
       ],
     );
   }

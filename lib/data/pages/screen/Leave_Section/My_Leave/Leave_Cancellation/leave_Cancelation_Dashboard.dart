@@ -49,7 +49,8 @@ class _CancellationLeaveDashboardState extends State<CancellationLeaveDashboard>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final Map<DateTime, List<LeaveCancellationModel>> _events = {};
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+CalendarFormat _viewMode = CalendarFormat.month;
+CalendarFormat _calendarFormat = CalendarFormat.month;
   bool isLoading = false;
   Rxn<File> profileImage = Rxn<File>();
   bool? showExpense;
@@ -89,8 +90,11 @@ String _isoDate(int epoch) {
       loadLeaveAnalytics();
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
+      controller.selectedLeaveStatusDropDownmyTeam.value = "In Process";
       _loadProfileImage();
       _initializeCalendarEvents();
+      controller.getPersonalDetails(context);
+          controller.fetchNotifications();
     });
     _scrollController = ScrollController();
 
@@ -101,8 +105,8 @@ String _isoDate(int epoch) {
       fromDate: range['from']!,
       toDate: range['to']!,
     );
-    controller.fetchNotifications();
-    controller.getPersonalDetails(context);
+
+    
     controller.fetchAndCombineData().then((_) {
       if (leaveAnalyticsCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
@@ -207,8 +211,8 @@ String _isoDate(int epoch) {
 
     return WillPopScope(
       onWillPop: () async {
-        controller.selectedExpenseType = "All Expenses".obs;
-        controller.selectedLeaveStatusDropDown = "Un Reported".obs;
+        controller.selectedExpenseType.value = "All Expenses";
+        controller.selectedLeaveStatusDropDown.value = "Un Reported";
         controller.selectedStatus = "Un Reported";
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
         return true;
@@ -659,6 +663,7 @@ String _isoDate(int epoch) {
           onDaySelected: (selected, focused) {
             controller.onDaySelected(selected, focused);
             setState(() {});
+            
           },
 
           onPageChanged: (focused) {
@@ -825,7 +830,7 @@ void _openFilterBottomSheet(BuildContext context) {
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd/MM/yyyy',
+                      'dd-MM-yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -1029,31 +1034,31 @@ void _openFilterBottomSheet(BuildContext context) {
   ) {
     final localizations = AppLocalizations.of(context)!;
 
-    return MultiSelectMultiColumnDropdownField<Employee>(
+    return MultiSelectMultiColumnDropdownField<LeaveEmployee>(
       labelText: '${localizations.all} ${localizations.employees}',
-      items: controller.employees,
-      selectedValues: controller.selectedNotifyingUsers,
+      items: controller.employeesFilter,
+      selectedValues: controller.selectedEmployeesFilter,
       isMultiSelect: true,
-      searchValue: (user) => '${user.id} ${user.firstName}',
-      displayText: (user) => user.firstName,
+      searchValue: (user) => '${user.employeeId} ${user.employeeName}',
+      displayText: (user) => user.employeeName,
       validator: (values) {
-        if (controller.selectedNotifyingUsers.isEmpty) {
+        if (controller.selectedEmployeesFilter.isEmpty) {
           return '${localizations.notifyingUsers} ${localizations.fieldRequired}';
         }
         return null;
       },
       onMultiChanged: (users) {
-        controller.selectedNotifyingUsers.assignAll(users);
+        controller.selectedEmployeesFilter.assignAll(users);
       },
       columnHeaders: [localizations.employeeId, localizations.name],
       rowBuilder: (emp, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Row(
           children: [
-            Expanded(child: Text(emp.id)),
+            Expanded(child: Text(emp.employeeId)),
             Expanded(
               child: Text(
-                '${emp.firstName} ${emp.middleName} ${emp.lastName}'.trim(),
+                emp.employeeName,
               ),
             ),
           ],
@@ -1110,7 +1115,7 @@ void _openFilterBottomSheet(BuildContext context) {
       ],
     );
   }
-  Widget _buildBottomList() {
+ Widget _buildBottomList() {
     final list = controller.selectedEvents;
 
     if (list.isEmpty) {
@@ -1135,79 +1140,119 @@ void _openFilterBottomSheet(BuildContext context) {
         return GestureDetector(
           onTap: () => _openDetail(ev),
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
+  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+  padding: const EdgeInsets.all(14),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: const [
+      BoxShadow(
+        color: Colors.black12,
+        blurRadius: 8,
+        offset: Offset(0, 3),
+      ),
+    ],
+  ),
+  child: Row(
+    children: [
+      /// Leave Color Dot
+      Container(
+        width: 12,
+        height: 12,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: _colorFromHex(ev.leaveColor ?? '#e13333'),
+          shape: BoxShape.circle,
+        ),
+      ),
+
+      /// Main Info
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Leave Type
+            Text(
+              ev.leaveCode,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: _colorFromHex(ev.leaveColor ?? '#e13333'),
-                    shape: BoxShape.circle,
-                  ),
+
+            const SizedBox(height: 6),
+
+            /// Employee Name + ID
+            Text(
+              ev.employeeName,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
+            const SizedBox(height: 2),
+
+            Text(
+              "ID: ${ev.employeeId}",
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            /// Duration Badge
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${ev.duration} day${ev.duration != 1 ? 's' : ''}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ev.leaveId,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        ev.employeeName, // Show employee name instead
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${ev.duration} day${ev.duration != 1 ? 's' : ''}', // Show duration
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      DateFormat('MMM d').format(
-                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
-                      ),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      /// Date Section
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            DateFormat('MMM d').format(
+              DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
+            ),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          Text(
+            'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+
+      const SizedBox(width: 8),
+      const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+    ],
+  ),
+)
         );
       },
     );

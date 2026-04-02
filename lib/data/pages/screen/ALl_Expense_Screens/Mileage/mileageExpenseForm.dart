@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/core/constant/url.dart';
@@ -16,6 +17,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 
+import '../../../../../core/comman/widgets/accountDistribution.dart'
+    show AccountingDistributionWidget;
 import '../../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../service.dart';
@@ -178,141 +181,161 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   //   }
   // }
 
+  Future<Location?> getCoordinatesFromAddress(String address) async {
+    final encoded = Uri.encodeComponent(address);
+    const String apiKey =
+        'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
+    );
 
-Future<Location?> getCoordinatesFromAddress(String address) async {
-  final encoded = Uri.encodeComponent(address);
-  const String apiKey = 'AIzaSyDRILJyIU6u6pII7EEP5_n7BQwYZLWr8E0'; // 🔑 Replace this
-  final url = Uri.parse(
-    'https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&key=$apiKey',
-  );
-
-  try {
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['results'] != null && data['results'].isNotEmpty) {
-        final loc = data['results'][0]['geometry']['location'];
-        return Location(
-          latitude: loc['lat'],
-          longitude: loc['lng'],
-          timestamp: DateTime.now(),
-        );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['results'] != null && data['results'].isNotEmpty) {
+          final loc = data['results'][0]['geometry']['location'];
+          return Location(
+            latitude: loc['lat'],
+            longitude: loc['lng'],
+            timestamp: DateTime.now(),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint("❌ Geocode failed for $address: $e");
     }
-  } catch (e) {
-    debugPrint("❌ Geocode failed for $address: $e");
-  }
-  return null;
-}
-
-
-
-Future<void> _calculateAllDistances() async {
-  print("_calculateAllDistances is Calling");
-
-  setState(() => isCalculatingDistance = true);
-
-  final int currentToken = ++_calculationToken;
-
-  _polylines.clear();
-  _markers.clear();
-  controller.calculatedAmountINR = 0;
-  controller.totalDistanceKm = 0;
-
-  if (controller.tripControllers.length < 2) {
-    if (mounted) setState(() => isCalculatingDistance = false);
-    return;
+    return null;
   }
 
-  for (int i = 0; i < controller.tripControllers.length - 1; i++) {
-    if (currentToken != _calculationToken) {
-      setState(() => isCalculatingDistance = false);
+  Future<void> _calculateAllDistances() async {
+    print("_calculateAllDistances is Calling");
+
+    setState(() => isCalculatingDistance = true);
+
+    final int currentToken = ++_calculationToken;
+
+    _polylines.clear();
+    _markers.clear();
+    controller.calculatedAmountINR = 0;
+    controller.totalDistanceKm = 0;
+
+    if (controller.tripControllers.length < 2) {
+      if (mounted) setState(() => isCalculatingDistance = false);
       return;
     }
 
-    String startCity = controller.tripControllers[i].text.trim();
-    String endCity = controller.tripControllers[i + 1].text.trim();
-    print("startCity: $startCity");
-    print("endCity: $endCity");
-
-    if (startCity.isEmpty || endCity.isEmpty) continue;
-
-    try {
-      // ✅ Use Google API instead of system geocoder
-      final startLoc = await getCoordinatesFromAddress(startCity);
-      if (!mounted || currentToken != _calculationToken) return;
-      print("startLoc: $startLoc");
-
-      final endLoc = await getCoordinatesFromAddress(endCity);
-      if (!mounted || currentToken != _calculationToken) return;
-      print("endLoc: $endLoc");
-
-      if (startLoc == null || endLoc == null) {
-        print("⚠️ Skipping route due to missing coordinates");
-        continue;
+    for (int i = 0; i < controller.tripControllers.length - 1; i++) {
+      if (currentToken != _calculationToken) {
+        setState(() => isCalculatingDistance = false);
+        return;
       }
 
-      LatLng startLatLng = LatLng(startLoc.latitude, startLoc.longitude);
-      LatLng endLatLng = LatLng(endLoc.latitude, endLoc.longitude);
+      String startCity = controller.tripControllers[i].text.trim();
+      String endCity = controller.tripControllers[i + 1].text.trim();
+      print("startCity: $startCity");
+      print("endCity: $endCity");
 
-      print("✅ startLatLng: $startLatLng, endLatLng: $endLatLng");
+      if (startCity.isEmpty || endCity.isEmpty) continue;
 
-      String startMarkerLabel = getMarkerLabel(i);
-      String endMarkerLabel = getMarkerLabel(i + 1);
+      try {
+        // ✅ Use Google API instead of system geocoder
+        final startLoc = await getCoordinatesFromAddress(startCity);
+        if (!mounted || currentToken != _calculationToken) return;
+        print("startLoc: $startLoc");
 
-      BitmapDescriptor startMarkerIcon = await createMarkerWithLabel(startMarkerLabel);
-      if (!mounted || currentToken != _calculationToken) return;
+        final endLoc = await getCoordinatesFromAddress(endCity);
+        if (!mounted || currentToken != _calculationToken) return;
+        print("endLoc: $endLoc");
 
-      BitmapDescriptor endMarkerIcon = await createMarkerWithLabel(endMarkerLabel);
-      if (!mounted || currentToken != _calculationToken) return;
+        if (startLoc == null || endLoc == null) {
+          print("⚠️ Skipping route due to missing coordinates");
+          continue;
+        }
 
-      _markers.add(
-        Marker(
-          markerId: MarkerId('start_$i'),
-          position: startLatLng,
-          infoWindow: InfoWindow(title: "Point $startMarkerLabel", snippet: startCity),
-          icon: startMarkerIcon,
-        ),
-      );
+        LatLng startLatLng = LatLng(startLoc.latitude, startLoc.longitude);
+        LatLng endLatLng = LatLng(endLoc.latitude, endLoc.longitude);
 
-      _markers.add(
-        Marker(
-          markerId: MarkerId('end_${i + 1}'),
-          position: endLatLng,
-          infoWindow: InfoWindow(title: "Point $endMarkerLabel", snippet: endCity),
-          icon: endMarkerIcon,
-        ),
-      );
+        print("✅ startLatLng: $startLatLng, endLatLng: $endLatLng");
 
-      // ✅ Fetch route and distance
-      double routeDistance = await _fetchRoutePolyline(startLatLng, endLatLng, i);
-      if (!mounted || currentToken != _calculationToken) return;
+        String startMarkerLabel = getMarkerLabel(i);
+        String endMarkerLabel = getMarkerLabel(i + 1);
 
-      controller.totalDistanceKm += routeDistance;
-      controller.calculateAmount();
-
-      // ✅ Handle round trip
-      if (controller.isRoundTrip && i == controller.tripControllers.length - 2) {
-        double returnDistance = await _fetchRoutePolyline(endLatLng, startLatLng, i + 100);
+        BitmapDescriptor startMarkerIcon = await createMarkerWithLabel(
+          startMarkerLabel,
+        );
         if (!mounted || currentToken != _calculationToken) return;
 
-        controller.totalDistanceKm += returnDistance;
+        BitmapDescriptor endMarkerIcon = await createMarkerWithLabel(
+          endMarkerLabel,
+        );
+        if (!mounted || currentToken != _calculationToken) return;
+
+        _markers.add(
+          Marker(
+            markerId: MarkerId('start_$i'),
+            position: startLatLng,
+            infoWindow: InfoWindow(
+              title: "Point $startMarkerLabel",
+              snippet: startCity,
+            ),
+            icon: startMarkerIcon,
+          ),
+        );
+
+        _markers.add(
+          Marker(
+            markerId: MarkerId('end_${i + 1}'),
+            position: endLatLng,
+            infoWindow: InfoWindow(
+              title: "Point $endMarkerLabel",
+              snippet: endCity,
+            ),
+            icon: endMarkerIcon,
+          ),
+        );
+
+        // ✅ Fetch route and distance
+        double routeDistance = await _fetchRoutePolyline(
+          startLatLng,
+          endLatLng,
+          i,
+        );
+        if (!mounted || currentToken != _calculationToken) return;
+
+        controller.totalDistanceKm += routeDistance;
         controller.calculateAmount();
+
+        // ✅ Handle round trip
+        if (controller.isRoundTrip &&
+            i == controller.tripControllers.length - 2) {
+          double returnDistance = await _fetchRoutePolyline(
+            endLatLng,
+            startLatLng,
+            i + 100,
+          );
+          if (!mounted || currentToken != _calculationToken) return;
+
+          controller.totalDistanceKm += returnDistance;
+          controller.calculateAmount();
+        }
+      } catch (e) {
+        print("❌ Error while calculating distance: $e");
       }
-    } catch (e) {
-      print("❌ Error while calculating distance: $e");
     }
+
+    if (mounted && currentToken == _calculationToken) {
+      setState(() => isCalculatingDistance = false);
+      _adjustCameraBounds();
+    }
+
+    print(
+      "✅ Total Distance: ${controller.totalDistanceKm.toStringAsFixed(2)} km",
+    );
+    print(
+      "✅ Final Amount: ₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+    );
   }
-
-  if (mounted && currentToken == _calculationToken) {
-    setState(() => isCalculatingDistance = false);
-    _adjustCameraBounds();
-  }
-
-  print("✅ Total Distance: ${controller.totalDistanceKm.toStringAsFixed(2)} km");
-  print("✅ Final Amount: ₹${controller.calculatedAmountINR.toStringAsFixed(2)}");
-}
-
 
   Future<double> _fetchRoutePolyline(
     LatLng start,
@@ -419,7 +442,6 @@ Future<void> _calculateAllDistances() async {
       _calculateAllDistances();
     });
   }
-
 
   Future<void> _zoomToLocation(String address) async {
     if (_mapController == null || address.isEmpty) return;
@@ -572,7 +594,8 @@ Future<void> _calculateAllDistances() async {
                       widget.mileageId!.approvalStatus != "Cancelled" &&
                       widget.mileageId!.approvalStatus != "Approved" &&
                       widget.mileageId!.approvalStatus != "Pending" ||
-                  widget.mileageId!.stepType == "Review")
+                  widget.mileageId!.stepType == "Review" &&
+                      PermissionHelper.canUpdate("Expense Registration"))
                 IconButton(
                   icon: Icon(
                     controller.isEnable.value
@@ -608,7 +631,7 @@ Future<void> _calculateAllDistances() async {
             // Header Section (Auto Height)
             Container(
               constraints: BoxConstraints(
-                maxHeight: screenHeight * 0.40,
+                maxHeight: screenHeight * 0.45,
                 // minHeight: screenHeight * 0.45, // Set maximum height
               ),
               decoration: BoxDecoration(
@@ -745,7 +768,7 @@ Future<void> _calculateAllDistances() async {
                                                     controller.isEnable.value,
                                                 style: const TextStyle(
                                                   fontSize: 12,
-                                                  color: Colors.black87
+                                                  color: Colors.black87,
                                                 ),
                                                 decoration: InputDecoration(
                                                   fillColor: Colors.white,
@@ -823,70 +846,75 @@ Future<void> _calculateAllDistances() async {
                           if (controller.isRoundTrip &&
                               controller.tripControllers.length < 3)
                             // const SizedBox(height: 7),
-                          if (controller.isRoundTrip &&
-                              controller.tripControllers.length < 3)
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.location_on,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 50,
-                                    child: TextField(
-                                      controller:
-                                          controller.tripControllers.first,
-                                      readOnly: controller.isRoundTrip,
-                                      style: const TextStyle(fontSize: 12,color: Colors.black),
-                                      decoration: InputDecoration(
-                                        hintText: AppLocalizations.of(
-                                          context,
-                                        )!.endTrip,
-                                        hintStyle: const TextStyle(
-                                          fontSize: 13,
+                            if (controller.isRoundTrip &&
+                                controller.tripControllers.length < 3)
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 50,
+                                      child: TextField(
+                                        controller:
+                                            controller.tripControllers.first,
+                                        readOnly: controller.isRoundTrip,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black,
                                         ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              vertical: 13,
-                                              horizontal: 14,
-                                            ),
-                                        fillColor: controller.isRoundTrip
-                                            ? Colors.grey.shade300
-                                            : Colors.white,
-                                        filled: true,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            25,
+                                        decoration: InputDecoration(
+                                          hintText: AppLocalizations.of(
+                                            context,
+                                          )!.endTrip,
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
                                           ),
-                                          borderSide: BorderSide.none,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 13,
+                                                horizontal: 14,
+                                              ),
+                                          fillColor: controller.isRoundTrip
+                                              ? Colors.grey.shade300
+                                              : Colors.white,
+                                          filled: true,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          // ✅ Show inline error if submit attempted
+                                          errorText:
+                                              isSubmitAttempted &&
+                                                  controller
+                                                      .tripControllers
+                                                      .first
+                                                      .text
+                                                      .trim()
+                                                      .isEmpty
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.fieldRequired
+                                              : null,
                                         ),
-                                        // ✅ Show inline error if submit attempted
-                                        errorText:
-                                            isSubmitAttempted &&
-                                                controller
-                                                    .tripControllers
-                                                    .first
-                                                    .text
-                                                    .trim()
-                                                    .isEmpty
-                                            ? AppLocalizations.of(
-                                                context,
-                                              )!.fieldRequired
-                                            : null,
+                                        onChanged: (value) {
+                                          if (!controller.isRoundTrip) {
+                                            _onTripTextChanged();
+                                            setState(
+                                              () {},
+                                            ); // Refresh validation
+                                          }
+                                        },
                                       ),
-                                      onChanged: (value) {
-                                        if (!controller.isRoundTrip) {
-                                          _onTripTextChanged();
-                                          setState(() {}); // Refresh validation
-                                        }
-                                      },
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
                           // Add Stoqp + Round Trip Switch
                           if (controller.isEnable.value)
                             Row(
@@ -928,7 +956,7 @@ Future<void> _calculateAllDistances() async {
                   ),
 
                   // Info Cards pinned at bottom of header
-                  const SizedBox(height: 12),
+                  //  const SizedBox(height: 8),
                   isCalculatingDistance
                       ? const Center(
                           child: Padding(
@@ -943,36 +971,122 @@ Future<void> _calculateAllDistances() async {
                             ),
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      : Column(
                           children: [
-                            _infoCardButton(
-                              title: AppLocalizations.of(
-                                context,
-                              )!.totalDistance,
-                              value:
-                                  "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
-                              onTap: () => print("Total Distance tapped"),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _infoCardButton(
+                                    title: AppLocalizations.of(
+                                      context,
+                                    )!.totalDistance,
+                                    value:
+                                        "${controller.totalDistanceKm.toStringAsFixed(2)} Km",
+                                    onTap: () {},
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: _infoCardButton(
+                                    title:
+                                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                                    value: controller.calculatedAmountINR
+                                        .toStringAsFixed(2),
+                                    onTap: () {},
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: _infoCardButton(
+                                    title:
+                                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                                    value: controller.calculatedAmountINR
+                                        .toStringAsFixed(2),
+                                    onTap: () {},
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 5),
-                            _infoCardButton(
-                              title: AppLocalizations.of(
-                                context,
-                              )!.totalAmountInInr,
-                              value:
-                                  "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
-                              onTap: () => print("Total Amount tapped"),
+
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  final double lineAmount =
+                                      double.tryParse(
+                                        controller.amountInController.text,
+                                      ) ??
+                                      0.0;
+
+                                  if (controller.split.isEmpty &&
+                                      controller
+                                          .accountingDistributions
+                                          .isNotEmpty) {
+                                    controller.split.assignAll(
+                                      controller.accountingDistributions.map((
+                                        e,
+                                      ) {
+                                        return AccountingSplit(
+                                          paidFor: e?.dimensionValueId ?? '',
+                                          percentage:
+                                              e?.allocationFactor ?? 0.0,
+                                          amount: e?.transAmount ?? 0.0,
+                                        );
+                                      }).toList(),
+                                    );
+                                  } else if (controller.split.isEmpty) {
+                                    controller.split.add(
+                                      AccountingSplit(percentage: 100.0),
+                                    );
+                                  }
+
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(16),
+                                      ),
+                                    ),
+                                    builder: (context) => Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: MediaQuery.of(
+                                          context,
+                                        ).viewInsets.bottom,
+                                        left: 16,
+                                        right: 16,
+                                        top: 24,
+                                      ),
+                                      child: SingleChildScrollView(
+                                        child: AccountingDistributionWidget(
+                                          isEnable: controller.isEnable.value,
+                                          splits: controller.split,
+                                          lineAmount:
+                                              controller.calculatedAmountINR,
+                                          onChanged: (i, updatedSplit) {
+                                            if (!mounted) return;
+                                            controller.split[i] = updatedSplit;
+                                          },
+                                          onDistributionChanged: (newList) {
+                                            if (!mounted) return;
+                                            controller.accountingDistributions
+                                                .clear();
+                                            controller.accountingDistributions
+                                                .addAll(newList);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.accountDistribution,
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            _infoCardButton(
-                              title: AppLocalizations.of(
-                                context,
-                              )!.totalAmountInInr,
-                              value:
-                                  "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
-                              onTap: () => print("Third card tapped"),
-                            ),
-                            const SizedBox(width: 5),
                           ],
                         ),
                 ],
@@ -982,7 +1096,6 @@ Future<void> _calculateAllDistances() async {
             // Map Section (Takes Remaining Space)
             Expanded(
               child: Stack(
-                
                 children: [
                   GoogleMap(
                     initialCameraPosition: const CameraPosition(
@@ -1287,10 +1400,11 @@ Future<void> _calculateAllDistances() async {
                                     );
                                   }),
                                 ),
-                              if (!controller.isEnable.value && widget.isEditMode! &&
+                              if (!controller.isEnable.value &&
+                                  widget.isEditMode! &&
                                   widget.mileageId!.stepType!.isEmpty &&
                                   widget.mileageId!.approvalStatus == "Pending")
-                                Expanded( 
+                                Expanded(
                                   child: Obx(() {
                                     final isLoading =
                                         controller
@@ -1375,7 +1489,9 @@ Future<void> _calculateAllDistances() async {
                                               );
                                               try {
                                                 controller.closeField();
-                                                 controller.chancelButton(context);
+                                                controller.chancelButton(
+                                                  context,
+                                                );
                                               } finally {
                                                 controller.setButtonLoading(
                                                   'cancel_main',
@@ -1396,10 +1512,9 @@ Future<void> _calculateAllDistances() async {
                                     );
                                   }),
                                 ),
-                                  
                             ],
                           ),
-                         const SizedBox(height: 20),
+                          const SizedBox(height: 20),
                         ],
                       ),
                     ),
@@ -1414,66 +1529,92 @@ Future<void> _calculateAllDistances() async {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                           
                             Row(
                               children: [
                                 Expanded(
-  child: Obx(() {
-    final isLoadingAccept =
-        controller.buttonLoaders['update_accept'] ?? false;
-    final isAnyLoading =
-        controller.buttonLoaders.values.any((loading) => loading == true);
+                                  child: Obx(() {
+                                    final isLoadingAccept =
+                                        controller
+                                            .buttonLoaders['update_accept'] ??
+                                        false;
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((loading) => loading == true);
 
-    return SizedBox(
-      height: 40, // fixes button height consistently
-      child: ElevatedButton(
-        onPressed: (isLoadingAccept || isAnyLoading)
-            ? null
-            : () async {
-                controller.setButtonLoading('update_accept', true);
-                try {
-                  await controller.reviewMileageRegistration(
-                    context,
-                    true,
-                    workitemrecid,
-                  );
-                } finally {
-                  controller.setButtonLoading('update_accept', false);
-                }
-              },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color.fromARGB(255, 3, 20, 117),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        child: isLoadingAccept
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  AppLocalizations.of(context)!.updateAndAccept,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-      ),
-    );
-  }),
-),
+                                    return SizedBox(
+                                      height:
+                                          40, // fixes button height consistently
+                                      child: ElevatedButton(
+                                        onPressed:
+                                            (isLoadingAccept || isAnyLoading)
+                                            ? null
+                                            : () async {
+                                                controller.setButtonLoading(
+                                                  'update_accept',
+                                                  true,
+                                                );
+                                                try {
+                                                  await controller
+                                                      .reviewMileageRegistration(
+                                                        context,
+                                                        true,
+                                                        workitemrecid,
+                                                      );
+                                                } finally {
+                                                  controller.setButtonLoading(
+                                                    'update_accept',
+                                                    false,
+                                                  );
+                                                }
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color.fromARGB(
+                                            255,
+                                            3,
+                                            20,
+                                            117,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                        ),
+                                        child: isLoadingAccept
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: Colors.white,
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Text(
+                                                  AppLocalizations.of(
+                                                    context,
+                                                  )!.updateAndAccept,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                      ),
+                                    );
+                                  }),
+                                ),
 
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -1501,33 +1642,42 @@ Future<void> _calculateAllDistances() async {
                                                     .reviewMileageRegistration(
                                                       context,
                                                       false,
-                                                      workitemrecid);
-                                            } finally {
-                                              controller.setButtonLoading(
-                                                  'update_review', false);
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          const Color.fromARGB(255, 3, 20, 117),
-                                    ),
-                                    child: isLoadingUpdate
-                                        ? const CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          )
-                                        : Text(
-                                            AppLocalizations.of(context)!
-                                                .update,
-                                            style: const TextStyle(
-                                                color: Colors.white),
-                                          ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
+                                                      workitemrecid,
+                                                    );
+                                              } finally {
+                                                controller.setButtonLoading(
+                                                  'update_review',
+                                                  false,
+                                                );
+                                              }
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color.fromARGB(
+                                          255,
+                                          3,
+                                          20,
+                                          117,
+                                        ),
+                                      ),
+                                      child: isLoadingUpdate
+                                          ? const CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            )
+                                          : Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.update,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                    );
+                                  }),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
 
                             // 🔴 Row 2: Reject + Close
                             Row(
@@ -1583,7 +1733,7 @@ Future<void> _calculateAllDistances() async {
                                               )!.reject,
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 12
+                                                fontSize: 12,
                                               ),
                                             ),
                                     );
@@ -1636,7 +1786,7 @@ Future<void> _calculateAllDistances() async {
                                               )!.close,
                                               style: const TextStyle(
                                                 color: Colors.black,
-                                                fontSize: 12
+                                                fontSize: 12,
                                               ),
                                             ),
                                     );
@@ -2030,7 +2180,7 @@ Future<void> _calculateAllDistances() async {
                 ],
               ),
             ),
-                // const SizedBox(height: 26),
+            // const SizedBox(height: 26),
           ],
         ),
       ),
@@ -2120,7 +2270,7 @@ Future<void> _calculateAllDistances() async {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -2221,7 +2371,7 @@ Future<void> _calculateAllDistances() async {
                         ),
                       ],
                     ),
-                     const SizedBox(height: 30),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),

@@ -12,6 +12,9 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:media_scanner/media_scanner.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:html/parser.dart' as html_parser;
 
 class TaskDetailsPage extends StatefulWidget {
   final int taskRecId;
@@ -32,10 +35,13 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   final _formKey = GlobalKey<FormState>();
   final Controller controller = Get.find<Controller>();
   Map<String, String?> dynamicFieldValues = {};
-
+  List<KanbanStatus> _statusList = [];
+  KanbanStatus? _selectedStatus;
+  bool _isDownloading = false;
   List<ChecklistItem> checklist = [];
   bool showChecklistOnCard = false;
   List<TextEditingController> checklistControllers = [];
+  String? _deletingFile;
   // Controllers
   final _taskNameController = TextEditingController();
   final _notesController = TextEditingController();
@@ -58,18 +64,121 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
   String riskLevel = 'Low';
   String _priority = 'Low';
   String _status = 'Upcoming';
+  String? _createdName;
+  String? _createdUserId;
   String? _cardType;
   bool _showNotes = true;
   bool _showList = true;
   bool _loading = true;
   bool _saving = false;
+  Widget buildPreviewWidget(String path) {
+    /// 📱 LOCAL FILE
+    if (path.startsWith('/') || path.startsWith('file://')) {
+      final file = File(path.replaceFirst('file://', ''));
+
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.file(
+            file,
+            fit: BoxFit.contain,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) {
+                return child;
+              }
+              return const SizedBox(); // wait until ready
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(child: Text("Failed to load local image"));
+            },
+          ),
+        ],
+      );
+    }
+    /// 🌐 NETWORK FILE
+    else if (path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.contain,
+
+        /// 🔄 LOADING PROGRESS
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+
+        /// ❌ ERROR
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(child: Text("Failed to load image"));
+        },
+      );
+    }
+
+    /// ❌ OTHER FILE TYPES
+    return const Center(child: Text("Preview not available"));
+  }
 
   RxList<CommentModel> comments = <CommentModel>[].obs;
+  Future<void> downloadAttachment(String path, String fileName) async {
+    try {
+      String tempPath;
+
+      /// 📂 Step 1: Save to TEMP (app storage)
+      final tempDir = await getTemporaryDirectory();
+      tempPath = "${tempDir.path}/$fileName";
+
+      /// 🌐 NETWORK FILE
+      if (path.startsWith('http')) {
+        await Dio().download(path, tempPath);
+      }
+      /// 📱 LOCAL FILE
+      else if (path.startsWith('/') || path.startsWith('file://')) {
+        final file = File(path.replaceFirst('file://', ''));
+        if (await file.exists()) {
+          await file.copy(tempPath);
+        } else {
+          throw Exception("Local file not found");
+        }
+      }
+
+      /// 📸 Step 2: Save using system (Gallery visible)
+      final params = SaveFileDialogParams(
+        sourceFilePath: tempPath,
+        fileName: fileName,
+      );
+
+      final savedPath = await FlutterFileDialog.saveFile(params: params);
+
+      print("✅ Saved to Gallery: $savedPath");
+    } catch (e) {
+      print("❌ Download error: $e");
+    }
+  }
+
+  void loadStatuses() async {
+    try {
+      final data = await controller.fetchStatuses(widget.bordeId);
+      setState(() {
+        _statusList = data;
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _loadTask();
+    loadStatuses();
   }
 
   Future<void> loadMembers() async {
@@ -151,10 +260,12 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       if (_taskDetails == null) return;
 
       _taskNameController.text = _taskDetails!.taskName;
-      _notesController.text = _taskDetails!.notes ?? '';
+      _notesController.text = parseHtmlString(_taskDetails!.notes!);
       _priority = _taskDetails!.priority;
       _status = _taskDetails!.status;
       taskId.text = _taskDetails!.taskId;
+      _createdName = _taskDetails?.createdBy?.userName ?? '';
+      _createdUserId = _taskDetails?.createdBy?.userId ?? '';
       _showNotes = _taskDetails!.showNotes ?? false;
       showChecklistOnCard = _taskDetails!.showChecklist ?? false;
       _startDate = _taskDetails!.actualStartDate;
@@ -163,7 +274,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       plannedStartDate = _taskDetails!.plannedStartDate;
       actualHours.text = _taskDetails!.actualHours.toString();
       estimatedHours.text = _taskDetails!.estimatedHours?.toString() ?? "0";
-
+      print("plannedStartDate$plannedStartDate");
       final cardId = _taskDetails!.cardType?.trim();
       if (cardId != null && cardId.isNotEmpty) {
         controller.selectedCardType.value = controller.cardType
@@ -225,12 +336,17 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     Future.wait([loadAttachmentData(), loadComments()]);
   }
 
+  String parseHtmlString(String htmlString) {
+    final document = html_parser.parse(htmlString);
+    return document.body?.text ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: SkeletonLoaderPage()));
     }
-
+    int selectedCount = checklist.where((item) => item.status == true).length;
     return WillPopScope(
       onWillPop: () async {
         final shouldExit = await showDialog<bool>(
@@ -282,14 +398,61 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+              children: [if(_createdName != null)
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 👇 Avatar
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.blue.shade100,
+                          child: Text(
+                            (_createdName != null)
+                                ? _createdName![0].toUpperCase()
+                                : "?",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        // 👇 Text content
+                        Flexible(
+                          child: Text(
+                            "Created By: $_createdName | $_createdUserId",
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
                 /// TASK NAME
                 _section('${AppLocalizations.of(context)!.taskName} *'),
                 TextFormField(
                   controller: _taskNameController,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                   decoration: _inputDecoration(
-                    AppLocalizations.of(context)!.enterTaskName,
+                    AppLocalizations.of(context)!.taskName,
                   ),
                 ),
 
@@ -301,20 +464,42 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   children: [
                     /// ✅ DROPDOWN
                     Obx(() {
+                      /// 🔥 FILTER OUT SELECTED TAGS (NO DUPLICATES)
+                      final availableTags = controller.taskTags
+                          .where(
+                            (tag) => !controller.selectedTags.any(
+                              (selected) => selected.tagId == tag.tagId,
+                            ),
+                          )
+                          .toList();
+
                       return MultiSelectMultiColumnDropdownField<TagModel>(
                         key: ValueKey(controller.tagDropdownRefresh.value),
-
+                        showSelectedText: false,
                         enabled: true,
                         labelText: AppLocalizations.of(context)!.selectTags,
-                        items: controller.taskTags,
+
+                        /// ✅ FILTERED LIST
+                        items: availableTags,
+
+                        /// ✅ STILL PASS SELECTED VALUES
                         selectedValues: controller.selectedTags,
+
                         isMultiSelect: true,
 
                         searchValue: (tag) => '${tag.tagId} ${tag.tagName}',
-                        displayText: (tag) => tag.tagName,
-
+                        displayText: (tag) => '\u200B', // zero-width space
+                        /// 🔥 SAFE MULTI SELECT (NO DUPLICATES)
                         onMultiChanged: (tags) {
-                          controller.selectedTags.assignAll(tags);
+                          final uniqueMap = <String, TagModel>{};
+
+                          for (var tag in tags) {
+                            uniqueMap[tag.tagId] = tag;
+                          }
+
+                          controller.selectedTags.assignAll(
+                            uniqueMap.values.toList(),
+                          );
                         },
 
                         columnHeaders: [
@@ -322,6 +507,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                           AppLocalizations.of(context)!.tagName,
                         ],
 
+                        /// ✅ ROW DESIGN
                         rowBuilder: (tag, searchQuery) {
                           Color tagColor;
 
@@ -343,6 +529,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                             child: Row(
                               children: [
                                 Expanded(child: Text(tag.tagId)),
+
                                 Expanded(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -371,13 +558,19 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                       );
                     }),
 
+                    const SizedBox(height: 10),
+
                     /// ✅ SELECTED TAG CHIPS
-                    Obx(
-                      () => Wrap(
+                    Obx(() {
+                      if (controller.selectedTags.isEmpty)
+                        return const SizedBox();
+
+                      return Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: controller.selectedTags.map((tag) {
                           Color tagColor;
+
                           try {
                             tagColor = Color(
                               int.parse(
@@ -396,16 +589,17 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                               fontWeight: FontWeight.bold,
                             ),
 
+                            /// 🔥 REMOVE TAG
                             onDeleted: () {
                               controller.selectedTags.remove(tag);
 
-                              /// ✅ instant dropdown sync
+                              /// 🔥 FORCE DROPDOWN REFRESH
                               controller.tagDropdownRefresh.value++;
                             },
                           );
                         }).toList(),
-                      ),
-                    ),
+                      );
+                    }),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -703,8 +897,35 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   },
                 ),
 
-                //  const SizedBox(height: 12),
+                const SizedBox(height: 12),
+                SearchableMultiColumnDropdownField<KanbanStatus>(
+                  enabled: true,
+                  labelText: AppLocalizations.of(context)!.status,
+                  columnHeaders: [AppLocalizations.of(context)!.type],
 
+                  items: _statusList,
+
+                  selectedValue: _selectedStatus,
+
+                  searchValue: (item) => item.name,
+                  displayText: (item) => item.name,
+
+                  onChanged: (item) {
+                    setState(() {
+                      _selectedStatus = item!;
+                    });
+                  },
+
+                  rowBuilder: (item, searchQuery) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      child: Row(children: [Expanded(child: Text(item.name))]),
+                    );
+                  },
+                ),
                 //   /// VERSION
                 //   TextFormField(
                 //     keyboardType: TextInputType.numberWithOptions(),
@@ -842,7 +1063,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                     if (checklist.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 8,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
@@ -850,27 +1071,27 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          checklist.length.toString(),
+                          "$selectedCount/${checklist.length}",
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
 
                     const Spacer(),
 
-                    Text(AppLocalizations.of(context)!.showInCard),
-                    SizedBox(
-                      height: 24,
-                      child: Transform.scale(
-                        scale: 0.65,
-                        child: Switch(
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          value: showChecklistOnCard,
-                          onChanged: (v) =>
-                              setState(() => showChecklistOnCard = v),
-                        ),
-                      ),
-                    ),
+                    // Text(AppLocalizations.of(context)!.showInCard),
+                    // SizedBox(
+                    //   height: 24,
+                    //   child: Transform.scale(
+                    //     scale: 0.65,
+                    //     child: Switch(
+                    //       materialTapTargetSize:
+                    //           MaterialTapTargetSize.shrinkWrap,
+                    //       value: showChecklistOnCard,
+                    //       onChanged: (v) =>
+                    //           setState(() => showChecklistOnCard = v),
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
                 Column(
@@ -944,41 +1165,10 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   label: Text(AppLocalizations.of(context)!.addItem),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
 
                 /// NOTES WITH TOGGLE
                 ///
-                Row(
-                  children: [
-                    const Text(
-                      '',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Text(
-                          AppLocalizations.of(context)!.showInCard,
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        SizedBox(
-                          height: 24,
-                          child: Transform.scale(
-                            scale: 0.65,
-                            child: Switch(
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              value: _showNotes,
-                              onChanged: (v) => setState(() => _showNotes = v),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
                 TextFormField(
                   controller: _notesController,
                   maxLines: 3,
@@ -1080,25 +1270,95 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              /// 👁 Preview
                               IconButton(
-                                tooltip: 'Download',
-                                icon: const Icon(Icons.download),
+                                tooltip: 'Preview',
+                                icon: const Icon(Icons.visibility),
                                 onPressed: () {
-                                  downloadAttachment(
-                                    attachment.filePath,
-                                    attachment.fileName,
-                                  );
+                                  showAttachmentPreview(context, attachment);
                                 },
                               ),
+
+                              /// ⬇️ Download
+                              IconButton(
+                                tooltip: 'Download',
+                                icon: _isDownloading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.download),
+                                onPressed: _isDownloading
+                                    ? null
+                                    : () async {
+                                        setState(() {
+                                          _isDownloading = true;
+                                        });
+
+                                        try {
+                                          await downloadAttachment(
+                                            attachment.filePath,
+                                            attachment.fileName,
+                                          );
+                                        } catch (e) {
+                                          print(e);
+                                        } finally {
+                                          setState(() {
+                                            _isDownloading = false;
+                                          });
+                                        }
+                                      },
+                              ),
+
+                              /// 🗑 Delete
                               IconButton(
                                 tooltip: 'Delete',
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () {
-                                  controller.removeAttachment(attachment);
-                                },
+                                icon: _deletingFile == attachment.fileName
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                onPressed: _deletingFile == attachment.fileName
+                                    ? null
+                                    : () async {
+                                        setState(() {
+                                          _deletingFile = attachment.fileName;
+                                        });
+
+                                        try {
+                                          final success = await controller
+                                              .removeAttachment(attachment);
+
+                                          if (success == true) {
+                                            setState(() {
+                                              controller.attachments.remove(
+                                                attachment,
+                                              ); // ✅ remove only after success
+                                            });
+                                          }
+                                        } catch (e) {
+                                          print(e);
+                                        } finally {
+                                          setState(() {
+                                            controller.attachments.remove(
+                                              attachment,
+                                            ); // ✅ remove only after success
+                                          });
+                                          setState(() {
+                                            _deletingFile = null;
+                                          });
+                                        }
+                                      },
                               ),
                             ],
                           ),
@@ -1228,7 +1488,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                               Text(c.comment),
                               const SizedBox(height: 4),
                               Text(
-                                DateFormat('dd MMM yyyy, hh:mm a').format(
+                                DateFormat('dd-MM-yyyy, hh:mm a').format(
                                   DateTime.fromMillisecondsSinceEpoch(
                                     c.createdDatetime,
                                   ),
@@ -1290,6 +1550,47 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     );
   }
 
+  void showAttachmentPreview(BuildContext context, attachment) {
+    final String path = attachment.filePath;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: Container(
+            width: double.maxFinite,
+            height: 400,
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        attachment.fileName,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const Divider(),
+
+                /// ✅ Just call widget (no conditions here)
+                Expanded(child: buildPreviewWidget(path)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   String _getInitials(String name) {
     List<String> nameParts = name.trim().split(' ');
     if (nameParts.isEmpty) return '';
@@ -1330,17 +1631,17 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
     return colors[hash % colors.length];
   }
 
-  /// Helper methods
-  Future<void> downloadAttachment(String url, String fileName) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/$fileName';
-      await Dio().download(url, filePath);
-      Fluttertoast.showToast(msg: 'Downloaded to ${dir.path}');
-    } catch (e) {
-      Fluttertoast.showToast(msg: 'Download failed');
-    }
-  }
+  // /// Helper methods
+  // Future<void> downloadAttachment(String url, String fileName) async {
+  //   try {
+  //     final dir = await getApplicationDocumentsDirectory();
+  //     final filePath = '${dir.path}/$fileName';
+  //     await Dio().download(url, filePath);
+  //     Fluttertoast.showToast(msg: 'Downloaded to ${dir.path}');
+  //   } catch (e) {
+  //     Fluttertoast.showToast(msg: 'Download failed');
+  //   }
+  // }
 
   Widget _section(String title) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -1370,7 +1671,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       child: InputDecorator(
         decoration: _inputDecoration(label),
         child: Text(
-          date == null ? 'Select date' : DateFormat('dd/MM/yyyy').format(date),
+          date == null
+              ? 'Select date'
+              : DateFormat('dd-MM-yyyy').format(date.toLocal()),
         ),
       ),
     );

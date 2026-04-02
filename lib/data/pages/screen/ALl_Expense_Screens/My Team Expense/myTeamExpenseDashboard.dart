@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
-import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
+import 'package:diginexa/core/comman/widgets/noDataFind.dart'
+    show CommonNoDataWidget;
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -61,6 +62,8 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
     controller = Get.find(); // Use existing controller
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
+      controller.searchControllerMyteamsExpense.clear();
+      controller.selectedExpenseType.value = "All Expenses";
       controller.searchControllerMyteamsExpense.clear();
       controller.fetchNotifications();
       controller.getPersonalDetails(context);
@@ -167,179 +170,188 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                       Stack(
                         children: [
                           if (primaryColor != const Color(0xFF1e4db7))
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          primaryColor,
-                          primaryColor.withOpacity(
-                            0.7,
-                          ), // Lighter primary color
-                        ],
-                      ),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          flex: 4,
-                          child:
-                          
-                           Row(
-                            children: [
-                              IconButton(
-                                onPressed: _openMenu,
-                                icon: Icon(
-                                  Icons.menu,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
-                                style: IconButton.styleFrom(
-                                  // backgroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.all(5),
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    primaryColor,
+                                    primaryColor.withOpacity(
+                                      0.7,
+                                    ), // Lighter primary color
+                                  ],
                                 ),
                               ),
+                              padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    flex: 4,
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: _openMenu,
+                                          icon: Icon(
+                                            Icons.menu,
+                                            color: Colors.black,
+                                            size: 20,
+                                          ),
+                                          style: IconButton.styleFrom(
+                                            // backgroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.all(5),
+                                          ),
+                                        ),
 
-                              // Logo
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: Image.asset(
-                                  'assets/XpenseWhite.png',
-                                  width: isSmallScreen ? 60 : 80,
-                                  height: isSmallScreen ? 30 : 40,
+                                        // Logo
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: isSmallScreen ? 60 : 80,
+                                            height: isSmallScreen ? 30 : 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const Spacer(),
+                                  Flexible(
+                                    flex: 9,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        children: [
+                                          const LanguageDropdown(),
+
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.fingerprint,
+                                              color: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.punchScreen,
+                                              );
+                                            },
+                                          ),
+
+                                          _buildNotificationBadge(),
+                                          _buildProfileAvatar(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (primaryColor == const Color(0xFF1e4db7))
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/Vector.png'),
                                   fit: BoxFit.cover,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const Spacer(),
-                        Flexible(
-                          flex: 9,
-                          child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              const LanguageDropdown(),
-
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                borderRadius: BorderRadius.only(
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
                               ),
+                              padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    flex: 4,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
+                                      children: [
+                                        IconButton(
+                                          onPressed: _openMenu,
+                                          icon: Icon(
+                                            Icons.menu,
+                                            color: Colors.black,
+                                            size: 20,
+                                          ),
+                                          style: IconButton.styleFrom(
+                                            // backgroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: const EdgeInsets.all(5),
+                                          ),
+                                        ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
-                          ),
-                        )),
-                      ],
-                    ),
-                  ),
-                if (primaryColor == const Color(0xFF1e4db7))
-                  Container(
-                    width: double.infinity,
-                    height: 100,
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage('assets/Vector.png'),
-                        fit: BoxFit.cover,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(10),
-                        bottomRight: Radius.circular(10),
-                      ),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child:Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          flex: 4,
-                          child:
-                          
-                           Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              IconButton(
-                                onPressed: _openMenu,
-                                icon: Icon(
-                                  Icons.menu,
-                                  color: Colors.black,
-                                  size: 20,
-                                ),
-                                style: IconButton.styleFrom(
-                                  // backgroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                        // Logo
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          child: Image.asset(
+                                            'assets/XpenseWhite.png',
+                                            width: isSmallScreen ? 60 : 80,
+                                            height: isSmallScreen ? 30 : 40,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  padding: const EdgeInsets.all(5),
-                                ),
+
+                                  const Spacer(),
+                                  Flexible(
+                                    flex: 9,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          const LanguageDropdown(),
+
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.fingerprint,
+                                              color: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.punchScreen,
+                                              );
+                                            },
+                                          ),
+
+                                          _buildNotificationBadge(),
+                                          _buildProfileAvatar(),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-
-                              // Logo
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
-                                child: Image.asset(
-                                  'assets/XpenseWhite.png',
-                                  width: isSmallScreen ? 60 : 80,
-                                  height: isSmallScreen ? 30 : 40,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const Spacer(),
-                        Flexible(
-                          flex: 9,
-                          child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              const LanguageDropdown(),
-
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
-
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
-                          ),
-                        )),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 8),
+                            ),
+                          const SizedBox(height: 8),
                         ],
                       ),
                       // Your existing header and content widgets...
@@ -535,12 +547,12 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                           );
                         }),
                       ),
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.0),
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            "My Team Expense Dashboard",
+                            AppLocalizations.of(context)!.myTeamExpenses,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -568,7 +580,9 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                                   .toLowerCase();
                             },
                             decoration: InputDecoration(
-                              hintText: 'Search expenses...',
+                              hintText: AppLocalizations.of(
+                                context,
+                              )!.searchExpenses,
                               prefixIcon: const Icon(
                                 Icons.search,
                                 color: Colors.grey,
@@ -758,9 +772,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                                         isLoading,
                                       ),
                                       secondaryBackground:
-                                          _buildSwipeActionLeft(
-                                        isLoading,
-                                      ),
+                                          _buildSwipeActionLeft(isLoading),
                                       confirmDismiss: (direction) async {
                                         if (direction ==
                                             DismissDirection.startToEnd) {
@@ -778,7 +790,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                                                 .fetchSecificExpenseItem(
                                                   context,
                                                   item.recId,
-                                                  false
+                                                  false,
                                                 );
                                             controller.fetchExpenseHistory(
                                               item.recId,
@@ -793,7 +805,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                                           setState(() => isLoading = false);
                                           return false;
                                         } else {
-                                           setState(() => isLoading = true);
+                                          setState(() => isLoading = true);
                                           if (item.expenseType == "PerDiem") {
                                             await controller
                                                 .fetchSecificPerDiemItem(
@@ -807,7 +819,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                                                 .fetchSecificExpenseItem(
                                                   context,
                                                   item.recId,
-                                                  false
+                                                  false,
                                                 );
                                             controller.fetchExpenseHistory(
                                               item.recId,
@@ -963,7 +975,6 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
     );
   }
 
-
   Widget _buildCard(ManageExpensesCard card, bool isSmallScreen) {
     final theme = Theme.of(context);
     final primaryColor = theme.primaryColor;
@@ -1005,7 +1016,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
           ),
           const SizedBox(height: 4),
           Text(
-            'Count: ${card.count}',
+             '${AppLocalizations.of(context)!.count}: ${card.count}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -1259,6 +1270,11 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
               Text(
                 item.expenseCategoryId,
                 style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${AppLocalizations.of(context)!.employeeId}: ${item.employeeId} | ${AppLocalizations.of(context)!.employeeName}: ${item.employeeName}',
+                style: const TextStyle(fontSize: 12),
               ),
               const SizedBox(height: 6),
               Row(

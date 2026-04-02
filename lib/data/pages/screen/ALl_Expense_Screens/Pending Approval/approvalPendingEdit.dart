@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -58,9 +59,9 @@ class _ApprovalViewEditExpensePageState
   String? selectedPaidWith;
   bool allowMultSelect = false;
   bool _showHistory = false;
-    late FocusNode _focusNode;
+  late FocusNode _focusNode;
 
-   int? workitemrecid;
+  int? workitemrecid;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
   bool showItemizeDetails = true;
@@ -76,7 +77,7 @@ class _ApprovalViewEditExpensePageState
   late final isBillableConfig;
   late final isLocationConfig;
 
-@override
+  @override
   void initState() {
     super.initState();
 
@@ -98,7 +99,7 @@ class _ApprovalViewEditExpensePageState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // calculateAmounts(widget.items!.exchRate.toString());
-  controller.fetchPaidto();
+      controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
       controller.fetchExpenseCategory();
@@ -114,7 +115,7 @@ class _ApprovalViewEditExpensePageState
     });
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-      'dd/MM/yyyy',
+      'dd-MM-yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     statusApproval = widget.items!.approvalStatus;
@@ -158,8 +159,9 @@ class _ApprovalViewEditExpensePageState
     controller.cashAdvReqIds = widget.items!.cashAdvReqId;
     controller.employeeIdController.text = widget.items!.employeeName!;
     controller.employeeName.text = widget.items!.employeeId!;
-        controller.justificationnotes.text = widget.items!.justificateNotes!;
-    controller.approvalamountINR.text = widget.items!.totalAmountReporting.toStringAsFixed(2);
+    controller.justificationnotes.text = widget.items!.justificateNotes!;
+    controller.approvalamountINR.text = widget.items!.totalAmountReporting
+        .toStringAsFixed(2);
     controller.amountINR.text = widget.items!.totalAmountReporting
         .toStringAsFixed(2);
     controller.expenseID = widget.items!.expenseId;
@@ -175,10 +177,8 @@ class _ApprovalViewEditExpensePageState
     controller.currencyDropDowncontroller.text = widget.items!.currency
         .toString();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-
-    _initializeItemizeControllers();
-        _initializeData();
-
+      _initializeItemizeControllers();
+      _initializeData();
     });
     projectConfig = controller.getFieldConfig("Project Id");
     taxGroupConfig = controller.getFieldConfig("Tax Group");
@@ -189,64 +189,67 @@ class _ApprovalViewEditExpensePageState
     isLocationConfig = controller.getFieldConfig("Location");
   }
 
-Future<void> _initializeControllerData() async {
-  try {
-    // Fetch all required data first
-    await Future.wait([
-      controller.fetchPaidto(),
-      controller.fetchPaidwith(),
-      controller.fetchProjectName(),
-      controller.fetchExpenseCategory(),
-      controller.fetchUnit(),
-      controller.fetchTaxGroup(),
-      controller.currencyDropDown(),
-      controller.fetchExchangeRate(),
-      controller.fetchUsers(),
-      controller.fetchExpenseDocImage(widget.items!.recId),
-      controller.configuration(),
-    ]);
+  Future<void> _initializeControllerData() async {
+    try {
+      // Fetch all required data first
+      await Future.wait([
+        controller.fetchPaidto(),
+        controller.fetchPaidwith(),
+        controller.fetchProjectName(),
+        controller.fetchExpenseCategory(),
+        controller.fetchUnit(),
+        controller.fetchTaxGroup(),
+        controller.currencyDropDown(),
+        controller.fetchExchangeRate(),
+        controller.fetchUsers(),
+        controller.fetchExpenseDocImage(widget.items!.recId),
+        controller.configuration(),
+      ]);
 
-    // Wait for a microtask to ensure build is complete
-    await Future.microtask(() {});
-    
-    // Now set the values
-    final formatted = DateFormat('dd/MM/yyyy').format(widget.items!.receiptDate);
-    controller.selectedDate = widget.items!.receiptDate;
-    receiptDateController.text = formatted;
-    employeeName.text = widget.items!.employeeName!;
-    employyeID.text = widget.items!.employeeId!;
-    statusApproval = widget.items!.approvalStatus;
-    controller.paymentMethodID = widget.items!.paymentMethod.toString();
-    expenseIdController.text = widget.items!.expenseId.toString();
-    receiptDateController.text = formatted;
-    controller.paidToController.text = widget.items!.merchantName.toString();
-    controller.paidWithController.text = widget.items!.paymentMethod!;
-    controller.referenceID.text = widget.items!.referenceNumber.toString();
-    selectedPaidTo = paidToOptions.first;
-    selectedPaidWith = paidWithOptions.first;
-    controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
-    controller.unitRate.text = widget.items!.exchRate.toString();
-    controller.cashAdvReqIds = widget.items!.cashAdvReqId;
-    controller.justificationnotes.text = widget.items!.justificateNotes!;
-    controller.employeeName.text = widget.items!.employeeName!;
-    controller.employeeIdController.text = widget.items!.employeeId!;
-    controller.isBillableCreate = widget.items!.isBillable;
-    controller.expenseID = widget.items!.expenseId;
-    controller.recID = widget.items!.recId;
-    workitemrecid = widget.items!.workitemrecid!;
-    controller.currencyDropDowncontroller.text = widget.items!.currency.toString();
-    
-    print("totalAmountReporting${controller.approvalamountINR.text}");
-    
-    // Call setState once at the end
-    if (mounted) {
-      setState(() {});
+      // Wait for a microtask to ensure build is complete
+      await Future.microtask(() {});
+
+      // Now set the values
+      final formatted = DateFormat(
+        'dd-MM-yyyy',
+      ).format(widget.items!.receiptDate);
+      controller.selectedDate = widget.items!.receiptDate;
+      receiptDateController.text = formatted;
+      employeeName.text = widget.items!.employeeName!;
+      employyeID.text = widget.items!.employeeId!;
+      statusApproval = widget.items!.approvalStatus;
+      controller.paymentMethodID = widget.items!.paymentMethod.toString();
+      expenseIdController.text = widget.items!.expenseId.toString();
+      receiptDateController.text = formatted;
+      controller.paidToController.text = widget.items!.merchantName.toString();
+      controller.paidWithController.text = widget.items!.paymentMethod!;
+      controller.referenceID.text = widget.items!.referenceNumber.toString();
+      selectedPaidTo = paidToOptions.first;
+      selectedPaidWith = paidWithOptions.first;
+      controller.paidAmount.text = widget.items!.totalAmountTrans.toString();
+      controller.unitAmount.text = widget.items!.totalAmountTrans.toString();
+      controller.unitRate.text = widget.items!.exchRate.toString();
+      controller.cashAdvReqIds = widget.items!.cashAdvReqId;
+      controller.justificationnotes.text = widget.items!.justificateNotes!;
+      controller.employeeName.text = widget.items!.employeeName!;
+      controller.employeeIdController.text = widget.items!.employeeId!;
+      controller.isBillableCreate = widget.items!.isBillable;
+      controller.expenseID = widget.items!.expenseId;
+      controller.recID = widget.items!.recId;
+      workitemrecid = widget.items!.workitemrecid!;
+      controller.currencyDropDowncontroller.text = widget.items!.currency
+          .toString();
+
+      print("totalAmountReporting${controller.approvalamountINR.text}");
+
+      // Call setState once at the end
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print("Error initializing controller data: $e");
     }
-  } catch (e) {
-    print("Error initializing controller data: $e");
   }
-}
 
   String? _validateRequiredField(
     String value,
@@ -285,7 +288,7 @@ Future<void> _initializeControllerData() async {
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd/MM/yyyy').parseStrict(value);
+        DateFormat('dd-MM-yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
       }
@@ -350,15 +353,6 @@ Future<void> _initializeControllerData() async {
           null) {
         isValid = false;
       }
-    }
-
-    if (_validateRequiredField(
-          controller.paidWithController.text,
-          AppLocalizations.of(context)!.paidWith,
-          true,
-        ) !=
-        null) {
-      isValid = false;
     }
 
     if (_validateNumericField(
@@ -556,11 +550,13 @@ Future<void> _initializeControllerData() async {
       controller.lineAmount.text = item.lineAmountTrans.toString();
       controller.lineAmountINR.text = item.lineAmountReporting.toString();
       controller.taxAmount.text = item.taxAmount.toString();
-      controller.taxGroupController.text = item.taxGroup!;
-      controller.categoryController.text = item.expenseCategoryId;
-      controller.uomId.text = item.uomId;
+      controller.taxGroupController.text = item.taxGroup ?? '';
+      controller.categoryController.text = item.expenseCategoryId ?? '';
+      controller.uomId.text = item.uomId ?? '';
       controller.isReimbursable = item.isReimbursable;
       controller.isBillable.value = item.isBillable;
+
+      // ✅ Split mapping
       controller.split = (item.accountingDistributions ?? []).map((dist) {
         return AccountingSplit(
           paidFor: dist.dimensionValueId ?? '',
@@ -568,8 +564,33 @@ Future<void> _initializeControllerData() async {
           amount: dist.transAmount ?? 0.0,
         );
       }).toList();
+
+      // ✅ 🔥 ADD CATEGORY LOGIC HERE
+      if (controller.categoryController.text.isNotEmpty &&
+          this.controller.expenseCategory.isNotEmpty) {
+        final matchingCategory = this.controller.expenseCategory.firstWhere(
+          (e) => e.categoryId == controller.categoryController.text,
+          orElse: () => this.controller.expenseCategory.first,
+        );
+
+        controller.selectedCategory = matchingCategory;
+
+        controller.itemisationMandatory.value =
+            matchingCategory.itemisationMandatory;
+
+        controller.minExpenseAmount.value =
+            (matchingCategory.minExpensesAmount ?? 0).toDouble();
+
+        controller.maxExpenseAmount.value =
+            (matchingCategory.maxExpenseAmount ?? 0).toDouble();
+
+        controller.receiptRequiredLimit.value =
+            (matchingCategory.receiptRequiredLimit ?? 0).toDouble();
+      }
+
       return controller;
     }).toList();
+
     _itemizeCount = widget.items!.expenseTrans.length;
   }
 
@@ -766,23 +787,15 @@ Future<void> _initializeControllerData() async {
       controller.isImageLoading.value = false;
     }
   }
-Future<void> _pickFile() async {
+
+  Future<void> _pickFile() async {
     try {
       controller.isImageLoading.value = true;
 
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -814,16 +827,15 @@ Future<void> _pickFile() async {
       controller.isImageLoading.value = false;
     }
   }
-Future<void> _processSelectedFile(File file) async {
+
+  Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
-
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+    setState(() {
+      controller.imageFiles.add(file);
+    });
   }
+
   @override
   Widget build(BuildContext context) {
     Color buttonColor;
@@ -861,7 +873,9 @@ Future<void> _processSelectedFile(File file) async {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           actions: [
-            if (widget.isReadOnly && widget.items != null)
+            if (widget.isReadOnly &&
+                widget.items != null &&
+                PermissionHelper.canUpdate("Expense Registration"))
               IconButton(
                 icon: Icon(
                   widget.items!.stepType == "Approval"
@@ -933,175 +947,216 @@ Future<void> _processSelectedFile(File file) async {
                             ],
                           ),
                         const SizedBox(height: 5),
-                         Obx(() {
-          return GestureDetector(
-            onTap: _pickFile,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.3,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-
-              /// ✅ EMPTY VIEW
-              child: controller.imageFiles.isEmpty
-                  ? Center(
-                      child: Text(
-                        AppLocalizations.of(context)!.tapToUploadDocs,
-                      ),
-                    )
-                  /// ✅ FILE PREVIEW VIEW
-                  : Stack(
-                      children: [
-                        PageView.builder(
-                          controller: _pageController,
-                          itemCount: controller.imageFiles.length,
-                          onPageChanged: (index) {
-                            controller.currentIndex.value = index;
-                          },
-
-                          itemBuilder: (_, index) {
-                            final file = controller.imageFiles[index];
-                            final path = file.path;
-
-                            return GestureDetector(
-                             onTap: () =>
-    controller.openFile(context, file, index),
-
-                              child: Container(
-                                margin: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.deepPurple),
-                                  borderRadius: BorderRadius.circular(8),
+                        Obx(() {
+                          return GestureDetector(
+                            onTap: _pickFile,
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 0.9,
+                              height: MediaQuery.of(context).size.height * 0.3,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey,
+                                  width: 2,
                                 ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
 
-                                /// ✅ IMAGE
-                                child: controller.isImage(path)
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          file,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
+                              /// ✅ EMPTY VIEW
+                              child: controller.imageFiles.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.tapToUploadDocs,
+                                      ),
+                                    )
+                                  /// ✅ FILE PREVIEW VIEW
+                                  : Stack(
+                                      children: [
+                                        PageView.builder(
+                                          controller: _pageController,
+                                          itemCount:
+                                              controller.imageFiles.length,
+                                          onPageChanged: (index) {
+                                            controller.currentIndex.value =
+                                                index;
+                                          },
+
+                                          itemBuilder: (_, index) {
+                                            final file =
+                                                controller.imageFiles[index];
+                                            final path = file.path;
+
+                                            return GestureDetector(
+                                              onTap: () => controller.openFile(
+                                                context,
+                                                file,
+                                                index,
+                                              ),
+
+                                              child: Container(
+                                                margin: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: Colors.deepPurple,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+
+                                                /// ✅ IMAGE
+                                                child: controller.isImage(path)
+                                                    ? ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        child: Image.file(
+                                                          file,
+                                                          fit: BoxFit.cover,
+                                                          width:
+                                                              double.infinity,
+                                                        ),
+                                                      )
+                                                    /// ✅ PDF
+                                                    : controller.isPdf(path)
+                                                    ? Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .picture_as_pdf,
+                                                            size: 70,
+                                                            color: Colors.red,
+                                                          ),
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                  8,
+                                                                ),
+                                                            child: Text(
+                                                              file.path
+                                                                  .split('/')
+                                                                  .last,
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      )
+                                                    /// ✅ EXCEL
+                                                    : controller.isExcel(path)
+                                                    ? Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.table_chart,
+                                                            size: 70,
+                                                            color: Colors.green,
+                                                          ),
+                                                          Text(
+                                                            file.path
+                                                                .split('/')
+                                                                .last,
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                          ),
+                                                        ],
+                                                      )
+                                                    /// ✅ OTHER FILE
+                                                    : Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .insert_drive_file,
+                                                            size: 70,
+                                                          ),
+                                                          Text(
+                                                            file.path
+                                                                .split('/')
+                                                                .last,
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                          ),
+                                                        ],
+                                                      ),
+                                              ),
+                                            );
+                                          },
                                         ),
-                                      )
-                                    /// ✅ PDF
-                                    : controller.isPdf(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.picture_as_pdf,
-                                            size: 70,
-                                            color: Colors.red,
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: Text(
-                                              file.path.split('/').last,
-                                              textAlign: TextAlign.center,
+
+                                        /// ✅ PAGE COUNT
+                                        Positioned(
+                                          bottom: 40,
+                                          left: 0,
+                                          right: 0,
+                                          child: Center(
+                                            child: Obx(
+                                              () => Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 8,
+                                                      horizontal: 16,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                           ),
-                                        ],
-                                      )
-                                    /// ✅ EXCEL
-                                    : controller.isExcel(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.table_chart,
-                                            size: 70,
-                                            color: Colors.green,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      )
-                                    /// ✅ OTHER FILE
-                                    : Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.insert_drive_file,
-                                            size: 70,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                            );
-                          },
-                        ),
+                                        ),
 
-                        /// ✅ PAGE COUNT
-                        Positioned(
-                          bottom: 40,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Obx(
-                              () => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
+                                        /// ✅ ADD BUTTON
+                                        if (controller.isEnable.value)
+                                          Positioned(
+                                            bottom: 16,
+                                            right: 16,
+                                            child: GestureDetector(
+                                              onTap: _pickFile,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.deepPurple,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  8,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.add,
+                                                  color: Colors.white,
+                                                  size: 28,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
 
-                        /// ✅ ADD BUTTON
-                        if (controller.isEnable.value)
-                          Positioned(
-                            bottom: 16,
-                            right: 16,
-                            child: GestureDetector(
-                              onTap: _pickFile,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.deepPurple,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          );
-        }),
-                       
                         const SizedBox(height: 20),
                         Text(
                           AppLocalizations.of(context)!.receiptDetails,
@@ -1368,11 +1423,11 @@ Future<void> _processSelectedFile(File file) async {
                               searchValue: (p) =>
                                   '${p.paymentMethodName} ${p.paymentMethodId}',
                               displayText: (p) => p.paymentMethodName,
-                              validator: (value) => _validateRequiredField(
-                                controller.paidWithController.text,
-                                AppLocalizations.of(context)!.paidWith,
-                                true,
-                              ),
+                              // validator: (value) => _validateRequiredField(
+                              //   controller.paidWithController.text,
+                              //   AppLocalizations.of(context)!.paidWith,
+                              //   true,
+                              // ),
                               onChanged: (p) {
                                 loadAndAppendCashAdvanceList();
                                 setState(() {
@@ -1403,7 +1458,7 @@ Future<void> _processSelectedFile(File file) async {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        // const SizedBox(height: 12),
                         ...controller.configList
                             .where(
                               (field) =>
@@ -1552,14 +1607,14 @@ Future<void> _processSelectedFile(File file) async {
                                           ),
                                         ),
                                       ),
-                                      validator: (value) =>
-                                          _validateRequiredField(
-                                            controller.paidWithController.text,
-                                            AppLocalizations.of(
-                                              context,
-                                            )!.currency,
-                                            true,
-                                          ),
+                                      // validator: (value) =>
+                                      //     _validateRequiredField(
+                                      //       controller.paidWithController.text,
+                                      //       AppLocalizations.of(
+                                      //         context,
+                                      //       )!.currency,
+                                      //       true,
+                                      //     ),
                                       onChanged: (c) async {
                                         controller.selectedCurrency.value = c;
                                         controller.fetchExchangeRate().then((
@@ -1657,7 +1712,7 @@ Future<void> _processSelectedFile(File file) async {
                           enabled: false,
                           decoration: InputDecoration(
                             labelText:
-                                '${AppLocalizations.of(context)!.amountInInr} *',
+                                '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}*',
                             filled: true,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -2029,6 +2084,7 @@ Future<void> _processSelectedFile(File file) async {
                                                   );
                                                 })
                                                 .toList(),
+
                                             // SearchableMultiColumnDropdownField<
                                             //   Project
                                             // >(
@@ -2089,7 +2145,6 @@ Future<void> _processSelectedFile(File file) async {
                                             //     );
                                             //   },
                                             // ),
-                                            const SizedBox(height: 12),
                                             SearchableMultiColumnDropdownField<
                                               ExpenseCategory
                                             >(
@@ -2137,6 +2192,26 @@ Future<void> _processSelectedFile(File file) async {
                                                           .categoryController
                                                           .text =
                                                       p.categoryId;
+                                                  itemController
+                                                          .itemisationMandatory
+                                                          .value =
+                                                      p.itemisationMandatory;
+                                                  itemController
+                                                          .minExpenseAmount
+                                                          .value =
+                                                      (p.minExpensesAmount ?? 0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .receiptRequiredLimit
+                                                          .value =
+                                                      (p.receiptRequiredLimit ??
+                                                              0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .maxExpenseAmount
+                                                          .value =
+                                                      (p.maxExpenseAmount ?? 0)
+                                                          .toDouble();
                                                 });
                                               },
                                               controller: itemController
@@ -2248,94 +2323,163 @@ Future<void> _processSelectedFile(File file) async {
                                               },
                                             ),
                                             const SizedBox(height: 12),
-                                            _buildTextField(
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter.allow(
-                                                  RegExp(r'^\d*\.?\d{0,2}'),
-                                                ),
-                                              ],
-                                              label:
-                                                  "${AppLocalizations.of(context)!.quantity} *",
-                                              controller:
-                                                  itemController.quantity,
-                                              isReadOnly:
-                                                  controller.isEnable.value,
-                                              validator: (value) =>
-                                                  _validateNumericField(
-                                                    value!,
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.quantity,
-                                                    true,
-                                                  ),
-                                              onChanged: (value) {
-                                                controller
-                                                    .fetchExchangeRate()
-                                                    .then((_) {
-                                                      _updateAllLineItems();
-                                                    });
-                                                itemController
-                                                    .calculateLineAmounts(
-                                                      itemController,
-                                                      widget
-                                                          .items!
-                                                          .expenseTrans[index],
-                                                    );
-                                                _calculateTotalLineAmount(
-                                                  itemController,
-                                                ).toStringAsFixed(2);
-                                                setState(() {
-                                                  widget
-                                                          .items!
-                                                          .expenseTrans[index] =
+                                            Obx(() {
+                                              final error = itemController
+                                                  .paidAmountError
+                                                  .value;
+
+                                              return Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize
+                                                    .min, // 🔥 IMPORTANT (removes extra space)
+                                                children: [
+                                                  _buildTextFieldUnitAmount(
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.allow(
+                                                        RegExp(
+                                                          r'^\d*\.?\d{0,2}',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    label:
+                                                        "${AppLocalizations.of(context)!.unitAmount} *",
+                                                    controller: itemController
+                                                        .unitPriceTrans,
+                                                    isReadOnly: controller
+                                                        .isEnable
+                                                        .value,
+
+                                                    // ❌ DO NOT USE errorText here
+                                                    validator: (value) {
+                                                      final basicValidation =
+                                                          _validateNumericField(
+                                                            value!,
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.unitAmount,
+                                                            true,
+                                                          );
+
+                                                      if (basicValidation !=
+                                                          null)
+                                                        return basicValidation;
+
+                                                      final parsed =
+                                                          double.tryParse(
+                                                            itemController
+                                                                .lineAmountINR
+                                                                .text,
+                                                          ) ??
+                                                          0.0;
+
+                                                      final min = itemController
+                                                          .minExpenseAmount
+                                                          .value;
+                                                      final max = itemController
+                                                          .maxExpenseAmount
+                                                          .value;
+                                                      final receiptLimit =
+                                                          itemController
+                                                              .receiptRequiredLimit
+                                                              .value;
+
+                                                      if (parsed < min &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (parsed > max &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1 &&
+                                                          max != 0.0) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (receiptLimit > 0 &&
+                                                          parsed >=
+                                                              receiptLimit) {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            true;
+                                                      } else {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            false;
+                                                      }
+
                                                       itemController
-                                                          .toExpenseItemUpdateModel();
-                                                });
-                                              },
-                                            ),
-                                            _buildTextField(
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter.allow(
-                                                  RegExp(r'^\d*\.?\d{0,2}'),
-                                                ),
-                                              ],
-                                              label:
-                                                  "${AppLocalizations.of(context)!.unitAmount} *",
-                                              controller:
-                                                  itemController.unitPriceTrans,
-                                              isReadOnly:
-                                                  controller.isEnable.value,
-                                              validator: (value) =>
-                                                  _validateNumericField(
-                                                    value!,
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.unitAmount,
-                                                    true,
-                                                  ),
-                                              onChanged: (value) async {
-                                                controller
-                                                    .fetchExchangeRate()
-                                                    .then((_) {
-                                                      _updateAllLineItems();
-                                                    });
-                                                itemController
-                                                    .calculateLineAmounts(
-                                                      itemController,
-                                                    );
-                                                setState(() {
-                                                  widget
-                                                          .items!
-                                                          .expenseTrans[index] =
+                                                              .paidAmountError
+                                                              .value =
+                                                          ''; // ✅ clear error
+                                                      return null;
+                                                    },
+                                                    onChanged: (value) {
+                                                      controller
+                                                          .fetchExchangeRate()
+                                                          .then((_) {
+                                                            _updateAllLineItems();
+                                                          });
                                                       itemController
-                                                          .toExpenseItemUpdateModel();
-                                                });
-                                              },
-                                            ),
+                                                          .calculateLineAmounts(
+                                                            itemController,
+                                                            widget
+                                                                .items!
+                                                                .expenseTrans[index],
+                                                          );
+                                                      _calculateTotalLineAmount(
+                                                        itemController,
+                                                      ).toStringAsFixed(2);
+                                                      setState(() {
+                                                        widget
+                                                                .items!
+                                                                .expenseTrans[index] =
+                                                            itemController
+                                                                .toExpenseItemUpdateModel();
+                                                      });
+                                                    },
+                                                  ),
+
+                                                  /// ✅ ONLY SHOW ERROR WHEN EXISTS (no extra space)
+                                                  if (error.isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 0,
+                                                          ),
+                                                      child: Text(
+                                                        error,
+                                                        style: const TextStyle(
+                                                          color: Colors.red,
+                                                          fontSize: 10,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              );
+                                            }),
+                                            const SizedBox(height: 12),
                                             _buildTextField(
                                               keyboardType:
                                                   TextInputType.number,
@@ -2369,9 +2513,8 @@ Future<void> _processSelectedFile(File file) async {
                                               },
                                             ),
                                             _buildTextField(
-                                              label: AppLocalizations.of(
-                                                context,
-                                              )!.lineAmountInInr,
+                                              label:
+                                                  '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
                                               controller:
                                                   itemController.lineAmountINR,
                                               isReadOnly: false,
@@ -2783,12 +2926,10 @@ Future<void> _processSelectedFile(File file) async {
                                 }
 
                                 if (snapshot.hasError) {
-                                          return Center(
-                                            child: Text(
-                                              "No Data Available",
-                                            ),
-                                          );
-                                        }
+                                  return Center(
+                                    child: Text("No Data Available"),
+                                  );
+                                }
 
                                 final historyList = snapshot.data!;
                                 if (historyList.isEmpty) {
@@ -3273,7 +3414,7 @@ Future<void> _processSelectedFile(File file) async {
                               Expanded(
                                 child: ElevatedButton(
                                   onPressed: () {
-                                    controller.chancelButton(context);
+                                    Navigator.pop(context);
                                     controller.closeField();
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -3291,7 +3432,7 @@ Future<void> _processSelectedFile(File file) async {
                             !controller.isApprovalEnable.value)
                           ElevatedButton(
                             onPressed: () {
-                              controller.chancelButton(context);
+                              Navigator.pop(context);
                               controller.isApprovalEnable.value = false;
                             },
                             style: ElevatedButton.styleFrom(
@@ -3343,13 +3484,24 @@ Future<void> _processSelectedFile(File file) async {
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
+                    setState(() {
+                      controller.selectedDate = picked;
+
+                      controller.selectedProject = null;
+                      for (var c in itemizeControllers) {
+                        c.expenseCategory.value = [];
+                        c.categoryController.clear();
+                        c.projectDropDowncontroller.clear();
+                      }
+                    });
+                    loadAndAppendCashAdvanceList();
+                    controller.fetchExpenseCategory();
+                    controller.fetchProjectName();
                     controller.selectedDate = picked;
                     controller.fetchProjectName();
                   }
@@ -3487,7 +3639,7 @@ Future<void> _processSelectedFile(File file) async {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -3582,7 +3734,7 @@ Future<void> _processSelectedFile(File file) async {
                     ],
                     const SizedBox(height: 16),
                     Text(
-                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : '' }',
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 8),
@@ -3690,6 +3842,39 @@ Future<void> _processSelectedFile(File file) async {
           },
         );
       },
+    );
+  }
+
+  Widget _buildTextFieldUnitAmount({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            // contentPadding: const EdgeInsets.symmetric(
+            //   vertical: 20,
+            //   horizontal: 16,
+            // ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
+      ],
     );
   }
 

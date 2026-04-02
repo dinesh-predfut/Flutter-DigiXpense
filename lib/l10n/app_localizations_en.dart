@@ -43,31 +43,46 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get localizationPreferences => 'Localization & Preferences';
   @override
-  String get timeZone => 'Time Zone';
-  @override String get periodType => 'Period Type';
-@override String get periodTypeIsRequired => 'Period Type is required';
-@override String get timeSheetRequestForm => 'Timesheet Request Form';
-@override String get dateRange => 'Date Range';
-@override String get lineItem => 'Line Item';
-@override String get addLine => 'Add Line';
-@override String get addTimer => 'Add Timer';
-@override String get myTeamTimesheets => 'My Team Timesheets';
-@override String get timeSheetPendingApprovals => 'Timesheet Pending Approvals';
+  String get timeZone => ' Default Time Zone';
+  @override
+  String get periodType => 'Period Type';
+  @override
+  String get periodTypeIsRequired => 'Period Type is required';
+  @override
+  String get timeSheetRequestForm => 'Timesheet Request Form';
+  @override
+  String get dateRange => 'Date Range';
+  @override
+  String get lineItem => 'Line Item';
+  @override
+  String get addLine => 'Add Line';
+  @override
+  String get addTimer => 'Add Timer';
+  @override
+  String get myTeamTimesheets => 'My Team Timesheets';
+  @override
+  String get timeSheetPendingApprovals => 'Timesheet Pending Approvals';
 
   @override
   String get defaultPayment => 'Default Payment';
   @override
   String get defaultCurrency => 'Default Currency';
   @override
-  String get selectLocale => 'Select Locale';
+  String get selectLocale => 'Locale';
   @override
   String get pleasePickLanguage => 'Please pick a language';
   @override
   String get defaultLanguage => 'Default Language';
   @override
-  String get selectDateFormat => 'Select Date Format';
+  String get selectDateFormat => 'Default Date Format';
   @override
   String get cancel => 'Cancel';
+  @override String get emailsForReceiptForwarding => 'Emails For Receipt Forwarding';
+  @override String get example => 'Example';
+@override String get onlyLettersAndNumbers => 'Only letters and numbers are allowed';
+@override String get zipMustIncludeNumber => 'ZIP code must include at least one number';
+@override String get noMatchingStates => 'No matching states';
+@override String get invalidPhoneNumber => 'Invalid phone number';
   @override
   String get submit => 'Submit';
   @override
@@ -99,10 +114,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewTeamMemberAttendance => 'View Team Member Attendance';
   @override
   String get viewAttendanceTransaction => 'View Attendance Transaction';
- @override String get employees => 'Employees';
-@override String get employeeGroups => 'Employee Groups';
-@override String get timesheetRequisitionId => 'Timesheet Requisition ID';
-
+  @override
+  String get employees => 'Employees';
+  @override
+  String get employeeGroups => 'Employee Groups';
+  @override
+  String get timesheetRequisitionId => 'Timesheet Requisition ID';
 
   @override
   String get payroll => 'Payroll';
@@ -312,11 +329,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get lineAmount => 'Line Amount';
   @override
-  String get lineAmountInInr => 'Line Amount in INR';
+  String get lineAmountInInr => 'Line Amount in ';
   @override
   String get accountDistribution => 'Accounting Distribution';
   @override
   String get totalAmount => 'Total Amount:';
+  @override
+  String get totalAmountIN => 'Total Amount In';
   @override
   String get comments => 'Comments';
   @override
@@ -370,42 +389,78 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zoomOut => 'Zoom Out';
   @override
   String get edit => 'Edit';
-  @override String get eventType => 'Event Type';
-@override String get sendToMail => 'Send to Mail';
-@override String get send => 'Send';
-@override String get download => 'Download';
-@override String get payslipsNotAvailable => 'Payslips not available';
-@override String get tableView => 'Table View';
-@override String get timeTracker => 'Time Tracker';
-@override String get start => 'Start';
-@override String get pause => 'Pause';
-@override String get resume => 'Resume';
-@override String get complete => 'Complete';
-@override String get generateTimeSheet => 'Generate Timesheet';
-@override String get generateAndSubmit => 'Generate & Submit';
-@override String get noTimeRunsFound => 'No Time Runs Found';
-@override String get active => 'ACTIVE';
-@override String get runId => 'Run ID';
-@override String get segment => 'Segment';
-@override String get timeRunId => 'Time Run ID';
-@override String get sequence => 'Sequence';
-@override String get end => 'End';
-@override String get noEventsFound => 'No Events Found';
-@override String get event => 'Event';
-@override String get occurred => 'Occurred';
-@override String get started => 'Started';
-@override String get ended => 'Ended';
-@override String get eventTypeOccurred => 'Event Type Occurred';
-@override String get details => 'Details';
-@override String get viewDetails => 'View Details';
-@override String get segmentId => 'Segment ID';
-@override String get segmentSequence => 'Segment Sequence';
-@override String get startTime => 'Start Time';
-@override String get endTime => 'End Time';
-@override String get durationInHours => 'Duration in Hours';
-@override String get endEvent => 'End Event';
-@override String get updateDetails => 'Update Details';
-@override String get editSegment => 'Edit Segment';
+  @override
+  String get eventType => 'Event Type';
+  @override
+  String get sendToMail => 'Send to Mail';
+  @override
+  String get send => 'Send';
+  @override
+  String get download => 'Download';
+  @override
+  String get payslipsNotAvailable => 'Payslips not available';
+  @override
+  String get tableView => 'Table View';
+  @override
+  String get timeTracker => 'Time Tracker';
+  @override
+  String get start => 'Start';
+  @override
+  String get pause => 'Pause';
+  @override
+  String get resume => 'Resume';
+  @override
+  String get complete => 'Complete';
+  @override
+  String get generateTimeSheet => 'Generate Timesheet';
+  @override
+  String get generateAndSubmit => 'Generate & Submit';
+  @override
+  String get noTimeRunsFound => 'No Time Runs Found';
+  @override
+  String get active => 'ACTIVE';
+  @override
+  String get runId => 'Run ID';
+  @override
+  String get segment => 'Segment';
+  @override
+  String get timeRunId => 'Time Run ID';
+  @override
+  String get sequence => 'Sequence';
+  @override
+  String get end => 'End';
+  @override
+  String get noEventsFound => 'No Events Found';
+  @override
+  String get event => 'Event';
+  @override
+  String get occurred => 'Occurred';
+  @override
+  String get started => 'Started';
+  @override
+  String get ended => 'Ended';
+  @override
+  String get eventTypeOccurred => 'Event Type Occurred';
+  @override
+  String get details => 'Details';
+  @override
+  String get viewDetails => 'View Details';
+  @override
+  String get segmentId => 'Segment ID';
+  @override
+  String get segmentSequence => 'Segment Sequence';
+  @override
+  String get startTime => 'Start Time';
+  @override
+  String get endTime => 'End Time';
+  @override
+  String get durationInHours => 'Duration in Hours';
+  @override
+  String get endEvent => 'End Event';
+  @override
+  String get updateDetails => 'Update Details';
+  @override
+  String get editSegment => 'Edit Segment';
 
   @override
   String get receiptDate => 'Receipt Date';
@@ -507,7 +562,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get enterValidRate => 'Enter a valid rate';
   @override
-  String get amountInInr => 'Amount in INR';
+  String get amountInInr => 'Amount in';
   @override
   String get policyViolations => 'Policy Violations';
   @override
@@ -620,7 +675,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get leaveRequisition => 'Leaves Requisition';
   @override
+  String get createdBy => 'Created By';
+  @override
+  String get stage => 'Stage';
+  @override
+  String get shelfNameRequired => 'Shelf name is required';
+  @override
+  String get label => 'Label';
+  @override
   String get myLeave => 'My Leaves';
+  String get leave => 'Leaves';
+  @override
+  String get timesheet => 'Timesheet';
   @override
   String get myTeamLeave => 'My Team Leaves';
   @override
@@ -768,7 +834,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get generalExpense => 'General Expense';
   @override
-  String get totalAmountInInr => 'Total Amount in INR';
+  String get totalAmountInInr => 'Total Amount in ';
   @override
   String get purpose => 'Purpose';
   @override
@@ -828,7 +894,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cashAdvanceRequestForm => 'Cash Advance Request Form';
   @override
-  String get requestedPercentage => 'Requested Percentage';
+  String get requestedPercentage => 'Line Requested Percentage';
   @override
   String get unitEstimatedAmount => 'Unit Estimated Amount';
   @override
@@ -836,7 +902,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cashAdvanceRequisitionId => 'Cash Advance Requisition ID';
   @override
-  String get totalEstimatedAmountInInr => 'Total Estimated Amount In INR';
+  String get totalEstimatedAmountInInr => 'Total Estimated Amount In ';
+  @override
+  String get reportedAmountNotWithinRange =>
+      'Reported amount is not within allowed range';
+  @override
+  String get lineEstimatedAmountInINR => 'Line Estimated Amount In ';
+
+  @override
+  String get misReports => 'MIS Reports';
+  @override
+  String get count => 'Count';
+  @override
+  String get lineRequestedAmountInINR => 'Line Requested Amount In ';
+  @override
+  String get totalRequestedAmountInINR => 'Total Requested Amount In ';
   @override
   String get totalEstimatedAmountIn => 'Total Estimated Amount ';
   @override
@@ -845,10 +925,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get justification => 'Justification';
   @override
   String get uploadFileOrDragDrop => 'Upload a file';
-@override String get leaveFullCancellation => 'Leave Full Cancellation';
-@override String get reasonForCancellation => 'Reason for cancellation';
-@override String get pleaseEnterCancellationReason => 'Please enter cancellation reason';
-@override String get leavePartialCancellation => 'Leave Partial Cancellation';
+  @override
+  String get leaveFullCancellation => 'Leave Full Cancellation';
+  @override
+  String get reasonForCancellation => 'Reason for cancellation';
+  @override
+  String get pleaseEnterCancellationReason =>
+      'Please enter cancellation reason';
+  @override
+  String get leavePartialCancellation => 'Leave Partial Cancellation';
   @override
   String get uploadAttachments => 'Attachments';
 
@@ -965,12 +1050,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterRule => 'Filter Rule';
   @override
   String get addGroup => 'Add Group';
+  @override
+  String get confirmLogout => 'Confirm Logout';
+  @override
+  String get logoutConfirmationMessage => 'Are you sure you want to logout?';
 
+  @override
+  String get toDateValidation => 'To Date cannot be earlier than From Date';
   @override
   String get removeGroup => 'Remove Group';
   @override
   String get addRuleToGroup => 'Add Rule to this Group';
   @override
+  @override
+  String get addRule => 'Add Rule';
   String get availableColumnsHeader => 'Available Columns (Header)';
   @override
   String get availableColumnsLines => 'Available Columns (Lines)';
@@ -1189,7 +1282,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referenceName => 'Reference Type';
   @override
   String get boardTaskDetails => 'Board Task Details';
-  @override String get areaName => 'Area Name';
+  @override
+  String get areaName => 'Area Name';
   @override
   String get taskName => 'Task Name';
   @override
@@ -1210,11 +1304,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get priority => 'Priority';
   @override
   String get low => 'Low';
-  @override String get plannedStartDate => 'Planned Start Date';
-@override String get plannedEndDate => 'Planned End Date';
-@override String get actualStartDate => 'Actual Start Date';
-@override String get actualEndDate => 'Actual End Date';
-@override String get addTimeSheets => 'Add Timesheets';
+  @override
+  String get plannedStartDate => 'Planned Start Date';
+  @override
+  String get plannedEndDate => 'Planned End Date';
+  @override
+  String get actualStartDate => 'Actual Start Date';
+  @override
+  String get actualEndDate => 'Actual End Date';
+  @override
+  String get addTimeSheets => 'Add Timesheets';
   @override
   String get high => 'High';
   @override
@@ -1282,12 +1381,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get visibleToEveryone => 'visible To Everyone';
   @override
-String get myLeaveCancellations => 'My Leave Cancellations';
+  String get myLeaveCancellations => 'My Leave Cancellations';
   @override
-String get timeDetails => 'Time Details';
-@override String get branchEmployees => 'Branch Employees';
-@override String get departmentEmployees => 'Department Employees';
-@override String get viewType => 'View Type';
+  String get timeDetails => 'Time Details';
+  @override
+  String get branchEmployees => 'Branch Employees';
+  @override
+  String get departmentEmployees => 'Department Employees';
+  @override
+  String get viewType => 'View Type';
   @override
   String get private => 'Private';
   @override

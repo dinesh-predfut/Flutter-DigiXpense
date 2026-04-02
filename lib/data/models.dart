@@ -1924,7 +1924,7 @@ class ExpenseItemUpdate {
   final double lineAmountReporting;
   final String? projectId;
   final String? description;
-  final int? expenseId; // Modified to parse safely
+  final dynamic expenseId; // Modified to parse safely
   bool isReimbursable;
   bool isBillable;
   late final List<AccountingDistribution> accountingDistributions;
@@ -1976,7 +1976,7 @@ class ExpenseItemUpdate {
 
   factory ExpenseItemUpdate.fromJson(Map<String, dynamic> json) {
     return ExpenseItemUpdate(
-      recId: _toInt(json['RecId']),
+      recId: json['RecId'],
       expenseCategoryId: json['ExpenseCategoryId']?.toString() ?? '',
       quantity: _toDouble(json['Quantity']),
       uomId: json['UomId']?.toString() ?? '',
@@ -1988,7 +1988,7 @@ class ExpenseItemUpdate {
 
       projectId: json['ProjectId'],
       description: json['Description']?.toString(),
-      expenseId: _toInt(json['ExpenseId']),
+      expenseId: json['ExpenseId']?.toString(),
       isReimbursable: json['IsReimbursable'] ?? false,
       isBillable: json['IsBillable'] ?? false,
       accountingDistributions:
@@ -2010,7 +2010,7 @@ class ExpenseItemUpdate {
     'LineAmountReporting': lineAmountReporting,
     'ProjectId': _normalizeString(projectId),
     'Description': description,
-    'ExpenseId': expenseId,
+    'ExpenseId': expenseId?.toString(),
     'IsReimbursable': isReimbursable,
     'IsBillable': isBillable,
     'ExpenseTransCustomFieldValues': [],
@@ -2514,7 +2514,7 @@ class LeaveRequest {
           ? notifyingUsers!.join(';')
           : null,
 
-      "Duration": totalDays,
+      "Duration": duration,
       // "ApprovalStatus": approvalStatus,
       "LeaveTransactions": transactions.map((t) => t.toJson()).toList(),
 
@@ -2856,15 +2856,16 @@ class LeaveTransactionModel {
   /// =======================
   /// API FIELDS
   /// =======================
-  final String employeeId;
+  final String? employeeId;
   final int transDate; // milliseconds
   final double noOfDays;
-  final String leaveCode;
+  final String? leaveCode;
   final bool leaveFirstHalf;
   final bool leaveSecondHalf;
   final bool isHoliday;
   final int? recId; // required for partial cancellation
   final String? approvalStatus;
+  // final int? leaveCancelId;
 
   /// =======================
   /// UI / STATE FIELDS
@@ -2880,13 +2881,14 @@ class LeaveTransactionModel {
   RxString dayTypeLeave;
 
   LeaveTransactionModel({
-    required this.employeeId,
+    this.employeeId,
     required this.transDate,
     required this.noOfDays,
-    required this.leaveCode,
+    this.leaveCode,
     required this.leaveFirstHalf,
     required this.leaveSecondHalf,
     required this.isHoliday,
+    // this.leaveCancelId,
     this.recId,
     required this.originalDayType,
     required this.dayType,
@@ -2901,6 +2903,8 @@ class LeaveTransactionModel {
     switch (dayType.value) {
       case 'First Half':
       case 'Second Half':
+      case 'FirstHalf':
+      case 'SecondHalf':
         return 0.5;
       case 'Full Day':
       default:
@@ -2928,6 +2932,7 @@ class LeaveTransactionModel {
 
     return LeaveTransactionModel(
       employeeId: json['EmployeeId'] ?? '',
+      // leaveCancelId: json['leaveCancelId'] ?? '',
       transDate: json['TransDate'] ?? 0,
       noOfDays: (json['NoOfDays'] ?? 0).toDouble(),
       leaveCode: json['LeaveCode'] ?? '',
@@ -2947,10 +2952,14 @@ class LeaveTransactionModel {
       "TransDate": transDate,
       "NoOfDays": calculatedDays,
       "LeaveCode": leaveCode,
-      "LeaveFirstHalf": dayType.value == "First Half" ? true : false,
-      "LeaveSecondHalf": dayType.value == "Second Half" ? true : false,
+      "LeaveFirstHalf":
+          dayType.value == "First Half" || dayType.value == "FirstHalf",
+      "LeaveSecondHalf":
+          dayType.value == "Second Half" || dayType.value == "SecondHalf",
       "IsHoliday": isHoliday,
-      // Include RecId only if it's not null
+
+      "DateType": {"DateType": dayType.value, "NoOfDays": calculatedDays},
+
       if (recId != null) "RecId": recId,
     };
   }
@@ -3467,23 +3476,26 @@ class WidgetDataResponse {
     // CASE 1: raw is a number
     if (raw is num) return raw.toDouble();
 
+    // Helper
+    double parseValue(dynamic v) {
+      if (v is num) return v.toDouble();
+      if (v is String) return double.tryParse(v) ?? 0.0;
+      return 0.0;
+    }
+
     // CASE 2: raw is a Map
     if (raw is Map<String, dynamic>) {
       final map = raw;
 
-      // Helper to safely parse a value
-      double parseValue(dynamic v) {
-        if (v is num) return v.toDouble();
-        if (v is String) return double.tryParse(v) ?? 0.0;
-        return 0.0;
+      // ✅ ADD THIS (your case)
+      if (map['ThisMonthLeave'] != null) {
+        return parseValue(map['ThisMonthLeave']);
       }
 
-      // Direct keys
       if (map['value'] != null) {
         final v = map['value'];
         if (v is num || v is String) return parseValue(v);
 
-        // value might be a Map with 'data'
         if (v is Map && v['data'] is List && (v['data'] as List).isNotEmpty) {
           final first = (v['data'] as List).first;
           if (first is Map) {
@@ -3494,7 +3506,6 @@ class WidgetDataResponse {
 
       if (map['Value'] != null) return parseValue(map['Value']);
 
-      // 'data' list
       if (map['data'] is List && (map['data'] as List).isNotEmpty) {
         final first = (map['data'] as List).first;
         if (first is Map) {
@@ -3506,7 +3517,13 @@ class WidgetDataResponse {
     // CASE 3: raw is a List
     if (raw is List && (raw as List).isNotEmpty) {
       final first = (raw as List).first;
+
       if (first is Map) {
+        // ✅ ADD THIS (list case)
+        if (first['ThisMonthLeave'] != null) {
+          return parseValue(first['ThisMonthLeave']);
+        }
+
         return double.tryParse(
               (first['value'] ?? first['Value'] ?? first['y']).toString(),
             ) ??
@@ -4453,7 +4470,7 @@ class ExpenseModelMileage {
   final List<dynamic> expenseHeaderCustomFieldValues;
   final List<dynamic> expenseHeaderExpenseCategoryCustomFieldValues;
   final List<TravelPoint> travelPoints;
-  final List<dynamic> accountingDistributions;
+  List<AccountingDistribution>? accountingDistributions;
 
   ExpenseModelMileage({
     required this.expenseId,
@@ -4533,7 +4550,11 @@ class ExpenseModelMileage {
       expenseHeaderExpenseCategoryCustomFieldValues:
           json['ExpenseHeaderExpensecategorycustomfieldvalues'] ?? [],
       travelPoints: travelPoints.isNotEmpty ? travelPoints : [],
-      accountingDistributions: json['AccountingDistributions'] ?? [],
+      accountingDistributions:
+          (json['AccountingDistributions'] as List<dynamic>?)
+              ?.map((e) => AccountingDistribution.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 
@@ -6482,7 +6503,7 @@ class TaskDetailModel {
   DateTime? plannedEndDate;
   DateTime? actualStartDate;
   DateTime? actualEndDate;
-
+  CreatedByModel? createdBy;
   Map<String, dynamic> taskData;
 
   List<TagModel> tagId;
@@ -6493,6 +6514,7 @@ class TaskDetailModel {
   TaskDetailModel({
     required this.taskId,
     required this.taskName,
+    this.createdBy,
     this.notes,
     required this.showNotes,
     required this.showChecklist,
@@ -6519,7 +6541,9 @@ class TaskDetailModel {
       notes: json['Notes']?.toString(),
       showNotes: json['ShowNotes'] ?? false,
       showChecklist: json['ShowChecklist'] ?? false,
-
+      createdBy: json['CreatedBy'] != null
+          ? CreatedByModel.fromJson(json['CreatedBy'])
+          : null,
       estimatedHours: json['EstimatedHours'] != null
           ? double.tryParse(json['EstimatedHours'].toString()) ?? 0
           : 0,
@@ -6533,29 +6557,32 @@ class TaskDetailModel {
       status: json['Status']?.toString() ?? '',
       cardType: json['CardType']?.toString() ?? '',
 
-      // ✅ Convert milliseconds to DateTime
       plannedStartDate: json['PlannedStartDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
               int.tryParse(json['PlannedStartDate'].toString()) ?? 0,
-            )
+              isUtc: true,
+            ).toLocal()
           : null,
 
       plannedEndDate: json['PlannedEndDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
               int.tryParse(json['PlannedEndDate'].toString()) ?? 0,
-            )
+              isUtc: true,
+            ).toLocal()
           : null,
 
       actualStartDate: json['ActualStartDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
               int.tryParse(json['ActualStartDate'].toString()) ?? 0,
-            )
+              isUtc: true,
+            ).toLocal()
           : null,
 
       actualEndDate: json['ActualEndDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(
               int.tryParse(json['ActualEndDate'].toString()) ?? 0,
-            )
+              isUtc: true,
+            ).toLocal()
           : null,
 
       taskData: json['TaskData'] ?? {},
@@ -6573,6 +6600,54 @@ class TaskDetailModel {
       recId: json['RecId'] is int
           ? json['RecId']
           : int.tryParse(json['RecId']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+class CardFieldConfig {
+  final String fieldName;
+  final bool isEnabled;
+  final int recId;
+
+  CardFieldConfig({
+    required this.fieldName,
+    required this.isEnabled,
+    required this.recId,
+  });
+
+  factory CardFieldConfig.fromJson(Map<String, dynamic> json) {
+    return CardFieldConfig(
+      fieldName: json['FieldName'],
+      isEnabled: json['IsEnabled'],
+      recId: json['RecId'],
+    );
+  }
+}
+
+class CreatedByModel {
+  final String userId;
+  final String userName;
+
+  CreatedByModel({required this.userId, required this.userName});
+
+  factory CreatedByModel.fromJson(Map<String, dynamic> json) {
+    return CreatedByModel(
+      userId: json['UserId']?.toString() ?? '',
+      userName: json['UserName']?.toString() ?? '',
+    );
+  }
+}
+
+class KanbanStatus {
+  final String id;
+  final String name;
+
+  KanbanStatus({required this.id, required this.name});
+
+  factory KanbanStatus.fromJson(Map<String, dynamic> json) {
+    return KanbanStatus(
+      id: json['StatusId']?.toString() ?? '',
+      name: json['StatusName']?.toString() ?? '',
     );
   }
 }
@@ -7053,20 +7128,33 @@ class TaskItem {
   final String shelfId;
   final String statusId;
   final String statusName;
+
   final String? description;
   final bool showNotes;
   final bool showChecklist;
-  final DateTime? dueDate;
-  final DateTime? startDate;
+
+  final DateTime? plannedStartDate;
+  final DateTime? plannedEndDate;
+  final DateTime? actualStartDate;
+  final DateTime? actualEndDate;
+
+  final int estimatedHours;
+  final int actualHours;
+
   final String priority;
   final List<AssignedUser> assignedTo;
+
   final int recId;
   final CardType? cardType;
   final List<Tag> tags;
+
   final int attachmentsCount;
-  final int commentsCount;
-  final List<TaskDocument> taskDocuments;
+  final String checklistsCount;
   final List<dynamic> checkLists;
+  final String? parentTaskId;
+  final dynamic dependent;
+
+  final CreatedByModel? createdBy;
 
   TaskItem({
     required this.taskId,
@@ -7077,27 +7165,31 @@ class TaskItem {
     this.description,
     required this.showNotes,
     required this.showChecklist,
-    this.dueDate,
-    this.startDate,
+    this.plannedStartDate,
+    this.plannedEndDate,
+    this.actualStartDate,
+    this.actualEndDate,
+    required this.estimatedHours,
+    required this.actualHours,
     required this.priority,
     required this.assignedTo,
     required this.recId,
     this.cardType,
     required this.tags,
     required this.attachmentsCount,
-    required this.commentsCount,
-    required this.taskDocuments,
+    required this.checklistsCount,
+    this.parentTaskId,
+    this.dependent,
+    this.createdBy,
     required this.checkLists,
   });
 
   factory TaskItem.fromJson(Map<String, dynamic> json) {
-    /// 🔐 SAFE CardType handling (object | [] | null)
+    /// 🔐 SAFE CardType
     final dynamic cardTypeRaw = json['CardType'];
     CardType? cardType;
     if (cardTypeRaw is Map<String, dynamic>) {
       cardType = CardType.fromJson(cardTypeRaw);
-    } else {
-      cardType = null;
     }
 
     /// 🔐 SAFE Tags
@@ -7105,14 +7197,6 @@ class TaskItem {
         ? (json['Tags'] as List)
               .whereType<Map<String, dynamic>>()
               .map((e) => Tag.fromJson(e))
-              .toList()
-        : [];
-
-    /// 🔐 SAFE TaskDocuments
-    final List<TaskDocument> documents = (json['TaskDocuments'] is List)
-        ? (json['TaskDocuments'] as List)
-              .whereType<Map<String, dynamic>>()
-              .map((e) => TaskDocument.fromJson(e))
               .toList()
         : [];
 
@@ -7127,17 +7211,28 @@ class TaskItem {
       showNotes: json['ShowNotes'] == true,
       showChecklist: json['ShowChecklist'] == true,
 
-      dueDate: json['DueDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(
-              int.parse(json['DueDate'].toString()),
-            )
+      /// ✅ FIXED DATE HANDLING (milliseconds)
+      plannedStartDate: json['PlannedStartDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['PlannedStartDate'])
           : null,
 
-      startDate: json['StartDate'] != null
-          ? DateTime.tryParse(json['StartDate'].toString())
+      plannedEndDate: json['PlannedEndDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['PlannedEndDate'])
           : null,
+
+      actualStartDate: json['ActualStartDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['ActualStartDate'])
+          : null,
+
+      actualEndDate: json['ActualEndDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['ActualEndDate'])
+          : null,
+
+      estimatedHours: json['EstimatedHours'] ?? 0,
+      actualHours: json['ActualHours'] ?? 0,
 
       priority: json['Priority'] ?? 'Low',
+
       assignedTo: (json['AssignedTo'] is List)
           ? (json['AssignedTo'] as List)
                 .whereType<Map<String, dynamic>>()
@@ -7147,16 +7242,21 @@ class TaskItem {
 
       recId: json['RecId'] ?? 0,
 
-      /// ✅ FIXED
       cardType: cardType,
 
       tags: tags,
 
       attachmentsCount: json['AttachmentsCount'] ?? 0,
-      commentsCount: json['CommentsCount'] ?? 0,
 
-      taskDocuments: documents,
+      /// ⚠️ STRING like "1/2"
+      checklistsCount: json['ChecklistsCount'] ?? "0/0",
 
+      parentTaskId: json['ParentTaskId'],
+      dependent: json['Dependent'],
+
+      createdBy: json['CreatedBy'] != null
+          ? CreatedByModel.fromJson(json['CreatedBy'])
+          : null,
       checkLists: (json['CheckLists'] is List)
           ? (json['CheckLists'] as List)
                 .whereType<Map<String, dynamic>>()
@@ -7624,7 +7724,7 @@ class ForwardedEmail {
   final String forwardedEmail;
   final String subject;
   final String emailStatus;
-  final int refRecId;
+  final int? refRecId;
   final String emailBody;
   final bool isActive;
   final List<MailAttachment> documentAttachments;
@@ -7650,7 +7750,7 @@ class ForwardedEmail {
       forwardedEmail: json['ForwardedEmail'],
       subject: json['Subject'],
       emailStatus: json['EmailStatus'],
-      refRecId: json['RefRecId'],
+      refRecId: int.tryParse(json['RefRecId']?.toString() ?? ''),
       emailBody: json['EmailBody'],
       isActive: json['IsActive'],
       documentAttachments: (json['DocumentAttachment'] as List)

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:diginexa/core/constant/Parames/colors.dart' show AppColors;
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
@@ -38,21 +40,20 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   final controller = Get.find<Controller>();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
+  late Future<List<ExpenseHistory>> historyFuture;
   // late final Controller controller;
   @override
   void initState() {
     super.initState();
     // controller = Get.find();
-    // print("leavestart${widget.leaveRequest?.leaveCancelId.isEmpty}");
-    controller.loadSequenceModules();
-
+    if (widget.leaveRequest != null) {
+      historyFuture = controller.fetchLeaveHistory(widget.leaveRequest!.recId);
+    }
+    print("leavestart");
     WidgetsBinding.instance.addPostFrameCallback((_) {
       //  controller.uploadedImages.value.clear();
+      controller.loadSequenceModules();
       _initLeaveScreen();
-      if (widget.leaveRequest?.approvalStatus == "Pending" &&
-          widget.leaveRequest?.stepType != "Approval") {
-        controller.leaveField.value = true;
-      }
     });
   }
 
@@ -73,6 +74,18 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       controller.markInitialized();
       controller.isLoading.value = false;
       if (widget.leaveRequest != null) {
+        historyFuture = controller.fetchLeaveHistory(
+          widget.leaveRequest!.recId,
+        );
+
+        if (widget.leaveRequest?.approvalStatus == "Pending" ||
+            widget.leaveRequest?.stepType != "Approval") {
+          controller.leaveField.value = false;
+        }
+        if (widget.leaveRequest?.approvalStatus == "Pending" &&
+            widget.leaveRequest?.stepType == "Review") {
+          controller.leaveField.value = true;
+        }
         await Future.wait([
           Future(
             () => controller.loadExistingLeaveRequest(widget.leaveRequest!),
@@ -165,9 +178,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          controller.leaveField.value = false;
-        });
+        // WidgetsBinding.instance.addPostFrameCallback((_) {
+        //   controller.leaveField.value = false;
+        // });
         // if (!controller.leaveField.value) {
         //   controller.resetForm();
         //   return true;
@@ -224,6 +237,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
           actions: [
             if (widget.isReadOnly &&
                 widget.leaveRequest != null &&
+                PermissionHelper.canUpdate("Leave Requisition") &&
                 widget.leaveRequest?.approvalStatus != "Approved" &&
                 widget.leaveRequest?.approvalStatus != "Cancelled" &&
                 widget.leaveRequest?.approvalStatus != "Pending")
@@ -272,1051 +286,1175 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   key: _formKey,
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: Obx(() {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header with status if editing
-                          if (widget.leaveRequest != null && widget.status)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () {
-                                    debugPrint(
-                                      "Status: ${widget.leaveRequest?.approvalStatus ?? 'N/A'}",
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.donut_large,
-                                    size: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header with status if editing
+                        if (widget.leaveRequest != null && widget.status)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  debugPrint(
+                                    "Status: ${widget.leaveRequest?.approvalStatus ?? 'N/A'}",
+                                  );
+                                },
+                                icon: const Icon(
+                                  Icons.donut_large,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                label: Text(
+                                  widget.leaveRequest?.approvalStatus ?? 'N/A',
+                                  style: const TextStyle(
+                                    fontSize: 12,
                                     color: Colors.white,
-                                  ),
-                                  label: Text(
-                                    widget.leaveRequest?.approvalStatus ??
-                                        'N/A',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: buttonColor,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    minimumSize: const Size(0, 32),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
-                            ),
-                          if (widget.leaveRequest == null)
-                            Obx(() {
-                              final hideField = controller.hasModule("Leave");
-
-                              if (controller.isSequenceLoading.value) {
-                                return const SizedBox(); // loader or empty
-                              }
-
-                              if (widget.leaveRequest == null) {
-                                if (hideField) {
-                                  return const SizedBox.shrink(); // hide field
-                                }
-                              }
-
-                              // if (widget.leaveRequest == null) {
-                              //   return const SizedBox.shrink(); // hide when no request
-                              // }
-
-                              return Column(
-                                children: [
-                                  _buildTextField(
-                                    label:
-                                        "${AppLocalizations.of(context)!.leaveRequisitionId} *",
-                                    controller: controller.leaveIdcontroller,
-                                    isReadOnly: true,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: buttonColor,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
                                   ),
-                                  // const SizedBox(height: 16),
-                                ],
-                              );
-                            }),
-                          if (widget.leaveRequest != null)
-                            const SizedBox(height: 16),
-                          if (widget.leaveRequest != null)
-                            _buildTextField(
-                              label:
-                                  "${AppLocalizations.of(context)!.leaveRequisitionId} *",
-                              controller: controller.leaveIdcontroller,
-                              isReadOnly: false,
-                            ),
-
-                          if (widget.leaveRequest != null &&
-                              widget.leaveRequest?.leaveCancelId?.isNotEmpty ==
-                                  true)
-                            _buildTextField(
-                              label: "Leave Cancel ID *",
-                              controller: controller.leaveCancelID,
-                              isReadOnly: false,
-                            ),
-
-                          if (widget.leaveRequest != null)
-                            _buildTextField(
-                              label:
-                                  "${AppLocalizations.of(context)!.appliedDate} *",
-                              controller: controller.appliedDateController,
-                              isReadOnly: false,
-                            ),
-
-                          if (widget.leaveRequest != null)
-                            _buildTextField(
-                              label:
-                                  "${AppLocalizations.of(context)!.employeeName} *",
-                              controller: controller.employeeName,
-                              isReadOnly: false,
-                            ),
-
-                          if (widget.leaveRequest != null)
-                            _buildTextField(
-                              label:
-                                  "${AppLocalizations.of(context)!.employeeId} *",
-                              controller: controller.employeeIdController,
-                              isReadOnly: false,
-                            ),
-                          // Leave Code *
-                          SearchableMultiColumnDropdownField<LeaveAnalytics>(
-                            enabled: controller.leaveField.value,
-                            labelText:
-                                '${AppLocalizations.of(context)!.leaveCode}*',
-                            columnHeaders: [
-                              AppLocalizations.of(context)!.code,
-                              AppLocalizations.of(context)!.type,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  minimumSize: const Size(0, 32),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
                             ],
-                            items: controller.leaveCodes,
-                            selectedValue: controller.selectedLeaveCode.value,
-                            searchValue: (code) =>
-                                '${code.leaveCode} ${code.leaveType}',
-                            displayText: (code) => code.leaveCode,
-                            validator: (value) {
-                              if (controller.leaveCodeController.text.isEmpty) {
-                                return '${AppLocalizations.of(context)!.leaveCode} ${AppLocalizations.of(context)!.fieldRequired}';
-                              }
-                              return null;
-                            },
-                            onChanged: (code) async {
-                              controller.selectedLeaveCode.value = code;
-                              controller.leaveCodeController.text =
-                                  code?.leaveCode ?? '';
-                              if (controller.leaveCodeController.text.isEmpty)
-                                return;
-                              await controller.createLeaveTransactions(
-                                employeeId: Params.employeeId,
-                                fromDate:
-                                    controller
-                                        .startDate
-                                        .value
-                                        ?.millisecondsSinceEpoch ??
-                                    DateTime.now().millisecondsSinceEpoch,
-                                toDate:
-                                    controller
-                                        .endDate
-                                        .value
-                                        ?.millisecondsSinceEpoch ??
-                                    DateTime.now().millisecondsSinceEpoch,
-                                leaveCode: controller.leaveCodeController.text,
-                              );
-
-                              controller.calculateTotalDays();
-                            },
-                            controller: controller.leaveCodeController,
-                            rowBuilder: (code, searchQuery) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                  horizontal: 16,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(code.leaveCode)),
-                                    Expanded(child: Text(code.leaveType)),
-                                  ],
-                                ),
-                              );
-                            },
                           ),
-                          SizedBox(height: 16),
-
-                          _buildConfigurableField(
-                            fieldName: 'Delegated authority/Reliever',
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(height: 16);
-                            },
-                          ),
-                          // Reliever
-                          _buildConfigurableField(
-                            fieldName: 'Delegated authority/Reliever',
-                            builder: (isEnabled, isMandatory) {
-                              return SearchableMultiColumnDropdownField<
-                                Employee
-                              >(
-                                enabled:
-                                    controller.leaveField.value && isEnabled,
-                                labelText:
-                                    '${AppLocalizations.of(context)!.reliever}${isMandatory ? ' *' : ''}',
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.employeeId,
-                                  AppLocalizations.of(context)!.name,
-                                  AppLocalizations.of(context)!.department,
-                                ],
-                                items: controller.employees,
-                                selectedValue:
-                                    controller.selectedReliever.value,
-                                searchValue: (emp) => '${emp.id}',
-                                displayText: (emp) =>
-                                    '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (controller
-                                            .relieverController
-                                            .text
-                                            .isEmpty) {
-                                          return '${AppLocalizations.of(context)!.reliever} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                                onChanged: (emp) {
-                                  controller.selectedReliever.value = emp;
-                                  controller.relieverController.text =
-                                      emp?.id ?? '';
-                                },
-                                controller: controller.relieverController,
-                                rowBuilder: (emp, searchQuery) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 16,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: Text(emp.id)),
-                                        Expanded(
-                                          child: Text(
-                                            '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                          // Project
-                          _buildConfigurableField(
-                            fieldName: AppLocalizations.of(context)!.projectId,
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(height: 16);
-                            },
-                          ),
-                          // const SizedBox(height: 16),
-
-                          // Project
-                          _buildConfigurableField(
-                            fieldName: AppLocalizations.of(context)!.projectId,
-                            builder: (isEnabled, isMandatory) {
-                              return SearchableMultiColumnDropdownField<
-                                Project
-                              >(
-                                labelText:
-                                    '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.projectName,
-                                  AppLocalizations.of(context)!.projectId,
-                                ],
-                                items: controller.project,
-                                controller:
-                                    controller.projectDropDowncontroller,
-                                selectedValue: controller.selectedProject,
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (controller
-                                            .projectDropDowncontroller
-                                            .text
-                                            .isEmpty) {
-                                          return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                                enabled: controller.leaveField.value,
-                                searchValue: (proj) =>
-                                    '${proj.name} ${proj.code}',
-                                displayText: (proj) => proj.code,
-                                onChanged: (proj) {
-                                  controller.projectDropDowncontroller.text =
-                                      proj!.code;
-                                  setState(() {
-                                    controller.selectedProject = proj;
-                                    if (proj != null) {
-                                      controller.showProjectError.value = false;
-                                    }
-                                  });
-                                },
-                                rowBuilder: (proj, searchQuery) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 16,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        SizedBox(width: 10),
-                                        Expanded(child: Text(proj.name)),
-                                        Expanded(child: Text(proj.code)),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-
-                          // const SizedBox(height: 16),
-
-                          // Dates * (Always required)
-                          TextFormField(
-                            controller: controller.datesController,
-                            readOnly: true,
-                            enabled: controller.leaveField.value,
-                            decoration: InputDecoration(
-                              labelText:
-                                  '${AppLocalizations.of(context)!.dates} *',
-                              border: const OutlineInputBorder(),
-                              suffixIcon: controller.leaveField.value
-                                  ? IconButton(
-                                      icon: const Icon(Icons.calendar_today),
-                                      onPressed: () =>
-                                          _selectDateRange(context),
-                                    )
-                                  : null,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '${AppLocalizations.of(context)!.dates} ${AppLocalizations.of(context)!.fieldRequired}';
-                              }
-                              return null;
-                            },
-                            onTap: controller.leaveField.value
-                                ? () => _selectDateRange(context)
-                                : null,
-                          ),
-
-                          // Location
-                          _buildConfigurableField(
-                            fieldName: 'Location during leave',
-                            builder: (isEnabled, isMandatory) {
-                              return Column(
-                                children: [
-                                  const SizedBox(height: 16),
-                                  SearchableMultiColumnDropdownField<
-                                    LocationModel
-                                  >(
-                                    labelText:
-                                        '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
-                                    items: controller.location,
-                                    selectedValue: controller.selectedLocation,
-                                    enabled: controller.leaveField.value,
-                                    controller: controller.locationController,
-                                    searchValue: (proj) => proj.location,
-                                    displayText: (proj) => proj.location,
-                                    validator: (proj) =>
-                                        isMandatory &&
-                                            controller
-                                                .locationController
-                                                .text
-                                                .isEmpty
-                                        ? AppLocalizations.of(
-                                            context,
-                                          )!.pleaseSelectLocation
-                                        : null,
-                                    onChanged: (proj) {
-                                      controller.selectedLocation = proj;
-                                      controller.fetchPerDiemRates();
-                                    },
-                                    columnHeaders: [
-                                      AppLocalizations.of(context)!.location,
-                                      AppLocalizations.of(context)!.country,
-                                    ],
-                                    rowBuilder: (proj, searchQuery) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(proj.location),
-                                            ),
-                                            Expanded(child: Text(proj.country)),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              );
-                            },
-                          ),
-
-                          // Notifying Users
-                          _buildConfigurableField(
-                            fieldName: "Notifying users",
-                            builder: (isEnabled, isMandatory) {
-                              return MultiSelectMultiColumnDropdownField<
-                                Employee
-                              >(
-                                enabled:
-                                    controller.leaveField.value && isEnabled,
-                                labelText:
-                                    '${AppLocalizations.of(context)!.notifyingUsers}${isMandatory ? ' *' : ''}',
-                                items: controller.employees,
-                                selectedValues:
-                                    controller.selectedNotifyingUsers,
-                                isMultiSelect: true,
-                                dropdownMaxHeight: 300,
-                                searchValue: (user) =>
-                                    '${user.id} ${user.firstName}',
-                                displayText: (user) => user.firstName,
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (controller
-                                            .selectedNotifyingUsers
-                                            .isEmpty) {
-                                          return '${AppLocalizations.of(context)!.notifyingUsers} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                                onMultiChanged: (users) {
-                                  controller.selectedNotifyingUsers.assignAll(
-                                    users,
-                                  );
-                                },
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.employeeId,
-                                  AppLocalizations.of(context)!.name,
-                                ],
-                                rowBuilder: (emp, searchQuery) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 16,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: Text(emp.id)),
-                                        Expanded(
-                                          child: Text(
-                                            '${emp.firstName}${emp.middleName}${emp.lastName}',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                onChanged: (Employee? p1) {},
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Contact number
-                          _buildConfigurableField(
-                            fieldName: 'Contact number',
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(
-                                child: IntlPhoneField(
-                                  controller: controller.leavephoneController,
-                                  enabled: controller.leaveField.value,
-                                  keyboardType: TextInputType.phone,
-
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        "${AppLocalizations.of(context)!.contactNumber} ${isMandatory ? "*" : ""}",
-                                    labelStyle: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    counterText: "",
-                                  ),
-                                  initialCountryCode: 'IN',
-                                  onChanged: (phone) {
-                                    controller.leavephoneController.text =
-                                        phone.number;
-                                    controller.countryCodeController.text =
-                                        phone.countryCode;
-                                  },
-                                  onCountryChanged: (country) {
-                                    controller.countryCodeController.text =
-                                        "+${country.dialCode}";
-                                  },
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  validator: isMandatory
-                                      ? (value) {
-                                          if (controller
-                                              .leavephoneController
-                                              .text
-                                              .isEmpty) {
-                                            return '${AppLocalizations.of(context)!.contactNumber} ${AppLocalizations.of(context)!.fieldRequired}';
-                                          }
-                                          return null;
-                                        }
-                                      : null,
-                                ),
-                              );
-                            },
-                          ),
-
-                          // const SizedBox(height: 8),
-
-                          // Comments *
-                          TextFormField(
-                            controller: controller.commentsController,
-                            enabled: controller.leaveField.value,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              labelText:
-                                  '${AppLocalizations.of(context)!.enterNotes} *',
-                              border: const OutlineInputBorder(),
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '${AppLocalizations.of(context)!.comments} ${AppLocalizations.of(context)!.fieldRequired}';
-                              }
-                              return null;
-                            },
-                            onChanged: controller.leaveField.value
-                                ? (value) => controller.comments.value = value
-                                : null,
-                          ),
-
-                          const SizedBox(height: 16),
-                          _buildConfigurableField(
-                            fieldName: 'Availability during leave',
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(height: 16);
-                            },
-                          ),
-                          // Availability During Leave
-                          _buildConfigurableField(
-                            fieldName: 'Availability during leave',
-                            builder: (isEnabled, isMandatory) {
-                              return SearchableMultiColumnDropdownField<String>(
-                                enabled:
-                                    controller.leaveField.value && isEnabled,
-                                labelText:
-                                    '${AppLocalizations.of(context)!.availabilityDuringLeave}${isMandatory ? ' *' : ''}',
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.availability,
-                                ],
-                                items: [
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.availabilityDuringLeave,
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.availableForUrgentMatters,
-                                ],
-                                selectedValue:
-                                    controller.selectedAvailability.value,
-                                searchValue: (option) => option,
-                                displayText: (option) => option,
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (value == null ||
-                                            controller
-                                                .availabilityController
-                                                .text
-                                                .isEmpty) {
-                                          return '${AppLocalizations.of(context)!.availabilityDuringLeave} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                                onChanged: (option) {
-                                  controller.selectedAvailability.value =
-                                      option ?? '';
-                                  controller.availabilityController.text =
-                                      option ?? '';
-                                },
-                                controller: controller.availabilityController,
-                                rowBuilder: (option, searchQuery) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                      horizontal: 16,
-                                    ),
-                                    child: Row(
-                                      children: [Expanded(child: Text(option))],
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-
-                          // const SizedBox(height: 16),
-                          _buildConfigurableField(
-                            fieldName: 'OutOfOfficeMessage',
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(height: 16);
-                            },
-                          ),
-                          // Out of Office Message
-                          _buildConfigurableField(
-                            fieldName: 'OutOfOfficeMessage',
-                            builder: (isEnabled, isMandatory) {
-                              return TextFormField(
-                                controller:
-                                    controller.outOfOfficeMessageController,
-                                enabled:
-                                    controller.leaveField.value && isEnabled,
-                                maxLines: 2,
-                                decoration: InputDecoration(
-                                  labelText:
-                                      '${AppLocalizations.of(context)!.outOfOfficeMessage}${isMandatory ? ' *' : ''}',
-                                  border: const OutlineInputBorder(),
-                                  alignLabelWithHint: true,
-                                ),
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return '${AppLocalizations.of(context)!.outOfOfficeMessage} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                                onChanged:
-                                    controller.leaveField.value && isEnabled
-                                    ? (value) =>
-                                          controller.outOfOfficeMessage.value =
-                                              value
-                                    : null,
-                              );
-                            },
-                          ),
-
-                          // const SizedBox(height: 16),
-                          _buildConfigurableField(
-                            fieldName: 'Notify HR',
-                            builder: (isEnabled, isMandatory) {
-                              return SizedBox(height: 16);
-                            },
-                          ),
-                          // Notify HR Checkbox
-                          _buildConfigurableField(
-                            fieldName: 'Notify HR',
-                            builder: (isEnabled, isMandatory) {
-                              if (!isEnabled) return const SizedBox.shrink();
-
-                              return CheckboxListTile(
-                                title: Text(
-                                  AppLocalizations.of(context)!.notifyHR,
-                                ),
-                                value: controller.notifyHR.value,
-                                onChanged:
-                                    controller.leaveField.value && isEnabled
-                                    ? (value) => controller.notifyHR.value =
-                                          value ?? false
-                                    : null,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                contentPadding: EdgeInsets.zero,
-                              );
-                            },
-                          ),
-
-                          // Notify Team Members Checkbox
-                          _buildConfigurableField(
-                            fieldName: 'Notify team members',
-                            builder: (isEnabled, isMandatory) {
-                              if (!isEnabled) return const SizedBox.shrink();
-
-                              return CheckboxListTile(
-                                title: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.notifyTeamMembers,
-                                ),
-                                value: controller.notifyTeam.value,
-                                onChanged:
-                                    controller.leaveField.value && isEnabled
-                                    ? (value) => controller.notifyTeam.value =
-                                          value ?? false
-                                    : null,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                contentPadding: EdgeInsets.zero,
-                              );
-                            },
-                          ),
-
-                          // const SizedBox(height: 16),
-                          Text(
-                            AppLocalizations.of(context)!.uploadAttachments,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
+                        if (widget.leaveRequest == null)
                           Obx(() {
+                            final hideField = controller.hasModule("Leave");
+
+                            if (controller.isSequenceLoading.value) {
+                              return const SizedBox(); // loader or empty
+                            }
+
+                            if (widget.leaveRequest == null) {
+                              if (hideField) {
+                                return const SizedBox.shrink(); // hide field
+                              }
+                            }
+
+                            // if (widget.leaveRequest == null) {
+                            //   return const SizedBox.shrink(); // hide when no request
+                            // }
+
                             return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                /// Upload Box
-                                InkWell(
-                                  onTap: !controller.leaveField.value
-                                      ? null
-                                      : controller.pickImages,
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey.shade400,
-                                        style: BorderStyle.solid,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const Icon(
-                                          Icons.cloud_upload,
-                                          size: 40,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          AppLocalizations.of(
-                                            context,
-                                          )!.uploadFileOrDragDrop,
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                _buildTextField(
+                                  label:
+                                      "${AppLocalizations.of(context)!.leaveRequisitionId} *",
+                                  controller: controller.leaveIdcontroller,
+                                  isReadOnly: true,
                                 ),
-
-                                const SizedBox(height: 12),
-
-                                if (controller.uploadedImages.isNotEmpty)
-                                  SizedBox(
-                                    height: 90,
-                                    child: ListView.separated(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount:
-                                          controller.uploadedImages.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(width: 8),
-                                      itemBuilder: (context, index) {
-                                        final file =
-                                            controller.uploadedImages[index];
-
-                                        return Stack(
-                                          children: [
-                                            InkWell(
-                                              onTap: () {
-                                                _openImagePreview(
-                                                  context,
-                                                  file,
-                                                );
-                                              },
-                                              child: ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.file(
-                                                  file,
-                                                  width: 90,
-                                                  height: 90,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
-                                            ),
-
-                                            if (controller.leaveField.value)
-                                              Positioned(
-                                                top: 4,
-                                                right: 4,
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    controller.uploadedImages
-                                                        .removeAt(index);
-                                                  },
-                                                  child: Container(
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                          color: Colors.black54,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                    child: const Icon(
-                                                      Icons.close,
-                                                      color: Colors.white,
-                                                      size: 18,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ),
-
-                                _buildConfigurableField(
-                                  fieldName: 'Paid/Unpaid Leave flag',
-                                  builder: (isEnabled, isMandatory) {
-                                    if (!isEnabled)
-                                      return const SizedBox.shrink();
-
-                                    return Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        ElevatedButton.icon(
-                                          onPressed: () {
-                                            debugPrint(
-                                              "Status: ${widget.leaveRequest?.approvalStatus ?? 'N/A'}",
-                                            );
-                                          },
-                                          icon: const Icon(
-                                            Icons.density_small_outlined,
-                                            size: 8,
-                                            color: Colors.white,
-                                          ),
-                                          label: const Text(
-                                            "Paid",
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: buttonColor,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            minimumSize: const Size(0, 32),
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
+                                // const SizedBox(height: 16),
                               ],
                             );
                           }),
+                        if (widget.leaveRequest != null)
+                          const SizedBox(height: 16),
+                        if (widget.leaveRequest != null)
+                          _buildTextField(
+                            label:
+                                "${AppLocalizations.of(context)!.leaveRequisitionId} *",
+                            controller: controller.leaveIdcontroller,
+                            isReadOnly: false,
+                          ),
 
-                          const SizedBox(height: 12),
+                        if (widget.leaveRequest != null &&
+                            widget.leaveRequest?.leaveCancelId?.isNotEmpty ==
+                                true)
+                          _buildTextField(
+                            label: "Leave Cancel ID *",
+                            controller: controller.leaveCancelID,
+                            isReadOnly: false,
+                          ),
 
-                          Obx(() {
-                            if (controller.leaveDays.isEmpty) {
-                              return const SizedBox();
+                        if (widget.leaveRequest != null)
+                          _buildTextField(
+                            label:
+                                "${AppLocalizations.of(context)!.appliedDate} *",
+                            controller: controller.appliedDateController,
+                            isReadOnly: false,
+                          ),
+
+                        if (widget.leaveRequest != null)
+                          _buildTextField(
+                            label:
+                                "${AppLocalizations.of(context)!.employeeName} *",
+                            controller: controller.employeeName,
+                            isReadOnly: false,
+                          ),
+
+                        if (widget.leaveRequest != null)
+                          _buildTextField(
+                            label:
+                                "${AppLocalizations.of(context)!.employeeId} *",
+                            controller: controller.employeeIdController,
+                            isReadOnly: false,
+                          ),
+                        // Leave Code *
+                        SearchableMultiColumnDropdownField<LeaveAnalytics>(
+                          enabled: controller.leaveField.value,
+                          labelText:
+                              '${AppLocalizations.of(context)!.leaveCode}*',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.code,
+                            AppLocalizations.of(context)!.type,
+                          ],
+                          items: controller.leaveCodes,
+                          selectedValue: controller.selectedLeaveCode.value,
+                          searchValue: (code) =>
+                              '${code.leaveCode} ${code.leaveType}',
+                          displayText: (code) => code.leaveCode,
+                          validator: (value) {
+                            if (controller.leaveCodeController.text.isEmpty) {
+                              return '${AppLocalizations.of(context)!.leaveCode} ${AppLocalizations.of(context)!.fieldRequired}';
                             }
+                            return null;
+                          },
+                          onChanged: (code) async {
+                            controller.selectedLeaveCode.value = code;
+                            controller.leaveCodeController.text =
+                                code?.leaveCode ?? '';
+                            if (controller.leaveCodeController.text.isEmpty)
+                              return;
+                            await controller.createLeaveTransactions(
+                              employeeId: Params.employeeId,
+                              fromDate:
+                                  controller
+                                      .startDate
+                                      .value
+                                      ?.millisecondsSinceEpoch ??
+                                  DateTime.now().millisecondsSinceEpoch,
+                              toDate:
+                                  controller
+                                      .endDate
+                                      .value
+                                      ?.millisecondsSinceEpoch ??
+                                  DateTime.now().millisecondsSinceEpoch,
+                              leaveCode: controller.leaveCodeController.text,
+                            );
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: controller.leaveDays.map((leaveDay) {
-                                final date =
-                                    DateTime.fromMillisecondsSinceEpoch(
-                                      leaveDay.transDate,
-                                      isUtc: true,
-                                    ).toLocal();
+                            controller.calculateTotalDays();
+                          },
+                          controller: controller.leaveCodeController,
+                          rowBuilder: (code, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(code.leaveCode)),
+                                  Expanded(child: Text(code.leaveType)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        SizedBox(height: 16),
 
+                        _buildConfigurableField(
+                          fieldName: 'Delegated authority/Reliever',
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(height: 16);
+                          },
+                        ),
+                        // Reliever
+                        _buildConfigurableField(
+                          fieldName: 'Delegated authority/Reliever',
+                          builder: (isEnabled, isMandatory) {
+                            return SearchableMultiColumnDropdownField<Employee>(
+                              enabled: controller.leaveField.value && isEnabled,
+                              labelText:
+                                  '${AppLocalizations.of(context)!.reliever}${isMandatory ? ' *' : ''}',
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.employeeId,
+                                AppLocalizations.of(context)!.name,
+                                AppLocalizations.of(context)!.department,
+                              ],
+                              items: controller.employees,
+                              selectedValue: controller.selectedReliever.value,
+                              searchValue: (emp) => '${emp.id}',
+                              displayText: (emp) =>
+                                  '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
+                              validator: isMandatory
+                                  ? (value) {
+                                      if (controller
+                                          .relieverController
+                                          .text
+                                          .isEmpty) {
+                                        return '${AppLocalizations.of(context)!.reliever} ${AppLocalizations.of(context)!.fieldRequired}';
+                                      }
+                                      return null;
+                                    }
+                                  : null,
+                              onChanged: (emp) {
+                                controller.selectedReliever.value = emp;
+                                controller.relieverController.text =
+                                    emp?.id ?? '';
+                              },
+                              controller: controller.relieverController,
+                              rowBuilder: (emp, searchQuery) {
                                 return Padding(
-                                  padding: const EdgeInsets.only(top: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
                                   child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
                                     children: [
-                                      /// Date column
+                                      Expanded(child: Text(emp.id)),
                                       Expanded(
                                         child: Text(
-                                          DateFormat(
-                                            'dd MMM yyyy',
-                                          ).format(date),
-                                          style: const TextStyle(fontSize: 14),
+                                          '${emp.firstName ?? ''} ${emp.middleName ?? ''} ${emp.lastName ?? ''}',
                                         ),
                                       ),
-
-                                      const SizedBox(width: 12),
-
-                                      /// Day type column (ALWAYS Expanded)
-                                      Expanded(
-                                        child: leaveDay.noOfDays == 0
-                                            ? const Text(
-                                                "Non Working Day",
-                                                style: TextStyle(fontSize: 12),
-                                              )
-                                            : SearchableMultiColumnDropdownField<
-                                                String
-                                              >(
-                                                enabled:
-                                                    controller
-                                                        .leaveField
-                                                        .value &&
-                                                    !leaveDay.isHoliday,
-                                                labelText: AppLocalizations.of(
-                                                  context,
-                                                )!.dayType,
-                                                items: [
-                                                  'Full Day',
-                                                  'First Half',
-                                                  'Second Half',
-                                                ],
-                                                selectedValue:
-                                                    leaveDay.dayType.value,
-                                                searchValue: (option) => option,
-                                                displayText: (option) => option,
-                                                onChanged: (option) {
-                                                  leaveDay.dayType.value =
-                                                      option!;
-                                                  controller
-                                                      .calculateTotalDays();
-                                                },
-                                                rowBuilder: (option, searchQuery) {
-                                                  return Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 12,
-                                                          horizontal: 16,
-                                                        ),
-                                                    child: Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(option),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                },
-                                                columnHeaders: const [
-                                                  'Day Type',
-                                                ],
-                                              ),
-                                      ),
-
-                                      const SizedBox(width: 12),
-
-                                      /// New Status button column
-                                      if (leaveDay.approvalStatus != null &&
-                                          widget.leaveRequest!.approvalStatus !=
-                                              "Created")
-                                        Expanded(
-                                          child: OutlinedButton(
-                                            onPressed: () {
-                                              // Optionally handle button click
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              side: const BorderSide(
-                                                color: Colors.blue,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                  ),
-                                            ),
-                                            child: Text(
-                                              leaveDay.approvalStatus ??
-                                                  'Pending',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              },
                             );
-                          }),
+                          },
+                        ),
+                        // Project
+                        _buildConfigurableField(
+                          fieldName: AppLocalizations.of(context)!.projectId,
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(height: 16);
+                          },
+                        ),
+                        // const SizedBox(height: 16),
 
-                          const SizedBox(height: 12),
+                        // Project
+                        _buildConfigurableField(
+                          fieldName: AppLocalizations.of(context)!.projectId,
+                          builder: (isEnabled, isMandatory) {
+                            return SearchableMultiColumnDropdownField<Project>(
+                              labelText:
+                                  '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.projectName,
+                                AppLocalizations.of(context)!.projectId,
+                              ],
+                              items: controller.project,
+                              controller: controller.projectDropDowncontroller,
+                              selectedValue: controller.selectedProject,
+                              validator: isMandatory
+                                  ? (value) {
+                                      if (controller
+                                          .projectDropDowncontroller
+                                          .text
+                                          .isEmpty) {
+                                        return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
+                                      }
+                                      return null;
+                                    }
+                                  : null,
+                              enabled: controller.leaveField.value,
+                              searchValue: (proj) =>
+                                  '${proj.name} ${proj.code}',
+                              displayText: (proj) => proj.code,
+                              onChanged: (proj) {
+                                controller.projectDropDowncontroller.text =
+                                    proj!.code;
+                                setState(() {
+                                  controller.selectedProject = proj;
+                                  if (proj != null) {
+                                    controller.showProjectError.value = false;
+                                  }
+                                });
+                              },
+                              rowBuilder: (proj, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(width: 10),
+                                      Expanded(child: Text(proj.name)),
+                                      Expanded(child: Text(proj.code)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
 
-                          Obx(
-                            () => Text(
-                              '${AppLocalizations.of(context)!.total} ${controller.totalRequestedDays.value} ${AppLocalizations.of(context)!.days} ${AppLocalizations.of(context)!.ofLeave}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                        // const SizedBox(height: 16),
+
+                        // Dates * (Always required)
+                        TextFormField(
+                          controller: controller.datesController,
+                          readOnly: true,
+                          enabled: controller.leaveField.value,
+                          decoration: InputDecoration(
+                            labelText:
+                                '${AppLocalizations.of(context)!.dates} *',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: controller.leaveField.value
+                                ? IconButton(
+                                    icon: const Icon(Icons.calendar_today),
+                                    onPressed: () => _selectDateRange(context),
+                                  )
+                                : null,
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '${AppLocalizations.of(context)!.dates} ${AppLocalizations.of(context)!.fieldRequired}';
+                            }
+                            return null;
+                          },
+                          onTap: controller.leaveField.value
+                              ? () => _selectDateRange(context)
+                              : null,
+                        ),
+
+                        // Location
+                        _buildConfigurableField(
+                          fieldName: 'Location during leave',
+                          builder: (isEnabled, isMandatory) {
+                            return Column(
+                              children: [
+                                const SizedBox(height: 16),
+                                SearchableMultiColumnDropdownField<
+                                  LocationModel
+                                >(
+                                  labelText:
+                                      '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
+                                  items: controller.location,
+                                  selectedValue: controller.selectedLocation,
+                                  enabled: controller.leaveField.value,
+                                  controller: controller.locationController,
+                                  searchValue: (proj) => proj.location,
+                                  displayText: (proj) => proj.location,
+                                  validator: (proj) =>
+                                      isMandatory &&
+                                          controller
+                                              .locationController
+                                              .text
+                                              .isEmpty
+                                      ? AppLocalizations.of(
+                                          context,
+                                        )!.pleaseSelectLocation
+                                      : null,
+                                  onChanged: (proj) {
+                                    controller.selectedLocation = proj;
+                                    controller.fetchPerDiemRates();
+                                  },
+                                  columnHeaders: [
+                                    AppLocalizations.of(context)!.location,
+                                    AppLocalizations.of(context)!.country,
+                                  ],
+                                  rowBuilder: (proj, searchQuery) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                        horizontal: 16,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(proj.location)),
+                                          Expanded(child: Text(proj.country)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            );
+                          },
+                        ),
+
+                        // Notifying Users
+                        _buildConfigurableField(
+                          fieldName: "Notifying users",
+                          builder: (isEnabled, isMandatory) {
+                            return MultiSelectMultiColumnDropdownField<
+                              Employee
+                            >(
+                              enabled: controller.leaveField.value && isEnabled,
+                              labelText:
+                                  '${AppLocalizations.of(context)!.notifyingUsers}${isMandatory ? ' *' : ''}',
+                              items: controller.employees,
+                              selectedValues: controller.selectedNotifyingUsers,
+                              isMultiSelect: true,
+                              dropdownMaxHeight: 300,
+                              searchValue: (user) =>
+                                  '${user.id} ${user.firstName}',
+                              displayText: (user) => user.firstName,
+                              validator: isMandatory
+                                  ? (value) {
+                                      if (controller
+                                          .selectedNotifyingUsers
+                                          .isEmpty) {
+                                        return '${AppLocalizations.of(context)!.notifyingUsers} ${AppLocalizations.of(context)!.fieldRequired}';
+                                      }
+                                      return null;
+                                    }
+                                  : null,
+                              onMultiChanged: (users) {
+                                controller.selectedNotifyingUsers.assignAll(
+                                  users,
+                                );
+                              },
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.employeeId,
+                                AppLocalizations.of(context)!.name,
+                              ],
+                              rowBuilder: (emp, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text(emp.id)),
+                                      Expanded(
+                                        child: Text(
+                                          '${emp.firstName}${emp.middleName}${emp.lastName}',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              onChanged: (Employee? p1) {},
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Contact number
+                        _buildConfigurableField(
+                          fieldName: 'Contact number',
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(
+                              child: IntlPhoneField(
+                                controller: controller.leavephoneController,
+                                enabled: controller.leaveField.value,
+                                keyboardType: TextInputType.phone,
+
+                                decoration: InputDecoration(
+                                  labelText:
+                                      "${AppLocalizations.of(context)!.contactNumber} ${isMandatory ? "*" : ""}",
+                                  labelStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  counterText: "",
+                                ),
+                                initialCountryCode: 'IN',
+                                onChanged: (phone) {
+                                  controller.leavephoneController.text =
+                                      phone.number;
+                                  controller.countryCodeController.text =
+                                      phone.countryCode;
+                                },
+                                onCountryChanged: (country) {
+                                  controller.countryCodeController.text =
+                                      "+${country.dialCode}";
+                                },
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                validator: isMandatory
+                                    ? (value) {
+                                        if (controller
+                                            .leavephoneController
+                                            .text
+                                            .isEmpty) {
+                                          return '${AppLocalizations.of(context)!.contactNumber} ${AppLocalizations.of(context)!.fieldRequired}';
+                                        }
+                                        return null;
+                                      }
+                                    : null,
                               ),
+                            );
+                          },
+                        ),
+
+                        // const SizedBox(height: 8),
+
+                        // Comments *
+                        TextFormField(
+                          controller: controller.commentsController,
+                          enabled: controller.leaveField.value,
+                          maxLines: 3,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          decoration: InputDecoration(
+                            labelText:
+                                '${AppLocalizations.of(context)!.enterNotes} *',
+                            border: const OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return '${AppLocalizations.of(context)!.comments} ${AppLocalizations.of(context)!.fieldRequired}';
+                            }
+                            return null;
+                          },
+                          onChanged: controller.leaveField.value
+                              ? (value) {
+                                  controller.comments.value = value;
+                                }
+                              : null,
+                        ),
+
+                        const SizedBox(height: 16),
+                        _buildConfigurableField(
+                          fieldName: 'Availability during leave',
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(height: 16);
+                          },
+                        ),
+                        // Availability During Leave
+                        _buildConfigurableField(
+                          fieldName: 'Availability during leave',
+                          builder: (isEnabled, isMandatory) {
+                            return SearchableMultiColumnDropdownField<String>(
+                              enabled: controller.leaveField.value && isEnabled,
+                              labelText:
+                                  '${AppLocalizations.of(context)!.availabilityDuringLeave}${isMandatory ? ' *' : ''}',
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.availability,
+                              ],
+                              items: [
+                                AppLocalizations.of(
+                                  context,
+                                )!.availabilityDuringLeave,
+                                AppLocalizations.of(
+                                  context,
+                                )!.availableForUrgentMatters,
+                              ],
+                              selectedValue:
+                                  controller.selectedAvailability.value,
+                              searchValue: (option) => option,
+                              displayText: (option) => option,
+                              validator: isMandatory
+                                  ? (value) {
+                                      if (value == null ||
+                                          controller
+                                              .availabilityController
+                                              .text
+                                              .isEmpty) {
+                                        return '${AppLocalizations.of(context)!.availabilityDuringLeave} ${AppLocalizations.of(context)!.fieldRequired}';
+                                      }
+                                      return null;
+                                    }
+                                  : null,
+                              onChanged: (option) {
+                                controller.selectedAvailability.value =
+                                    option ?? '';
+                                controller.availabilityController.text =
+                                    option ?? '';
+                              },
+                              controller: controller.availabilityController,
+                              rowBuilder: (option, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [Expanded(child: Text(option))],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+
+                        // const SizedBox(height: 16),
+                        _buildConfigurableField(
+                          fieldName: 'OutOfOfficeMessage',
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(height: 16);
+                          },
+                        ),
+                        // Out of Office Message
+                        _buildConfigurableField(
+                          fieldName: 'OutOfOfficeMessage',
+                          builder: (isEnabled, isMandatory) {
+                            return TextFormField(
+                              controller:
+                                  controller.outOfOfficeMessageController,
+                              enabled: controller.leaveField.value && isEnabled,
+                              maxLines: 2,
+                              decoration: InputDecoration(
+                                labelText:
+                                    '${AppLocalizations.of(context)!.outOfOfficeMessage}${isMandatory ? ' *' : ''}',
+                                border: const OutlineInputBorder(),
+                                alignLabelWithHint: true,
+                              ),
+                              validator: isMandatory
+                                  ? (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return '${AppLocalizations.of(context)!.outOfOfficeMessage} ${AppLocalizations.of(context)!.fieldRequired}';
+                                      }
+                                      return null;
+                                    }
+                                  : null,
+                              onChanged:
+                                  controller.leaveField.value && isEnabled
+                                  ? (value) =>
+                                        controller.outOfOfficeMessage.value =
+                                            value
+                                  : null,
+                            );
+                          },
+                        ),
+
+                        // const SizedBox(height: 16),
+                        _buildConfigurableField(
+                          fieldName: 'Notify HR',
+                          builder: (isEnabled, isMandatory) {
+                            return SizedBox(height: 16);
+                          },
+                        ),
+                        // Notify HR Checkbox
+                        _buildConfigurableField(
+                          fieldName: 'Notify HR',
+                          builder: (isEnabled, isMandatory) {
+                            if (!isEnabled) return const SizedBox.shrink();
+
+                            return CheckboxListTile(
+                              title: Text(
+                                AppLocalizations.of(context)!.notifyHR,
+                              ),
+                              value: controller.notifyHR.value,
+                              onChanged:
+                                  controller.leaveField.value && isEnabled
+                                  ? (value) => controller.notifyHR.value =
+                                        value ?? false
+                                  : null,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                            );
+                          },
+                        ),
+
+                        // Notify Team Members Checkbox
+                        _buildConfigurableField(
+                          fieldName: 'Notify team members',
+                          builder: (isEnabled, isMandatory) {
+                            if (!isEnabled) return const SizedBox.shrink();
+
+                            return CheckboxListTile(
+                              title: Text(
+                                AppLocalizations.of(context)!.notifyTeamMembers,
+                              ),
+                              value: controller.notifyTeam.value,
+                              onChanged:
+                                  controller.leaveField.value && isEnabled
+                                  ? (value) => controller.notifyTeam.value =
+                                        value ?? false
+                                  : null,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                            );
+                          },
+                        ),
+
+                        // const SizedBox(height: 16),
+                        Text(
+                          AppLocalizations.of(context)!.uploadAttachments,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        Obx(() {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              /// Upload Box
+                              InkWell(
+                                onTap: !controller.leaveField.value
+                                    ? null
+                                    : controller.pickImages,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade400,
+                                      style: BorderStyle.solid,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const Icon(Icons.cloud_upload, size: 40),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.uploadFileOrDragDrop,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              if (controller.uploadedImages.isNotEmpty)
+                                SizedBox(
+                                  height: 90,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: controller.uploadedImages.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(width: 8),
+                                    itemBuilder: (context, index) {
+                                      final file =
+                                          controller.uploadedImages[index];
+
+                                      return Stack(
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              _openImagePreview(context, file);
+                                            },
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.file(
+                                                file,
+                                                width: 90,
+                                                height: 90,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ),
+
+                                          if (controller.leaveField.value)
+                                            Positioned(
+                                              top: 4,
+                                              right: 4,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  controller.uploadedImages
+                                                      .removeAt(index);
+                                                },
+                                                child: Container(
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Colors.black54,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    color: Colors.white,
+                                                    size: 18,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                              _buildConfigurableField(
+                                fieldName: 'Paid/Unpaid Leave flag',
+                                builder: (isEnabled, isMandatory) {
+                                  if (!isEnabled)
+                                    return const SizedBox.shrink();
+
+                                  return Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: () {
+                                          debugPrint(
+                                            "Status: ${widget.leaveRequest?.approvalStatus ?? 'N/A'}",
+                                          );
+                                        },
+                                        icon: const Icon(
+                                          Icons.density_small_outlined,
+                                          size: 8,
+                                          color: Colors.white,
+                                        ),
+                                        label: const Text(
+                                          "Paid",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: buttonColor,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          minimumSize: const Size(0, 32),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        }),
+
+                        const SizedBox(height: 12),
+
+                        Obx(() {
+                          if (controller.leaveDays.isEmpty) {
+                            return const SizedBox();
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: controller.leaveDays.map((leaveDay) {
+                              final date = DateTime.fromMillisecondsSinceEpoch(
+                                leaveDay.transDate,
+                                isUtc: true,
+                              ).toLocal();
+
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    /// Date column
+                                    Expanded(
+                                      child: Text(
+                                        DateFormat('dd-MM-yyyy').format(date),
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 12),
+
+                                    /// Day type column (ALWAYS Expanded)
+                                    Expanded(
+                                      child: leaveDay.noOfDays == 0
+                                          ? const Text(
+                                              "Non Working Day",
+                                              style: TextStyle(fontSize: 12),
+                                            )
+                                          : SearchableMultiColumnDropdownField<
+                                              String
+                                            >(
+                                              enabled:
+                                                  controller.leaveField.value &&
+                                                  !leaveDay.isHoliday,
+                                              labelText: AppLocalizations.of(
+                                                context,
+                                              )!.dayType,
+                                              items: [
+                                                'Full Day',
+                                                'First Half',
+                                                'Second Half',
+                                              ],
+                                              selectedValue:
+                                                  leaveDay.dayType.value,
+                                              searchValue: (option) => option,
+                                              displayText: (option) => option,
+                                              onChanged: (option) {
+                                                leaveDay.dayType.value =
+                                                    option!;
+                                                controller.calculateTotalDays();
+                                              },
+                                              rowBuilder: (option, searchQuery) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 16,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(option),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                              columnHeaders: const ['Day Type'],
+                                            ),
+                                    ),
+
+                                    // const SizedBox(width: 12),
+
+                                    // /// New Status button column
+                                    // if (leaveDay.approvalStatus != null &&
+                                    //     widget.leaveRequest!.approvalStatus !=
+                                    //         "Created")
+                                    //   Expanded(
+                                    //     child: OutlinedButton(
+                                    //       onPressed: () {
+                                    //         // Optionally handle button click
+                                    //       },
+                                    //       style: OutlinedButton.styleFrom(
+                                    //         side: const BorderSide(
+                                    //           color: Colors.blue,
+                                    //         ),
+                                    //         shape: RoundedRectangleBorder(
+                                    //           borderRadius:
+                                    //               BorderRadius.circular(8),
+                                    //         ),
+                                    //         padding: const EdgeInsets.symmetric(
+                                    //           vertical: 12,
+                                    //         ),
+                                    //       ),
+                                    //       child: Text(
+                                    //         leaveDay.approvalStatus ??
+                                    //             'Pending',
+                                    //         style: const TextStyle(
+                                    //           fontSize: 12,
+                                    //         ),
+                                    //       ),
+                                    //     ),
+                                    //   ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        }),
+
+                        const SizedBox(height: 12),
+
+                        Obx(
+                          () => Text(
+                            '${AppLocalizations.of(context)!.total} ${controller.totalRequestedDays.value} ${AppLocalizations.of(context)!.days} ${AppLocalizations.of(context)!.ofLeave}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
                             ),
                           ),
+                        ),
+                        if (widget.leaveRequest != null)
+                          const SizedBox(height: 10),
+                        if (widget.leaveRequest != null)
+                          _buildSection(
+                            title: AppLocalizations.of(
+                              context,
+                            )!.trackingHistory,
+                            children: [
+                              const SizedBox(height: 12),
+                              FutureBuilder<List<ExpenseHistory>>(
+                                future: historyFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
 
-                          const SizedBox(height: 32),
+                                  if (snapshot.hasError) {
+                                    return Center(
+                                      child: Text("No Data Available"),
+                                    );
+                                  }
 
-                          // Action Buttons
-                          if (widget.leaveRequest != null &&
-                              !widget.isReadOnly &&
-                              widget.leaveRequest?.stepType?.isNotEmpty == true)
-                            _buildApprovalActionButtons(),
-                          if (controller.leaveField.value || widget.isReadOnly)
-                            _buildActionButtons(),
-                          if (widget.status) _buildActionButtons(),
-                          if (widget.leaveRequest?.requestType ==
-                              "LeaveCancellation" || widget.leaveRequest!.leaveStatus == "Approved"  )
-                            _buildViewModeButtonsCancelation(),
-                          if (widget.isReadOnly &&
-                              widget.leaveRequest != null &&
-                              widget.leaveRequest?.approvalStatus !=
-                                  "Approved" &&
-                              widget.leaveRequest?.approvalStatus !=
-                                  "Cancelled" &&
-                              widget.leaveRequest?.approvalStatus != "Pending")
-                            _buildViewModeButtons(),
+                                  final historyList = snapshot.data!;
+                                  if (historyList.isEmpty) {
+                                    return Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.noHistoryMessage,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: historyList.length,
+                                    itemBuilder: (context, index) {
+                                      final item = historyList[index];
+                                      // print("Trackingitem: $item");
+                                      return _buildTimelineItem(
+                                        item,
+                                        index == historyList.length - 1,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 32),
 
-                          const SizedBox(height: 32),
-                        ],
-                      );
-                    }),
+                        // Action Buttons
+                        if (widget.leaveRequest != null &&
+                            !widget.isReadOnly &&
+                            widget.leaveRequest?.stepType?.isNotEmpty == true &&
+                            PermissionHelper.canUpdate("Leave Requisition"))
+                          _buildApprovalActionButtons(),
+                        if ((controller.leaveField.value ||
+                                widget.isReadOnly) &&
+                            PermissionHelper.canUpdate("Leave Requisition"))
+                          _buildActionButtons(),
+                        if (widget.leaveRequest != null &&
+                            !widget.status &&
+                            (widget
+                                    .leaveRequest!
+                                    .cancellationApprovalStatus
+                                    ?.isEmpty ??
+                                true) &&
+                            PermissionHelper.canUpdate("Leave Requisition"))
+                          _buildViewModeButtons(),
+
+                        if (widget.isReadOnly &&
+                            PermissionHelper.canUpdate("Leave Requisition") &&
+                            widget.leaveRequest != null &&
+                            (widget.leaveRequest?.requestType ==
+                                    "LeaveCancellation" ||
+                                widget.leaveRequest?.leaveStatus ==
+                                        "Approved" &&
+                                    widget
+                                            .leaveRequest!
+                                            .cancellationApprovalStatus ==
+                                        "Pending"))
+                          _buildViewModeButtonsCancelation(),
+
+                        if (widget.isReadOnly &&
+                            PermissionHelper.canUpdate("Leave Requisition") &&
+                            widget.leaveRequest != null &&
+                            widget.leaveRequest?.approvalStatus != "Approved" &&
+                            widget.leaveRequest?.approvalStatus !=
+                                "Cancelled" &&
+                            widget.leaveRequest?.approvalStatus != "Pending")
+                          _buildViewModeButtons(),
+                        if (!PermissionHelper.canUpdate("Leave Requisition"))
+                          _buildViewModeButtons(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
                   ),
                 );
         }),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(ExpenseHistory item, bool isLast) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.blue),
+            if (!isLast)
+              Container(width: 2, height: 40, color: Colors.grey.shade300),
+          ],
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(item.notes),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ExpansionTile(
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.deepPurple,
+              ),
+            ),
+            collapsedIconColor: Colors.grey,
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            children: children,
+          ),
+        ),
       ),
     );
   }
@@ -1377,9 +1515,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat(
-                                        'dd MMM yyyy',
-                                      ).format(leaveDay.date),
+                                      DateFormat('dd-MM-yyyy').format(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                          leaveDay.transDate,
+                                        ),
+                                      ),
                                     ),
                                   ),
 
@@ -1397,20 +1537,16 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                               context,
                                             )!.dayType,
                                             items: [
-                                              'FullDay',
-                                              'FirstHalf',
-                                              'SecondHalf',
+                                              'Full Day',
+                                              'First Half',
+                                              'Second Half',
                                             ],
                                             selectedValue:
                                                 leaveDay.dayType.value,
                                             searchValue: (option) => option,
                                             displayText: (option) => option,
                                             onChanged: (option) {
-                                              leaveDay.dayType.value =
-                                                  option ??
-                                                  AppLocalizations.of(
-                                                    context,
-                                                  )!.fullDay;
+                                              leaveDay.dayType.value = option!;
                                               controller.calculateTotalDays();
 
                                               /// track modified only
@@ -1481,7 +1617,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               return;
                             }
 
-                            Navigator.pop(context);
+                           
 
                             await controller.submitPartialCancellation(
                               context,
@@ -1541,16 +1677,19 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
     return Column(
       children: [
-        if (stepType == "Review")
+        if (stepType == "Review" &&
+            widget.leaveRequest!.requestType != "LeaveCancellation")
           Row(
             children: [
               /// ================= UPDATE =================
               Expanded(
                 child: Obx(() {
                   final isLoading = controller.buttonLoaders['update'] ?? false;
-
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (loading) => loading == true,
+                  );
                   return ElevatedButton(
-                    onPressed: isLoading
+                    onPressed: isLoading || isAnyLoading
                         ? null
                         : () async {
                             if (_formKey.currentState!.validate()) {
@@ -1593,9 +1732,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 child: Obx(() {
                   final isLoading =
                       controller.buttonLoaders['update_accept'] ?? false;
-
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (loading) => loading == true,
+                  );
                   return ElevatedButton(
-                    onPressed: isLoading
+                    onPressed: isLoading || isAnyLoading
                         ? null
                         : () async {
                             if (_formKey.currentState!.validate()) {
@@ -1639,9 +1780,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ],
           ),
 
-        if (stepType == "Review") const SizedBox(height: 12),
+        if (stepType == "Review" &&
+            widget.leaveRequest!.requestType != "LeaveCancellation")
+          const SizedBox(height: 12),
 
-        if (stepType == "Review")
+        if (stepType == "Review" &&
+            widget.leaveRequest!.requestType != "LeaveCancellation")
           Row(
             children: [
               /// ================= REJECT =================
@@ -1700,7 +1844,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ],
           ),
 
-        if (stepType == "Approval")
+        if (stepType == "Approval" ||
+            widget.leaveRequest!.requestType == "LeaveCancellation")
           Row(
             children: [
               Obx(() {
@@ -1776,7 +1921,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ],
           ),
 
-        if (stepType == "Approval")
+        if (stepType == "Approval" ||
+            widget.leaveRequest!.requestType == "LeaveCancellation")
           Row(
             children: [
               Obx(() {
@@ -1815,7 +1961,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    controller.chancelButton(context);
+                    Navigator.pop(context);
                     controller.closeField();
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
@@ -1830,7 +1976,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
   void showActionPopup(BuildContext context, String status) {
     final TextEditingController commentController = TextEditingController();
+
     bool isCommentError = false;
+    bool isLoading = false;
 
     showModalBottomSheet(
       context: context,
@@ -1849,6 +1997,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    /// Drag Handle
                     Center(
                       child: Container(
                         width: 50,
@@ -1859,7 +2008,10 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
+                    /// Title
                     Text(
                       AppLocalizations.of(context)!.action,
                       style: const TextStyle(
@@ -1867,12 +2019,18 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+
+                    /// Escalate User Dropdown
                     if (status == "Escalate") ...[
                       Text(
-                        '${AppLocalizations.of(context)!.selectUser}*',
+                        '${AppLocalizations.of(context)!.selectUser} *',
                         style: const TextStyle(fontSize: 16),
                       ),
+
                       const SizedBox(height: 8),
+
                       Obx(
                         () => SearchableMultiColumnDropdownField<User>(
                           labelText: '${AppLocalizations.of(context)!.user} *',
@@ -1885,12 +2043,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           searchValue: (user) =>
                               '${user.userName} ${user.userId}',
                           displayText: (user) => user.userId,
+                          controller: controller.userIdController,
                           onChanged: (user) {
                             controller.userIdController.text =
                                 user?.userId ?? '';
                             controller.selectedUser.value = user;
                           },
-                          controller: controller.userIdController,
                           rowBuilder: (user, searchQuery) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(
@@ -1907,14 +2065,19 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           },
                         ),
                       ),
+
                       const SizedBox(height: 16),
                     ],
-                    const SizedBox(height: 16),
+
+                    /// Comment Label
                     Text(
-                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ''}',
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ""}',
                       style: const TextStyle(fontSize: 16),
                     ),
+
                     const SizedBox(height: 8),
+
+                    /// Comment Field
                     TextField(
                       controller: commentController,
                       maxLines: 3,
@@ -1924,17 +2087,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: isCommentError ? Colors.red : Colors.grey,
-                            width: 2,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: isCommentError ? Colors.red : Colors.teal,
-                            width: 2,
-                          ),
                         ),
                         errorText: isCommentError
                             ? 'Comment is required.'
@@ -1946,70 +2098,85 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         }
                       },
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(height: 20),
+
+                    /// Buttons
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        /// Close Button
                         TextButton(
-                          onPressed: () {
-                            controller.closeField();
-                            Navigator.pop(context);
-                          },
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  controller.closeField();
+                                  Navigator.pop(context);
+                                },
                           child: Text(AppLocalizations.of(context)!.close),
                         ),
+
                         const SizedBox(width: 8),
+
+                        /// Action Button
                         ElevatedButton(
-                          onPressed: () async {
-                            final comment = commentController.text.trim();
-                            if (status != "Approve" && comment.isEmpty) {
-                              setState(() => isCommentError = true);
-                              return;
-                            }
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  final comment = commentController.text.trim();
 
-                            // showDialog(
-                            //   context: context,
-                            //   barrierDismissible: false,
-                            //   builder: (ctx) =>
-                            //       const Center(child: SkeletonLoaderPage()),
-                            // );
+                                  if (status != "Approve" && comment.isEmpty) {
+                                    setState(() => isCommentError = true);
+                                    return;
+                                  }
 
-                            final success = await controller
-                                .postApprovalActionLeavel(
-                                  context,
-                                  workitemrecid: [controller.workitemrecid!],
-                                  decision: status,
-                                  comment: commentController.text,
-                                );
+                                  setState(() => isLoading = true);
 
-                            if (Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            ).canPop()) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                            }
+                                  final success = await controller
+                                      .postApprovalActionLeavel(
+                                        context,
+                                        workitemrecid: [
+                                          controller.workitemrecid!,
+                                        ],
+                                        decision: status,
+                                        comment: comment,
+                                      );
 
-                            if (!context.mounted) return;
+                                  if (!context.mounted) return;
 
-                            if (success) {
-                              controller.setButtonLoading('reject', false);
+                                  setState(() => isLoading = false);
 
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.leavePendingApprovals,
-                              );
-                              controller.isApprovalEnable.value = false;
-                            } else {
-                              controller.setButtonLoading('reject', false);
-                            }
-                          },
+                                  if (success) {
+                                    controller.isApprovalEnable.value = false;
+
+                                    Navigator.pop(context);
+
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.leavePendingApprovals,
+                                    );
+                                  }
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal,
                             foregroundColor: Colors.white,
                           ),
-                          child: Text(status),
+
+                          /// Button Loader
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(status),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -2049,6 +2216,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           if (_formKey.currentState!.validate()) {
                             controller.setButtonLoading('resubmit', true);
                             try {
+                              controller.calculateTotalDays();
                               await controller.submitLeaveRequest(
                                 context,
                                 true,
@@ -2101,6 +2269,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               if (_formKey.currentState!.validate()) {
                                 controller.setButtonLoading('update', true);
                                 try {
+                                  controller.calculateTotalDays();
                                   await controller.submitLeaveRequest(
                                     context,
                                     false,
@@ -2136,7 +2305,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      controller.chancelButton(context);
+                      controller.chancelButtonLeave(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
@@ -2172,6 +2341,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                       controller.setButtonLoading('submit', true);
 
                       try {
+                        controller.calculateTotalDays();
                         await controller.submitLeaveRequest(
                           context,
                           true,
@@ -2209,6 +2379,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             controller.setButtonLoading('save', true);
 
                             try {
+                              controller.calculateTotalDays();
                               await controller.submitLeaveRequest(
                                 context,
                                 false,
@@ -2247,8 +2418,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
           // APPROVED - FULL/PARTIAL CANCEL BUTTONS
           if (widget.isReadOnly &&
+              PermissionHelper.canUpdate("Leave Requisition") &&
               widget.leaveRequest!.approvalStatus == "Approved" &&
-              widget.leaveRequest!.leaveStatus == "Approved" ||  widget.leaveRequest!.leaveStatus == "PartiallyCancelled" &&
+              (widget.leaveRequest!.leaveStatus == "Approved" ||
+                  widget.leaveRequest!.leaveStatus != "PartiallyCancelled" &&  widget.leaveRequest!.leaveStatus != "Cancelled" ||
+                  widget.leaveRequest!.leaveStatus == "Created") &&
               widget.leaveRequest?.leaveCancelId == null)
             Row(
               children: [
@@ -2318,31 +2492,36 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
             ),
 
           // APPROVED WITH CANCEL ID
-          if (widget.isReadOnly &&
-              widget.leaveRequest!.approvalStatus == "Approved" &&
-              widget.leaveRequest?.requestType != "LeaveCancellation" &&
-              widget.leaveRequest?.leaveCancelId?.isNotEmpty == true)
-            Row(
-              children: [
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                    ),
-                    child: const Text("Closes"),
-                  ),
-                ),
-              ],
-            ),
+          // if (widget.isReadOnly &&
+          //     widget.leaveRequest!.approvalStatus == "Approved" &&
+          //     widget.leaveRequest?.requestType != "LeaveCancellation" &&
+          //     widget.leaveRequest?.leaveCancelId?.isNotEmpty == true)
+          //   Row(
+          //     children: [
+          //       const SizedBox(width: 12),
+          //       Expanded(
+          //         child: ElevatedButton(
+          //           onPressed: () {
+          //             Navigator.of(context).pop();
+          //           },
+          //           style: ElevatedButton.styleFrom(
+          //             backgroundColor: Colors.grey,
+          //           ),
+          //           child: const Text("Closes"),
+          //         ),
+          //       ),
+          //     ],
+          //   ),
 
           // APPROVED WITHOUT CANCEL ID - CLOSE BUTTON
           if (widget.isReadOnly &&
-              widget.leaveRequest!.approvalStatus == "Approved"  &&
-              widget.leaveRequest?.requestType == "LeaveCancellation" &&
+              (widget.leaveRequest!.approvalStatus == "Cancelled" ||
+                  widget.leaveRequest!.approvalStatus == "Approved") &&
+              (widget.leaveRequest!.leaveStatus == "Approved" ||
+                  widget.leaveRequest!.leaveStatus != "PartiallyCancelled" ||
+                  widget.leaveRequest!.leaveStatus == "Created" ||
+                  widget.leaveRequest!.leaveStatus == "Cancelled" ||
+                  widget.leaveRequest!.approvalStatus == "Cancelled") &&
               widget.leaveRequest?.leaveCancelId == null)
             Row(
               children: [
@@ -2362,6 +2541,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
           // PENDING - CANCEL/CLOSE BUTTONS
           if (widget.isReadOnly &&
+              widget.status &&
               widget.leaveRequest?.approvalStatus == "Pending")
             Row(
               children: [
@@ -2415,104 +2595,208 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                 ),
               ],
             ),
-
+          if (widget.leaveRequest!.leaveStatus == "PartiallyCancelled")
+            _buildViewModeButtons(),
           const SizedBox(height: 28),
         ] else ...[
           // NEW LEAVE REQUEST - SUBMIT BUTTON
-          Obx(() {
-            final isSubmitLoading = controller.isButtonLoading('submit');
-            final isAnyLoading = controller.isAnyButtonLoading();
-
-            return CustomLoaderButton(
-              text: AppLocalizations.of(context)!.submit,
-              isLoading: isSubmitLoading,
-              disabled: isAnyLoading,
-              width: double.infinity,
-              height: 48,
-              borderRadius: BorderRadius.circular(8),
-              backgroundColor: const Color.fromARGB(255, 29, 1, 128),
-              onPressed: () async {
-                /// ✅ Form validation
-                if (!_formKey.currentState!.validate()) return;
-
-                /// ✅ Check requested days
-                if (controller.totalRequestedDays.value == 0) {
-                  Fluttertoast.showToast(
-                    msg: "Requested days cannot be zero",
-                    backgroundColor: Colors.red[100],
-                    textColor: Colors.red[800],
-                  );
-
-                  return;
-                }
-
-                /// ✅ Start loading
-                controller.setButtonLoading('submit', true);
-
-                try {
-                  await controller.submitLeaveRequest(context, true, false);
-                  controller.uploadedImages.clear();
-                  controller.fileItems.clear();
-                } finally {
-                  controller.setButtonLoading('submit', false);
-                }
-              },
-            );
-          }),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              // Save as Draft Button
-              Expanded(
-                child: Obx(() {
-                  final isSaveLoading = controller.isButtonLoading('saveDraft');
+          Center(
+            child: Column(
+              children: [
+                /// 🚀 Submit Button
+                Obx(() {
+                  final isSubmitLoading = controller.isButtonLoading('submit');
                   final isAnyLoading = controller.isAnyButtonLoading();
 
-                  return CustomLoaderButton(
-                    text: AppLocalizations.of(context)!.save,
-                    isLoading: isSaveLoading,
-                    disabled: isAnyLoading,
-                    height: 52,
-                    backgroundColor: const Color(0xFF1E7503),
-                    onPressed: () async {
-                      if (!_formKey.currentState!.validate()) return;
+                  return SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: (isSubmitLoading || isAnyLoading)
+                          ? null
+                          : () async {
+                              // _isSubmitAttempted = true;
 
-                      controller.setButtonLoading('saveDraft', true);
-                      try {
-                        await controller.submitLeaveRequest(
-                          context,
-                          false,
-                          false,
-                        );
-                        controller.uploadedImages.clear();
-                        controller.fileItems.clear();
-                      } finally {
-                        controller.setButtonLoading('saveDraft', false);
-                      }
-                    },
+                              /// Form validation
+                              if (!_formKey.currentState!.validate()) {
+                                setState(() {});
+                                return;
+                              }
+
+                              /// Requested days validation
+                              if (controller.totalRequestedDays.value == 0) {
+                                Fluttertoast.showToast(
+                                  msg: "Requested days cannot be zero",
+                                  backgroundColor: Colors.red[100],
+                                  textColor: Colors.red[800],
+                                );
+                                return;
+                              }
+
+                              controller.setButtonLoading('submit', true);
+
+                              try {
+                                controller.calculateTotalDays();
+                                await controller.submitLeaveRequest(
+                                  context,
+                                  true,
+                                  false,
+                                );
+
+                                controller.uploadedImages.clear();
+                                controller.fileItems.clear();
+                              } finally {
+                                controller.setButtonLoading('submit', false);
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        backgroundColor: AppColors.gradientEnd,
+                      ),
+                      child: isSubmitLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              AppLocalizations.of(context)!.submit,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
                   );
                 }),
-              ),
 
-              const SizedBox(width: 12),
+                const SizedBox(height: 20),
 
-              // Cancel Button
-              Expanded(
-                child: CustomLoaderButton(
-                  text: AppLocalizations.of(context)!.close,
-                  isLoading: false,
-                  disabled: false,
-                  backgroundColor: Colors.grey,
-                  height: 52,
-                  onPressed: () {
-                    controller.resetForm();
-                    Navigator.pop(context);
-                  },
+                /// 💾 Save & Cancel Buttons
+                Row(
+                  children: [
+                    /// Save Button
+                    Expanded(
+                      child: Obx(() {
+                        final isSaveLoading = controller.isButtonLoading(
+                          'saveDraft',
+                        );
+                        final isAnyLoading = controller.isAnyButtonLoading();
+
+                        return ElevatedButton(
+                          onPressed: (isSaveLoading || isAnyLoading)
+                              ? null
+                              : () async {
+                                  // _isSubmitAttempted = true;
+
+                                  if (!_formKey.currentState!.validate()) {
+                                    setState(() {});
+                                    return;
+                                  }
+
+                                  controller.setButtonLoading(
+                                    'saveDraft',
+                                    true,
+                                  );
+
+                                  try {
+                                    controller.calculateTotalDays();
+                                    await controller.submitLeaveRequest(
+                                      context,
+                                      false,
+                                      false,
+                                    );
+
+                                    controller.uploadedImages.clear();
+                                    controller.fileItems.clear();
+                                  } finally {
+                                    controller.setButtonLoading(
+                                      'saveDraft',
+                                      false,
+                                    );
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(130, 50),
+                            backgroundColor: const Color.fromARGB(
+                              241,
+                              20,
+                              94,
+                              2,
+                            ),
+                          ),
+                          child: isSaveLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  AppLocalizations.of(context)!.save,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                        );
+                      }),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    /// Cancel Button
+                    Expanded(
+                      child: Obx(() {
+                        final isCancelLoading = controller.isButtonLoading(
+                          'cancel',
+                        );
+                        final isAnyLoading = controller.isAnyButtonLoading();
+
+                        return ElevatedButton(
+                          onPressed: (isCancelLoading || isAnyLoading)
+                              ? null
+                              : () async {
+                                  controller.setButtonLoading('cancel', true);
+
+                                  try {
+                                    controller.resetForm();
+                                    Navigator.pop(context);
+                                  } finally {
+                                    controller.setButtonLoading(
+                                      'cancel',
+                                      false,
+                                    );
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(130, 50),
+                            backgroundColor: Colors.grey,
+                          ),
+                          child: isCancelLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  AppLocalizations.of(context)!.close,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                        );
+                      }),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ],
@@ -2583,7 +2867,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     .whenComplete(() {
                       controller.setButtonLoading('cancel', false);
                     });
-                Navigator.pop(context);
+             
                 // controller
                 //     .cancelExpense(
                 //       context,
@@ -2637,7 +2921,9 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         controller.setButtonLoading('cancel', true);
                         controller
                             .submitExpenseCancel(
-                              contextRecId: widget.leaveRequest!.recId,
+                              contextRecId:
+                                  widget.leaveRequest!.cancellationRECID!,
+                              context: context,
                             )
                             .whenComplete(() {
                               controller.setButtonLoading('cancel', false);

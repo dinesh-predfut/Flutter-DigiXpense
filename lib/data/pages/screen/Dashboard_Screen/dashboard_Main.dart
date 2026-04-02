@@ -3,19 +3,35 @@ import 'dart:io';
 import 'package:diginexa/core/comman/widgets/chatCard.dart';
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/constant/url.dart' show Urls;
 import 'package:diginexa/data/models.dart';
-import 'package:diginexa/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart' show PendingApprovalTableWidgetLeave, PendingApprovalTableWidgetLeaveOverdraftLeave, PendingApprovalTableWidgetLeaveOverdraft;
+import 'package:diginexa/data/pages/screen/Dashboard_Screen/DashboardItemsByrole/spenders.dart'
+    show
+        PendingApprovalTableWidgetLeave,
+        PendingApprovalTableWidgetLeaveOverdraftLeave,
+        PendingApprovalTableWidgetLeaveOverdraft;
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
 import 'package:flutter/material.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:table_calendar/table_calendar.dart' show CalendarFormat, TableCalendar, HeaderStyle, isSameDay, CalendarStyle, CalendarBuilders, DaysOfWeekStyle;
+import 'package:table_calendar/table_calendar.dart'
+    show
+        CalendarFormat,
+        TableCalendar,
+        HeaderStyle,
+        isSameDay,
+        CalendarStyle,
+        CalendarBuilders,
+        DaysOfWeekStyle;
 import 'package:uuid/uuid.dart';
 import '../../../../core/constant/Parames/colors.dart';
 import '../../../../core/constant/Parames/params.dart';
@@ -38,7 +54,7 @@ class _DashboardPageState extends State<DashboardPage>
   double _dragOffset = 100; // Initial height of the draggable panel
   final double _minDragExtent = 100; // Minimum height
   RxBool isImageLoading = false.obs;
-    CalendarFormat _calendarFormat = CalendarFormat.month;
+  CalendarFormat _calendarFormat = CalendarFormat.month;
 
   Rxn<File> profileImage = Rxn<File>();
   List<Dashboard> dashboards = [];
@@ -47,7 +63,7 @@ class _DashboardPageState extends State<DashboardPage>
   final double _maxDragExtent =
       MediaQueryData.fromView(WidgetsBinding.instance.window).size.height *
       0.7; // Maximum height
-  final Controller controller = Controller();
+  final controller = Get.find<Controller>();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -58,12 +74,16 @@ class _DashboardPageState extends State<DashboardPage>
     _scrollController = ScrollController();
     getDeviceDetails(context);
     controller.fetchAndStoreFeatures(Params.userToken, context);
-    _loadProfileImage();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfileImage();
+      controller.fetchFileTypes();
+    });
     controller.updateFeatureVisibility();
     //  controller.loadDashboards();
     _loadDashboards();
     // controller.initializeWizardConfigs(); // Initialize wizard configs
     _initializeAsync();
+    PermissionHelper.loadPermissions();
   }
 
   void _onUserScroll() {
@@ -114,9 +134,9 @@ class _DashboardPageState extends State<DashboardPage>
               controller.getExpenseList(),
               controller.fetchExpensesByCategory(),
               controller.fetchManageExpensesSummary(),
-              controller.fetchExpensesByStatus(),
-              controller.fetchExpensesByProjects(),
-              controller.fetchAndReplaceValue(),
+              // controller.fetchExpensesByStatus(),
+              // controller.fetchExpensesByProjects(),
+              // controller.fetchAndReplaceValue(),
               controller.fetchNotifications(),
               controller.currencyDropDown(),
               controller.configuration(),
@@ -142,7 +162,11 @@ class _DashboardPageState extends State<DashboardPage>
 
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
-
+    final currency = prefs.getString('organizationCurrency');
+    
+    if (currency != null) {
+      controller.organizationCurrency = currency;
+    }
     if (path != null && path.isNotEmpty) {
       final file = File(path);
 
@@ -249,7 +273,6 @@ class _DashboardPageState extends State<DashboardPage>
       // Step 1: Get device details
       final details = await getDeviceDetails(context);
 
-
       // Step 2: Make POST API call
       final response = await http.post(
         Uri.parse(
@@ -266,10 +289,8 @@ class _DashboardPageState extends State<DashboardPage>
       // Step 3: Handle response
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-      } else {
-      }
-    } catch (e) {
-    }
+      } else {}
+    } catch (e) {}
   }
 
   Future<void> _loadDashboards() async {
@@ -291,7 +312,7 @@ class _DashboardPageState extends State<DashboardPage>
     } catch (e) {
       debugPrint('Error: $e');
     } finally {
-       if (!mounted) return; 
+      if (!mounted) return;
       setState(() => loadingDashboards = false);
     }
   }
@@ -301,7 +322,7 @@ class _DashboardPageState extends State<DashboardPage>
     final platform = controller.getPlatform();
     final deviceId = await controller.getDeviceId();
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('selectedMenu', AppLocalizations.of(context)!.dashboard);
+    prefs.setString('selectedMenu','Dashboard');
     prefs.remove('last_route');
     final details = {
       "DeviceToken": token ?? "N/A",
@@ -596,12 +617,20 @@ class _DashboardPageState extends State<DashboardPage>
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  _mostUsedButton(Icons.money, loc.expense, () {
-                                    Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.generalExpense,
-                                    );
-                                  }),
+                                  PermissionHelper.canWrite(
+                                        "Expense Registration",
+                                      )
+                                      ? _mostUsedButton(
+                                          Icons.money,
+                                          loc.expense,
+                                          () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.generalExpense,
+                                            );
+                                          },
+                                        )
+                                      : const SizedBox(),
                                   const SizedBox(width: 20),
                                   _mostUsedButton(
                                     Icons.verified,
@@ -941,7 +970,12 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildWidgetContent(DashboardDataItem item, BuildContext context) {
     final data = controller.getWidgetData(item.id);
 
-    if (data == null && item.filterProps?.widgetName != "leavecalanderview" && item.filterProps?.widgetName != "mypendingleaves" && item.filterProps?.widgetName != "DraftExpenses"  && item.filterProps?.widgetName != "draftleaves" && item.filterProps?.widgetName != "MyPendingApprovals" )  {
+    if (data == null &&
+        item.filterProps?.widgetName != "leavecalanderview" &&
+        item.filterProps?.widgetName != "mypendingleaves" &&
+        item.filterProps?.widgetName != "DraftExpenses" &&
+        item.filterProps?.widgetName != "draftleaves" &&
+        item.filterProps?.widgetName != "MyPendingApprovals") {
       return Center(
         child: ElevatedButton(
           onPressed: () async {
@@ -953,7 +987,6 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     switch (controller.getWidgetType(item.filterProps?.widgetName ?? '')) {
-      
       case 'LineChart':
         return _buildLineChartWidget(item, data!);
 
@@ -970,144 +1003,136 @@ class _DashboardPageState extends State<DashboardPage>
         return _buildSummaryBoxWidget(item, data!);
 
       case 'Table':
-        return _buildTable();
+        return _buildTable(context);
       case 'Leavecalanderview':
         return _buildCalendarViewContent(context);
       case 'ExpenseTable':
-        return _buildTable();
+        return _buildTable(context);
       case 'MyPendingApprovalsPage':
         return PendingApprovalTableWidget(controller: controller);
       case 'MultiBarChart':
         return _buildMultiBarChart(item, data!);
       case 'mypendingleaves':
         return PendingApprovalTableWidgetLeave(controller: controller);
-        case 'DraftExpenses':
+      case 'DraftExpenses':
         return PendingApprovalTableWidgetLeaveOverdraft(controller: controller);
-          case 'Draftleaves':
-        return PendingApprovalTableWidgetLeaveOverdraftLeave (controller: controller);
+      case 'Draftleaves':
+        return _buildLeaveTable(context);
       default:
         return _buildGenericWidgetContent(item, data!);
     }
   }
-Widget _buildCalendarViewContent(BuildContext context) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-    child: Obx(() {
-      return Stack(
-        children: [
-          SingleChildScrollView(
-            child: TableCalendar<LeaveDetailsModel>(
-              firstDay: DateTime.utc(2000, 1, 1),
-              lastDay: DateTime.utc(2050, 12, 31),
-              focusedDay: controller.focusedDay,
-              calendarFormat: CalendarFormat.month,
 
-              rowHeight: 28,
-              daysOfWeekHeight: 18,
+  Widget _buildCalendarViewContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Obx(() {
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              child: TableCalendar<LeaveDetailsModel>(
+                firstDay: DateTime.utc(2000, 1, 1),
+                lastDay: DateTime.utc(2050, 12, 31),
+                focusedDay: controller.focusedDay,
+                calendarFormat: CalendarFormat.month,
 
-              headerStyle: const HeaderStyle(
-                titleCentered: true,
-                formatButtonVisible: false,
-                leftChevronVisible: false,
-                rightChevronVisible: false,
-                titleTextStyle: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                rowHeight: 28,
+                daysOfWeekHeight: 18,
+
+                headerStyle: const HeaderStyle(
+                  titleCentered: true,
+                  formatButtonVisible: false,
+                  leftChevronVisible: false,
+                  rightChevronVisible: false,
+                  titleTextStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
 
-              daysOfWeekStyle: const DaysOfWeekStyle(
-                weekdayStyle: TextStyle(fontSize: 10),
-                weekendStyle: TextStyle(fontSize: 10),
-              ),
+                daysOfWeekStyle: const DaysOfWeekStyle(
+                  weekdayStyle: TextStyle(fontSize: 10),
+                  weekendStyle: TextStyle(fontSize: 10),
+                ),
 
-              calendarStyle: const CalendarStyle(
-                defaultTextStyle: TextStyle(fontSize: 11),
-                weekendTextStyle: TextStyle(fontSize: 11),
-                todayTextStyle: TextStyle(fontSize: 11),
-                selectedTextStyle: TextStyle(fontSize: 11),
-                markersMaxCount: 2,
-              ),
+                calendarStyle: const CalendarStyle(
+                  defaultTextStyle: TextStyle(fontSize: 11),
+                  weekendTextStyle: TextStyle(fontSize: 11),
+                  todayTextStyle: TextStyle(fontSize: 11),
+                  selectedTextStyle: TextStyle(fontSize: 11),
+                  markersMaxCount: 2,
+                ),
 
-              eventLoader: (date) {
-                final key =
-                    DateTime(date.year, date.month, date.day);
-                return controller.events[key] ?? [];
-              },
+                eventLoader: (date) {
+                  final key = DateTime(date.year, date.month, date.day);
+                  return controller.events[key] ?? [];
+                },
 
-              selectedDayPredicate: (d) =>
-                  isSameDay(d, controller.selectedDay),
+                selectedDayPredicate: (d) =>
+                    isSameDay(d, controller.selectedDay),
 
-              calendarBuilders: CalendarBuilders(
-                markerBuilder: (context, date, events) {
-                  if (events.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    if (events.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
 
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: events.take(2).map((e) {
-                        return Container(
-                          width: 4,
-                          height: 4,
-                          margin:
-                              const EdgeInsets.symmetric(
-                                  horizontal: 1),
-                          decoration:
-                              const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                    return Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: events.take(2).map((e) {
+                          return Container(
+                            width: 4,
+                            height: 4,
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                ),
+
+                onDaySelected: (selected, focused) {
+                  controller.onDaySelected(selected, focused);
+                },
+
+                onPageChanged: (focused) {
+                  controller.focusedDay = focused;
+
+                  final range = controller.getMonthRangeEpoch(focused);
+
+                  controller.loadCalendarLeaves(
+                    fromDate: range['from']!,
+                    toDate: range['to']!,
                   );
                 },
               ),
-
-              onDaySelected: (selected, focused) {
-                controller.onDaySelected(
-                    selected, focused);
-              },
-
-              onPageChanged: (focused) {
-                controller.focusedDay = focused;
-
-                final range =
-                    controller.getMonthRangeEpoch(
-                        focused);
-
-                controller.loadCalendarLeaves(
-                  fromDate: range['from']!,
-                  toDate: range['to']!,
-                );
-              },
             ),
-          ),
 
-          if (controller.isCalendarLoading.value)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.05),
-                child: const Center(
-                  child: SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+            if (controller.isCalendarLoading.value)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.05),
+                  child: const Center(
+                    child: SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
-      );
-    }),
-  );
-}
+          ],
+        );
+      }),
+    );
+  }
+
   Widget _buildDatePickerField(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1122,7 +1147,7 @@ Widget _buildCalendarViewContent(BuildContext context) {
               hintText: controller.selectedFilterDate.value == null
                   ? 'Select date'
                   : DateFormat(
-                      'dd/MM/yyyy',
+                      'dd-MM-yyyy',
                     ).format(controller.selectedFilterDate.value!),
               suffixIcon: const Icon(Icons.calendar_today, size: 18),
               border: const OutlineInputBorder(),
@@ -1406,6 +1431,7 @@ Widget _buildCalendarViewContent(BuildContext context) {
         return Colors.blue;
     }
   }
+
   Widget _buildMultiBarChart(DashboardDataItem item, WidgetDataResponse data) {
     final multiSeries = controller.convertMultiSeriesChart(data!.raw);
     if (multiSeries.isEmpty) {
@@ -1501,7 +1527,7 @@ Widget _buildCalendarViewContent(BuildContext context) {
     // 👇 Indian currency formatter
     final formatter = NumberFormat.currency(
       locale: 'en_IN',
-      symbol: '₹ ',
+      symbol: ' ',
       decimalDigits: 0,
     );
 
@@ -1571,66 +1597,312 @@ Widget _buildCalendarViewContent(BuildContext context) {
     );
   }
 
-  Widget _buildTable() {
+  Widget _buildTable(BuildContext context) {
     final headers = [
       "ExpenseId",
       "EmployeeName",
       "ExpenseStatus",
       "ApprovalStatus",
-      "TotalAmountTrans",
+      "TotalAmount",
       "Currency",
-      "MerchantName",
-      "ExpenseCategoryId",
-      "PaymentMethod",
-      "ReceiptDate",
-      "CreatedDatetime",
+      "Merchant",
+      "Category",
+      "Payment",
     ];
 
-    return Obx(() {
-      final list = controller.getAllListGExpense;
-
-      if (list.isEmpty) {
-        return const Center(child: Text("No draft expenses found"));
-      }
-
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: DataTable(
-            headingRowColor: MaterialStateProperty.all(Colors.grey.shade300),
-            columns: headers
-                .map(
-                  (h) => DataColumn(
-                    label: Text(
-                      h,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                )
-                .toList(),
-            rows: list.map<DataRow>((row) {
-              final mapRow = row.toMap(); // Convert object to Map
-
-              return DataRow(
-                cells: headers.map((h) {
-                  var value = mapRow[h];
-
-                  // Format timestamps
-                  if ((h == "ReceiptDate" || h == "CreatedDatetime") &&
-                      value != null &&
-                      value is int) {
-                    value = controller.formattedDate(value);
-                  }
-
-                  return DataCell(Text(value?.toString() ?? ""));
-                }).toList(),
-              );
-            }).toList(),
+    return Column(
+      children: [
+        /// 🔍 SEARCH BAR
+        SizedBox(
+          height: 40,
+          child: TextField(
+            onChanged: (value) {
+              controller.searchQuery.value = value.toLowerCase();
+            },
+            decoration: InputDecoration(
+              hintText: "Search...",
+              prefixIcon: const Icon(Icons.search, size: 18),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
+            ),
           ),
         ),
-      );
-    });
+
+        const SizedBox(height: 10),
+
+        /// 📋 TABLE
+        Expanded(
+          child: Obx(() {
+            final query = controller.searchQuery.value;
+
+            /// 🔥 FILTER LOGIC
+            final list = controller.getAllListGExpense.where((row) {
+              return (row.expenseId ?? "").toLowerCase().contains(query) ||
+                  (row.employeeName ?? "").toLowerCase().contains(query) ||
+                  (row.merchantName ?? "").toLowerCase().contains(query) ||
+                  (row.expenseStatus ?? "").toLowerCase().contains(query);
+            }).toList();
+
+            if (list.isEmpty) {
+              return const Center(child: Text("No matching results"));
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 12, // 👈 tighter spacing
+                dataRowHeight: 36, // 👈 smaller rows
+                headingRowHeight: 40,
+                headingRowColor: MaterialStateProperty.all(
+                  Colors.grey.shade300,
+                ),
+
+                columns: headers
+                    .map(
+                      (h) => DataColumn(
+                        label: Text(
+                          h,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12, // 👈 smaller header text
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+
+                rows: list.map<DataRow>((row) {
+                  return DataRow(
+                    cells: [
+                      /// 🔥 CLICKABLE EXPENSE ID
+                      DataCell(
+                        GestureDetector(
+                          onTap: () async {
+                            if (row.expenseType == "PerDiem") {
+                              await controller.fetchSecificPerDiemItem(
+                                context,
+                                row.recId,
+                                false,
+                              );
+                            } else if (row.expenseType == "General Expenses") {
+                              await controller.fetchSecificExpenseItem(
+                                context,
+                                row.recId,
+                                true,
+                              );
+                              controller.fetchExpenseHistory(row.recId);
+                            } else if (row.expenseType == "Mileage") {
+                              await controller.fetchMileageDetails(
+                                context,
+                                row.recId,
+                                true,
+                              );
+                            } else if (row.expenseType == "CashAdvanceReturn") {
+                              await controller.fetchSecificCashAdvanceReturn(
+                                context,
+                                row.recId,
+                                true,
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(" ${row.expenseType}")),
+                              );
+                            }
+                          },
+
+                          child: Text(
+                            row.expenseId ?? "",
+                            style: _cellStyle().copyWith(
+                              color: Colors.blue,
+                              decoration: TextDecoration
+                                  .underline, // 👈 looks clickable
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      DataCell(
+                        Text(row.employeeName ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(row.expenseStatus ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(row.approvalStatus ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(
+                          row.totalAmountTrans?.toString() ?? "",
+                          style: _cellStyle(),
+                        ),
+                      ),
+                      DataCell(Text(row.currency ?? "", style: _cellStyle())),
+                      DataCell(
+                        Text(row.merchantName ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(row.expenseCategoryId ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(row.paymentMethod ?? "", style: _cellStyle()),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  /// 🎨 Common small text style
+  TextStyle _cellStyle() {
+    return const TextStyle(fontSize: 11); // 👈 compact text
+  }
+
+  Widget _buildLeaveTable(BuildContext context) {
+    final headers = [
+      "LeaveId",
+      "Employee",
+      "LeaveType",
+      "FromDate",
+      "ToDate",
+      "Duration",
+      "Status",
+      "Balance",
+    ];
+
+    return Column(
+      children: [
+        /// 🔍 SEARCH BAR
+        SizedBox(
+          height: 40,
+          child: TextField(
+            onChanged: (value) {
+              controller.leaveSearchQuery.value = value.toLowerCase();
+            },
+            decoration: InputDecoration(
+              hintText: "Search Leave...",
+              prefixIcon: const Icon(Icons.search, size: 18),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        /// 📋 TABLE
+        Expanded(
+          child: Obx(() {
+            final query = controller.leaveSearchQuery.value;
+
+            /// 🔥 FILTER
+            final list = controller.leaveRequisitionList.where((row) {
+              return (row.leaveId ?? "").toLowerCase().contains(query) ||
+                  (row.employeeName ?? "").toLowerCase().contains(query) ||
+                  (row.leaveCode ?? "").toLowerCase().contains(query) ||
+                  (row.approvalStatus ?? "").toLowerCase().contains(query);
+            }).toList();
+
+            if (list.isEmpty) {
+              return const Center(child: Text("No leave records found"));
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 12,
+                dataRowHeight: 36,
+                headingRowHeight: 40,
+                headingRowColor: MaterialStateProperty.all(
+                  Colors.grey.shade300,
+                ),
+
+                columns: headers
+                    .map(
+                      (h) => DataColumn(
+                        label: Text(
+                          h,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+
+                rows: list.map<DataRow>((row) {
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        GestureDetector(
+                          onTap: () async {
+                            await controller.fetchSpecificLeaveDetails(
+                              context,
+                              row.recId,
+                              true,
+                            );
+                          },
+                          child: Text(
+                            row.leaveId ?? "",
+                            style: _cellStyle().copyWith(
+                              color: Colors.blue,
+                              decoration:
+                                  TextDecoration.underline, // 👈 clickable look
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(row.employeeName ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(Text(row.leaveCode ?? "", style: _cellStyle())),
+                      DataCell(
+                        Text(
+                          controller.formattedDate(row.fromDate),
+                          style: _cellStyle(),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          controller.formattedDate(row.toDate),
+                          style: _cellStyle(),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          row.duration?.toString() ?? "",
+                          style: _cellStyle(),
+                        ),
+                      ),
+                      DataCell(
+                        Text(row.approvalStatus ?? "", style: _cellStyle()),
+                      ),
+                      DataCell(
+                        Text(
+                          row.leaveBalance?.toString() ?? "",
+                          style: _cellStyle(),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
   }
 
   Widget _buildTableGridWidget(
@@ -1692,7 +1964,8 @@ Widget _buildCalendarViewContent(BuildContext context) {
   ) {
     final value = data.getSingleValue();
     final formattedValue = NumberFormat.currency(
-      symbol: "",
+      locale: 'en_IN',
+      symbol: '',
       decimalDigits: 0,
     ).format(value);
 
@@ -2553,7 +2826,7 @@ Widget _buildCalendarViewContent(BuildContext context) {
 
           // ✅ Show count
           Text(
-            'Count: ${card.count}',
+            '${AppLocalizations.of(context)!.count}: ${card.count}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -2921,7 +3194,7 @@ Widget _buildCalendarViewContent(BuildContext context) {
 
           // ✅ Show count
           Text(
-            'Count: ${card.count}',
+            '${AppLocalizations.of(context)!.count}: ${card.count}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -3011,13 +3284,11 @@ Widget _buildCalendarViewContent(BuildContext context) {
     );
   }
 }
+
 class PendingApprovalTableWidget extends StatelessWidget {
   final Controller controller;
 
-  const PendingApprovalTableWidget({
-    super.key,
-    required this.controller,
-  });
+  const PendingApprovalTableWidget({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -3038,8 +3309,7 @@ class PendingApprovalTableWidget extends StatelessWidget {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
             ),
           ),
         ),
@@ -3050,15 +3320,11 @@ class PendingApprovalTableWidget extends StatelessWidget {
         Expanded(
           child: Obx(() {
             if (controller.isLoadingGE1.value) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (controller.filteredpendingApprovals.isEmpty) {
-              return const Center(
-                child: Text("No expenses found"),
-              );
+              return const Center(child: Text("No expenses found"));
             }
 
             return SingleChildScrollView(
@@ -3066,11 +3332,9 @@ class PendingApprovalTableWidget extends StatelessWidget {
               child: SizedBox(
                 width: 900, // 👈 table width
                 child: ListView.builder(
-                  itemCount:
-                      controller.filteredpendingApprovals.length,
+                  itemCount: controller.filteredpendingApprovals.length,
                   itemBuilder: (context, index) {
-                    final item =
-                        controller.filteredpendingApprovals[index];
+                    final item = controller.filteredpendingApprovals[index];
 
                     return _SmallApprovalRow(item: item);
                   },
@@ -3082,34 +3346,27 @@ class PendingApprovalTableWidget extends StatelessWidget {
       ],
     );
   }
-  }
-  
+}
+
 class _SmallApprovalRow extends StatelessWidget {
   final ExpenseModel item;
 
-  const _SmallApprovalRow({
-    required this.item,
-  });
+  const _SmallApprovalRow({required this.item});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             _cell(item.expenseId, 110, bold: true),
 
             _cell(
-              DateFormat('dd-MM-yyyy').format(
-                DateTime.fromMillisecondsSinceEpoch(
-                  item.receiptDate,
-                ),
-              ),
+              DateFormat(
+                'dd-MM-yyyy',
+              ).format(DateTime.fromMillisecondsSinceEpoch(item.receiptDate)),
               110,
             ),
 
@@ -3129,12 +3386,7 @@ class _SmallApprovalRow extends StatelessWidget {
     );
   }
 
-  Widget _cell(
-    String text,
-    double width, {
-    bool bold = false,
-    Color? color,
-  }) {
+  Widget _cell(String text, double width, {bool bold = false, Color? color}) {
     return SizedBox(
       width: width,
       child: Text(

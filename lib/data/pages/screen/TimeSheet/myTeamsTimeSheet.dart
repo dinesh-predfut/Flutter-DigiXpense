@@ -52,12 +52,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
   bool? showPerDiem;
   bool? showMileage;
   bool? showCashAdvans;
-  final List<String> statusOptions = [
-  
-    "In Process",
-    "All",
-  ];
-
+  final List<String> statusOptions = ["In Process", "All"];
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
@@ -74,6 +69,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
     _loadProfileImage();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
+      controller.selectedMyTeamSheetStatusDropDownmyTeam.value = "In Process";
     });
 
     controller.fetchNotifications();
@@ -103,8 +99,6 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
     _scaffoldKey.currentState?.openDrawer();
   }
 
-
-
   Color hexToColor(String hex) {
     hex = hex.replaceAll('#', '');
     return Color(int.parse('FF$hex', radix: 16));
@@ -133,7 +127,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                 if (primaryColor != const Color(0xFF1e4db7))
+                if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -155,9 +149,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             children: [
                               IconButton(
                                 onPressed: _openMenu,
@@ -193,30 +185,31 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -235,14 +228,12 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                       ),
                     ),
                     padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child:Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               IconButton(
@@ -279,30 +270,31 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -312,7 +304,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                   child: Padding(
                     padding: const EdgeInsets.only(left: 16.0),
                     child: Text(
-                       AppLocalizations.of(context)!.myTeamTimesheets,
+                      AppLocalizations.of(context)!.myTeamTimesheets,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -324,112 +316,108 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                 ),
                 const SizedBox(height: 12),
 
-             
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: TextField(
-                        controller:
-                            controller.searchControllerApprovalDashBoard,
-                        onChanged: (value) {
-                          controller.searchQuery.value = value.toLowerCase();
-                          print(controller.searchController.text);
-                        },
-                        decoration: InputDecoration(
-                          hintText: loc.search,
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: Colors.grey,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextField(
+                      controller: controller.searchControllerApprovalDashBoard,
+                      onChanged: (value) {
+                        controller.searchQuery.value = value.toLowerCase();
+                        print(controller.searchController.text);
+                      },
+                      decoration: InputDecoration(
+                        hintText: loc.search,
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-                   Row(
-                    children: [
-                      // Status Dropdown
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
+                Row(
+                  children: [
+                    // Status Dropdown
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Obx(
+                            () => DropdownButton<String>(
+                              value: controller
+                                  .selectedMyTeamSheetStatusDropDownmyTeam
+                                  .value,
+                              isExpanded: true,
+                              underline: const SizedBox(),
+                              dropdownColor: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Obx(
-                              () => DropdownButton<String>(
-                                value: controller
-                                    .selectedMyTeamSheetStatusDropDownmyTeam
-                                    .value,
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                dropdownColor: theme.colorScheme.primary,
-                                borderRadius: BorderRadius.circular(10),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.colorScheme.secondary,
-                                ),
-                                icon: Icon(
-                                  Icons.arrow_drop_down,
-                                  color: theme.colorScheme.primary,
-                                ),
-                                onChanged: (String? newValue) {
-                                  if (newValue != null &&
-                                      newValue != controller.selectedStatus) {
-                                    controller.selectedStatus = newValue;
-                                    controller
-                                            .selectedMyTeamSheetStatusDropDownmyTeam
-                                            .value =
-                                        newValue;
-                                    controller.fetchMyteamSheetTimeSheetData();
-                                  }
-                                },
-                                items: statusOptions.map<DropdownMenuItem<String>>((
-                                  String value,
-                                ) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    enabled: true,
-                                    child: Text(
-                                      value,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color:
-                                            controller
-                                                    .selectedMyTeamSheetStatusDropDownmyTeam
-                                                    .value ==
-                                                value
-                                            ? theme.colorScheme.secondary
-                                            : Colors.white,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.secondary,
                               ),
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                color: theme.colorScheme.primary,
+                              ),
+                              onChanged: (String? newValue) {
+                                if (newValue != null &&
+                                    newValue != controller.selectedStatus) {
+                                  controller.selectedStatus = newValue;
+                                  controller
+                                          .selectedMyTeamSheetStatusDropDownmyTeam
+                                          .value =
+                                      newValue;
+                                  controller.fetchMyteamSheetTimeSheetData();
+                                }
+                              },
+                              items: statusOptions.map<DropdownMenuItem<String>>((
+                                String value,
+                              ) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  enabled: true,
+                                  child: Text(
+                                    value,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          controller
+                                                  .selectedMyTeamSheetStatusDropDownmyTeam
+                                                  .value ==
+                                              value
+                                          ? theme.colorScheme.secondary
+                                          : Colors.white,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
                         ),
                       ),
-                      
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
 
-                  // 🔹 Content based on selected tab
-                  Expanded(child: _buildCardViewContent(context)),
-              
+                // 🔹 Content based on selected tab
+                Expanded(child: _buildCardViewContent(context)),
               ],
             );
           },
@@ -467,7 +455,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
                   recId: item.recId,
                   lockId: item.recId,
                   context: context,
-                   page:"Team"
+                  page: "Team",
                 );
 
                 setState(() => isLoading = false);
@@ -634,8 +622,6 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
     );
   }
 
-
-
   Widget _buildSwipeActionLeft(bool isLoading) {
     final loc = AppLocalizations.of(context)!;
     return Container(
@@ -697,7 +683,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
           recId: item.recId,
           lockId: item.recId,
           context: context,
-           page:"Team"
+          page: "Team",
         );
       },
       child: Card(

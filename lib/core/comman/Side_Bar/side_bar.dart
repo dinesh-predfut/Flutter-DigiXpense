@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/theme/theme.dart';
@@ -8,6 +9,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../data/pages/screen/ALl_Expense_Screens/Reports/notifiarModels.dart';
 import '../../../data/pages/screen/widget/router/router.dart';
 import '../../../data/service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -21,7 +23,7 @@ class MyDrawer extends StatefulWidget {
 
 class _MyDrawerState extends State<MyDrawer>
     with SingleTickerProviderStateMixin {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
 
   String selectedMenu = '';
   Rxn<File> profileImage = Rxn<File>();
@@ -83,6 +85,7 @@ class _MyDrawerState extends State<MyDrawer>
     punchInOut = await controller.isFeatureEnabled(
       "EnableAttendanceRequisition",
     );
+    final hasAttendanceRead = PermissionHelper.canRead("Attendance Management");
     print("EnableExpenseMenu$showExpense");
     print("EnableshowCashAdvance$showCashAdvance");
     print("EnableshowBoard$showBoard");
@@ -115,35 +118,43 @@ class _MyDrawerState extends State<MyDrawer>
     controller.userName.value = prefs.getString('userName') ?? '';
 
     selectedMenu = prefs.getString('selectedMenu') ?? '';
+    final loc = AppLocalizations.of(context)!;
 
     isExpenseExpanded = [
-      'My Expenses',
-      'My Team Expenses',
-      'Pending Approvals',
-      'UnProcessed',
+     loc.myExpenses,
+      loc.myTeamExpenses,
+      loc.pendingApprovals,
+      loc.unProcessed,
+      'Expense Reports',
+      "MIS Reports",
     ].contains(selectedMenu);
     isSheet = [
       'My TimeSheets',
       'My Team TimeSheets',
       'Pending Approvals Sheet',
+      'TimeSheet Reports',
     ].contains(selectedMenu);
     isCashExpanded = [
-      'My Cash Advances',
-      'My Team Cash Advances',
+      loc.myCashAdvances,
+      loc.myTeamCashAdvances,
       'Cash Advance Pending Approval',
+      'CashAdvance Reports',
+      'CashAdvance MIS Reports',
     ].contains(selectedMenu);
     isLeave = [
-      'My Leaves',
-      'My Team Leaves',
+       loc.myLeave,
+      loc.myTeamLeave,
       'Leave Pending Approvals',
       'Leave Cancellation',
+      'Leave Reports',
+      'Leave MIS Reports',
     ].contains(selectedMenu);
     isPunchInOut = [
-      'Punch In/Out',
-      'Punch In/Out List',
-      'My Team Attendance',
+      loc.punchInOut,
+      loc.punchInOutList,
+      loc.myTeamAttendance,
     ].contains(selectedMenu);
-    isPayRoles = ['My Payslips', 'All Payslips'].contains(selectedMenu);
+    isPayRoles = [loc.myPayslips, loc.allPayslips].contains(selectedMenu);
     isReportsExpanded = ['Reports', 'Expenses Reports'].contains(selectedMenu);
 
     setState(() => isProfileLoaded = true);
@@ -364,47 +375,49 @@ class _MyDrawerState extends State<MyDrawer>
 
   // ========================= Logout Dialog ========================= //
 
-  Future<void> _showLogoutConfirmation(
-    BuildContext context,
-    VoidCallback onLogout,
-  ) async {
-    return showDialog(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+ Future<void> _showLogoutConfirmation(
+  BuildContext context,
+  VoidCallback onLogout,
+) async {
+  return showDialog(
+    context: context,
+    builder: (_) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.white,
+        title: Text(
+          AppLocalizations.of(context)!.confirmLogout,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          AppLocalizations.of(context)!.logoutConfirmationMessage,
+        ),
+        actions: [
+          TextButton(
+            child: Text(AppLocalizations.of(context)!.cancel),
+            onPressed: () => Navigator.pop(context),
           ),
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Confirm Logout',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onLogout();
+            },
+            child: Text(AppLocalizations.of(context)!.logout),
           ),
-          content: const Text("Are you sure you want to logout?"),
-          actions: [
-            TextButton(
-              child: const Text("Cancel"),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onLogout();
-              },
-              child: const Text("Logout"),
-            ),
-          ],
-        );
-      },
-    );
-  }
+        ],
+      );
+    },
+  );
+}
 
   // ========================= Build Drawer ========================= //
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-
+    final reportModel = Provider.of<ReportModel>(context, listen: false);
     if (!isProfileLoaded) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -416,15 +429,6 @@ class _MyDrawerState extends State<MyDrawer>
         children: [
           _buildDrawerHeader(),
 
-          // -------------------- MENU TITLE -------------------- //
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              loc.all,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-            ),
-          ),
-
           // -------------------- Dashboard -------------------- //
           _buildBoldDrawerItem(
             title: loc.dashboard,
@@ -434,7 +438,9 @@ class _MyDrawerState extends State<MyDrawer>
           ),
 
           // -------------------- EXPENSE -------------------- //
-          if (showExpense == true)
+          if (showExpense == true &&
+                  PermissionHelper.canRead("Expense Reports") ||
+              PermissionHelper.canRead("Expense Registration"))
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent, // ✅ removes line
@@ -447,44 +453,72 @@ class _MyDrawerState extends State<MyDrawer>
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 children: [
-                  _buildDrawerItem(
-                    title: loc.myExpenses,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myExpenses,
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.generalExpense),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.myTeamExpenses,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myTeamExpenses,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.myTeamExpenseDashboard,
+                  if (PermissionHelper.canRead("Expense Registration"))
+                    _buildDrawerItem(
+                      title: loc.myExpenses,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myExpenses,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.generalExpense,
+                      ),
                     ),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.pendingApprovals,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.pendingApprovals,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.approvalDashboard,
+                  if (PermissionHelper.canRead("Expense Registration"))
+                    _buildDrawerItem(
+                      title: loc.myTeamExpenses,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myTeamExpenses,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.myTeamExpenseDashboard,
+                      ),
                     ),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.unProcessed,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.unProcessed,
-                    onTap: () =>
-                        Navigator.pushNamed(context, AppRoutes.unProcessed),
-                  ),
+                  if (PermissionHelper.canRead("Expense Registration"))
+                    _buildDrawerItem(
+                      title: loc.pendingApprovals,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.pendingApprovals,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.approvalDashboard,
+                      ),
+                    ),
+                  if (PermissionHelper.canRead("Expense Registration"))
+                    _buildDrawerItem(
+                      title: loc.unProcessed,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.unProcessed,
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.unProcessed),
+                    ),
+                  if (PermissionHelper.canRead("Expense Reports"))
+                    _buildDrawerItem(
+                      title: loc.reports,
+                      icon: Icons.arrow_right,
+                      menuKey: "Expense Reports",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.expensereportsDashboard,
+                      ),
+                    ),
+                  if (PermissionHelper.canRead("Expense Reports"))
+                    _buildDrawerItem(
+                      title: loc.misReports,
+                      icon: Icons.arrow_right,
+                      menuKey: "Expense MIS Reports",
+                      onTap: () => {
+                        reportModel.clearMISFields(),
+                        Navigator.pushNamed(context, AppRoutes.expenseMIS),
+                      },
+                    ),
                 ],
               ),
             ),
 
           // -------------------- CASH ADVANCE -------------------- //
-          if (showCashAdvance == true)
+          if (showCashAdvance == true &&
+                  PermissionHelper.canRead("Cash Advance Reports") ||
+              PermissionHelper.canRead("Cash Advance Requisition"))
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent, // ✅ removes line
@@ -497,39 +531,64 @@ class _MyDrawerState extends State<MyDrawer>
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 children: [
-                  _buildDrawerItem(
-                    title: loc.myCashAdvances,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myCashAdvances,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.cashAdvanceRequestDashboard,
+                  if (PermissionHelper.canRead("Cash Advance Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myCashAdvances,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myCashAdvances,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.cashAdvanceRequestDashboard,
+                      ),
                     ),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.myTeamCashAdvances,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myTeamCashAdvances,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.myTeamcashAdvanceDashboard,
+                  if (PermissionHelper.canRead("Cash Advance Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myTeamCashAdvances,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myTeamCashAdvances,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.myTeamcashAdvanceDashboard,
+                      ),
                     ),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.pendingApprovals,
-                    icon: Icons.arrow_right,
-                    menuKey: "Cash Advance Pending Approval",
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.approvalDashboardForDashboard,
+                  if (PermissionHelper.canRead("Cash Advance Requisition"))
+                    _buildDrawerItem(
+                      title: loc.pendingApprovals,
+                      icon: Icons.arrow_right,
+                      menuKey: "Cash Advance Pending Approval",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.approvalDashboardForDashboard,
+                      ),
                     ),
-                  ),
+                  if (PermissionHelper.canRead("Cash Advance Reports"))
+                    _buildDrawerItem(
+                      title: loc.reports,
+                      icon: Icons.arrow_right,
+                      menuKey: "CashAdvance Reports",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.cashAdvanceMyReportsDashboard,
+                      ),
+                    ),
+                  if (PermissionHelper.canRead("Cash Advance Reports"))
+                    _buildDrawerItem(
+                      title: loc.misReports,
+                      icon: Icons.arrow_right,
+                      menuKey: "CashAdvance MIS Reports",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.cashAdvanceMISReports,
+                      ),
+                    ),
                 ],
               ),
             ),
 
           // -------------------- EMAIL HUB -------------------- //
-          if (showLeaveMenu == true)
+          if (showLeaveMenu == true &&
+                  PermissionHelper.canRead("Leave Requisition") ||
+              PermissionHelper.canRead("Leave Reports"))
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent, // ✅ removes line
@@ -542,50 +601,83 @@ class _MyDrawerState extends State<MyDrawer>
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 children: [
-                  _buildDrawerItem(
-                    title: loc.myLeave,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myLeave,
-                    onTap: () => {
-                      Navigator.pushNamed(context, AppRoutes.leaveDashboard),
-                    },
-                  ),
-                  _buildDrawerItem(
-                    title: loc.myTeamLeave,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myTeamLeave,
-                    onTap: () => {
-                      Navigator.pushNamed(context, AppRoutes.myTeamsDashboard),
-                    },
-                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.pendingApprovals,
-                    icon: Icons.arrow_right,
-                    menuKey: "Leave Pending Approvals",
-                    onTap: () => {
-                      Navigator.pushNamed(
+                  if (PermissionHelper.canRead("Leave Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myLeave,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myLeave,
+                      onTap: () => {
+                        Navigator.pushNamed(context, AppRoutes.leaveDashboard),
+                      },
+                    ),
+                  if (PermissionHelper.canRead("Leave Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myTeamLeave,
+                      icon: Icons.arrow_right,
+                      menuKey: loc.myTeamLeave,
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.myTeamsDashboard,
+                        ),
+                      },
+                      // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                    ),
+                  if (PermissionHelper.canRead("Leave Requisition"))
+                    _buildDrawerItem(
+                      title: loc.pendingApprovals,
+                      icon: Icons.arrow_right,
+                      menuKey: "Leave Pending Approvals",
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.leavePendingApprovals,
+                        ),
+                      },
+                    ),
+                  if (PermissionHelper.canRead("Leave Requisition"))
+                    _buildDrawerItem(
+                      title: loc.leaveCancellation,
+                      icon: Icons.arrow_right,
+                      menuKey: 'Leave Cancellation',
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.leaveCancellation,
+                        ),
+                      },
+                    ),
+
+                  if (PermissionHelper.canRead("Leave Reports"))
+                    _buildDrawerItem(
+                      title: loc.reports,
+                      icon: Icons.arrow_right,
+                      menuKey: "Leave Reports",
+                      onTap: () => Navigator.pushNamed(
                         context,
-                        AppRoutes.leavePendingApprovals,
+                        AppRoutes.leaveMyReportsDashboard,
                       ),
-                    },
-                  ),
-                  _buildDrawerItem(
-                    title: loc.leaveCancellation,
-                    icon: Icons.arrow_right,
-                    menuKey: 'Leave Cancellation',
-                    onTap: () => {
-                      Navigator.pushNamed(context, AppRoutes.leaveCancellation),
-                    },
-                  ),
+                    ),
+                  if (PermissionHelper.canRead("Leave Reports"))
+                    _buildDrawerItem(
+                      title: loc.misReports,
+                      icon: Icons.arrow_right,
+                      menuKey: "Leave MIS Reports",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.leaveMISReports,
+                      ),
+                    ),
                 ],
               ),
             ),
-            if (showTimesheet == true)
+          if (showTimesheet == true &&
+                  PermissionHelper.canRead("Timesheet Reports") ||
+              PermissionHelper.canRead("Timesheet Requisition"))
             Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.transparent, // ✅ removes line
-              ),
+              data: Theme.of(
+                context,
+              ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 initiallyExpanded: isSheet,
                 leading: Icon(Icons.calendar_month),
@@ -594,45 +686,66 @@ class _MyDrawerState extends State<MyDrawer>
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 children: [
-                  _buildDrawerItem(
-                    title: loc.myTimesheets,
-                    icon: Icons.arrow_right,
-                    menuKey: 'My TimeSheets',
-                    onTap: () => {
-                      Navigator.pushNamed(
+                  if (PermissionHelper.canRead("Timesheet Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myTimesheets,
+                      icon: Icons.arrow_right,
+                      menuKey: 'My TimeSheets',
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.timeSheetDashboard,
+                        ),
+                      },
+                    ),
+                  if (PermissionHelper.canRead("Timesheet Requisition"))
+                    _buildDrawerItem(
+                      title: loc.myTeamTimesheets,
+                      icon: Icons.arrow_right,
+                      menuKey: 'My Team TimeSheets',
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.myTeamimeSheetRequestPage,
+                        ),
+                      },
+                      // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                    ),
+                  if (PermissionHelper.canRead("Timesheet Requisition"))
+                    _buildDrawerItem(
+                      title: loc.pendingApprovals,
+                      icon: Icons.arrow_right,
+                      menuKey: 'Pending Approvals Sheet',
+                      onTap: () => {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.timeSheetPendingDashboard,
+                        ),
+                      },
+                    ),
+                  if (PermissionHelper.canRead("Timesheet Reports"))
+                    _buildDrawerItem(
+                      title: loc.reports,
+                      icon: Icons.arrow_right,
+                      menuKey: "TimeSheet Reports",
+                      onTap: () => Navigator.pushNamed(
                         context,
-                        AppRoutes.timeSheetDashboard,
+                        AppRoutes.timeSheetDashboardReports,
                       ),
-                    },
-                  ),
-                  _buildDrawerItem(
-                    title: loc.myTeamTimesheets,
-                    icon: Icons.arrow_right,
-                    menuKey: 'My Team TimeSheets',
-                    onTap: () => {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.myTeamimeSheetRequestPage,
-                      ),
-                    },
-                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.pendingApprovals,
-                    icon: Icons.arrow_right,
-                    menuKey: 'Pending Approvals Sheet',
-                    onTap: () => {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.timeSheetPendingDashboard,
-                      ),
-                    },
-                  ),
+                    ),
+                  //  _buildDrawerItem(
+                  //   title: "MIS Reports",
+                  //   icon: Icons.arrow_right,
+                  //   menuKey: "TimeSheet MIS Reports",
+                  //   onTap: () =>
+                  //       Navigator.pushNamed(context, AppRoutes.leaveMISReports),
+                  // ),
                 ],
               ),
             ),
-             
-          if (enablePayRoll == true)
+
+          if (enablePayRoll == true &&
+              PermissionHelper.canRead("Payroll Requisition"))
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent, // ✅ removes line
@@ -668,7 +781,8 @@ class _MyDrawerState extends State<MyDrawer>
                 ],
               ),
             ),
-             if (showBoard == true)
+          if (showBoard == true &&
+              PermissionHelper.canRead("Board Requisition"))
             _buildBoldDrawerItem(
               title: loc.board,
               icon: Icons.dashboard,
@@ -676,14 +790,15 @@ class _MyDrawerState extends State<MyDrawer>
               onTap: () =>
                   Navigator.pushNamed(context, AppRoutes.boardDashboard),
             ),
-            if (showEmail == true)
-            _buildBoldDrawerItem(
-              title: loc.emailHub,
-              icon: Icons.mail_outline,
-              menuKey: loc.emailHub,
-              onTap: () =>
-                  Navigator.pushNamed(context, AppRoutes.emailHubScreen),
-            ),
+          if (showEmail == true)
+            if (PermissionHelper.canRead("Expense Registration"))
+              _buildBoldDrawerItem(
+                title: loc.emailHub,
+                icon: Icons.mail_outline,
+                menuKey: loc.emailHub,
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.emailHubScreen),
+              ),
 
           // -------------------- APPROVAL HUB -------------------- //
           _buildBoldDrawerItem(
@@ -695,38 +810,39 @@ class _MyDrawerState extends State<MyDrawer>
           ),
 
           // -------------------- REPORTS -------------------- //
-          Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent, // ✅ removes line
-            ),
-            child: ExpansionTile(
-              initiallyExpanded: isReportsExpanded,
-              leading: Icon(Icons.person_outline),
-              title: Text(
-                loc.reports,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              children: [
-                _buildDrawerItem(
-                  title: loc.reports,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.reports,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                ),
-                _buildDrawerItem(
-                  title: loc.expensesReports,
-                  icon: Icons.arrow_right,
-                  menuKey: loc.expensesReports,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.reportWizardParent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (punchInOut == true)
+          // Theme(
+          //   data: Theme.of(context).copyWith(
+          //     dividerColor: Colors.transparent, // ✅ removes line
+          //   ),
+          //   child: ExpansionTile(
+          //     initiallyExpanded: isReportsExpanded,
+          //     leading: Icon(Icons.person_outline),
+          //     title: Text(
+          //       loc.reports,
+          //       style: TextStyle(fontWeight: FontWeight.bold),
+          //     ),
+          //     children: [
+          //       _buildDrawerItem(
+          //         title: loc.reports,
+          //         icon: Icons.arrow_right,
+          //         menuKey: loc.reports,
+          //         onTap: () =>
+          //             Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+          //       ),
+          //       _buildDrawerItem(
+          //         title: loc.expensesReports,
+          //         icon: Icons.arrow_right,
+          //         menuKey: loc.expensesReports,
+          //         onTap: () => Navigator.pushNamed(
+          //           context,
+          //           AppRoutes.reportWizardParent,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          if (punchInOut == true &&
+              PermissionHelper.canRead("Attendance Requisition") == true)
             Theme(
               data: Theme.of(context).copyWith(
                 dividerColor: Colors.transparent, // ✅ removes line
@@ -770,17 +886,15 @@ class _MyDrawerState extends State<MyDrawer>
                 ],
               ),
             ),
-         
-         
-          
+
           // -------------------- SETTINGS -------------------- //
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              loc.settings,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.symmetric(horizontal: 16),
+          //   child: Text(
+          //     loc.settings,
+          //     style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+          //   ),
+          // ),
 
           _buildBoldDrawerItem(
             title: loc.settings,

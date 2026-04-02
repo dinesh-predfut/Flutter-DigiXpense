@@ -25,10 +25,24 @@ class ReportModel with ChangeNotifier {
   String recID = '';
   String resrecID = '';
   String sortOrder = '';
+  String sortByExpense = '';
   int? fromDateMillis;
   int? toDateMillis;
+  void setSortBy(String value) {
+    sortBy = value;
+    notifyListeners(); // ✅ triggers UI rebuild properly
+  }
+
   // String description.text = '';
   bool showCheckBox = false;
+  bool transData = false;
+  bool documentAttachments = false;
+  bool accountingDistributions = false;
+  bool expenseCategoryCustomFieldValues = false;
+  bool transCustomfieldValues = false;
+  bool headerCustomfieldValues = false;
+  bool workFlowHistory = false;
+  bool activityLog = false;
   String _applicableFor = '';
   String globalOperator = 'AND'; // Global operator between groups
   List<String> groupOperators = ['AND'];
@@ -116,7 +130,7 @@ class ReportModel with ChangeNotifier {
 
   void updateFunctionalArea(String value) {
     _functionalArea = value;
-
+    print("updateFunctionalArea$value");
     final filtered = allDatasets.where((ds) {
       if (ds is! Map<String, dynamic>) return false; // skip invalid entries
       final dsFA = ds['FunctionalArea']?.toString();
@@ -361,7 +375,6 @@ class ReportModel with ChangeNotifier {
         }
         break;
     }
-
     notifyListeners();
   }
 
@@ -400,76 +413,54 @@ class ReportModel with ChangeNotifier {
   }
 
   void initializeColumnSelections(dynamic columnChooserData) {
-    print('\n--- INITIALIZING COLUMN SELECTIONS ---');
-    print('Input data type: ${columnChooserData.runtimeType}');
-    print('Input data value: $columnChooserData');
-
     selectedCheckbox1.clear();
     selectedCheckbox2.clear();
 
     try {
       if (columnChooserData is List) {
-        print('\nProcessing as LIST format');
         for (var item in columnChooserData) {
-          print('List item type: ${item.runtimeType}');
-          print('List item value: $item');
-
           if (item is Map) {
-            if (item.containsKey('header')) {
-              final header = item['header'] as Map<String, dynamic>? ?? {};
-              print('\nHeader columns found: $header');
+            final header =
+                (item['header'] as Map?)?.cast<String, dynamic>() ?? {};
 
-              header.forEach((key, value) {
-                if (value == true) {
-                  print('Adding to header selection: $key');
-                  selectedCheckbox1.add(key);
-                }
-              });
-            }
+            final lines =
+                (item['lines'] as Map?)?.cast<String, dynamic>() ?? {};
 
-            if (item.containsKey('lines')) {
-              final lines = item['lines'] as Map<String, dynamic>? ?? {};
-              print('\nLines columns found: $lines');
+            header.forEach((key, value) {
+              if (value == true) {
+                selectedCheckbox1.add(key);
+              }
+            });
 
-              lines.forEach((key, value) {
-                if (value == true) {
-                  print('Adding to lines selection: $key');
-                  selectedCheckbox2.add(key);
-                }
-              });
-            }
+            lines.forEach((key, value) {
+              if (value == true) {
+                selectedCheckbox2.add(key);
+              }
+            });
           }
         }
       } else if (columnChooserData is Map) {
-        print('\nProcessing as MAP format');
         final header =
-            columnChooserData['header'] as Map<String, dynamic>? ?? {};
-        final lines = columnChooserData['lines'] as Map<String, dynamic>? ?? {};
+            (columnChooserData['header'] as Map?)?.cast<String, dynamic>() ??
+            {};
 
-        print('Header columns: $header');
-        print('Lines columns: $lines');
+        final lines =
+            (columnChooserData['lines'] as Map?)?.cast<String, dynamic>() ?? {};
 
         header.forEach((key, value) {
           if (value == true) {
-            print('Adding to header selection: $key');
             selectedCheckbox1.add(key);
           }
         });
 
         lines.forEach((key, value) {
           if (value == true) {
-            print('Adding to lines selection: $key');
             selectedCheckbox2.add(key);
           }
         });
       }
-
-      print('\n--- FINAL SELECTIONS ---');
-      print('Header selections: $selectedCheckbox1');
-      print('Lines selections: $selectedCheckbox2');
     } catch (e) {
-      print('\n--- ERROR IN INITIALIZATION ---');
-      print(e);
+      print("Column initialization error: $e");
     }
 
     notifyListeners();
@@ -884,16 +875,38 @@ class ReportModel with ChangeNotifier {
       final DateTime fromDate = fromDateCtrl.text.isNotEmpty
           ? DateFormat('dd-MM-yyyy').parse(fromDateCtrl.text)
           : DateTime.now();
+
       final DateTime toDate = toDateCtrl.text.isNotEmpty
           ? DateFormat('dd-MM-yyyy').parse(toDateCtrl.text)
           : DateTime.now();
 
+      // ✅ FIX: Adjust time boundaries
+      final DateTime fromDateStart = DateTime(
+        fromDate.year,
+        fromDate.month,
+        fromDate.day,
+        0,
+        0,
+        0,
+        0,
+      );
+
+      final DateTime toDateEnd = DateTime(
+        toDate.year,
+        toDate.month,
+        toDate.day,
+        23,
+        59,
+        59,
+        999,
+      );
+
       // 2️⃣ Prepare query parameters
       final queryParams = {
         'functionalarea': functionalArea.replaceAll(' ', ''),
-        'from_date': fromDate.millisecondsSinceEpoch.toString(),
-        'to_date': toDate.millisecondsSinceEpoch.toString(),
-        'sort_by': sortBy ?? '',
+        'from_date': fromDateStart.millisecondsSinceEpoch.toString(),
+        'to_date': toDateEnd.millisecondsSinceEpoch.toString(),
+        'sort_by': sortByExpense ?? '',
         'sort_order': sortOrder ?? '',
       };
 
@@ -964,8 +977,8 @@ class ReportModel with ChangeNotifier {
                 fontSize: 16.0,
               );
               return;
-            }else{
-              clearMISFields(); 
+            } else {
+              clearMISFields();
             }
             // ignore: use_build_context_synchronously
             Navigator.pushNamed(context, AppRoutes.expensePaginationPage);
@@ -988,21 +1001,32 @@ class ReportModel with ChangeNotifier {
       Fluttertoast.showToast(msg: "Something went wrong");
     }
   }
-void clearMISFields() {
-  fromDateCtrl.clear();
-  toDateCtrl.clear();
 
-  sortBy = '';
-  sortOrder = '';
-_functionalArea = '';
+  void clearMISFields() {
+    fromDateCtrl.clear();
+    toDateCtrl.clear();
+    sortByExpense = '';
+    showCheckBox = false;
+    transData = false;
+    documentAttachments = false;
+    accountingDistributions = false;
+    expenseCategoryCustomFieldValues = false;
+    transCustomfieldValues = false;
+    headerCustomfieldValues = false;
+    workFlowHistory = false;
+    activityLog = false;
+    sortBy = '';
+    sortOrder = '';
+    _functionalArea = '';
+    allDatasets = [];
+    // Clear filter groups
+    filterGroups.clear();
+    groupOperators.clear();
+    tableColumnTypes.clear();
 
-  // Clear filter groups
-  filterGroups.clear();
-  groupOperators.clear();
-  tableColumnTypes.clear();
+    notifyListeners();
+  }
 
-  notifyListeners();
-}
   /// 📌 Helper function to save ExpenseIds to local storage
   Future<void> _saveExpenseIds(List<dynamic> expenseList) async {
     List<String> expenseIds = expenseList
@@ -1033,7 +1057,10 @@ _functionalArea = '';
     notifyListeners();
   }
 
-  Future<void> saveReport(BuildContext context) async {
+  Future<void> saveReport(
+    BuildContext context, [
+    String? expenseRequisition,
+  ]) async {
     final List<Map<String, dynamic>> filterGroupsData = [];
     for (int i = 0; i < filterGroups.length; i++) {
       final group = filterGroups[i];
@@ -1178,7 +1205,21 @@ _functionalArea = '';
 
       if (response.statusCode == 200 || response.statusCode == 280) {
         final responseData = jsonDecode(response.body);
-        Navigator.pushNamed(context, AppRoutes.reportsDashboard);
+        print("ExpenseRequisition$expenseRequisition");
+        Navigator.pushNamed(context, AppRoutes.leaveMyReportsDashboard);
+        if (expenseRequisition == "ExpenseRequisition") {
+          Navigator.pushNamed(context, AppRoutes.expensereportsDashboard);
+        }
+        if (expenseRequisition == "LeaveRequisition") {
+          Navigator.pushNamed(context, AppRoutes.leaveMyReportsDashboard);
+        }
+      
+        if (expenseRequisition == "CashAdvanceRequisition") {
+          Navigator.pushNamed(context, AppRoutes.cashAdvanceMyReportsDashboard);
+        }
+        if (expenseRequisition == "TimeSheetRequisition") {
+          Navigator.pushNamed(context, AppRoutes.timeSheetDashboardReports);
+        }
         resetForm();
         Fluttertoast.showToast(
           msg: responseData['detail']['message'] ?? 'Report saved successfully',

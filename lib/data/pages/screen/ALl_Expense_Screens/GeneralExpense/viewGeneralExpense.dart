@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -91,88 +93,89 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       });
     });
     _featureFuture = controller.getAllFeatureStates();
-    expenseIdController.text = "";
-    receiptDateController.text = "";
-    merhantName.text = "";
+
     _pageController = PageController(
       initialPage: controller.currentIndex.value,
     );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    historyFuture = controller.fetchExpenseHistory(widget.items.recId);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      expenseIdController.text = "";
+      receiptDateController.text = "";
+      merhantName.text = "";
       calculateAmounts(widget.items.exchRate.toString());
       controller.fetchExpenseDocImage(widget.items.recId);
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
-      controller.fetchExpenseCategory();
+      await controller.fetchExpenseCategory();
       controller.configuration();
       controller.fetchUnit();
       controller.fetchTaxGroup();
       controller.currencyDropDown();
 
       _loadSettings();
+
+      final formatted = DateFormat(
+        'dd-MM-yyyy',
+      ).format(widget.items.receiptDate.toUtc());
+      controller.selectedDate = widget.items.receiptDate;
+      statusApproval = widget.items.approvalStatus;
+      receiptDateController.text = formatted;
+      if (widget.items != null && widget.items.paymentMethod != null) {
+        controller.paymentMethodID = widget.items.paymentMethod.toString();
+      }
+      if (widget.items.approvalStatus == "Approved") {
+        controller.isEnable.value = false;
+      }
+      expenseIdController.text = widget.items.expenseId.toString();
+      receiptDateController.text = formatted;
+      if (widget.items?.merchantId == null) {
+        //  // print("merchantIdfalse");
+        controller.isManualEntryMerchant = true;
+      } else {
+        controller.isManualEntryMerchant = false;
+        //  // print("merchantIdtrue");
+      }
+
+      controller.paidToController.text =
+          widget.items?.merchantId?.toString() ?? '';
+
+      //  // print('--- AccountingDistributions Added ---');
+      controller.referenceID.text =
+          widget.items?.referenceNumber?.toString() ?? '';
+      if (widget.items != null && widget.items.paymentMethod != null) {
+        controller.paidWithController.text = widget.items.paymentMethod!;
+      } else {
+        controller.paidWithController.text = '';
+      }
+
+      selectedPaidWith = paidWithOptions.first;
+      controller.paidAmount.text = widget.items.totalAmountTrans
+          .toStringAsFixed(2);
+      controller.unitAmount.text = widget.items.totalAmountTrans
+          .toStringAsFixed(2);
+      controller.employeeName.text = widget.items!.employeeName!;
+      controller.employeeIdController.text = widget.items!.employeeId!;
+      controller.unitRate.text = widget.items.exchRate.toStringAsFixed(2);
+      controller.cashAdvReqIds = widget.items.cashAdvReqId;
+      controller.amountINR.text = widget.items.totalAmountReporting
+          .toStringAsFixed(2);
+      controller.expenseID = widget.items.expenseId;
+      controller.recID =
+          widget.items.recId ?? widget.items.unprocessedRecId ?? null;
+
+      controller.isBillableCreate = widget.items.isBillable;
+      if (widget.items.merchantId == null) {
+        controller.manualPaidToController.text = widget.items.merchantName!;
+      } else {
+        controller.paidToController.text = widget.items.merchantName!;
+      }
+      controller.currencyDropDowncontroller.text = widget.items.currency
+          .toString();
+
+      _initializeItemizeControllers();
+      _initializeData();
     });
-    historyFuture = controller.fetchExpenseHistory(widget.items.recId);
-    final formatted = DateFormat(
-      'dd/MM/yyyy',
-    ).format(widget.items.receiptDate);
-    controller.selectedDate = widget.items.receiptDate;
-    statusApproval = widget.items.approvalStatus;
-    receiptDateController.text = formatted;
-    if (widget.items != null && widget.items.paymentMethod != null) {
-      controller.paymentMethodID = widget.items.paymentMethod.toString();
-    }
-    if (widget.items.approvalStatus == "Approved") {
-      controller.isEnable.value = false;
-    }
-    expenseIdController.text = widget.items.expenseId.toString();
-    receiptDateController.text = formatted;
-    if (widget.items?.merchantId == null) {
-      //  // print("merchantIdfalse");
-      controller.isManualEntryMerchant = true;
-    } else {
-      controller.isManualEntryMerchant = false;
-      //  // print("merchantIdtrue");
-    }
-
-    controller.paidToController.text =
-        widget.items?.merchantId?.toString() ?? '';
-
-    //  // print('--- AccountingDistributions Added ---');
-    controller.referenceID.text =
-        widget.items?.referenceNumber?.toString() ?? '';
-    if (widget.items != null && widget.items.paymentMethod != null) {
-      controller.paidWithController.text = widget.items.paymentMethod!;
-    } else {
-      controller.paidWithController.text = '';
-    }
-
-    selectedPaidWith = paidWithOptions.first;
-    controller.paidAmount.text = widget.items.totalAmountTrans.toStringAsFixed(
-      2,
-    );
-    controller.unitAmount.text = widget.items.totalAmountTrans.toStringAsFixed(
-      2,
-    );
-    controller.unitRate.text = widget.items.exchRate.toStringAsFixed(2);
-    controller.cashAdvReqIds = widget.items.cashAdvReqId;
-    controller.amountINR.text = widget.items.totalAmountReporting
-        .toStringAsFixed(2);
-    controller.expenseID = widget.items.expenseId;
-    controller.recID =
-        widget.items.recId ?? widget.items.unprocessedRecId ?? null;
-
-    controller.isBillableCreate = widget.items.isBillable;
-    if (widget.items.merchantId == null) {
-      controller.manualPaidToController.text = widget.items.merchantName!;
-    } else {
-      controller.paidToController.text = widget.items.merchantName!;
-    }
-    controller.currencyDropDowncontroller.text = widget.items.currency
-        .toString();
-
-    _initializeItemizeControllers();
-    _initializeData();
     projectConfig = controller.getFieldConfig("Project Id");
     taxGroupConfig = controller.getFieldConfig("Tax Group");
     taxAmountConfig = controller.getFieldConfig("Tax Amount");
@@ -219,7 +222,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd/MM/yyyy').parseStrict(value);
+        DateFormat('dd-MM-yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.requestError}';
       }
@@ -327,13 +330,13 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         ),
       );
 
-      check(
-        _validateNumericField(
-          item.unitPriceTrans.text,
-          "Item ${i + 1} Unit Amount",
-          true,
-        ),
-      );
+      // check(
+      //   _validateNumericField(
+      //     item.unitPriceTrans.text,
+      //     "Item ${i + 1} Unit Amount",
+      //     true,
+      //   ),
+      // );
 
       if (taxGroupConfig.isEnabled && taxGroupConfig.isMandatory) {
         check(
@@ -465,8 +468,10 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     if (widget.items.expenseTrans.isEmpty) {
       //  // print("expenseTransCalling");
       final item = widget.items;
-      final controller = Controller();
-
+      print("itemitem${item.recId}");
+      // final controller = Controller();
+      controller.recIDItem = item.recId;
+      controller.expenseId = int.tryParse(item.expenseId);
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
       controller.quantity.text = '1';
@@ -482,7 +487,26 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.uomId.text = '';
       controller.isReimbursable = item.isReimbursable ?? false;
       controller.isBillableCreate = item.isBillable ?? false;
+      if (controller.categoryController.text.isNotEmpty) {
+        final matchingCategory = controller.expenseCategory.firstWhere(
+          (e) => e.categoryId == controller.categoryController.text,
+          orElse: () => this.controller.expenseCategory.first,
+        );
+        print("matchingCategory$matchingCategory");
+        controller.selectedCategory = matchingCategory;
 
+        controller.itemisationMandatory.value =
+            matchingCategory.itemisationMandatory;
+
+        controller.minExpenseAmount.value =
+            (matchingCategory.minExpensesAmount ?? 0).toDouble();
+
+        controller.maxExpenseAmount.value =
+            (matchingCategory.maxExpenseAmount ?? 0).toDouble();
+
+        controller.receiptRequiredLimit.value =
+            (matchingCategory.receiptRequiredLimit ?? 0).toDouble();
+      }
       itemizeControllers = [controller];
       _itemizeCount = 1;
       _addItemize();
@@ -490,6 +514,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     }
     itemizeControllers = widget.items.expenseTrans.map((item) {
       final controller = Controller();
+      controller.recIDItem = item.recId;
       controller.projectDropDowncontroller.text = item.projectId ?? '';
       controller.descriptionController.text = item.description ?? '';
       controller.quantity.text = item.quantity.toStringAsFixed(2);
@@ -504,6 +529,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.uomId.text = item.uomId;
       controller.isReimbursable = item.isReimbursable;
       controller.isBillableCreate = item.isBillable;
+
       if (item.accountingDistributions != null) {
         controller.split = (item.accountingDistributions ?? []).map((dist) {
           return AccountingSplit(
@@ -535,6 +561,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
         }
         // print('--------------------------------------');
       }
+
       return controller;
     }).toList();
     _itemizeCount = widget.items.expenseTrans.length;
@@ -548,7 +575,24 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       await Future.delayed(const Duration(milliseconds: 300));
       retries++;
     }
+    if (controller.categoryController.text.isNotEmpty) {
+      final matchingCategory = controller.expenseCategory.firstWhere(
+        (e) => e.categoryId == controller.categoryController.text,
+        orElse: () => controller.expenseCategory.first,
+      );
+      controller.selectedCategory = matchingCategory;
 
+      controller.categoryController.text =
+          controller.selectedCategory!.categoryId;
+      controller.itemisationMandatory.value =
+          controller.selectedCategory!.itemisationMandatory;
+      controller.minExpenseAmount.value =
+          (controller.selectedCategory!.minExpensesAmount ?? 0).toDouble();
+      controller.receiptRequiredLimit.value =
+          (controller.selectedCategory!.receiptRequiredLimit ?? 0).toDouble();
+      controller.maxExpenseAmount.value =
+          (controller.selectedCategory!.maxExpenseAmount ?? 0).toDouble();
+    }
     if (controller.paymentMethods.isNotEmpty) {
       controller.selectedPaidWith = controller.paymentMethods.firstWhere(
         (e) => e.paymentMethodId == widget.items.paymentMethod,
@@ -676,25 +720,18 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.isImageLoading.value = false;
     }
   }
-Future<void> _pickFile() async {
+
+  Future<void> _pickFile() async {
+    print("ExtensionsExtensions${controller.allowedExtensions}");
     try {
       controller.isImageLoading.value = true;
 
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
-
+  
       if (result == null) return;
 
       for (final pickedFile in result.files) {
@@ -728,34 +765,26 @@ Future<void> _pickFile() async {
   Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
+    setState(() {
+      controller.imageFiles.add(file);
+    });
+  }
 
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+  Color getStatusColor(String? status) {
+    switch (status) {
+      case "Approved":
+        return Colors.green;
+      case "Rejected":
+        return Colors.red;
+      case "Pending":
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    Color buttonColor;
-    switch (statusApproval) {
-      case 'Approved':
-        buttonColor = Colors.green;
-        break;
-      case 'Rejected':
-        buttonColor = Colors.red;
-        break;
-      case 'Pending':
-        buttonColor = Colors.orange;
-        break;
-      case "Created":
-        buttonColor = Colors.blue;
-        break;
-      default:
-        buttonColor = Colors.grey;
-    }
-
     return WillPopScope(
       onWillPop: () async {
         if (!controller.isEnable.value) {
@@ -807,7 +836,8 @@ Future<void> _pickFile() async {
             if (widget.isReadOnly &&
                 widget.items.approvalStatus != "Approved" &&
                 widget.items.approvalStatus != "Cancelled" &&
-                widget.items.approvalStatus != "Pending")
+                widget.items.approvalStatus != "Pending" &&
+                PermissionHelper.canUpdate("Expense Registration"))
               Obx(() {
                 return IconButton(
                   icon: Icon(
@@ -845,7 +875,7 @@ Future<void> _pickFile() async {
                                 color: Colors.white,
                               ),
                               label: Text(
-                                statusApproval!,
+                                statusApproval ?? "",
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.white,
@@ -853,7 +883,7 @@ Future<void> _pickFile() async {
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: buttonColor,
+                                backgroundColor: getStatusColor(statusApproval),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                   vertical: 6,
@@ -871,182 +901,259 @@ Future<void> _pickFile() async {
                         Obx(() {
                           return Stack(
                             children: [
-                               Obx(() {
-          return GestureDetector(
-            onTap: () {
-                                  if (controller.imageFiles.isEmpty &&
-                                      controller.isEnable.value &&
-                                      !controller.isLoadingviewImage.value) {
-                                    _pickFile();
-                                  }
-                                },
-           
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9,
-              height: MediaQuery.of(context).size.height * 0.3,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
+                              Obx(() {
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (controller.imageFiles.isEmpty &&
+                                        controller.isEnable.value &&
+                                        !controller.isLoadingviewImage.value) {
+                                      _pickFile();
+                                    }
+                                  },
 
-              /// ✅ EMPTY VIEW
-              child: controller.imageFiles.isEmpty
-                  ? Center(
-                      child: Text(
-                        AppLocalizations.of(context)!.tapToUploadDocs,
-                      ),
-                    )
-                  /// ✅ FILE PREVIEW VIEW
-                  : Stack(
-                      children: [
-                        PageView.builder(
-                          controller: _pageController,
-                          itemCount: controller.imageFiles.length,
-                          onPageChanged: (index) {
-                            controller.currentIndex.value = index;
-                          },
-
-                          itemBuilder: (_, index) {
-                            final file = controller.imageFiles[index];
-                            final path = file.path;
-
-                            return GestureDetector(
-                             onTap: () =>
-    controller.openFile(context, file, index),
-
-                              child: Container(
-                                margin: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.deepPurple),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-
-                                /// ✅ IMAGE
-                                child: controller.isImage(path)
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          file,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                        ),
-                                      )
-                                    /// ✅ PDF
-                                    : controller.isPdf(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.picture_as_pdf,
-                                            size: 70,
-                                            color: Colors.red,
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: Text(
-                                              file.path.split('/').last,
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    /// ✅ EXCEL
-                                    : controller.isExcel(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.table_chart,
-                                            size: 70,
-                                            color: Colors.green,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      )
-                                    /// ✅ OTHER FILE
-                                    : Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.insert_drive_file,
-                                            size: 70,
-                                          ),
-                                          Text(
-                                            file.path.split('/').last,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
+                                  child: Container(
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.9,
+                                    height:
+                                        MediaQuery.of(context).size.height *
+                                        0.3,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey,
+                                        width: 2,
                                       ),
-                              ),
-                            );
-                          },
-                        ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
 
-                        /// ✅ PAGE COUNT
-                        Positioned(
-                          bottom: 40,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Obx(
-                              () => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                                    /// ✅ EMPTY VIEW
+                                    child: controller.imageFiles.isEmpty
+                                        ? Center(
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.tapToUploadDocs,
+                                            ),
+                                          )
+                                        /// ✅ FILE PREVIEW VIEW
+                                        : Stack(
+                                            children: [
+                                              PageView.builder(
+                                                controller: _pageController,
+                                                itemCount: controller
+                                                    .imageFiles
+                                                    .length,
+                                                onPageChanged: (index) {
+                                                  controller
+                                                          .currentIndex
+                                                          .value =
+                                                      index;
+                                                },
 
-                        /// ✅ ADD BUTTON
-                        if (controller.isEnable.value)
-                          Positioned(
-                            bottom: 16,
-                            right: 16,
-                            child: GestureDetector(
-                              onTap: _pickFile,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.deepPurple,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
+                                                itemBuilder: (_, index) {
+                                                  final file = controller
+                                                      .imageFiles[index];
+                                                  final path = file.path;
+
+                                                  return GestureDetector(
+                                                    onTap: () =>
+                                                        controller.openFile(
+                                                          context,
+                                                          file,
+                                                          index,
+                                                        ),
+
+                                                    child: Container(
+                                                      margin:
+                                                          const EdgeInsets.all(
+                                                            8,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(
+                                                          color:
+                                                              Colors.deepPurple,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                      ),
+
+                                                      /// ✅ IMAGE
+                                                      child:
+                                                          controller.isImage(
+                                                            path,
+                                                          )
+                                                          ? ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                              child: Image.file(
+                                                                file,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                                width: double
+                                                                    .infinity,
+                                                              ),
+                                                            )
+                                                          /// ✅ PDF
+                                                          : controller.isPdf(
+                                                              path,
+                                                            )
+                                                          ? Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .picture_as_pdf,
+                                                                  size: 70,
+                                                                  color: Colors
+                                                                      .red,
+                                                                ),
+                                                                Padding(
+                                                                  padding:
+                                                                      const EdgeInsets.all(
+                                                                        8,
+                                                                      ),
+                                                                  child: Text(
+                                                                    file.path
+                                                                        .split(
+                                                                          '/',
+                                                                        )
+                                                                        .last,
+                                                                    textAlign:
+                                                                        TextAlign
+                                                                            .center,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            )
+                                                          /// ✅ EXCEL
+                                                          : controller.isExcel(
+                                                              path,
+                                                            )
+                                                          ? Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .table_chart,
+                                                                  size: 70,
+                                                                  color: Colors
+                                                                      .green,
+                                                                ),
+                                                                Text(
+                                                                  file.path
+                                                                      .split(
+                                                                        '/',
+                                                                      )
+                                                                      .last,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                ),
+                                                              ],
+                                                            )
+                                                          /// ✅ OTHER FILE
+                                                          : Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .insert_drive_file,
+                                                                  size: 70,
+                                                                ),
+                                                                Text(
+                                                                  file.path
+                                                                      .split(
+                                                                        '/',
+                                                                      )
+                                                                      .last,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+
+                                              /// ✅ PAGE COUNT
+                                              Positioned(
+                                                bottom: 40,
+                                                left: 0,
+                                                right: 0,
+                                                child: Center(
+                                                  child: Obx(
+                                                    () => Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 8,
+                                                            horizontal: 16,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black
+                                                            .withOpacity(0.5),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 18,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+
+                                              /// ✅ ADD BUTTON
+                                              if (controller.isEnable.value)
+                                                Positioned(
+                                                  bottom: 16,
+                                                  right: 16,
+                                                  child: GestureDetector(
+                                                    onTap: _pickFile,
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            Colors.deepPurple,
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: Colors.white,
+                                                          width: 2,
+                                                        ),
+                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            8,
+                                                          ),
+                                                      child: const Icon(
+                                                        Icons.add,
+                                                        color: Colors.white,
+                                                        size: 28,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                   ),
-                                ),
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          );
-        }),
-                              
+                                );
+                              }),
+
                               // 🔥 CIRCULAR LOADER OVERLAY
                               if (controller.isLoadingviewImage.value)
                                 Positioned.fill(
@@ -1087,10 +1194,28 @@ Future<void> _pickFile() async {
                           controller: expenseIdController,
                           isReadOnly: false,
                         ),
+
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeId} *",
+                          controller: controller.employeeIdController,
+                          isReadOnly: false,
+                        ),
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeName} *",
+                          controller: controller.employeeName,
+                          isReadOnly: false,
+                        ),
                         buildDateField(
                           '${AppLocalizations.of(context)!.receiptDate} *',
                           receiptDateController,
                           isReadOnly: !controller.isEnable.value,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '${AppLocalizations.of(context)!.paidTo} *',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 10),
                         Column(
@@ -1211,77 +1336,78 @@ Future<void> _pickFile() async {
                               ),
                           ],
                         ),
-                           if(allowCashAd)
-                        const SizedBox(height: 12),
-                        if(allowCashAd)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Obx(
-                              () => Container(
-                                child:
-                                    MultiSelectMultiColumnDropdownField<
-                                      CashAdvanceDropDownModel
-                                    >(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.cashAdvanceRequest,
-                                      items: controller.cashAdvanceListDropDown,
-                                      isMultiSelect: allowMultSelect ?? false,
-                                      dropdownMaxHeight: 300,
-                                      selectedValue:
-                                          controller.singleSelectedItem,
-                                      selectedValues:
-                                          controller.multiSelectedItems,
-                                      controller: controller.cashAdvanceIds,
-                                      enabled: controller.isEnable.value,
-                                      searchValue: (proj) =>
-                                          proj.cashAdvanceReqId,
-                                      displayText: (proj) =>
-                                          proj.cashAdvanceReqId,
-                                      onChanged: (item) {
-                                        controller.singleSelectedItem = item;
-                                      },
-                                      onMultiChanged: (items) {
-                                        controller.multiSelectedItems.assignAll(
-                                          items,
-                                        );
-                                      },
-                                      columnHeaders: [
-                                        AppLocalizations.of(context)!.requestId,
-                                        AppLocalizations.of(
+                        if (allowCashAd) const SizedBox(height: 12),
+                        if (allowCashAd)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Obx(
+                                () => Container(
+                                  child:
+                                      MultiSelectMultiColumnDropdownField<
+                                        CashAdvanceDropDownModel
+                                      >(
+                                        labelText: AppLocalizations.of(
                                           context,
-                                        )!.requestDate,
-                                      ],
-                                      rowBuilder: (proj, searchQuery) {
-                                        return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                            horizontal: 16,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  proj.cashAdvanceReqId,
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Text(
-                                                  controller.formattedDate(
-                                                    proj.requestDate,
+                                        )!.cashAdvanceRequest,
+                                        items:
+                                            controller.cashAdvanceListDropDown,
+                                        isMultiSelect: allowMultSelect ?? false,
+                                        dropdownMaxHeight: 300,
+                                        selectedValue:
+                                            controller.singleSelectedItem,
+                                        selectedValues:
+                                            controller.multiSelectedItems,
+                                        controller: controller.cashAdvanceIds,
+                                        enabled: controller.isEnable.value,
+                                        searchValue: (proj) =>
+                                            proj.cashAdvanceReqId,
+                                        displayText: (proj) =>
+                                            proj.cashAdvanceReqId,
+                                        onChanged: (item) {
+                                          controller.singleSelectedItem = item;
+                                        },
+                                        onMultiChanged: (items) {
+                                          controller.multiSelectedItems
+                                              .assignAll(items);
+                                        },
+                                        columnHeaders: [
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.requestId,
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.requestDate,
+                                        ],
+                                        rowBuilder: (proj, searchQuery) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                              horizontal: 16,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    proj.cashAdvanceReqId,
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
+                                                Expanded(
+                                                  child: Text(
+                                                    controller.formattedDate(
+                                                      proj.requestDate,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
 
                         const SizedBox(height: 18),
                         Column(
@@ -1302,11 +1428,11 @@ Future<void> _pickFile() async {
                               searchValue: (p) =>
                                   '${p.paymentMethodName} ${p.paymentMethodId}',
                               displayText: (p) => p.paymentMethodName,
-                              validator: (value) => _validateRequiredField(
-                                controller.paidWithController.text,
-                                AppLocalizations.of(context)!.paidWith,
-                                false,
-                              ),
+                              // validator: (value) => _validateRequiredField(
+                              //   controller.paidWithController.text,
+                              //   AppLocalizations.of(context)!.paidWith,
+                              //   false,
+                              // ),
                               onChanged: (p) {
                                 loadAndAppendCashAdvanceList();
                                 setState(() {
@@ -1596,7 +1722,8 @@ Future<void> _pickFile() async {
                           enabled: false,
                           decoration: InputDecoration(
                             labelText:
-                                '${AppLocalizations.of(context)!.amountInInr} *',
+                                '${AppLocalizations.of(context)!.totalAmountIN} '
+                                '${controller.organizationCurrency} *',
                             filled: true,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -1968,10 +2095,10 @@ Future<void> _pickFile() async {
                                                         CrossAxisAlignment
                                                             .start,
                                                     children: [
-                                                      const SizedBox(height: 8),
+                                                      // const SizedBox(height: 8),
                                                       inputField,
                                                       const SizedBox(
-                                                        height: 16,
+                                                        height: 12,
                                                       ),
                                                     ],
                                                   );
@@ -2026,6 +2153,26 @@ Future<void> _pickFile() async {
                                                           .categoryController
                                                           .text =
                                                       p.categoryId;
+                                                  itemController
+                                                          .itemisationMandatory
+                                                          .value =
+                                                      p.itemisationMandatory;
+                                                  itemController
+                                                          .minExpenseAmount
+                                                          .value =
+                                                      (p.minExpensesAmount ?? 0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .receiptRequiredLimit
+                                                          .value =
+                                                      (p.receiptRequiredLimit ??
+                                                              0)
+                                                          .toDouble();
+                                                  itemController
+                                                          .maxExpenseAmount
+                                                          .value =
+                                                      (p.maxExpenseAmount ?? 0)
+                                                          .toDouble();
                                                 });
                                               },
                                               controller: itemController
@@ -2184,47 +2331,159 @@ Future<void> _pickFile() async {
                                                 });
                                               },
                                             ),
-                                            _buildTextField(
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter.allow(
-                                                  RegExp(r'^\d*\.?\d{0,2}'),
-                                                ),
-                                              ],
-                                              label:
-                                                  "${AppLocalizations.of(context)!.unitAmount} *",
-                                              controller:
-                                                  itemController.unitPriceTrans,
-                                              isReadOnly:
-                                                  controller.isEnable.value,
-                                              validator: (value) =>
-                                                  _validateNumericField(
-                                                    value!,
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.unitAmount,
-                                                    true,
-                                                  ),
-                                              onChanged: (value) async {
-                                                controller
-                                                    .fetchExchangeRate()
-                                                    .then((_) {
-                                                      _updateAllLineItems();
-                                                    });
-                                                itemController
-                                                    .calculateLineAmounts(
-                                                      itemController,
-                                                    );
-                                                setState(() {
-                                                  widget
-                                                          .items
-                                                          .expenseTrans[index] =
+                                            Obx(() {
+                                              final error = itemController
+                                                  .paidAmountError
+                                                  .value;
+
+                                              return Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize
+                                                    .min, // 🔥 IMPORTANT (removes extra space)
+                                                children: [
+                                                  _buildTextFieldUnitAmount(
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.allow(
+                                                        RegExp(
+                                                          r'^\d*\.?\d{0,2}',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    label:
+                                                        "${AppLocalizations.of(context)!.unitAmount} *",
+                                                    controller: itemController
+                                                        .unitPriceTrans,
+                                                    isReadOnly: controller
+                                                        .isEnable
+                                                        .value,
+
+                                                    // ❌ DO NOT USE errorText here
+                                                    validator: (value) {
+                                                      final basicValidation =
+                                                          _validateNumericField(
+                                                            value!,
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.unitAmount,
+                                                            true,
+                                                          );
+
+                                                      if (basicValidation !=
+                                                          null)
+                                                        return basicValidation;
+
+                                                      final parsed =
+                                                          double.tryParse(
+                                                            itemController
+                                                                .lineAmountINR
+                                                                .text,
+                                                          ) ??
+                                                          0.0;
+
+                                                      final min = itemController
+                                                          .minExpenseAmount
+                                                          .value;
+                                                      final max = itemController
+                                                          .maxExpenseAmount
+                                                          .value;
+                                                      final receiptLimit =
+                                                          itemController
+                                                              .receiptRequiredLimit
+                                                              .value;
+
+                                                      if (parsed < min &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (parsed > max &&
+                                                          itemController
+                                                                  .finalItems
+                                                                  .length <=
+                                                              1 &&
+                                                          max != 0.0) {
+                                                        itemController
+                                                                .paidAmountError
+                                                                .value =
+                                                            AppLocalizations.of(
+                                                              context,
+                                                            )!.reportedAmountNotWithinRange;
+                                                        return '';
+                                                      }
+
+                                                      if (receiptLimit > 0 &&
+                                                          parsed >=
+                                                              receiptLimit) {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            true;
+                                                      } else {
+                                                        itemController
+                                                                .isReceiptRequired
+                                                                .value =
+                                                            false;
+                                                      }
+
                                                       itemController
-                                                          .toExpenseItemUpdateModel();
-                                                });
-                                              },
-                                            ),
+                                                              .paidAmountError
+                                                              .value =
+                                                          ''; // ✅ clear error
+                                                      return null;
+                                                    },
+                                                    onChanged: (value) async {
+                                                      controller
+                                                          .fetchExchangeRate()
+                                                          .then((_) {
+                                                            _updateAllLineItems();
+                                                          });
+
+                                                      itemController
+                                                          .calculateLineAmounts(
+                                                            itemController,
+                                                          );
+
+                                                      setState(() {
+                                                        widget
+                                                                .items
+                                                                .expenseTrans[index] =
+                                                            itemController
+                                                                .toExpenseItemUpdateModel();
+                                                      });
+                                                    },
+                                                  ),
+
+                                                  /// ✅ ONLY SHOW ERROR WHEN EXISTS (no extra space)
+                                                  if (error.isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 2,
+                                                          ),
+                                                      child: Text(
+                                                        error,
+                                                        style: const TextStyle(
+                                                          color: Colors.red,
+                                                          fontSize: 10,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              );
+                                            }),
+                                            const SizedBox(height: 8),
                                             _buildTextField(
                                               label: AppLocalizations.of(
                                                 context,
@@ -2243,9 +2502,9 @@ Future<void> _pickFile() async {
                                               },
                                             ),
                                             _buildTextField(
-                                              label: AppLocalizations.of(
-                                                context,
-                                              )!.lineAmountInInr,
+                                              label:
+                                                  '${AppLocalizations.of(context)!.lineAmountInInr} '
+                                                  '${controller.organizationCurrency}',
                                               controller:
                                                   itemController.lineAmountINR,
                                               isReadOnly: false,
@@ -2515,128 +2774,127 @@ Future<void> _pickFile() async {
                                                 })
                                                 .toList(),
 
-                                            if (controller.isEnable.value)
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.end,
-                                                children: [
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      final double lineAmount =
-                                                          double.tryParse(
-                                                            itemController
-                                                                .lineAmount
-                                                                .text,
-                                                          ) ??
-                                                          0.0;
-                                                      if (itemController
-                                                              .split
-                                                              .isEmpty &&
-                                                          item
-                                                              .accountingDistributions
-                                                              .isNotEmpty) {
-                                                        itemController.split.assignAll(
-                                                          item.accountingDistributions.map((
-                                                            e,
-                                                          ) {
-                                                            return AccountingSplit(
-                                                              paidFor: e
-                                                                  .dimensionValueId,
-                                                              percentage: e
-                                                                  .allocationFactor,
-                                                              amount:
-                                                                  e.transAmount,
-                                                            );
-                                                          }).toList(),
-                                                        );
-                                                      } else if (itemController
-                                                          .split
-                                                          .isEmpty) {
-                                                        itemController.split
-                                                            .add(
-                                                              AccountingSplit(
-                                                                percentage:
-                                                                    100.0,
-                                                              ),
-                                                            );
-                                                      }
-
-                                                      showModalBottomSheet(
-                                                        context: context,
-                                                        isScrollControlled:
-                                                            true,
-                                                        shape: const RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.vertical(
-                                                                top:
-                                                                    Radius.circular(
-                                                                      16,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                        builder: (context) => Padding(
-                                                          padding: EdgeInsets.only(
-                                                            bottom:
-                                                                MediaQuery.of(
-                                                                      context,
-                                                                    )
-                                                                    .viewInsets
-                                                                    .bottom,
-                                                            left: 16,
-                                                            right: 16,
-                                                            top: 24,
-                                                          ),
-                                                          child: SingleChildScrollView(
-                                                            child: AccountingDistributionWidget(
-                                                              splits:
-                                                                  itemController
-                                                                      .split,
-                                                              lineAmount:
-                                                                  lineAmount,
-                                                              onChanged: (i, updatedSplit) {
-                                                                if (!mounted)
-                                                                  return;
-
-                                                                itemController
-                                                                        .split[i] =
-                                                                    updatedSplit;
-                                                              },
-                                                              onDistributionChanged: (newList) {
-                                                                if (!mounted)
-                                                                  return;
-                                                                item.accountingDistributions
-                                                                    .clear();
-                                                                item.accountingDistributions
-                                                                    .addAll(
-                                                                      newList,
-                                                                    );
-                                                                itemController
-                                                                    .toExpenseItemUpdateModel();
-                                                              },
-                                                            ),
-                                                          ),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    final double lineAmount =
+                                                        double.tryParse(
+                                                          itemController
+                                                              .lineAmount
+                                                              .text,
+                                                        ) ??
+                                                        0.0;
+                                                    if (itemController
+                                                            .split
+                                                            .isEmpty &&
+                                                        item
+                                                            .accountingDistributions
+                                                            .isNotEmpty) {
+                                                      itemController.split.assignAll(
+                                                        item.accountingDistributions.map((
+                                                          e,
+                                                        ) {
+                                                          return AccountingSplit(
+                                                            paidFor: e
+                                                                .dimensionValueId,
+                                                            percentage: e
+                                                                .allocationFactor,
+                                                            amount:
+                                                                e.transAmount,
+                                                          );
+                                                        }).toList(),
+                                                      );
+                                                    } else if (itemController
+                                                        .split
+                                                        .isEmpty) {
+                                                      itemController.split.add(
+                                                        AccountingSplit(
+                                                          percentage: 100.0,
                                                         ),
                                                       );
-                                                    },
-                                                    child: Text(
-                                                      AppLocalizations.of(
-                                                        context,
-                                                      )!.accountDistribution,
-                                                      style: const TextStyle(
-                                                        color: Colors.blue,
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline,
-                                                        decorationColor:
-                                                            Colors.blue,
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w500,
+                                                    }
+
+                                                    showModalBottomSheet(
+                                                      context: context,
+                                                      isScrollControlled: true,
+                                                      shape: const RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.vertical(
+                                                              top:
+                                                                  Radius.circular(
+                                                                    16,
+                                                                  ),
+                                                            ),
                                                       ),
+                                                      builder: (context) => Padding(
+                                                        padding: EdgeInsets.only(
+                                                          bottom: MediaQuery.of(
+                                                            context,
+                                                          ).viewInsets.bottom,
+                                                          left: 16,
+                                                          right: 16,
+                                                          top: 24,
+                                                        ),
+                                                        child: SingleChildScrollView(
+                                                          child: AccountingDistributionWidget(
+                                                            splits:
+                                                                itemController
+                                                                    .split,
+                                                            isEnable: controller
+                                                                .isEnable
+                                                                .value,
+                                                            lineAmount:
+                                                                lineAmount,
+                                                            onChanged:
+                                                                (
+                                                                  i,
+                                                                  updatedSplit,
+                                                                ) {
+                                                                  if (!mounted)
+                                                                    return;
+
+                                                                  itemController
+                                                                          .split[i] =
+                                                                      updatedSplit;
+                                                                },
+                                                            onDistributionChanged: (newList) {
+                                                              if (!mounted)
+                                                                return;
+                                                              item.accountingDistributions
+                                                                  .clear();
+                                                              item.accountingDistributions
+                                                                  .addAll(
+                                                                    newList,
+                                                                  );
+                                                              itemController
+                                                                  .toExpenseItemUpdateModel();
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  child: Text(
+                                                    AppLocalizations.of(
+                                                      context,
+                                                    )!.accountDistribution,
+                                                    style: const TextStyle(
+                                                      color: Colors.blue,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                      decorationColor:
+                                                          Colors.blue,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                     ),
                                                   ),
-                                                ],
-                                              ),
+                                                ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -3094,8 +3352,7 @@ Future<void> _pickFile() async {
                                             controller
                                                 .cancelExpense(
                                                   context,
-                                                  widget.items.recId
-                                                      .toString(),
+                                                  widget.items.recId.toString(),
                                                 )
                                                 .whenComplete(() {
                                                   controller.setButtonLoading(
@@ -3304,13 +3561,24 @@ Future<void> _pickFile() async {
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
+                    setState(() {
+                      controller.selectedDate = picked;
+
+                      controller.selectedProject = null;
+                      for (var c in itemizeControllers) {
+                        c.expenseCategory.value = [];
+                        c.categoryController.clear();
+                        c.projectDropDowncontroller.clear();
+                      }
+                    });
+                    loadAndAppendCashAdvanceList();
+                    controller.fetchExpenseCategory();
+                    controller.fetchProjectName();
                     controller.selectedDate = picked;
                     controller.fetchProjectName();
                   }
@@ -3349,7 +3617,7 @@ Future<void> _pickFile() async {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -3391,6 +3659,39 @@ Future<void> _pickFile() async {
           ),
         ),
         const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldUnitAmount({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
       ],
     );
   }

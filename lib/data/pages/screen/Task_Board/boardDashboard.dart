@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
-import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
+import 'package:diginexa/core/comman/widgets/noDataFind.dart'
+    show CommonNoDataWidget;
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/models.dart'
     show GExpense, ManageExpensesCard, PayslipAnalyticsCard, BoardModel;
@@ -43,11 +46,11 @@ class _BoardDashboardState extends State<BoardDashboard>
     // Load data
     // controller.loadProfilePictureFromStorage();
 
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.searchQuery.value = '';
       controller.fetchBoards().then((_) {
         controller.getPersonalDetails(context);
-    controller.fetchNotifications();
+        controller.fetchNotifications();
         controller.isLoadingGE1.value = false;
         _loadProfileImage();
       });
@@ -121,7 +124,7 @@ class _BoardDashboardState extends State<BoardDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-               if (primaryColor != const Color(0xFF1e4db7))
+                if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -143,9 +146,7 @@ class _BoardDashboardState extends State<BoardDashboard>
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             children: [
                               IconButton(
                                 onPressed: _openMenu,
@@ -181,30 +182,31 @@ class _BoardDashboardState extends State<BoardDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -223,14 +225,12 @@ class _BoardDashboardState extends State<BoardDashboard>
                       ),
                     ),
                     padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child:Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               IconButton(
@@ -267,30 +267,31 @@ class _BoardDashboardState extends State<BoardDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -345,25 +346,26 @@ class _BoardDashboardState extends State<BoardDashboard>
                 ),
 
                 const SizedBox(height: 8),
-Padding(  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-child:   Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRoutes.createBoard);
-                    },
-                    icon: const Icon(Icons.add),
-                    label: Text(AppLocalizations.of(context)!.createBoard),
+                if (PermissionHelper.canWrite("Board Requisition"))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.createBoard);
+                        },
+                        icon: const Icon(Icons.add),
+                        label: Text(AppLocalizations.of(context)!.createBoard),
+                      ),
+                    ),
                   ),
-                ),
-),
-              
+
                 const SizedBox(height: 8),
 
                 // const SizedBox(height: 8),
                 Expanded(
                   child: Obx(() {
-                    print("isLoadingGE1 => ${controller.isLoadingGE1.value}");
                     return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredboardList.isEmpty
@@ -388,6 +390,48 @@ child:   Align(
                                       AppRoutes.kanbanBoardPage,
                                       arguments: {"boardId": item.boardId},
                                     );
+
+                                    return false;
+                                  }
+                                  if (direction ==
+                                          DismissDirection.endToStart &&
+                                      PermissionHelper.canDelete(
+                                        "Board Requisition",
+                                      )) {
+                                    final shouldDelete = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: Text(loc.delete),
+                                        content: Text(
+                                          '${loc.deleteConfirmation} "${item.boardId}"?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(false),
+                                            child: Text(loc.cancel),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.red,
+                                            ),
+                                            child: Text(loc.delete),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (shouldDelete == true) {
+                                      setState(() => isLoading = true);
+
+                                      await controller.deleteBoard(item.recId);
+
+                                      setState(() => isLoading = false);
+
+                                      return true; // remove item from UI
+                                    }
 
                                     return false;
                                   }
@@ -527,7 +571,6 @@ child:   Align(
     );
   }
 
-
   String _formatValue(PayslipAnalyticsCard card) {
     if (card.title.toLowerCase().contains('leave')) {
       return '${card.value.toInt()} Days';
@@ -576,11 +619,11 @@ child:   Align(
       alignment: Alignment.centerRight,
       color: const Color.fromARGB(255, 115, 142, 229),
       padding: const EdgeInsets.only(right: 20),
-      child:  Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-           AppLocalizations.of(context)!.delete,
+            AppLocalizations.of(context)!.delete,
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           SizedBox(width: 8),
@@ -619,10 +662,22 @@ child:   Align(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    _row(AppLocalizations.of(context)!.boardName, item.boardName),
-                    _row(AppLocalizations.of(context)!.boardTemplate, item.areaName),
-                    _row(AppLocalizations.of(context)!.referenceName, item.referenceName),
-                    _row(AppLocalizations.of(context)!.referenceId, item.referenceId),
+                    _row(
+                      AppLocalizations.of(context)!.boardName,
+                      item.boardName,
+                    ),
+                    _row(
+                      AppLocalizations.of(context)!.boardTemplate,
+                      item.areaName,
+                    ),
+                    _row(
+                      AppLocalizations.of(context)!.referenceName,
+                      item.referenceName,
+                    ),
+                    _row(
+                      AppLocalizations.of(context)!.referenceId,
+                      item.referenceId,
+                    ),
                   ],
                 ),
               ),

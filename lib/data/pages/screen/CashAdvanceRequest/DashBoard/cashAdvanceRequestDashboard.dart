@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
 import 'package:diginexa/core/comman/widgets/noDataFind.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:fluttertoast/fluttertoast.dart' show Fluttertoast;
 import 'package:lottie/lottie.dart';
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
@@ -34,7 +36,7 @@ class _CashAdvanceRequestDashboardState
   Rxn<File> profileImage = Rxn<File>();
   double _dragOffset = 0;
   final double _maxDragExtent = 600;
-  final Controller controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   List<GExpense> _items = [];
   bool _item1Expanded = true;
   bool _item2Expanded = false;
@@ -157,12 +159,14 @@ class _CashAdvanceRequestDashboardState
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
+      controller.selectedStatusDropDown.value = "Un Reported";
+      controller.selectedExpenseType.value = "All Expenses";
       controller.searchControllerCashAdvance.clear();
+      controller.fetchNotifications();
+      controller.getPersonalDetails(context);
     });
     // controller.loadProfilePictureFromStorage();
-    controller.fetchNotifications();
-    controller.getPersonalDetails(context);
-
+    controller.selectedStatus = "Un Reported";
     controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -185,9 +189,11 @@ class _CashAdvanceRequestDashboardState
       controller.isEnable.value = false;
     });
     print("${controller.isEnable.value}isEnable");
-    _loadDataOnce();
+
     // controller.fetchMileageRates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.loadSequenceModules();
+      _loadDataOnce();
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
@@ -221,322 +227,282 @@ class _CashAdvanceRequestDashboardState
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-                // Top Content in scroll view
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            children: [
-                              if (primaryColor != const Color(0xFF1e4db7))
-                                Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        primaryColor,
-                                        primaryColor.withOpacity(
-                                          0.7,
-                                        ), // Lighter primary color
-                                      ],
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.fromLTRB(
-                                    0,
-                                    40,
-                                    0,
-                                    16,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Flexible(
-                                        flex: 4,
-                                        child: Row(
-                                          children: [
-                                            IconButton(
-                                              onPressed: _openMenu,
-                                              icon: Icon(
-                                                Icons.menu,
-                                                color: Colors.black,
-                                                size: 20,
-                                              ),
-                                              style: IconButton.styleFrom(
-                                                // backgroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding: const EdgeInsets.all(
-                                                  5,
-                                                ),
-                                              ),
-                                            ),
-
-                                            // Logo
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              child: Image.asset(
-                                                'assets/XpenseWhite.png',
-                                                width: isSmallScreen ? 60 : 80,
-                                                height: isSmallScreen ? 30 : 40,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      const Spacer(),
-                                      Flexible(
-                                        flex: 9,
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            children: [
-                                              const LanguageDropdown(),
-
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.fingerprint,
-                                                  color: Colors.white,
-                                                ),
-                                                onPressed: () {
-                                                  Navigator.pushNamed(
-                                                    context,
-                                                    AppRoutes.punchScreen,
-                                                  );
-                                                },
-                                              ),
-
-                                              _buildNotificationBadge(),
-                                              _buildProfileAvatar(),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              if (primaryColor == const Color(0xFF1e4db7))
-                                Container(
-                                  width: double.infinity,
-                                  height: 100,
-                                  decoration: const BoxDecoration(
-                                    image: DecorationImage(
-                                      image: AssetImage('assets/Vector.png'),
-                                      fit: BoxFit.cover,
-                                    ),
-                                    borderRadius: BorderRadius.only(
-                                      bottomLeft: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.fromLTRB(
-                                    0,
-                                    40,
-                                    0,
-                                    16,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      Flexible(
-                                        flex: 4,
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            IconButton(
-                                              onPressed: _openMenu,
-                                              icon: Icon(
-                                                Icons.menu,
-                                                color: Colors.black,
-                                                size: 20,
-                                              ),
-                                              style: IconButton.styleFrom(
-                                                // backgroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                padding: const EdgeInsets.all(
-                                                  5,
-                                                ),
-                                              ),
-                                            ),
-
-                                            // Logo
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                              child: Image.asset(
-                                                'assets/XpenseWhite.png',
-                                                width: isSmallScreen ? 60 : 80,
-                                                height: isSmallScreen ? 30 : 40,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      const Spacer(),
-                                      Flexible(
-                                        flex: 9,
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceEvenly,
-                                            children: [
-                                              const LanguageDropdown(),
-
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.fingerprint,
-                                                  color: Colors.white,
-                                                ),
-                                                onPressed: () {
-                                                  Navigator.pushNamed(
-                                                    context,
-                                                    AppRoutes.punchScreen,
-                                                  );
-                                                },
-                                              ),
-
-                                              _buildNotificationBadge(),
-                                              _buildProfileAvatar(),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
+                Stack(
+                  children: [
+                    if (primaryColor != const Color(0xFF1e4db7))
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              primaryColor,
+                              primaryColor.withOpacity(
+                                0.7,
+                              ), // Lighter primary color
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                left: 16.0,
-                              ), // Like margin-left
-                              child: Text(
-                                '${loc.myCashAdvances} ${loc.dashboard}',
-                                style: const TextStyle(
-                                  // color: AppColors.gradientEnd, // Text color
-                                  fontSize: 16, // font-size
-                                  fontWeight:
-                                      FontWeight.bold, // font-weight: bold
-                                  fontFamily: 'Roboto',
-                                  letterSpacing: 0.5,
-                                  // height: 1.2,
-                                ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              flex: 4,
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(5),
+                                    ),
+                                  ),
+
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 60 : 80,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          Obx(() {
-                            return NotificationListener<UserScrollNotification>(
-                              onNotification: (notification) {
-                                // Stop auto-scroll when user starts interacting
-                                if (_animationController.isAnimating) {
-                                  _animationController.stop();
-                                  print(
-                                    "Auto-scroll stopped because user started scrolling",
-                                  );
-                                }
-                                _restartAnimationAfterDelay(); // ✅ Restart after delay
-                                return false; // allow the scroll event to continue
-                              },
-                              child: SizedBox(
-                                height: 130,
-                                child: ListView.builder(
-                                  controller: _scrollController,
-                                  scrollDirection: Axis.horizontal,
-                                  physics:
-                                      const BouncingScrollPhysics(), // ✅ Manual scroll enabled
-                                  itemCount:
-                                      controller.manageExpensesCards.length,
-                                  itemBuilder: (context, index) {
-                                    final card =
-                                        controller.manageExpensesCards[index];
-                                    return GestureDetector(
-                                      onTap: () {
-                                        // Stop animation on card tap
-                                        if (_animationController.isAnimating) {
-                                          _animationController.stop();
-                                          print(
-                                            "Auto-scroll stopped because user tapped a card",
-                                          );
-                                        }
-                                        _restartAnimationAfterDelay(); // ✅ Restart after delay
+
+                            const Spacer(),
+                            Flexible(
+                              flex: 9,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  children: [
+                                    const LanguageDropdown(),
+
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.fingerprint,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.punchScreen,
+                                        );
                                       },
-                                      child: _buildStyledCard(card),
-                                    );
-                                  },
-                                ),
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 10),
-                          Center(
-                            child: SizedBox(
-                              width: 300,
-                              height: 45,
-                              child: TextField(
-                                controller:
-                                    controller.searchControllerCashAdvance,
-                                onChanged: (value) {
-                                  controller.searchQuery.value = value
-                                      .toLowerCase();
-                                },
-                                decoration: InputDecoration(
-                                  hintText: AppLocalizations.of(
-                                    context,
-                                  )!.search,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.search,
-                                    color: Colors.grey,
-                                  ),
+                                    ),
+
+                                    _buildNotificationBadge(),
+                                    _buildProfileAvatar(),
+                                  ],
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    if (primaryColor == const Color(0xFF1e4db7))
+                      Container(
+                        width: double.infinity,
+                        height: 100,
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/Vector.png'),
+                            fit: BoxFit.cover,
                           ),
-                        ],
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Flexible(
+                              flex: 4,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    onPressed: _openMenu,
+                                    icon: Icon(
+                                      Icons.menu,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      // backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(5),
+                                    ),
+                                  ),
+
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.asset(
+                                      'assets/XpenseWhite.png',
+                                      width: isSmallScreen ? 60 : 80,
+                                      height: isSmallScreen ? 30 : 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const Spacer(),
+                            Flexible(
+                              flex: 9,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    const LanguageDropdown(),
+
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.fingerprint,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.punchScreen,
+                                        );
+                                      },
+                                    ),
+
+                                    _buildNotificationBadge(),
+                                    _buildProfileAvatar(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                    ), // Like margin-left
+                    child: Text(
+                      '${loc.myCashAdvances} ${loc.dashboard}',
+                      style: const TextStyle(
+                        // color: AppColors.gradientEnd, // Text color
+                        fontSize: 16, // font-size
+                        fontWeight: FontWeight.bold, // font-weight: bold
+                        fontFamily: 'Roboto',
+                        letterSpacing: 0.5,
+                        // height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                Obx(() {
+                  return NotificationListener<UserScrollNotification>(
+                    onNotification: (notification) {
+                      // Stop auto-scroll when user starts interacting
+                      if (_animationController.isAnimating) {
+                        _animationController.stop();
+                        print(
+                          "Auto-scroll stopped because user started scrolling",
+                        );
+                      }
+                      _restartAnimationAfterDelay(); // ✅ Restart after delay
+                      return false; // allow the scroll event to continue
+                    },
+                    child: SizedBox(
+                      height: 130,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics:
+                            const BouncingScrollPhysics(), // ✅ Manual scroll enabled
+                        itemCount: controller.manageExpensesCards.length,
+                        itemBuilder: (context, index) {
+                          final card = controller.manageExpensesCards[index];
+                          return GestureDetector(
+                            onTap: () {
+                              // Stop animation on card tap
+                              if (_animationController.isAnimating) {
+                                _animationController.stop();
+                                print(
+                                  "Auto-scroll stopped because user tapped a card",
+                                );
+                              }
+                              _restartAnimationAfterDelay(); // ✅ Restart after delay
+                            },
+                            child: _buildStyledCard(card),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Center(
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 45,
+                      child: TextField(
+                        controller: controller.searchControllerCashAdvance,
+                        onChanged: (value) {
+                          controller.searchQuery.value = value.toLowerCase();
+                        },
+                        decoration: InputDecoration(
+                          hintText: AppLocalizations.of(context)!.search,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
 
+                const SizedBox(height: 12),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    // crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // 🔹 Responsive Dropdown Filter
@@ -608,44 +574,47 @@ class _CashAdvanceRequestDashboardState
                         width: 12,
                       ), // Spacing between dropdown and button
                       // 🔹 Add Request Button
-                      Expanded(
-                        flex:
-                            4, // Takes 2 parts of space (smaller than dropdown)
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.formCashAdvanceRequest,
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.add_circle,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                          label: Text(
-                            "${AppLocalizations.of(context)?.cashAdvanceRequest}",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                      if (PermissionHelper.canWrite("Cash Advance Requisition"))
+                        Expanded(
+                          flex:
+                              4, // Takes 2 parts of space (smaller than dropdown)
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.formCashAdvanceRequest,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add_circle,
+                              size: 18,
+                              color: Colors.white,
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: Colors.blue.shade800,
-                            elevation: 4,
-                            shadowColor: Colors.blue.shade900.withOpacity(0.4),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            label: Text(
+                              "${AppLocalizations.of(context)?.cashAdvanceRequest}",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.blue.shade800,
+                              elevation: 4,
+                              shadowColor: Colors.blue.shade900.withOpacity(
+                                0.4,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 15,
+                              ),
+                              textStyle: const TextStyle(fontSize: 14),
                             ),
-                            textStyle: const TextStyle(fontSize: 14),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -697,13 +666,37 @@ class _CashAdvanceRequestDashboardState
 
                           confirmDismiss: (direction) async {
                             if (direction == DismissDirection.startToEnd) {
+                              // 👁 View
                               controller.fetchSpecificCashAdvanceItem(
                                 context,
                                 item.recId,
                                 true,
                               );
-                              return false; // Don't dismiss for view
+                              return false;
                             } else {
+                              // 🗑 Delete check
+                              final canDelete = PermissionHelper.canDelete(
+                                "Cash Advance Requisition",
+                              );
+
+                              final isDeletable =
+                                  item.approvalStatus ==
+                                  "Created"; // or your condition
+
+                              if (!canDelete) {
+                                Fluttertoast.showToast(
+                                  msg: "No delete permission",
+                                );
+                                return false;
+                              }
+
+                              if (!isDeletable) {
+                                // Fluttertoast.showToast(
+                                //   msg: "Only Created items can be deleted",
+                                // );
+                                return false;
+                              }
+
                               return await _showDeleteConfirmation(
                                 ctx,
                                 item,
@@ -845,9 +838,9 @@ class _CashAdvanceRequestDashboardState
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Request?'),
+        title: Text(AppLocalizations.of(context)!.delete),
         content: Text(
-          'Are you sure you want to delete "${item.requisitionId}"?',
+          '${AppLocalizations.of(context)?.deleteConfirmation}"${item.requisitionId}"?',
         ),
         actions: [
           TextButton(

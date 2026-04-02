@@ -446,11 +446,8 @@ class _EmailHubScreenState extends State<EmailHubScreen> {
                                     ),
 
                                     trailing: ElevatedButton(
-                                      onPressed:
-                                          email.emailStatus == 'Rejected'
-                                              ? null
-                                              : () => _rejectEmail(
-                                                  email.recId.toString()),
+                                      onPressed:()
+                                         {},
                                       style: ElevatedButton.styleFrom(
                                         foregroundColor: Colors.white,
                                         backgroundColor: _getStatusColor(

@@ -54,13 +54,15 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
     try {
       if (bytes.isEmpty || bytes.lengthInBytes < 8) return false;
 
-      bool isPng = bytes.length > 8 &&
+      bool isPng =
+          bytes.length > 8 &&
           bytes[0] == 0x89 &&
           bytes[1] == 0x50 &&
           bytes[2] == 0x4E &&
           bytes[3] == 0x47;
       bool isJpeg = bytes.length > 2 && bytes[0] == 0xFF && bytes[1] == 0xD8;
-      bool isWebP = bytes.length > 12 &&
+      bool isWebP =
+          bytes.length > 12 &&
           bytes[0] == 0x52 &&
           bytes[1] == 0x49 &&
           bytes[2] == 0x46 &&
@@ -82,8 +84,10 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
 
   Future<Uint8List?> _decodeImageData(String base64Data) async {
     try {
-      String base64String =
-          base64Data.replaceAll(RegExp(r'^data:image/[^;]+;base64,'), '');
+      String base64String = base64Data.replaceAll(
+        RegExp(r'^data:image/[^;]+;base64,'),
+        '',
+      );
       base64String = base64String.replaceAll(RegExp(r'\s'), '');
 
       final padding = base64String.length % 4;
@@ -162,16 +166,16 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
 
             if (snapshot.hasError || !snapshot.data!) {
               return Center(
-                  child: _buildAttachmentErrorWidget('Cannot display image'));
+                child: _buildAttachmentErrorWidget('Cannot display image'),
+              );
             }
 
             return InteractiveViewer(
               child: Image.memory(
                 bytes,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Center(
-                  child: _buildAttachmentErrorWidget('Display error'),
-                ),
+                errorBuilder: (_, __, ___) =>
+                    Center(child: _buildAttachmentErrorWidget('Display error')),
               ),
             );
           },
@@ -208,15 +212,15 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title:  Text( AppLocalizations.of(context)!.pdfViewerNotFound),
-        content:  Text( AppLocalizations.of(context)!.noAppToViewPdf),
+        title: Text(AppLocalizations.of(context)!.pdfViewerNotFound),
+        content: Text(AppLocalizations.of(context)!.noAppToViewPdf),
         actions: [
           TextButton(
-            child:  Text( AppLocalizations.of(context)!.ok),
+            child: Text(AppLocalizations.of(context)!.ok),
             onPressed: () => Navigator.pop(context),
           ),
           TextButton(
-            child:  Text( AppLocalizations.of(context)!.getPdfReader),
+            child: Text(AppLocalizations.of(context)!.getPdfReader),
             onPressed: () => _launchPdfReaderStore(context),
           ),
         ],
@@ -229,9 +233,9 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
     if (await canLaunch(playStoreUrl)) {
       await launch(playStoreUrl);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open app store')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open app store')));
     }
   }
 
@@ -377,122 +381,118 @@ class _EmailDetailPageState extends State<EmailDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        // backgroundColor: const Color.fromARGB(255, 11, 1, 61),
-        appBar: AppBar(
-          // backgroundColor: Colors.transparent,
-          title:  Text(
-             AppLocalizations.of(context)!.preview,
-            style: TextStyle(color: Colors.white),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(
-                icon: const Icon(Icons.remove_red_eye_outlined), onPressed: () => {
-                  if(widget.email.emailStatus == "SuccessfullyProcessed"){
-controller.fetchSecificExpenseItemEmailHub(
-                                    context, widget.email.refRecId,true,"InProgress")
-                  } else{
-                    controller.fetchSecificExpenseItemEmailHub(
-                                    context, widget.email.refRecId,true,"unprocessedexpense")
-                  }
-                    
-                }),
-          ],
+      // backgroundColor: const Color.fromARGB(255, 11, 1, 61),
+      appBar: AppBar(
+        // backgroundColor: Colors.transparent,
+        title: Text(
+          AppLocalizations.of(context)!.preview,
+          style: TextStyle(color: Colors.white),
         ),
-        body: Obx(() {
-          return controller.isLoadingGE2.value
-              ? const SkeletonLoaderPage()
-              : Card(
-                 
-                  
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  // Navigator.pushNamed(context, AppRoutes.formCashAdvanceRequest);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: widget.email.emailStatus ==
-                                          "SuccessfullyProcessed"
-                                      ? Colors.green
-                                      : widget.email.emailStatus == "InProgress"
-                                          ? Colors.red
-                                          : widget.email.emailStatus == "Unprocessed"
-                                              ? Colors.orange
-                                              : Colors.blue.shade800,
-                                  shadowColor: Colors.black.withOpacity(0.3),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
-                                ),
-                                child: Text(
-                                  widget.email.emailStatus == "SuccessfullyProcessed"
-                                      ? "Processed"
-                                      : widget.email.emailStatus,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ]),
-                        const SizedBox(height: 10),
-                        Text(
-                          "${AppLocalizations.of(context)!.from}${widget.email.forwardedEmail}",
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          widget.email.subject,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        if (widget.email.emailBody.isNotEmpty)
-                          Html(
-                            data: widget.email.emailBody,
-                            style: {
-                              "body": Style(
-                                fontSize: FontSize(16),
-                                lineHeight: LineHeight(1.5),
-                              ),
-                            },
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.remove_red_eye_outlined),
+            onPressed: () => {
+              if (widget.email.emailStatus == "SuccessfullyProcessed")
+                {
+                  controller.fetchSecificExpenseItemEmailHub(
+                    context,
+                    widget.email.refRecId!,
+                    true,
+                    "InProgress",
+                  ),
+                }
+              else
+                {
+                  controller.fetchSecificExpenseItemEmailHub(
+                    context,
+                    widget.email.refRecId!,
+                    true,
+                    "unprocessedexpense",
+                  ),
+                },
+            },
+          ),
+        ],
+      ),
+      body: Obx(() {
+        return controller.isLoadingGE2.value
+            ? const SkeletonLoaderPage()
+            : Card(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {},
+                            child: Text(widget.email.emailStatus),
                           ),
-                        Obx(() {
-                          if (attachments.isEmpty) return const SizedBox();
+                        ],
+                      ),
 
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 24),
-                               Text(
-                               AppLocalizations.of(context)!.attachments,
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 6),
+
+                      Text(
+                        "${AppLocalizations.of(context)!.from}${widget.email.forwardedEmail}",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      Text(
+                        widget.email.subject,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      if (widget.email.emailBody.isNotEmpty)
+                        Html(data: widget.email.emailBody),
+
+                      Obx(() {
+                        if (attachments.isEmpty) return const SizedBox();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 10),
+
+                            Text(
+                              AppLocalizations.of(context)!.attachments,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: attachments
-                                    .map((attachment) => _buildAttachmentItem(
-                                        context, attachment))
-                                    .toList(),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                  ));
-        }));
+                            ),
+
+                            const SizedBox(height: 6),
+
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: attachments
+                                  .map(
+                                    (attachment) => _buildAttachmentItem(
+                                      context,
+                                      attachment,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              );
+      }),
+    );
   }
 }

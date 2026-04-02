@@ -43,11 +43,11 @@ class _PunchScreenState extends State<PunchScreen> {
     super.initState();
 
   
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_)async {
     _loadProfileImage();
       controller.updateTime();
           controller.fetchLastPunch();
-    controller.fetchCurrentLocation();
+     controller.checkLocationDisclosure(context);
         });
     controller.timer = Timer.periodic(
       Duration(minutes: 1),
@@ -490,7 +490,11 @@ void _loadProfileImage() async {
               children: [
                 const Icon(Icons.location_pin, size: 16, color: Colors.red),
                 const SizedBox(width: 6),
-                Text(controller.locationText.value),
+               Text(
+                  controller.locationText.value.isNotEmpty
+                      ? controller.locationText.value
+                      : AppLocalizations.of(context)!.fetchingLocation,
+                ),
               ],
             ),
           ),
@@ -651,7 +655,11 @@ void _loadProfileImage() async {
               children: [
                 const Icon(Icons.location_pin, color: Colors.red, size: 16),
                 const SizedBox(width: 4),
-                Text(controller.locationText.value),
+                Text(
+                  controller.locationText.value.isNotEmpty
+                      ? controller.locationText.value
+                      : AppLocalizations.of(context)!.fetchingLocation,
+                ),
               ],
             ),
           ),

@@ -13,12 +13,13 @@ class AccountingDistributionWidget extends StatefulWidget {
   final double lineAmount;
   final void Function(int index, AccountingSplit updatedSplit)? onChanged;
   final void Function(List<AccountingDistribution>)? onDistributionChanged;
-
+  final bool isEnable;
   const AccountingDistributionWidget({
     super.key,
     this.index,
     required this.splits,
     required this.lineAmount,
+    this.isEnable = true,
     this.onChanged,
     this.onDistributionChanged,
   });
@@ -118,28 +119,34 @@ class _AccountingDistributionWidgetState
               itemCount: items.length,
               itemBuilder: (ctx, idx) {
                 final item = items[idx];
-                final displayText = '${item.valueName} (${item.dimensionValueId})';
+                final displayText =
+                    '${item.valueName} (${item.dimensionValueId})';
                 final isSelected = item.dimensionValueId == currentValue;
                 return GestureDetector(
-                  onTap: () {
-                    onSelect(item.dimensionValueId);
-                    _overlayEntry?.remove();
-                    _overlayEntry = null;
-                    setState(() {
-                      _openDropdownIndex = null;
-                    });
-                  },
+                  onTap: widget.isEnable
+                      ? () {
+                          onSelect(item.dimensionValueId);
+                          _overlayEntry?.remove();
+                          _overlayEntry = null;
+                          setState(() {
+                            _openDropdownIndex = null;
+                          });
+                        }
+                      : null,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.blue.withOpacity(0.1) : null,
-                      border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
                     ),
                     child: Text(
                       displayText,
-                      style: const TextStyle(
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -233,20 +240,24 @@ class _AccountingDistributionWidgetState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap: () {
-                        if (isPanelExpandedMap[index] == true) {
-                          _closeEditPanel(index);
-                        } else {
-                          _openEditPanel(index);
-                        }
-                      },
+                      onTap: widget.isEnable
+                          ? () {
+                              if (isPanelExpandedMap[index] == true) {
+                                _closeEditPanel(index);
+                              } else {
+                                _openEditPanel(index);
+                              }
+                            }
+                          : null,
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -278,12 +289,17 @@ class _AccountingDistributionWidgetState
                     if (isPanelExpandedMap[index] == true) ...[
                       const SizedBox(height: 14),
                       ...dimensionList.map((dimension) {
-                        final values = _getFilteredValues(dimension.dimensionId);
-                        final currentVal = selectedValues[dimension.dimensionId];
-                        String displayText = "${strings.selectDimensions} ${dimension.dimensionName}";
+                        final values = _getFilteredValues(
+                          dimension.dimensionId,
+                        );
+                        final currentVal =
+                            selectedValues[dimension.dimensionId];
+                        String displayText =
+                            "${strings.selectDimensions} ${dimension.dimensionName}";
                         if (currentVal != null) {
                           final item = values.firstWhereOrNull(
-                              (v) => v.dimensionValueId == currentVal);
+                            (v) => v.dimensionValueId == currentVal,
+                          );
                           if (item != null) {
                             displayText =
                                 '${item.valueName} (${item.dimensionValueId})';
@@ -309,99 +325,139 @@ class _AccountingDistributionWidgetState
                                       height: 40,
                                       child: TextFormField(
                                         readOnly: true,
-                                        onTap: () {
-                                          final RenderBox? renderBox = context
-                                              .findRenderObject() as RenderBox?;
-                                          if (renderBox == null) return;
+                                        onTap: widget.isEnable
+                                            ? () {
+                                                final RenderBox? renderBox =
+                                                    context.findRenderObject()
+                                                        as RenderBox?;
+                                                if (renderBox == null) return;
 
-                                          if (_openDropdownIndex == index) {
-                                            _hideOverlay();
-                                            setState(() {
-                                              _openDropdownIndex = null;
-                                            });
-                                          } else {
-                                            if (_openDropdownIndex != null &&
-                                                _openDropdownIndex != index) {
-                                              _hideOverlay();
-                                            }
-                                            _openDropdownIndex = index;
-                                            _showOverlay(
-                                              context: context,
-                                              buttonBox: renderBox,
-                                              dimensionId: dimension.dimensionId,
-                                              currentValue: currentVal,
-                                              onSelect: (value) {
-                                                innerSetState(() {
-                                                  selectedValues[dimension.dimensionId] =
-                                                      value;
-                                                });
-                                                setState(() {
-                                                  splitSelectedDimensionValues[index] =
-                                                      Map.from(selectedValues);
-                                                  _openDropdownIndex = null;
-                                                });
-                                              },
-                                            );
-                                          }
-                                        },
+                                                if (_openDropdownIndex ==
+                                                    index) {
+                                                  _hideOverlay();
+                                                  setState(() {
+                                                    _openDropdownIndex = null;
+                                                  });
+                                                } else {
+                                                  if (_openDropdownIndex !=
+                                                          null &&
+                                                      _openDropdownIndex !=
+                                                          index) {
+                                                    _hideOverlay();
+                                                  }
+                                                  _openDropdownIndex = index;
+                                                  _showOverlay(
+                                                    context: context,
+                                                    buttonBox: renderBox,
+                                                    dimensionId:
+                                                        dimension.dimensionId,
+                                                    currentValue: currentVal,
+                                                    onSelect: (value) {
+                                                      innerSetState(() {
+                                                        selectedValues[dimension
+                                                                .dimensionId] =
+                                                            value;
+                                                      });
+                                                      setState(() {
+                                                        splitSelectedDimensionValues[index] =
+                                                            Map.from(
+                                                              selectedValues,
+                                                            );
+                                                        _openDropdownIndex =
+                                                            null;
+                                                      });
+                                                    },
+                                                  );
+                                                }
+                                              }
+                                            : null,
                                         decoration: InputDecoration(
                                           hintText: strings.selectDimensions,
                                           hintStyle: const TextStyle(
-                                              fontSize: 12, color: Colors.grey),
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
                                           filled: true,
                                           contentPadding:
-                                              const EdgeInsets.symmetric(horizontal: 10),
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                              ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide:
-                                                BorderSide(color: Colors.grey.shade400),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: Colors.grey.shade400,
+                                            ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                            borderSide:
-                                                BorderSide(color: Colors.grey.shade400),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: Colors.grey.shade400,
+                                            ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                             borderSide: BorderSide(
-                                                color: AppColors.gradientEnd, width: 2),
+                                              color: AppColors.gradientEnd,
+                                              width: 2,
+                                            ),
                                           ),
                                           isDense: true,
                                           suffixIcon: GestureDetector(
-                                            onTap: () {
-                                              if (_openDropdownIndex == index) {
-                                                _hideOverlay();
-                                                setState(() {
-                                                  _openDropdownIndex = null;
-                                                });
-                                              } else {
-                                                final renderBox = context
-                                                    .findRenderObject() as RenderBox?;
-                                                if (renderBox == null) return;
-                                                if (_openDropdownIndex != null &&
-                                                    _openDropdownIndex != index) {
-                                                  _hideOverlay();
-                                                }
-                                                _openDropdownIndex = index;
-                                                _showOverlay(
-                                                  context: context,
-                                                  buttonBox: renderBox,
-                                                  dimensionId: dimension.dimensionId,
-                                                  currentValue: currentVal,
-                                                  onSelect: (value) {
-                                                    innerSetState(() {
-                                                      selectedValues[dimension.dimensionId] =
-                                                          value;
-                                                    });
-                                                    setState(() {
-                                                      splitSelectedDimensionValues[index] =
-                                                          Map.from(selectedValues);
-                                                      _openDropdownIndex = null;
-                                                    });
-                                                  },
-                                                );
-                                              }
-                                            },
+                                            onTap: widget.isEnable
+                                                ? () {
+                                                    if (_openDropdownIndex ==
+                                                        index) {
+                                                      _hideOverlay();
+                                                      setState(() {
+                                                        _openDropdownIndex =
+                                                            null;
+                                                      });
+                                                    } else {
+                                                      final renderBox =
+                                                          context.findRenderObject()
+                                                              as RenderBox?;
+                                                      if (renderBox == null)
+                                                        return;
+                                                      if (_openDropdownIndex !=
+                                                              null &&
+                                                          _openDropdownIndex !=
+                                                              index) {
+                                                        _hideOverlay();
+                                                      }
+                                                      _openDropdownIndex =
+                                                          index;
+                                                      _showOverlay(
+                                                        context: context,
+                                                        buttonBox: renderBox,
+                                                        dimensionId: dimension
+                                                            .dimensionId,
+                                                        currentValue:
+                                                            currentVal,
+                                                        onSelect: (value) {
+                                                          innerSetState(() {
+                                                            selectedValues[dimension
+                                                                    .dimensionId] =
+                                                                value;
+                                                          });
+                                                          setState(() {
+                                                            splitSelectedDimensionValues[index] =
+                                                                Map.from(
+                                                                  selectedValues,
+                                                                );
+                                                            _openDropdownIndex =
+                                                                null;
+                                                          });
+                                                        },
+                                                      );
+                                                    }
+                                                  }
+                                                : null,
                                             child: Icon(
                                               _openDropdownIndex == index
                                                   ? Icons.arrow_drop_up
@@ -412,9 +468,14 @@ class _AccountingDistributionWidgetState
                                           ),
                                         ),
                                         style: const TextStyle(fontSize: 12),
-                                        controller: TextEditingController(text: displayText)
-                                          ..selection = TextSelection.collapsed(
-                                              offset: displayText.length),
+                                        controller:
+                                            TextEditingController(
+                                                text: displayText,
+                                              )
+                                              ..selection =
+                                                  TextSelection.collapsed(
+                                                    offset: displayText.length,
+                                                  ),
                                       ),
                                     );
                                   },
@@ -429,28 +490,37 @@ class _AccountingDistributionWidgetState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          if (widget.isEnable)
                           ElevatedButton(
                             onPressed: () {
                               final savedValues =
                                   splitSelectedDimensionValues[index] ?? {};
-                              final dimensionIds =
-                                  savedValues.values.whereType<String>().join(',');
+                              final dimensionIds = savedValues.values
+                                  .whereType<String>()
+                                  .join(',');
                               setState(() {
-                                widget.splits[index] =
-                                    split.copyWith(paidFor: dimensionIds);
+                                widget.splits[index] = split.copyWith(
+                                  paidFor: dimensionIds,
+                                );
                                 _closeEditPanel(index);
                               });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.gradientEnd,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                             child: Text(
                               strings.save,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -460,9 +530,12 @@ class _AccountingDistributionWidgetState
                               backgroundColor: Colors.grey[300],
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6)),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                             child: Text(
                               strings.cancel,
@@ -475,7 +548,10 @@ class _AccountingDistributionWidgetState
                     ],
                     const SizedBox(height: 10),
                     TextFormField(
-                      initialValue: (split.percentage ?? 0.0).toStringAsFixed(2),
+                      enabled: widget.isEnable,
+                      initialValue: (split.percentage ?? 0.0).toStringAsFixed(
+                        2,
+                      ),
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: strings.percentage,
@@ -493,11 +569,15 @@ class _AccountingDistributionWidgetState
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                              BorderSide(color: AppColors.gradientEnd, width: 2),
+                          borderSide: BorderSide(
+                            color: AppColors.gradientEnd,
+                            width: 2,
+                          ),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                         isDense: true,
                       ),
                       style: const TextStyle(fontSize: 13),
@@ -536,10 +616,15 @@ class _AccountingDistributionWidgetState
                             ),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                          onPressed: () => _removeSplit(index),
-                        ),
+                        if (widget.isEnable)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            onPressed: () => _removeSplit(index),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -566,13 +651,20 @@ class _AccountingDistributionWidgetState
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               ElevatedButton.icon(
-                onPressed: _addSplit,
+                onPressed: widget.isEnable ? _addSplit : null,
                 icon: const Icon(Icons.add, size: 16),
-                label: Text(strings.addSplit, style: const TextStyle(fontSize: 13)),
+                label: Text(
+                  strings.addSplit,
+                  style: const TextStyle(fontSize: 13),
+                ),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape:
-                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -581,14 +673,21 @@ class _AccountingDistributionWidgetState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[300],
                   foregroundColor: Colors.black,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
-                child: Text(strings.cancel, style: const TextStyle(fontSize: 13)),
+                child: Text(
+                  strings.cancel,
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
               const SizedBox(width: 14),
+              if (widget.isEnable)
               ElevatedButton(
                 onPressed: () {
                   if (_totalPercentage != 100) {
@@ -616,9 +715,13 @@ class _AccountingDistributionWidgetState
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.gradientEnd,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 child: Text(
                   strings.save,
@@ -627,7 +730,7 @@ class _AccountingDistributionWidgetState
               ),
             ],
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 30),
       ],
     );
   }

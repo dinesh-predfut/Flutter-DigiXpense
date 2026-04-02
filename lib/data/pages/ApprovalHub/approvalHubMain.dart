@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/constant/url.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/API_Service/apiService.dart';
@@ -299,7 +300,7 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
           status: false,
         );
       default:
-        return const Center(child: Text("Unsupported Expense Type"));
+        return CommonNoDataWidget();
     }
   }
 
@@ -675,11 +676,11 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                                     selectedField = localSelectedField;
                                     fieldValue = controller.localFieldValue!;
                                   });
-      Navigator.pop(context);
+                                  Navigator.pop(context);
                                   final skippedList = controller
                                       .skippedWorkItems
                                       .toList();
-                                      print("External$selectedType");
+                                  print("External$selectedType");
                                   if (selectedType == "External") {
                                     await controller
                                         .fetchApprovalDetailsExternal(
@@ -689,7 +690,7 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                                         );
                                   } else {
                                     // ✅ Await first API
-                                    futureData =  controller.fetchApprovalData(
+                                    futureData = controller.fetchApprovalData(
                                       skippedList,
                                       field: localSelectedField!.id,
                                       value: controller.localFieldValue!,
@@ -697,7 +698,6 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                                     );
                                   }
 
-                              
                                   // ✅ Await second API
 
                                   // ✅ After both APIs complete
@@ -712,7 +712,6 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
                                   );
                                 } catch (e) {
                                   debugPrint("Filter Error: $e");
-                                
                                 }
                               },
 

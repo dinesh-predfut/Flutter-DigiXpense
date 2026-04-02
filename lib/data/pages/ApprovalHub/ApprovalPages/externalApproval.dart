@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart'
     show SearchableMultiColumnDropdownField;
@@ -43,12 +44,7 @@ Widget build(BuildContext context) {
       }
 
       if (controller.metadata == null || controller.metadata!.isEmpty) {
-        return const Center(
-          child: Text(
-            "No Data",
-            style: TextStyle(color: Colors.black),
-          ),
-        );
+       CommonNoDataWidget();
       }
 
       return SafeArea(

@@ -5,6 +5,8 @@ import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
@@ -24,6 +26,7 @@ import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:fluttertoast/fluttertoast.dart' show Fluttertoast;
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,7 +51,10 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
   // Tab related variables
   int _selectedTabIndex = 0;
-  late final List<String> _tabTitles = [AppLocalizations.of(context)!.tableView, AppLocalizations.of(context)!.timeTracker];
+  late final List<String> _tabTitles = [
+    AppLocalizations.of(context)!.tableView,
+    AppLocalizations.of(context)!.timeTracker,
+  ];
 
   // Calendar related variables
   DateTime _focusedDay = DateTime.now();
@@ -92,9 +98,10 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     _loadProfileImage();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
+      controller.selectedTimeSheetStatusDropDown.value = "Un Reported";
     });
 
-     controller.fetchCustomFieldsTimeSheet();
+    controller.fetchCustomFieldsTimeSheet();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.fetchNotifications();
@@ -163,7 +170,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-           if (primaryColor != const Color(0xFF1e4db7))
+                if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -185,9 +192,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             children: [
                               IconButton(
                                 onPressed: _openMenu,
@@ -223,30 +228,31 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -265,14 +271,12 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                       ),
                     ),
                     padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child:Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               IconButton(
@@ -309,30 +313,31 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -512,50 +517,49 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.add, size: 16),
-                            label: Text(
-                              "${AppLocalizations.of(
-                                    context,
-                                  )!.addTimeSheets} ",
-                              style: TextStyle(fontSize: 12),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.secondary,
-                              foregroundColor: theme.colorScheme.onSecondary,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                      if (PermissionHelper.canWrite("Timesheet Requisition"))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add, size: 16),
+                              label: Text(
+                                "${AppLocalizations.of(context)!.addTimeSheets} ",
+                                style: TextStyle(fontSize: 12),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.secondary,
+                                foregroundColor: theme.colorScheme.onSecondary,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.timeSheetRequestPage,
+                                  // arguments: {
+                                  //   'item': null,
+                                  //   'readOnly': false,
+                                  //   'status': false,
+                                  // },
+                                );
+                              },
                             ),
-                            onPressed: () {
-                              Navigator.pushNamed(
-                                context,
-                                AppRoutes.timeSheetRequestPage,
-                                // arguments: {
-                                //   'item': null,
-                                //   'readOnly': false,
-                                //   'status': false,
-                                // },
-                              );
-                            },
                           ),
                         ),
-                      ),
                     ],
                   ),
 
                   // 🔹 Content based on selected tab
                   Expanded(child: _buildCardViewContent(context)),
                 ] else ...[
-                  Expanded(child:TimeTrackerView()),
+                  Expanded(child: TimeTrackerView()),
                 ],
               ],
             );
@@ -574,8 +578,8 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
       }
 
       if (controller.filteredSheet.isEmpty) {
-  return const CommonNoDataWidget();
-}
+        return const CommonNoDataWidget();
+      }
 
       return ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -594,21 +598,39 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                   recId: item.recId,
                   lockId: item.recId,
                   context: context,
-                   page:"Edit"
+                  page: "Edit",
                 );
 
                 setState(() => isLoading = false);
                 return false;
               }
 
-              if (direction == DismissDirection.endToStart &&
-                  item.approvalStatus == "Created") {
+              if (direction == DismissDirection.endToStart) {
+                final canDelete = PermissionHelper.canDelete(
+                  "Timesheet Requisition",
+                ); 
+
+                final isDeletable = item.approvalStatus == "Created";
+
+                // ❌ No permission
+                if (!canDelete) {
+                  Fluttertoast.showToast(msg: "No delete permission");
+                  return false;
+                }
+
+                // ❌ Wrong status
+                if (!isDeletable) {
+                  // Fluttertoast.showToast(
+                  //   msg: "Only 'Created' timesheets can be deleted",
+                  // );
+                  return false;
+                }
                 final shouldDelete = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: Text(AppLocalizations.of(context)!.delete),
                     content: Text(
-                      '${AppLocalizations.of(context)!.delete} "${item.timesheetId}"?',
+                      '${AppLocalizations.of(context)!.deleteConfirmation} "${item.timesheetId}"?',
                     ),
                     actions: [
                       TextButton(
@@ -901,7 +923,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
           recId: item.recId,
           lockId: item.recId,
           context: context,
-           page:"Edit"
+          page: "Edit",
         );
       },
       child: Card(

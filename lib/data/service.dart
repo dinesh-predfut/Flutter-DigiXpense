@@ -8,10 +8,24 @@ import 'dart:core';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
+import 'package:diginexa/data/pages/screen/ALl_Expense_Screens/GeneralExpense/Reports%20for%20Expense/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/CashAdvanceRequest/Reports%20for%20CashAdvanse/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/Reports%20for%20Leave/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/TimeSheet/Reports%20for%20Leave/reportsCreateForm.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:diginexa/data/pages/ApprovalHub/ApprovalPages/externalApproval.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/createPunchIn-out.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_cropper/image_cropper.dart'
+    show
+        ImageCropper,
+        CropAspectRatio,
+        AndroidUiSettings,
+        CroppedFile,
+        IOSUiSettings;
 import 'package:open_filex/open_filex.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -70,6 +84,14 @@ enum TimerStatus { idle, running, paused, completed, cancelled }
 enum TrackerTab { runs, segments, events }
 
 class Controller extends GetxController {
+  // Localization Preferences Controllers
+  final TextEditingController timezoneController = TextEditingController();
+  final TextEditingController paymentMethodController = TextEditingController();
+  final TextEditingController currencyController = TextEditingController();
+  final TextEditingController localeController = TextEditingController();
+  final TextEditingController languageController = TextEditingController();
+  final TextEditingController dateFormatController = TextEditingController();
+  final TextEditingController emailChipController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController forgotemailController = TextEditingController();
@@ -103,6 +125,15 @@ class Controller extends GetxController {
   RxInt tagDropdownRefresh = 0.obs;
   RxInt memberDropdownRefresh = 0.obs;
   RxInt groupDropdownRefresh = 0.obs;
+  // Controller
+  var paidAmountError = ''.obs;
+  // Controller.dart
+  var isReceiptRequired = false.obs;
+  var itemisationMandatory = false.obs;
+  var minExpenseAmount = 0.0.obs;
+  var maxExpenseAmount = 0.0.obs;
+  var receiptRequiredLimit = 0.0.obs;
+  var unitAmountErrorText = ''.obs;
   TextEditingController descriptionController = TextEditingController();
   TextEditingController referenceIdController = TextEditingController();
   // final TextEditingController state = TextEditingController();
@@ -113,7 +144,15 @@ class Controller extends GetxController {
       TextEditingController();
   final TextEditingController leavefilterDateController =
       TextEditingController();
+  String? lastCurrency1;
+  String? lastAmount1;
+  ExchangeRateResponse? cachedExchange1;
+  RxString leaveSearchQuery = "".obs;
 
+  String? lastCurrency2;
+  String? lastAmount2;
+  ExchangeRateResponse? cachedExchange2;
+  ExchangeRateResponse? cachedExchangeResponse;
   // final TextEditingController country = TextEditingController();
   final TextEditingController amountController = TextEditingController();
   final TextEditingController zipCodeController = TextEditingController();
@@ -218,6 +257,212 @@ class Controller extends GetxController {
     'Cash Advance',
     'Payment Proposal',
   ];
+  final Map<String, String> dialCodeToIso = {
+    '+1': 'US',
+    '+7': 'RU',
+    '+20': 'EG',
+    '+27': 'ZA',
+    '+30': 'GR',
+    '+31': 'NL',
+    '+32': 'BE',
+    '+33': 'FR',
+    '+34': 'ES',
+    '+36': 'HU',
+    '+39': 'IT',
+    '+40': 'RO',
+    '+41': 'CH',
+    '+43': 'AT',
+    '+44': 'GB',
+    '+45': 'DK',
+    '+46': 'SE',
+    '+47': 'NO',
+    '+48': 'PL',
+    '+49': 'DE',
+    '+51': 'PE',
+    '+52': 'MX',
+    '+53': 'CU',
+    '+54': 'AR',
+    '+55': 'BR',
+    '+56': 'CL',
+    '+57': 'CO',
+    '+58': 'VE',
+    '+60': 'MY',
+    '+61': 'AU',
+    '+62': 'ID',
+    '+63': 'PH',
+    '+64': 'NZ',
+    '+65': 'SG',
+    '+66': 'TH',
+    '+81': 'JP',
+    '+82': 'KR',
+    '+84': 'VN',
+    '+86': 'CN',
+    '+90': 'TR',
+    '+91': 'IN',
+    '+92': 'PK',
+    '+93': 'AF',
+    '+94': 'LK',
+    '+95': 'MM',
+    '+98': 'IR',
+    '+211': 'SS',
+    '+212': 'MA',
+    '+213': 'DZ',
+    '+216': 'TN',
+    '+218': 'LY',
+    '+220': 'GM',
+    '+221': 'SN',
+    '+222': 'MR',
+    '+223': 'ML',
+    '+224': 'GN',
+    '+225': 'CI',
+    '+226': 'BF',
+    '+227': 'NE',
+    '+228': 'TG',
+    '+229': 'BJ',
+    '+230': 'MU',
+    '+231': 'LR',
+    '+232': 'SL',
+    '+233': 'GH',
+    '+234': 'NG',
+    '+235': 'TD',
+    '+236': 'CF',
+    '+237': 'CM',
+    '+238': 'CV',
+    '+239': 'ST',
+    '+240': 'GQ',
+    '+241': 'GA',
+    '+242': 'CG',
+    '+243': 'CD',
+    '+244': 'AO',
+    '+245': 'GW',
+    '+248': 'SC',
+    '+249': 'SD',
+    '+250': 'RW',
+    '+251': 'ET',
+    '+252': 'SO',
+    '+253': 'DJ',
+    '+254': 'KE',
+    '+255': 'TZ',
+    '+256': 'UG',
+    '+257': 'BI',
+    '+258': 'MZ',
+    '+260': 'ZM',
+    '+261': 'MG',
+    '+262': 'RE',
+    '+263': 'ZW',
+    '+264': 'NA',
+    '+265': 'MW',
+    '+266': 'LS',
+    '+267': 'BW',
+    '+268': 'SZ',
+    '+269': 'KM',
+    '+290': 'SH',
+    '+291': 'ER',
+    '+297': 'AW',
+    '+298': 'FO',
+    '+299': 'GL',
+    '+350': 'GI',
+    '+351': 'PT',
+    '+352': 'LU',
+    '+353': 'IE',
+    '+354': 'IS',
+    '+355': 'AL',
+    '+356': 'MT',
+    '+357': 'CY',
+    '+358': 'FI',
+    '+359': 'BG',
+    '+370': 'LT',
+    '+371': 'LV',
+    '+372': 'EE',
+    '+373': 'MD',
+    '+374': 'AM',
+    '+375': 'BY',
+    '+376': 'AD',
+    '+377': 'MC',
+    '+378': 'SM',
+    '+380': 'UA',
+    '+381': 'RS',
+    '+382': 'ME',
+    '+383': 'XK',
+    '+385': 'HR',
+    '+386': 'SI',
+    '+387': 'BA',
+    '+389': 'MK',
+    '+420': 'CZ',
+    '+421': 'SK',
+    '+423': 'LI',
+    '+500': 'FK',
+    '+501': 'BZ',
+    '+502': 'GT',
+    '+503': 'SV',
+    '+504': 'HN',
+    '+505': 'NI',
+    '+506': 'CR',
+    '+507': 'PA',
+    '+508': 'PM',
+    '+509': 'HT',
+    '+590': 'GP',
+    '+591': 'BO',
+    '+592': 'GY',
+    '+593': 'EC',
+    '+594': 'GF',
+    '+595': 'PY',
+    '+596': 'MQ',
+    '+597': 'SR',
+    '+598': 'UY',
+    '+599': 'CW',
+    '+670': 'TL',
+    '+672': 'NF',
+    '+673': 'BN',
+    '+674': 'NR',
+    '+675': 'PG',
+    '+676': 'TO',
+    '+677': 'SB',
+    '+678': 'VU',
+    '+679': 'FJ',
+    '+680': 'PW',
+    '+681': 'WF',
+    '+682': 'CK',
+    '+683': 'NU',
+    '+685': 'WS',
+    '+686': 'KI',
+    '+687': 'NC',
+    '+688': 'TV',
+    '+689': 'PF',
+    '+690': 'TK',
+    '+691': 'FM',
+    '+692': 'MH',
+    '+850': 'KP',
+    '+852': 'HK',
+    '+853': 'MO',
+    '+855': 'KH',
+    '+856': 'LA',
+    '+880': 'BD',
+    '+886': 'TW',
+    '+960': 'MV',
+    '+961': 'LB',
+    '+962': 'JO',
+    '+963': 'SY',
+    '+964': 'IQ',
+    '+965': 'KW',
+    '+966': 'SA',
+    '+967': 'YE',
+    '+968': 'OM',
+    '+970': 'PS',
+    '+971': 'AE',
+    '+972': 'IL',
+    '+973': 'BH',
+    '+974': 'QA',
+    '+975': 'BT',
+    '+976': 'MN',
+    '+977': 'NP',
+    '+992': 'TJ',
+    '+993': 'TM',
+    '+994': 'AZ',
+    '+995': 'GE',
+    '+996': 'KG',
+    '+998': 'UZ',
+  };
   RxBool isAmountCalculating = false.obs;
   bool get anyButtonLoading => buttonLoaders.values.any((e) => e == true);
   // Employee Selection
@@ -278,11 +523,17 @@ class Controller extends GetxController {
     }
   }
 
-  void removeAttachment(AttachmentModel attachment) {
-    attachments.remove(attachment);
+  Future<bool> removeAttachment(AttachmentModel attachment) async {
+    try {
+      final response = await deleteAttachment(attachment.recId);
 
-    if (!attachment.isLocal) {
-      // TODO: call DELETE API here
+      if (response) {
+        return true; // ✅ success
+      } else {
+        return false;
+      }
+    } catch (e) {
+      return false;
     }
   }
 
@@ -590,6 +841,8 @@ class Controller extends GetxController {
   var isUploadingCards = false.obs;
   var isUploadingCardsUpdate = false.obs;
   var isLoadingStatus = false.obs;
+  RxBool percentageError = false.obs;
+
   var callAPIDashBoard = true.obs;
   final RxBool showCancelIcon = true.obs;
   bool showAllCashAdvance = false; // Track see more
@@ -606,6 +859,7 @@ class Controller extends GetxController {
   var projectExpensesbyCategory = <ProjectExpensebycategory>[].obs;
   var resendCountdown = 0.obs;
   int? recId;
+  int? expenseId;
   int? rate;
   //
   //
@@ -618,6 +872,7 @@ class Controller extends GetxController {
   RxDouble calculatedPercentage = 0.0.obs;
   String? localFieldValue;
   final TextEditingController requestedPercentage = TextEditingController();
+  final TextEditingController allowedPercentage = TextEditingController();
   final TextEditingController requisitionIdController = TextEditingController();
   final TextEditingController requestDateController = TextEditingController();
   RxList<CashAdvanceDropDownModel> cashAdvanceListDropDown =
@@ -798,14 +1053,25 @@ class Controller extends GetxController {
 
   void updateDatesController() {
     final today = DateTime.now();
+
     if (startDate.value != null && endDate.value != null) {
-      final start = DateFormat('dd/MM/yyyy').format(startDate.value!);
-      final end = DateFormat('dd/MM/yyyy').format(endDate.value!);
+      final start = DateFormat('dd-MM-yyyy').format(startDate.value!);
+      final end = DateFormat('dd-MM-yyyy').format(endDate.value!);
       datesController.text = '$start - $end';
     } else {
-      final start = DateFormat('dd/MM/yyyy').format(today);
-      final end = DateFormat('dd/MM/yyyy').format(today);
+      final start = DateFormat('dd-MM-yyyy').format(today);
+      final end = DateFormat('dd-MM-yyyy').format(today);
+
       datesController.text = '$start - $end';
+
+      // set startDate and endDate using millisecondsSinceEpoch
+      startDate.value = DateTime.fromMillisecondsSinceEpoch(
+        today.millisecondsSinceEpoch,
+      );
+
+      endDate.value = DateTime.fromMillisecondsSinceEpoch(
+        today.millisecondsSinceEpoch,
+      );
     }
   }
 
@@ -837,10 +1103,10 @@ class Controller extends GetxController {
     );
 
     final response = await ApiService.get(url);
-
+    final data = jsonDecode(response.body);
     // print("STATUS => ${response.statusCode}");
     // print("RAW RESPONSE => ${response.body}");
-
+    String message = data['detail']?['message'] ?? data['message'] ?? "Error";
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);
 
@@ -856,11 +1122,66 @@ class Controller extends GetxController {
 
       throw Exception('Unexpected task details response format');
     } else {
+      Fluttertoast.showToast(
+        msg: message,
+        backgroundColor: Colors.red[100],
+        textColor: Colors.red[800],
+      );
+      Navigator.pop(context);
       throw Exception('Failed to load task details: ${response.statusCode}');
     }
   }
 
+  Future<List<KanbanStatus>> fetchStatuses(String bordeId) async {
+    final response = await ApiService.get(
+      Uri.parse(
+        "${Urls.baseURL}/api/v1/kanban/status/status/status"
+        "?filter_query=KANStatus.BoardId__eq%3D$bordeId%26KANStatus.IsActive__eq%3DTrue"
+        "&page=1&sort_order=asc",
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+
+      final List list = responseData; // ✅ directly list
+
+      return list.map((e) => KanbanStatus.fromJson(e)).toList();
+    } else {
+      throw Exception("Failed to load statuses");
+    }
+  }
+
   bool showAttachment = true;
+  var fieldVisibility = <String, bool>{}.obs;
+  Future<void> fetchCardFields(String boardId) async {
+    try {
+      final url = Uri.parse(
+        "https://api.digixpense.com/api/v1/kanban/boards/cardfields/cardfieldslist?BoardId=$boardId&screen_name=KANKanbanCardFields",
+      );
+
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        final list = data.map((e) => CardFieldConfig.fromJson(e)).toList();
+
+        /// Convert to Map
+        fieldVisibility.value = {
+          for (var item in list) item.fieldName: item.isEnabled,
+        };
+      } else {
+        print("API Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Exception: $e");
+    }
+  }
+
+  bool isEnabled(String key) {
+    return fieldVisibility[key] == true;
+  }
 
   Future<void> pickFromGallery() async {
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -993,10 +1314,9 @@ class Controller extends GetxController {
     int workId,
   ) async {
     // setButtonLoading('submit', true);
-    setButtonLoading('update', true);
+
     //  //  // print("CallSubmit");
     if (!_validateForm() && !submit) {
-      Get.snackbar('Error', 'Please fill all required fields');
       //  //  // print("CallSubmitErro");
       return;
     }
@@ -1022,7 +1342,7 @@ class Controller extends GetxController {
       employeeName: Params.employeeName ?? userName.value,
       applicationDate: DateTime.now().millisecondsSinceEpoch,
       calendarId: calendarId!,
-      duration: totalDays.value,
+      duration: totalRequestedDays.value.toInt(),
       leaveCode: selectedLeaveCode.value?.leaveCode,
       projectId: selectedProject?.code,
       relieverId: selectedReliever.value?.id,
@@ -1040,11 +1360,11 @@ class Controller extends GetxController {
       attachments: [DocumentAttachmentbase64(file: fileItems)],
       workitemrecid: workitemrecid,
 
-      totalDays: totalDays.value,
+      totalDays: totalRequestedDays.value.toInt(),
       // status: submit ? 'Submitted' : 'Draft',
       fromDateHalfDay: false,
       fromDateHalfDayValue: null,
-      leaveBalance: 34,
+      leaveBalance: leaveBalance!.toDouble(),
       toDateHalfDay: false,
       transactions: leaveDays,
     );
@@ -1062,10 +1382,7 @@ class Controller extends GetxController {
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to submit leave request: $e');
-    } finally {
-      // setButtonLoading('submit', false);
-      setButtonLoading('update', false);
-    }
+    } finally {}
   }
 
   RxBool isFullPageLoading = false.obs;
@@ -1080,12 +1397,44 @@ class Controller extends GetxController {
     bool submit,
     bool resubmit,
   ) async {
-    //  //  // print("CallSubmit");
-    if (!_validateForm() && !submit) {
-      Get.snackbar('Error', 'Please fill all required fields');
-      //  //  // print("CallSubmitErro");
+    if (totalRequestedDays.value == 0 || totalRequestedDays.value == 0.0) {
+      Fluttertoast.showToast(
+        msg: "Total Leaves 0 not Vaild ",
+        backgroundColor: Colors.orange,
+      );
       return;
     }
+    if (!_validateForm() && !submit) {
+      return;
+    }
+    // for (final tx in leaveTransactions) {
+    //   String derivedDayType = 'FullDay';
+
+    //   if (tx.leaveFirstHalf && !tx.leaveSecondHalf) {
+    //     derivedDayType = 'FirstHalf';
+    //   } else if (!tx.leaveFirstHalf && tx.leaveSecondHalf) {
+    //     derivedDayType = 'SecondHalf';
+    //   }
+
+    //   final leaveDay = LeaveTransactionModel(
+    //     employeeId: tx.employeeId,
+    //     transDate: tx.transDate,
+    //     noOfDays: tx.noOfDays,
+    //     leaveCode: tx.leaveCode,
+    //     leaveFirstHalf: tx.leaveFirstHalf,
+    //     leaveSecondHalf: tx.leaveSecondHalf,
+    //     isHoliday: tx.isHoliday,
+    //     recId: tx.recId,
+    //     originalDayType: derivedDayType,
+    //     dayType: derivedDayType.obs,
+    //     dayTypeLeave: derivedDayType.obs,
+    //     approvalStatus: tx.approvalStatus,
+    //   );
+    //   debugPrint("leaveDay completed$leaveDay");
+    //   leaveDays.add(leaveDay);
+    //   // totalRequestedDays.value += leaveDay.calculatedDays;
+    // }
+
     fileItems.clear();
     for (int i = 0; i < uploadedImages.length; i++) {
       File image = uploadedImages[i];
@@ -1103,7 +1452,7 @@ class Controller extends GetxController {
       );
     }
     final code = countryCodeController.text.trim();
-    final phone = leavephoneController.text.trim();
+    final phone = phoneController.text.trim();
     final leaveRequest = LeaveRequest(
       leaveId: leaveID ?? leaveIdcontroller.text,
       recId: recID,
@@ -1111,7 +1460,7 @@ class Controller extends GetxController {
       employeeName: Params.employeeName ?? userName.value,
       applicationDate: DateTime.now().millisecondsSinceEpoch,
       calendarId: calendarId ?? '',
-      duration: totalDays.value,
+      duration: totalRequestedDays.value.toInt(),
       leaveCode: selectedLeaveCode.value?.leaveCode,
       projectId: projectDropDowncontroller.text,
       relieverId: selectedReliever.value?.id,
@@ -1129,13 +1478,13 @@ class Controller extends GetxController {
       isPaidLeave: isPaidLeave.value,
       attachments: [DocumentAttachmentbase64(file: fileItems)],
 
-      totalDays: totalDays.value,
       // status: submit ? 'Submitted' : 'Draft',
       fromDateHalfDay: false,
       fromDateHalfDayValue: null,
-      leaveBalance: 34,
+      leaveBalance: leaveBalance!.toDouble(),
       toDateHalfDay: false,
       transactions: leaveDays,
+      totalDays: totalRequestedDays.value.toInt(),
     );
 
     try {
@@ -1152,7 +1501,6 @@ class Controller extends GetxController {
         // Navigator.pop(context);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to submit leave request: $e');
     } finally {
       setButtonLoading('submit', false);
     }
@@ -1173,6 +1521,7 @@ class Controller extends GetxController {
   void calculateTotalDays() {
     double total = 0;
     for (final day in leaveDays) {
+      print("totalRequestedDays.value${day.calculatedDays}");
       total += day.calculatedDays;
     }
     totalRequestedDays.value = total;
@@ -1310,6 +1659,7 @@ class Controller extends GetxController {
   RxString selectedScope = "department_leaves".obs;
 
   Future<void> fetchEmployeesFilter() async {
+    employeesFilter.clear();
     final payload = {"scope": scopeFilters, "scope_filters": null};
 
     final response = await ApiService.post(
@@ -1344,6 +1694,17 @@ class Controller extends GetxController {
     }
   }
 
+  void resetFilters() {
+    selectedEmployeesFilter.clear();
+    scopeFilters = 'my_leaves';
+    selectedleaveCodesFilter.clear();
+    showEmployeeField.value = false;
+    selectedAvailability.value = "All";
+    availabilityController.text = "All";
+    selectedType.value = "My Leave";
+    typeController.text = "My Leave";
+  }
+
   void loadExistingLeaveRequest(LeaveDetailsModel leaveRequest) {
     debugPrint("loadExistingLeaveRequest started");
 
@@ -1354,7 +1715,7 @@ class Controller extends GetxController {
 
     selectedLeaveCode.value = leaveCodeMatch;
     leaveCodeController.text = leaveCodeMatch?.leaveCode ?? '';
-
+    leaveBalance = leaveCodeMatch?.leaveBalance;
     fetchCalenderIDLeaveTransactions(
       employeeId: Params.employeeId,
       fromDate: leaveRequest.fromDate,
@@ -1425,7 +1786,7 @@ class Controller extends GetxController {
 
     /// ---------------- Applied Date ----------------
     appliedDateController.text = DateFormat(
-      'dd/MM/yyyy',
+      'dd-MM-yyyy',
     ).format(DateTime.fromMillisecondsSinceEpoch(leaveRequest.applicationDate));
 
     /// ---------------- Other Fields ----------------
@@ -1434,6 +1795,7 @@ class Controller extends GetxController {
     totalRequestedDays.value = leaveRequest.duration;
     leaveID = leaveRequest.leaveId;
     leaveIdcontroller.text = leaveRequest.leaveId;
+
     employeeName.text = leaveRequest.employeeName;
     leaveCancelID.text = leaveRequest.leaveCancelId ?? '';
     employeeIdController.text = leaveRequest.employeeId ?? '';
@@ -1466,25 +1828,47 @@ class Controller extends GetxController {
       } else if (!tx.leaveFirstHalf && tx.leaveSecondHalf) {
         derivedDayType = 'SecondHalf';
       }
+      print("noOfDays${tx.noOfDays}");
+      if (tx.leaveCancelId == null) {
+        print("leaveCode${tx.leaveCode}");
+        final leaveDay = LeaveTransactionModel(
+          employeeId: tx.employeeId,
+          transDate: tx.transDate,
+          noOfDays: tx.noOfDays,
+          leaveCode: tx.leaveCode,
+          leaveFirstHalf: tx.leaveFirstHalf,
+          leaveSecondHalf: tx.leaveSecondHalf,
+          isHoliday: tx.isHoliday,
+          recId: tx.recId,
+          originalDayType: derivedDayType,
+          dayType: derivedDayType.obs,
+          dayTypeLeave: derivedDayType.obs,
+          approvalStatus: tx.approvalStatus,
+        );
 
-      final leaveDay = LeaveTransactionModel(
-        employeeId: tx.employeeId,
-        transDate: tx.transDate,
-        noOfDays: tx.noOfDays,
-        leaveCode: tx.leaveCode,
-        leaveFirstHalf: tx.leaveFirstHalf,
-        leaveSecondHalf: tx.leaveSecondHalf,
-        isHoliday: tx.isHoliday,
-        recId: tx.recId,
-        originalDayType: derivedDayType,
-        dayType: derivedDayType.obs,
-        dayTypeLeave: derivedDayType.obs,
-        approvalStatus: tx.approvalStatus,
-      );
-      debugPrint("leaveDay completed$leaveDay");
-      leaveDays.add(leaveDay);
-      // totalRequestedDays.value += leaveDay.calculatedDays;
+        leaveDays.add(leaveDay);
+        // totalRequestedDays.value += leaveDay.calculatedDays;
+      } else {
+        print("leaveCancelId${tx.leaveCancelId}");
+        final leaveDay = LeaveTransactionModel(
+          transDate: tx.transDate,
+          noOfDays: tx.noOfDays,
+
+          leaveFirstHalf: tx.leaveFirstHalf,
+          leaveSecondHalf: tx.leaveSecondHalf,
+          isHoliday: tx.isHoliday,
+          recId: tx.recId,
+          originalDayType: derivedDayType,
+          dayType: derivedDayType.obs,
+          dayTypeLeave: derivedDayType.obs,
+          approvalStatus: tx.approvalStatus,
+        );
+
+        leaveDays.add(leaveDay);
+        // totalRequestedDays.value += leaveDay.calculatedDays;
+      }
     }
+    calculateTotalDays();
 
     /// ---------------- Paid / Unpaid ----------------
     isPaidLeave.value = !leaveRequest.isLeaveUnPaid;
@@ -1499,6 +1883,9 @@ class Controller extends GetxController {
     getDeviceToken();
     getPlatform();
     getDeviceId();
+    Future.microtask(() {
+      selectedLeaveIds.addAll([]);
+    });
     // getInitialRoute();
     // cashAdvanceIds = TextEditingController();
   }
@@ -1638,6 +2025,8 @@ class Controller extends GetxController {
   var isUploadingSummary = false.obs;
   // In your controller
   var searchQuery = ''.obs;
+  var searchQueryPending = ''.obs;
+  var searchQueryPendingLeave = ''.obs;
   final searchController = TextEditingController();
   final searchControllerApprovalDashBoard = TextEditingController();
   final searchControllerMyteamsExpense = TextEditingController();
@@ -1673,12 +2062,14 @@ class Controller extends GetxController {
   File? imageFile;
   String? selectedTimezonevalue;
   String? stringCurrency;
+  String? organizationCurrency;
   String? paymentMethodeID;
   var paidWithCashAdvance = RxnString(); // nullable reactive string
   var paymentMethodeIDCashAdvance = RxnString();
   String? expenseID;
   String? leaveID;
   int? recID;
+  int? recIDItem;
   String selectedCurrencyFinal = '';
   List<String> emails = [];
   RxList<User> userList = <User>[].obs; // User list from API
@@ -1761,6 +2152,7 @@ class Controller extends GetxController {
   final RxBool isLoadingGE1 = false.obs;
   final RxBool isLoadingunprocess = false.obs;
   final RxBool isLoadingGE2 = false.obs;
+  final RxBool isLoadingCAForm = false.obs;
   final RxBool isUploading = false.obs;
   final RxBool forgotisLoading = false.obs;
   var buttonLoader = false.obs;
@@ -1826,24 +2218,29 @@ class Controller extends GetxController {
   }
 
   Map<String, String> dateFormatMap = {
-    'mm_dd_yyyy': 'MM/dd/yyyy',
-    'dd_mm_yyyy': 'dd/MM/yyyy',
-    'yyyy_mm_dd': 'yyyy/MM/dd',
-    'mm_dd_yyyy_dash': 'MM-dd-yyyy',
-    'dd_mm_yyyy_dash': 'dd-MM-yyyy',
-    'yyyy_mm_dd_dash': 'yyyy-MM-dd',
-    'mm_dd_yyyy_dot': 'MM.dd.yyyy',
-    'dd_mm_yyyy_dot': 'dd.MM.yyyy',
-    'yyyy_mm_dd_dot': 'yyyy.MM.dd',
-    'MM_dd_yyyy': 'MM/dd/yyyy',
-    'dd_MM_yyyy': 'dd/MM/yyyy',
-    'YYYY_MM_DD': 'yyyy/MM/dd',
-    'MM_dd_yyyy_dash_alt': 'MM-dd-yyyy',
-    'dd_MM_yyyy_dash_alt': 'dd-MM-yyyy',
-    'YYYY_MM_DD_dash_alt': 'yyyy-MM-dd',
-    'MM_dd_yyyy_dot_alt': 'MM.dd.yyyy',
-    'dd_MM_yyyy_dot_alt': 'dd.MM.yyyy',
-    'YYYY_MM_DD_dot_alt': 'yyyy.MM.dd',
+    'MM/dd/yyyy': '01/20/2023',
+    'dd/MM/yyyy': '20/01/2023',
+    'yyyy/MM/dd': '2023/01/20',
+
+    'MM-dd-yyyy': '01-20-2023',
+    'dd-MM-yyyy': '20-01-2023',
+    'yyyy-MM-dd': '2023-01-20',
+
+    'MM.dd.yyyy': '01.20.2023',
+    'dd.MM.yyyy': '20.01.2023',
+    'yyyy.MM.dd': '2023.01.20',
+
+    'MMM/dd/yyyy': 'Jan/20/2023',
+    'dd/MMM/yyyy': '20/Jan/2023',
+    'yyyy/MMM/dd': '2023/Jan/20',
+
+    'MMM-dd-yyyy': 'Jan-20-2023',
+    'dd-MMM-yyyy': '20-Jan-2023',
+    'yyyy-MMM-dd': '2023-Jan-20',
+
+    'MMM.dd.yyyy': 'Jan.20.2023',
+    'dd.MMM.yyyy': '20.Jan.2023',
+    'yyyy.MMM.dd': '2023.Jan.20',
   };
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
@@ -1865,7 +2262,16 @@ class Controller extends GetxController {
 
       if (response.statusCode == 201) {
         signInModel.value = UserProfile.fromJson(decodeData);
+        final orgSettings =
+            (decodeData["OrganizationSettings"] as List).first
+                as Map<String, dynamic>;
 
+        final userPermissions =
+            decodeData["UserPermissions"] as Map<String, dynamic>;
+        await prefs.setString("OrganizationSettings", jsonEncode(orgSettings));
+
+        await prefs.setString("UserPermissions", jsonEncode(userPermissions));
+        await PermissionHelper.loadPermissions();
         await SetSharedPref().setData(
           token: signInModel.value.accessToken ?? "null",
           employeeId: signInModel.value.employeeId ?? "null",
@@ -1896,7 +2302,14 @@ class Controller extends GetxController {
         selectedTimezonevalue = settings["DefaultTimeZoneValue"] ?? '';
         stringCurrency = settings["DefaultCurrency"] ?? '';
         paidWithCashAdvance.value = settings["DefaultPaymentMethodId"] ?? '';
-
+        organizationCurrency = orgSettings["OrganizationDefaultCurrency"] ?? '';
+        if (orgSettings["OrganizationDefaultCurrency"] != null) {
+          await prefs.setString(
+            'organizationCurrency',
+            orgSettings["OrganizationDefaultCurrency"],
+          );
+        }
+        print("organizationCurrency$organizationCurrency");
         await prefs.setString(
           "ThemeColor",
           settings["ThemeColor"] ?? "BLUE_THEME",
@@ -1965,6 +2378,25 @@ class Controller extends GetxController {
         fontSize: 16.0,
       );
       //  //  // print("An error occurred: $e");
+    }
+  }
+
+  void validatePercentage(String value, String text, Controller controller) {
+    // Allow temporary empty state while typing
+    if (value.trim().isEmpty) {
+      controller.percentageError.value = false; // ✅ allow clearing
+      return;
+    }
+
+    final number = double.tryParse(value);
+    final percentage = double.tryParse(text);
+
+    if (number == null || percentage == null) {
+      controller.percentageError.value = true;
+    } else if (number < 0 || number > percentage) {
+      controller.percentageError.value = true;
+    } else {
+      controller.percentageError.value = false;
     }
   }
 
@@ -2456,6 +2888,7 @@ class Controller extends GetxController {
   }
 
   void clearFormFields() {
+    expenseIdController.clear();
     //  // print("Cleared ALL2");
     selectedTimesheetIds.clear();
     selectedCashAdvanceIds.clear();
@@ -2475,6 +2908,7 @@ class Controller extends GetxController {
     cashAdvanceListDropDown.clear();
     amountInController.clear();
     multiSelectedItems.clear();
+    cashAdvanceRequisitionID.clear();
     // singleSelectedItem=[] as CashAdvanceDropDownModel?;
     cashAdvanceIds.text = "";
     justificationController.clear();
@@ -2513,7 +2947,7 @@ class Controller extends GetxController {
     paidWith = null;
     isVisible.value = false;
     unitAmount.clear();
-    isEnable.value = false;
+    isEnable.value = isEnable.value;
     isReimbursiteCreate.value = false;
     isBillable.value = false;
     isBillableCreate = false;
@@ -2526,13 +2960,23 @@ class Controller extends GetxController {
     Navigator.pushNamed(context, AppRoutes.generalExpense);
   }
 
+  void chancelButtonLeave(BuildContext context) {
+    resetForm();
+    Navigator.pushNamed(context, AppRoutes.leaveDashboard);
+  }
+
+  void chancelButtonCA(BuildContext context) {
+    clearFormFields();
+    Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+  }
+
   ExpenseItemUpdate toExpenseItemUpdateModel() {
-    //  // print("Mais${lineAmount.text}");
     return ExpenseItemUpdate(
-      recId: recID,
-      expenseCategoryId: categoryController.text ?? '',
-      quantity: double.tryParse(quantity.text) ?? 1.00,
-      uomId: uomId.text ?? '',
+      recId: recId,
+      expenseId: expenseId.toString(),
+      expenseCategoryId: categoryController.text,
+      quantity: double.tryParse(quantity.text) ?? 1.0,
+      uomId: uomId.text,
       unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
       taxAmount: double.tryParse(taxAmount.text) ?? 0,
       taxGroup: taxGroupController.text,
@@ -2542,23 +2986,8 @@ class Controller extends GetxController {
       description: descriptionController.text,
       isReimbursable: isReimbursable,
       isBillable: isBillableCreate,
-      //  "Description": descriptionController.text,
-      //       "ExpenseCategoryId": selectedCategoryId,
-      //       "ExpenseId": 2079768,
-      //       "ExpenseTransCustomFieldValues": [],
-      //       "ExpenseTransExpensecategorycustomfieldvalues": [],
-      //       "IsReimbursable": isReimbursite,
-      //       "LineAmountReporting": amountINR.text,
-      //       "LineAmountTrans": quantity.text,
-      //       "ProjectId": selectedProject!.code,
-      //       "Quantity": quantity.text,
-      //       "RecId": 2079785,
-      //       "TaxAmount": taxAmount.text,
-      //       "TaxGroup": selectedTax!.taxGroupId,
-      //       "UnitPriceTrans": 223,
-      //       "UomId": "Uom-001"
       accountingDistributions: accountingDistributions.map((controller) {
-        final dist = AccountingDistribution(
+        return AccountingDistribution(
           recId: controller?.recId,
           transAmount:
               double.tryParse(controller?.transAmount.toString() ?? '') ?? 0.0,
@@ -2566,10 +2995,7 @@ class Controller extends GetxController {
               double.tryParse(controller?.reportAmount.toString() ?? '') ?? 0.0,
           allocationFactor: controller?.allocationFactor ?? 0.0,
           dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
-          // currency: selectedCurrency.value?.code ?? "IND",
         );
-
-        return dist;
       }).toList(),
     );
   }
@@ -2847,6 +3273,7 @@ class Controller extends GetxController {
     sheetEnable.value = false;
     durationSeconds.value = 0;
     taskList.clear();
+    periodType = 'Weekly';
 
     /// Line items
     lineItems.clear();
@@ -2880,11 +3307,59 @@ class Controller extends GetxController {
         path.toLowerCase().endsWith('.xlsx');
   }
 
+  void openFilePDF(File file) {
+    OpenFilex.open(file.path);
+  }
+
   void openFile(BuildContext context, File file, int index) {
     if (!isEnable.value) {
       OpenFilex.open(file.path);
       return;
     }
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: const Text("File Options"),
+
+          content: Text(file.path.split('/').last),
+
+          actions: [
+            /// ✅ OPEN ALWAYS AVAILABLE
+            TextButton.icon(
+              icon: const Icon(Icons.open_in_new),
+              label: const Text("Open"),
+              onPressed: () {
+                Navigator.pop(context);
+                OpenFilex.open(file.path);
+              },
+            ),
+
+            /// ✅ DELETE ONLY WHEN DISABLED
+            TextButton.icon(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              label: const Text("Delete", style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.pop(context);
+                imageFiles.removeAt(index);
+              },
+            ),
+
+            /// ✅ CLOSE
+            TextButton(
+              child: const Text("Close"),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void openFilewhileCreate(BuildContext context, File file, int index) {
     showDialog(
       context: context,
       builder: (_) {
@@ -2983,8 +3458,8 @@ class Controller extends GetxController {
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
     dateRange = DateTimeRange(
-      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate']),
-      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate']),
+      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate'].toUtc()),
+      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate'].toUtc()),
     );
 
     // Set status and step type from API data
@@ -3070,6 +3545,7 @@ class Controller extends GetxController {
       timeEntries[index] = dailyMap;
       index++;
     }
+    print("pagesss$page");
     if (page == "Team") {
       Navigator.pushNamed(
         context,
@@ -3128,24 +3604,94 @@ class Controller extends GetxController {
     }
   }
 
+  Future<Uint8List?> compressImageUnder1MB(String path) async {
+    int quality = 90;
+    Uint8List? result;
+    final originalBytes = await File(path).readAsBytes();
+    final originalSizeKB = originalBytes.lengthInBytes / 1024;
+    print("Original Image Size: ${originalSizeKB.toStringAsFixed(2)} KB");
+    do {
+      result = await FlutterImageCompress.compressWithFile(
+        path,
+        quality: quality,
+        minWidth: 800,
+        minHeight: 800,
+        format: CompressFormat.jpeg,
+      );
+      if (result != null) {
+        final compressedSizeKB = result.lengthInBytes / 1024;
+
+        print(
+          "Compressed Size (quality $quality): ${compressedSizeKB.toStringAsFixed(2)} KB",
+        );
+      }
+      quality -= 10;
+    } while (result != null &&
+        result.lengthInBytes > 1024 * 1024 &&
+        quality > 10);
+
+    return result;
+  }
+
   Future<bool> pickImageProfile() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+
     if (pickedFile == null) return false;
+
     isImageLoading.value = true;
-    profileImage.value = File(pickedFile.path);
+
     try {
-      final bytes = await File(pickedFile.path).readAsBytes();
-      final base64Str = base64Encode(bytes);
-      final dataUrl = 'data:image/png;base64,$base64Str';
+      /// Step 1: Crop Image
+      final croppedFile = await cropImage(pickedFile.path);
+
+      if (croppedFile == null) return false;
+
+      profileImage.value = File(croppedFile.path);
+
+      /// Step 2: Compress Image
+      final compressedBytes = await compressImageUnder1MB(croppedFile.path);
+
+      if (compressedBytes == null) return false;
+
+      /// Print size
+      print("Compressed Size: ${compressedBytes.lengthInBytes / 1024} KB");
+
+      /// Step 3: Convert to Base64
+      final base64Str = base64Encode(compressedBytes);
+
+      final dataUrl = 'data:image/jpeg;base64,$base64Str';
+
+      /// Step 4: Upload
       await uploadProfilePicture(dataUrl);
+
       return true;
     } catch (e) {
-      //  // print('Error picking/uploading image: $e');
       return false;
     } finally {
       isImageLoading.value = false;
     }
+  }
+
+  Future<CroppedFile?> cropImage(String path) async {
+    return await ImageCropper().cropImage(
+      sourcePath: path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Profile Image',
+          toolbarColor: Colors.blue,
+          toolbarWidgetColor: Colors.white,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(title: 'Crop Image'),
+      ],
+    );
   }
 
   Future<void> uploadProfilePicture(String base64Image) async {
@@ -3554,17 +4100,18 @@ class Controller extends GetxController {
   }
 
   Future<void> fetchExpenseCategory() async {
+    expenseCategory.clear();
     final dateToUse = selectedDate ?? DateTime.now();
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     //  // print("fetchExpenseCategory$fromDate");
     try {
       // Safely construct query parameters
       final queryParams = <String, String>{
-        'TransactionDate': fromDate.toStringAsFixed(2),
+        'TransactionDate': fromDate!.toStringAsFixed(2),
       };
 
       if (selectedProject?.code != null && selectedProject!.code.isNotEmpty) {
@@ -3573,6 +4120,51 @@ class Controller extends GetxController {
 
       final url = Uri.parse(
         Urls.expenseCategory,
+      ).replace(queryParameters: queryParams);
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data is List) {
+          expenseCategory.value = data
+              .map((e) => ExpenseCategory.fromJson(e))
+              .toList();
+          //  // print('Expense categories loaded: ${expenseCategory.length}');
+        } else {
+          //  // print('Unexpected response format: $data');
+        }
+      } else {
+        //  // print(
+      }
+    } catch (e) {
+      //  // print('Error fetching categories: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchCashAdvanceExpenseCategory() async {
+    expenseCategory.clear();
+    final dateToUse = selectedDate ?? DateTime.now();
+    //  // print("fetchExpenseCategory${selectedProject?.code}");
+    //  // print("fetchExpenseCategory$selectedDate");
+    isLoading.value = true;
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final fromDate = parseDateToEpoch(formatted);
+    //  // print("fetchExpenseCategory$fromDate");
+    try {
+      // Safely construct query parameters
+      final queryParams = <String, String>{
+        'TransactionDate': fromDate!.toStringAsFixed(2),
+      };
+
+      if (selectedProject?.code != null && selectedProject!.code.isNotEmpty) {
+        queryParams['ProjectId'] = selectedProject!.code;
+      }
+
+      final url = Uri.parse(
+        Urls.cashAdvanceexpenseCategory,
       ).replace(queryParameters: queryParams);
       final response = await ApiService.get(url);
 
@@ -3732,7 +4324,7 @@ class Controller extends GetxController {
 
   Future<void> configuration() async {
     // isLoadingGE2.value = true;
-    isLoadingGE1.value = true;
+    // isLoadingGE1.value = true;
     final url = Uri.parse(Urls.geconfigureField);
     try {
       final response = await ApiService.get(url);
@@ -3745,18 +4337,16 @@ class Controller extends GetxController {
 
           //  // print('Appended configList: $configList');
           // isLoadingGE2.value = false;
-          isLoadingGE1.value = false;
+
           //  // print('currencies to load countries$currencies');
         }
       } else {
         //  // print('Failed to load countries');
         // isLoadingGE2.value = false;
-        isLoadingGE1.value = false;
       }
     } catch (e) {
       //  // print('Error fetching countries: $e');
       // isLoadingGE2.value = false;
-      isLoadingGE1.value = false;
     }
   }
 
@@ -3827,6 +4417,13 @@ class Controller extends GetxController {
   // MOVE THIS TO GLOBAL SCOPE
   T findOrFallback<T>(List<T> list, bool Function(T) test, T fallback) {
     return list.firstWhere(test, orElse: () => fallback);
+  }
+
+  String normalizeFormat(String format) {
+    return format
+        .replaceAll('mm', 'MM') // fix month
+        .replaceAll('yyyy', 'yyyy')
+        .replaceAll('dd', 'dd');
   }
 
   Future<void> getUserPref(BuildContext context) async {
@@ -3913,9 +4510,11 @@ class Controller extends GetxController {
         ),
       );
 
+      final normalized = normalizeFormat(defaultDateformat!);
+
       final format = dateFormatMap.entries.firstWhere(
-        (e) => e.value == defaultDateformat,
-        orElse: () => const MapEntry('dd_mm_yyyy', 'dd/MM/yyyy'),
+        (e) => e.key == normalized,
+        orElse: () => const MapEntry('dd-MM-yyyy', '20-01-2023'),
       );
 
       final emailList =
@@ -4110,7 +4709,7 @@ class Controller extends GetxController {
       "DefaultTimeZoneValue": selectedTimezonevalue,
       "DefaultTimeZone": selectedTimezone.value.id,
       "DefaultLanguageId": selectedLanguage?.code,
-      "DefaultDateFormat": selectedFormat?.value,
+      "DefaultDateFormat": selectedFormat?.key,
       "EmailsForRecieptForwarding": emails.join(';'),
       "ShowAnalyticsOnList": true,
       "DefaultPaymentMethodId": (prefPaymentMethod.text.isEmpty)
@@ -4225,37 +4824,7 @@ class Controller extends GetxController {
 
       gender.text = emp['Gender'] ?? '';
       final fullNumber = emp['ContactNumber'] ?? '';
-      isLoading.value = true;
-      if (fullNumber.length > 4) {
-        final parts = fullNumber.trim().split(' ');
-        //  // print("Splitted Parts: $parts");
-
-        if (parts.isNotEmpty) {
-          countryCode.value = parts[0]; // Country code
-          final phone = parts.sublist(1).join('');
-          phoneNumber.value = phone;
-
-          countryCodeController.text = countryCode.value;
-          phoneController.text = phoneNumber.value;
-
-          //  // print("Phone without country code: ${phoneNumber.value}");
-        } else {
-          countryCode.value = '';
-          phoneNumber.value = fullNumber;
-
-          countryCodeController.text = '';
-          phoneController.text = phoneNumber.value;
-        }
-      } else {
-        countryCode.value = '';
-        phoneNumber.value = fullNumber;
-
-        countryCodeController.text = '';
-        phoneController.text = phoneNumber.value;
-
-        //  // print("Short phone input: ${phoneNumber.value}");
-      }
-
+      parsePhoneNumber(fullNumber);
       // Addresses (if you have these controllers)
       final List<Map<String, dynamic>> addresses =
           (data['EMPEmployeeAddresses'] as List<dynamic>)
@@ -4283,12 +4852,21 @@ class Controller extends GetxController {
       contactStreetController.text = cont['Street'] ?? '';
       contactCityController.text = cont['City'] ?? '';
       contactStateController = cont['State'] ?? '';
-      stateTextController.text = contactStateController;
+      stateTextController.text = cont['State'] ?? '';
       contactPostalController.text = cont['PostalCode'] ?? '';
       contactaddressID.text = cont['AddressId'] ?? '';
       contactCountryController = cont['Country'] ?? '';
+      selectedContectCountryCode = contactCountryController;
+      bool isAllEmpty(Map addr) {
+        return (addr['Street'] ?? '').toString().trim().isEmpty &&
+            (addr['City'] ?? '').toString().trim().isEmpty &&
+            (addr['State'] ?? '').toString().trim().isEmpty &&
+            (addr['PostalCode'] ?? '').toString().trim().isEmpty &&
+            (addr['Country'] ?? '').toString().trim().isEmpty;
+      }
 
       final bool isSameAsPermanents =
+          !isAllEmpty(perm) && // ❗ important condition
           (perm['Street'] == cont['Street']) &&
           (perm['City'] == cont['City']) &&
           (perm['State'] == cont['State']) &&
@@ -4324,8 +4902,8 @@ class Controller extends GetxController {
           (p) => p.name == contactStateController,
           orElse: () => StateModels(code: '', name: ''),
         );
-        fetchState();
-        fetchSecondState();
+        // fetchState();
+        // fetchSecondState();
       });
 
       // Fluttertoast.showToast(
@@ -4343,18 +4921,254 @@ class Controller extends GetxController {
     }
   }
 
+  List<String> countryCodes = [
+    '+1',
+    '+7',
+    '+20',
+    '+27',
+    '+30',
+    '+31',
+    '+32',
+    '+33',
+    '+34',
+    '+36',
+    '+39',
+    '+40',
+    '+41',
+    '+43',
+    '+44',
+    '+45',
+    '+46',
+    '+47',
+    '+48',
+    '+49',
+    '+51',
+    '+52',
+    '+53',
+    '+54',
+    '+55',
+    '+56',
+    '+57',
+    '+58',
+    '+60',
+    '+61',
+    '+62',
+    '+63',
+    '+64',
+    '+65',
+    '+66',
+    '+81',
+    '+82',
+    '+84',
+    '+86',
+    '+90',
+    '+91',
+    '+92',
+    '+93',
+    '+94',
+    '+95',
+    '+98',
+    '+211',
+    '+212',
+    '+213',
+    '+216',
+    '+218',
+    '+220',
+    '+221',
+    '+222',
+    '+223',
+    '+224',
+    '+225',
+    '+226',
+    '+227',
+    '+228',
+    '+229',
+    '+230',
+    '+231',
+    '+232',
+    '+233',
+    '+234',
+    '+235',
+    '+236',
+    '+237',
+    '+238',
+    '+239',
+    '+240',
+    '+241',
+    '+242',
+    '+243',
+    '+244',
+    '+245',
+    '+248',
+    '+249',
+    '+250',
+    '+251',
+    '+252',
+    '+253',
+    '+254',
+    '+255',
+    '+256',
+    '+257',
+    '+258',
+    '+260',
+    '+261',
+    '+262',
+    '+263',
+    '+264',
+    '+265',
+    '+266',
+    '+267',
+    '+268',
+    '+269',
+    '+290',
+    '+291',
+    '+297',
+    '+298',
+    '+299',
+    '+350',
+    '+351',
+    '+352',
+    '+353',
+    '+354',
+    '+355',
+    '+356',
+    '+357',
+    '+358',
+    '+359',
+    '+370',
+    '+371',
+    '+372',
+    '+373',
+    '+374',
+    '+375',
+    '+376',
+    '+377',
+    '+378',
+    '+380',
+    '+381',
+    '+382',
+    '+383',
+    '+385',
+    '+386',
+    '+387',
+    '+389',
+    '+420',
+    '+421',
+    '+423',
+    '+500',
+    '+501',
+    '+502',
+    '+503',
+    '+504',
+    '+505',
+    '+506',
+    '+507',
+    '+508',
+    '+509',
+    '+590',
+    '+591',
+    '+592',
+    '+593',
+    '+594',
+    '+595',
+    '+596',
+    '+597',
+    '+598',
+    '+599',
+    '+670',
+    '+672',
+    '+673',
+    '+674',
+    '+675',
+    '+676',
+    '+677',
+    '+678',
+    '+679',
+    '+680',
+    '+681',
+    '+682',
+    '+683',
+    '+685',
+    '+686',
+    '+687',
+    '+688',
+    '+689',
+    '+690',
+    '+691',
+    '+692',
+    '+850',
+    '+852',
+    '+853',
+    '+855',
+    '+856',
+    '+880',
+    '+886',
+    '+960',
+    '+961',
+    '+962',
+    '+963',
+    '+964',
+    '+965',
+    '+966',
+    '+967',
+    '+968',
+    '+970',
+    '+971',
+    '+972',
+    '+973',
+    '+974',
+    '+975',
+    '+976',
+    '+977',
+    '+992',
+    '+993',
+    '+994',
+    '+995',
+    '+996',
+    '+998',
+  ];
+  void parsePhoneNumber(String fullNumber) {
+    String cleaned = fullNumber.trim().replaceAll(RegExp(r'[^\d+]'), '');
+    print('Cleaned: "$cleaned"');
+
+    countryCode.value = '';
+    phoneNumber.value = cleaned;
+
+    // ✅ Find longest matching country code
+    String? matchedCode;
+
+    for (var code in countryCodes) {
+      if (cleaned.startsWith(code)) {
+        if (matchedCode == null || code.length > matchedCode.length) {
+          matchedCode = code;
+        }
+      }
+    }
+
+    if (matchedCode != null) {
+      countryCode.value = matchedCode;
+      phoneNumber.value = cleaned.substring(matchedCode.length);
+    }
+
+    print('CC: "${countryCode.value}"');
+    print('Phone: "${phoneNumber.value}"');
+
+    countryCodeController.text = countryCode.value;
+    phoneController.text = phoneNumber.value;
+  }
+
   Future<List<MerchantModel>> fetchPaidto() async {
     final dateToUse = selectedDate ?? DateTime.now();
     //  //  // print("fetchPaidto${selectedProject?.code}");
     //  // print("fetchPaidto$selectedDate");
     isLoading.value = true;
     //  // print("fromDate$dateToUse");
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     //  // print("formatted$formatted");
     final fromDate = parseDateToEpoch(formatted);
     //  // print("fromDate$fromDate");
 
-    isLoadingGE1.value = true;
+    // isLoadingGE1.value = true;
     isLoadingGE2.value = true;
 
     final url = Uri.parse('${Urls.getPaidtoDropdown}$fromDate');
@@ -4363,7 +5177,6 @@ class Controller extends GetxController {
       final response = await ApiService.get(url);
 
       if (response.statusCode == 200) {
-        isLoadingGE1.value = false;
         final data = jsonDecode(response.body);
 
         final List<MerchantModel> states = List<MerchantModel>.from(
@@ -4372,7 +5185,6 @@ class Controller extends GetxController {
 
         paidTo.value = states;
 
-        isLoadingGE1.value = false;
         isLoadingGE2.value = false;
 
         return states;
@@ -4426,7 +5238,7 @@ class Controller extends GetxController {
   Future<List<Project>> fetchProjectName() async {
     final dateToUse = selectedDate ?? DateTime.now();
 
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     final employeeId = Params.employeeId;
     isLoadingGE1.value = true;
@@ -4512,12 +5324,32 @@ class Controller extends GetxController {
         );
 
         unit.value = units;
-
+        // final Map<String, dynamic> responseData = jsonDecode(response.body);
+        // final String message =
+        //     responseData['detail']?['message'] ?? 'No message found';
+        // Fluttertoast.showToast(
+        //   msg: message,
+        //   backgroundColor: Colors.green[200],
+        //   toastLength: Toast.LENGTH_LONG,
+        //   gravity: ToastGravity.BOTTOM,
+        //   textColor: Colors.green[800],
+        //   fontSize: 16.0,
+        // );
         //  // print("units$units");
         isLoadingGE1.value = false;
         return units;
       } else {
-        //  // print('Failed to load states. Status code: ${response.statusCode}');
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String message =
+            responseData['detail']?['message'] ?? 'No message found';
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
         return [];
       }
     } catch (e) {
@@ -4596,15 +5428,16 @@ class Controller extends GetxController {
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
-    //  // print("fetchExpenseCategory$fromDate");
+    // print("fetchExpenseCategory$fromDate");
     double? parsedAmount = double.tryParse(paidAmount.text);
     //  // print("parsedAmount$parsedAmount");
     final String amount = parsedAmount != null
         ? parsedAmount.toInt().toStringAsFixed(2)
         : '0';
-    final currencyCode = selectedCurrency.value?.code ?? "INR";
+    final currencyCode =
+        selectedCurrency.value?.code ?? currencyDropDowncontroller.text;
 
     final url = Uri.parse(
       '${Urls.exchangeRate}/$amount/$currencyCode/$fromDate',
@@ -4659,6 +5492,16 @@ class Controller extends GetxController {
       return null;
     }
     return null;
+  }
+
+  String formatDate(dynamic value) {
+    if (value == null) return 'No date';
+
+    final dt = DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+
+    final clean = DateTime(dt.year, dt.month, dt.day);
+
+    return DateFormat('dd-MM-yyyy').format(clean);
   }
 
   Future<List<PaymentMethodModel>> fetchPaidwith() async {
@@ -4762,7 +5605,7 @@ class Controller extends GetxController {
   //       for (var expense in specificExpenseList) {
   //         expenseIdController.text = expense.expenseId;
   //         receiptDateController.text =
-  //             DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+  //             DateFormat('dd-MM-yyyy').format(expense.receiptDate);
   //       }
 
   //        //  // print("Expense ID: ${expenseIdController.text}");
@@ -4819,7 +5662,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -4882,7 +5725,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -4945,7 +5788,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -5006,7 +5849,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(expense.receiptDate);
         }
         //  // print("Expense ID: ${expenseIdController.text}");
@@ -5088,6 +5931,7 @@ class Controller extends GetxController {
     expenseId,
     readOnly,
   ) async {
+    isLoadingGE1.value = true;
     final response = await ApiService.get(
       Uri.parse(
         "${Urls.mileageregistrationview}detailedapproval?workitemrecid=$expenseId",
@@ -5103,9 +5947,10 @@ class Controller extends GetxController {
         AppRoutes.mileageExpensefirst,
         arguments: {'item': expense, 'isReadOnly': readOnly},
       );
-
+      isLoadingGE1.value = false;
       return expense;
     } else {
+      isLoadingGE1.value = false;
       throw Exception("Failed to fetch mileage details");
     }
   }
@@ -5294,8 +6139,7 @@ class Controller extends GetxController {
         body: jsonEncode(payload),
       );
       final Map<String, dynamic> responseData = jsonDecode(response.body);
-      final String message =
-          responseData['detail']?['message'] ?? 'No message found';
+      final String message = responseData['detail']?['message'] ?? '';
 
       if (response.statusCode == 202) {
         Fluttertoast.showToast(
@@ -5689,10 +6533,10 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(expense.receiptDate);
         }
-        //  // print("Expense ID: ${expenseIdController.text}");
+        print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
         Navigator.pushNamed(
           context,
@@ -5718,7 +6562,7 @@ class Controller extends GetxController {
         return [];
       }
     } catch (e) {
-      //  // print('Error fetching payment methods: $e');
+      print('Error fetching payment methods: $e');
       isLoadingGE1.value = false;
 
       return [];
@@ -5747,7 +6591,7 @@ class Controller extends GetxController {
       "ExpenseId": expenseID ?? "",
       "ExpenseType": "Mileage",
       "RecId": recID,
-      "Currency": "INR",
+      "Currency": currencyDropDowncontroller.text,
       "MileageRateId": mileageVehicleID.text,
       "VehicleType": selectedVehicleType?.name ?? "Car",
       "FromLocation": tripControllers.first.text,
@@ -5756,9 +6600,13 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-      "AccountingDistributions": [],
+      "AccountingDistributions": accountingDistributions.isNotEmpty
+          ? accountingDistributions.map((e) => e?.toJson()).toList()
+          : [],
       "ExpenseTrans": expenseTransMap,
-      "ProjectId": projectIdController.text,
+      "ProjectId": projectIdController.text.trim().isEmpty
+          ? null
+          : projectIdController.text.trim(),
     };
 
     final url = Uri.parse(
@@ -5888,85 +6736,62 @@ class Controller extends GetxController {
           textColor: Colors.red[800],
         );
       }
-    } catch (e) {
-      Fluttertoast.showToast(
-        msg: ' $e',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
+    } catch (e) {}
   }
 
-  Future<void> reviewGendralExpense(
+  Future<void> hubreviewMileageRegistration(
     context,
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
-    //  // print("receiptDate$receiptDate");
-    final attachmentPayload = await buildDocumentAttachment(imageFiles);
-    //  // print("receiptDate$attachmentPayload");
-    //  // print("finalItems${finalItems.length}");
-
-    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
-
-    //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
-    final Map<String, dynamic> requestBody = {
+    final expenseTranArray = buildExpenseTrans();
+    Map<String, dynamic> expenseTransMap = {};
+    for (int i = 0; i < expenseTranArray.length; i++) {
+      expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
+    }
+    final payload = {
       "workitemrecid": workitemrecid,
-      "ReceiptDate": receiptDate,
-      "ExpenseId": expenseID,
-      "RecId": recID,
+      "TotalAmountTrans": calculatedAmountINR,
+      "TotalAmountReporting": calculatedAmountINR,
       "EmployeeId": Params.employeeId,
       "EmployeeName": userName.value,
-      "MerchantName": isManualEntryMerchant
-          ? manualPaidToController.text.trim()
-          : paidToController.text ?? '',
-      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
-      "CashAdvReqId": cashAdvanceIds.text,
-      "Location": "", // or locationController.text.trim()
-      "PaymentMethod": paidWithController.text ?? '',
-      // "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
-      // "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
-      "IsReimbursable": isReimbursite,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
-      "TotalAmountTrans": paidAmount.text.isNotEmpty
-          ? double.tryParse(paidAmount.text) ?? 0
-          : 0,
-      "TotalAmountReporting": approvalamountINR.text.isNotEmpty
-          ? double.tryParse(approvalamountINR.text) ?? 0
-          : 0,
-      "ExchRate": unitRate.text.isNotEmpty
-          ? double.tryParse(unitRate.text) ?? 1.0
-          : 1.0,
-      "UserExchRate": unitRate.text.isNotEmpty
-          ? double.tryParse(unitRate.text) ?? 1.0
-          : 1.0,
+      "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
       "Source": "Web",
-      "IsBillable": isBillableCreate,
-      "ExpenseType": "General Expenses",
+      "ExchRate": 1,
+      "ExpenseId": expenseID ?? "",
+      "ExpenseType": "Mileage",
+      "RecId": recID,
+      "Currency": currencyDropDowncontroller.text,
+      "MileageRateId": mileageVehicleID.text,
+      "VehicleType": selectedVehicleType?.name ?? "Car",
+      "FromLocation": tripControllers.first.text,
+      "ToLocation": tripControllers.last.text,
+      // "RecId": null,
+      "CashAdvReqId": cashAdvanceIds.text,
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-
-      "DocumentAttachment": {"File": attachmentPayload},
-      // if (hasValidUnit && finalItems.isNotEmpty)
-      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+      "AccountingDistributions": accountingDistributions.isNotEmpty
+          ? accountingDistributions.map((e) => e?.toJson()).toList()
+          : [],
+      "ExpenseTrans": expenseTransMap,
+      "ProjectId": projectIdController.text.trim().isEmpty
+          ? null
+          : projectIdController.text.trim(),
     };
 
     final url = Uri.parse(
-      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
+      '${Urls.reviewUpDate}updateandaccept=$action&screen_name=MyPendingApproval',
     );
 
     try {
-      final response = await ApiService.put(url, body: jsonEncode(requestBody));
+      final response = await ApiService.put(url, body: jsonEncode(payload));
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         resetFieldsMileage();
-        clearFormFields();
+        clearFormFieldsPerdiem();
         Fluttertoast.showToast(
           msg: message,
           toastLength: Toast.LENGTH_SHORT,
@@ -6081,53 +6906,16 @@ class Controller extends GetxController {
           textColor: Colors.red[800],
         );
       }
-    } catch (e) {
-      //  // print("Error$e");
-      Fluttertoast.showToast(
-        msg: ' $e',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
+    } catch (e) {}
   }
 
-  void markInitialized() {
-    isInitialized.value = true;
-  }
-
-  Future<bool> submitExpenseCancel({required int contextRecId}) async {
-    try {
-      final Uri url = Uri.parse(
-        '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expensecancel'
-        '?context_recid=$contextRecId'
-        '&screen_name=MyLeave'
-        '&functionalentity=LeaveCancellation',
-      );
-
-      final response = await ApiService.put(url);
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        // debugPrint('✅ Expense cancelled successfully');
-        return true;
-      } else {
-        //  // debugPrint(
-        //   '❌ Cancel failed: ${response.statusCode} - ${response.body}',
-        // );
-        return false;
-      }
-    } catch (e) {
-      // debugPrint('❌ Error in expense cancel API: $e');
-      return false;
-    }
-  }
-
-  Future<void> hubreviewGendralExpense(
+  Future<void> reviewGendralExpense(
     context,
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -6155,8 +6943,9 @@ class Controller extends GetxController {
           : paidWithController.text.trim(),
       // "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
       // "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
-      "IsReimbursable": true,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "IsReimbursable": isReimbursite,
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -6170,7 +6959,254 @@ class Controller extends GetxController {
           ? double.tryParse(unitRate.text) ?? 1.0
           : 1.0,
       "Source": "Web",
-      "IsBillable": false,
+      "IsBillable": isBillableCreate,
+      "ExpenseType": "General Expenses",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+
+      "DocumentAttachment": {"File": attachmentPayload},
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+    };
+
+    final url = Uri.parse(
+      '${Urls.reviewexpenseregistration}updateandaccept=$action&screen_name=MyPendingApproval',
+    );
+
+    try {
+      final response = await ApiService.put(url, body: jsonEncode(requestBody));
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message']?.toString() ?? '';
+
+      final String message2 =
+          responseData['detail']?['message']?.toString() ?? '';
+      if (response.statusCode == 200 ||
+          response.statusCode == 202 ||
+          response.statusCode == 280) {
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        resetFieldsMileage();
+        clearFormFields();
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+      } else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.orange[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else if (response.statusCode == 428) {
+        clearFormFields();
+        final data = jsonDecode(response.body);
+        final detail = data['detail'];
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+        final String policyId = detail['policyid'] ?? '';
+        final String versionNumber = detail['version_number'] ?? '';
+        final int refRecId = detail['refrecid'] ?? 0;
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(
+                      justificationReq.join("\n\n"),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                        backgroundColor: Colors.orange[200],
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await approvalJustification(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
+          );
+        }
+
+        return;
+      } else {
+        Fluttertoast.showToast(
+          msg: message2,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[200],
+          textColor: Colors.red[800],
+        );
+      }
+    } catch (e) {
+      print("Error$e");
+    }
+  }
+
+  void markInitialized() {
+    isInitialized.value = true;
+  }
+
+  Future<bool> submitExpenseCancel({
+    required int contextRecId,
+    required BuildContext context,
+  }) async {
+    try {
+      final Uri url = Uri.parse(
+        '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expensecancel'
+        '?context_recid=$contextRecId'
+        '&screen_name=MyLeave'
+        '&functionalentity=LeaveCancellation',
+      );
+
+      final response = await ApiService.put(url);
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200 ||
+          response.statusCode == 204 ||
+          response.statusCode == 202) {
+        // debugPrint('✅ Expense cancelled successfully');
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+        );
+        Navigator.pushNamed(context, AppRoutes.leaveCancellation);
+
+        return true;
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red[100],
+          textColor: Colors.red[800],
+        );
+        return false;
+      }
+    } catch (e) {
+      // debugPrint('❌ Error in expense cancel API: $e');
+      return false;
+    }
+  }
+
+  Future<void> hubreviewGendralExpense(
+    context,
+    bool action,
+    int workitemrecid,
+  ) async {
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    //  // print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    //  // print("receiptDate$attachmentPayload");
+    //  // print("finalItems${finalItems.length}");
+
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "workitemrecid": workitemrecid,
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseID,
+      "RecId": recID,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": userName.value,
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : paidToController.text ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": cashAdvanceIds.text,
+      "Location": "", // or locationController.text.trim()
+      "PaymentMethod": paidWithController.text.trim().isEmpty
+          ? null
+          : paidWithController.text.trim(),
+      // "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
+      // "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
+      "IsReimbursable": isReimbursable,
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting": approvalamountINR.text.isNotEmpty
+          ? double.tryParse(approvalamountINR.text) ?? 0
+          : 0,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1.0
+          : 1.0,
+      "Source": "Web",
+      "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": [],
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
@@ -6221,7 +7257,22 @@ class Controller extends GetxController {
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc',
+        '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=CreatedDatetime&sort_order=asc',
+      ),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => ExpenseHistory.fromJson(e)).toList();
+    } else {
+      throw Exception('Failed to load expense history: ${response.statusCode}');
+    }
+  }
+
+  Future<List<ExpenseHistory>> fetchLeaveHistory(int? recId) async {
+    final response = await ApiService.get(
+      Uri.parse(
+        '${Urls.getTrackingDetailsLeave}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc',
       ),
     );
 
@@ -6379,6 +7430,7 @@ class Controller extends GetxController {
       //   "🔍 Debug - requestedPercentage: ${trans.lineRequestedAdvanceInReporting}",
       // );
       //  //  // print("&&&&&&11${trans.lineAdvanceRequested}");
+
       final newItem = CashAdvanceRequestItemize(
         recId: trans.recId,
         cashAdvReqHeader: trans.cashAdvReqHeader,
@@ -6395,14 +7447,16 @@ class Controller extends GetxController {
         lineEstimatedAmountInReporting: trans.lineEstimatedAmountInReporting,
         lineAdvanceRequested: trans.lineAdvanceRequested,
         lineRequestedAdvanceInReporting: trans.lineRequestedAdvanceInReporting,
-        lineRequestedExchangerate: trans.estimatedExchangerate,
-        lineEstimatedExchangerate: trans.lineEstimatedAmount,
+        lineRequestedExchangerate: trans.lineRequestedExchangerate,
+        lineEstimatedExchangerate: trans.lineEstimatedExchangerate,
         maxAllowedPercentage: trans.maxAllowedPercentage,
         // baseUnit: trans.baseUnit,
         // baseUnitRequested: trans.baseUnitRequested,
         expenseCategoryId: trans.expenseCategoryId,
 
-        accountingDistributions: accountingDistributions.map((controller) {
+        accountingDistributions: trans.accountingDistributions!.map((
+          controller,
+        ) {
           return AccountingDistribution(
             transAmount:
                 double.tryParse(
@@ -6430,25 +7484,25 @@ class Controller extends GetxController {
     finalItemsSpecific.clear(); // Clear previous items first
 
     for (var trans in expense.expenseTrans) {
-      //    //  // print("""
-      // --- Expense Transaction ---
-      // recId: ${trans.recId}
-      // expenseId: ${trans.expenseId}
-      // expenseCategoryId: ${trans.expenseCategoryId}
-      // uomId: ${trans.uomId}
-      // quantity: ${trans.quantity}
-      // unitPriceTrans: ${trans.unitPriceTrans}
-      // taxAmount: ${trans.taxAmount}
-      // taxGroup: ${trans.taxGroup}
-      // lineAmountTranss: ${trans.lineAmountTrans}
-      // lineAmountReporting: ${trans.lineAmountReporting}
-      // projectId: ${trans.projectId}
-      // description: ${trans.description}
-      // isReimbursable: ${trans.isReimbursable}
-      // isBillable: ${trans.isBillable}
-      // accountingDistributions: ${trans.accountingDistributions?.map((d) => d.toJson()).toList()}
-      // ----------------------------
-      // """);
+      print("""
+      --- Expense Transaction ---
+      recId: ${recIDItem}
+      expenseId: ${trans.expenseId}
+      expenseCategoryId: ${trans.expenseCategoryId}
+      uomId: ${trans.uomId}
+      quantity: ${trans.quantity}
+      unitPriceTrans: ${trans.unitPriceTrans}
+      taxAmount: ${trans.taxAmount}
+      taxGroup: ${trans.taxGroup}
+      lineAmountTranss: ${trans.lineAmountTrans}
+      lineAmountReporting: ${trans.lineAmountReporting}
+      projectId: ${trans.projectId}
+      description: ${trans.description}
+      isReimbursable: ${trans.isReimbursable}
+      isBillable: ${trans.isBillable}
+      accountingDistributions: ${trans.accountingDistributions?.map((d) => d.toJson()).toList()}
+      ----------------------------
+      """);
 
       // Preserve the original recId from the transaction
       final int? originalRecId = trans.recId ?? expense.recId;
@@ -6474,8 +7528,8 @@ class Controller extends GetxController {
 
       // Create the expense item update model with preserved recId
       final item = ExpenseItemUpdate(
-        recId: originalRecId, // ✅ This preserves the original recId
-        expenseId: int.tryParse(expenseID ?? ''), // Parent expense ID
+        recId: trans.recId,
+        expenseId: trans.expenseId,
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
         quantity: trans.quantity,
@@ -6541,9 +7595,10 @@ class Controller extends GetxController {
       // ✅ Create ExpenseItemUpdate object
       final item = ExpenseItemUpdate(
         recId: originalRecId,
-        expenseId: int.tryParse(
-          expense.expenseId.replaceAll(RegExp(r'[^0-9]'), ''),
-        ), // safer parse
+        expenseId: expense.expenseId,
+        // expenseId: int.tryParse(
+        //   expense.expenseId.replaceAll(RegExp(r'[^0-9]'), ''),
+        // ), // safer parse
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
         quantity: trans.quantity ?? 0,
@@ -6594,9 +7649,41 @@ class Controller extends GetxController {
     return total;
   }
 
+  RxList<String> allowedExtensions = <String>[].obs;
+
+  Future<void> fetchFileTypes() async {
+    try {
+      final response = await ApiService.get(
+        Uri.parse(
+          "${Urls.baseURL}/api/v1/masters/organizationmgmt/organizations/orgdocumentfiletypes?filter_query=STPOrgDocumentFileTypes.IsActive__eq%3Dtrue&page=1&limit=10000000&sort_by=ModifiedDatetime&sort_order=desc",
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        final extensions = data
+            .where((e) => e['IsActive'] == true)
+            .map<String>(
+              (e) => e['FileExtension']
+                  .toString()
+                  .replaceAll('.', '') // remove dot
+                  .toLowerCase(),
+            )
+            .toList();
+
+        allowedExtensions.assignAll(extensions);
+
+        debugPrint("✅ Allowed Extensions: $allowedExtensions");
+      }
+    } catch (e) {
+      debugPrint("❌ API Error: $e");
+    }
+  }
+
   Future<void> saveGeneralExpense(context, bool bool, bool? reSubmit) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     final hideField = hasModule("Expense");
     //  //  // print("receiptDate$receiptDate");
@@ -6612,7 +7699,7 @@ class Controller extends GetxController {
     //  //  // print("hasValidUnit$hasValidUnit${selectedunit?.code}");
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
-      "ExpenseId": hideField ? "" : expenseIdController.text,
+      "ExpenseId": hideField ? null : expenseIdController.text,
       "EmployeeId": Params.employeeId,
       "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
@@ -6624,7 +7711,7 @@ class Controller extends GetxController {
       "ReferenceNumber": referenceID.text,
       "PaymentMethod": paidWithCashAdvance.value!.isEmpty
           ? null
-          : paidWithController.text,
+          : paidWithCashAdvance.value,
 
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
@@ -7001,8 +8088,8 @@ class Controller extends GetxController {
     int recId,
     String? expenseId,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -7137,10 +8224,12 @@ class Controller extends GetxController {
           ? selectedCategoryId!
           : '',
       quantity: (double.tryParse(quantity.text) ?? 0.0).toInt(),
-      uomId: selectedunit?.code ?? '',
+      uomId: selectedunit?.code ?? "Uom-004",
 
       // Fixed: Use unitAmount for unit estimated amount, paidAmountCA1 for line amount
-      unitEstimatedAmount: double.tryParse(unitAmount.text) ?? 0.0,
+      unitEstimatedAmount: (double.tryParse(unitAmount.text) ?? 0.0) == 0.0
+          ? (double.tryParse(paidAmountCA1.text) ?? 0.0)
+          : (double.tryParse(unitAmount.text) ?? 0.0),
       lineEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
       lineEstimatedAmountInReporting: double.tryParse(amountINRCA1.text) ?? 0.0,
 
@@ -7158,7 +8247,7 @@ class Controller extends GetxController {
 
       requestDate: DateTime.now().millisecondsSinceEpoch,
       employeeId: Params.employeeId ?? '',
-
+      lineEstimatedCurrency: currencyDropDowncontrollerCA3.text,
       // Currency and exchange rates
       estimatedCurrency: currencyDropDowncontrollerCA3.text,
       exchRate: double.tryParse(unitRateCA1.text) ?? 1.0,
@@ -7212,9 +8301,9 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd/MM/yyyy',
+        'dd-MM-yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
+      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
       //  //  // print("cashAdvTransPayload2");
@@ -7401,7 +8490,7 @@ class Controller extends GetxController {
         );
       }
     } catch (e) {
-      //  //  // print("❌ API Exception: $e");
+      print("❌ API Exception: $e");
       Fluttertoast.showToast(
         msg: "Something went wrong: $e",
         backgroundColor: Colors.redAccent,
@@ -7424,9 +8513,9 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd/MM/yyyy',
+        'dd-MM-yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
+      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
@@ -7457,7 +8546,9 @@ class Controller extends GetxController {
 
         "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
-        "CashAdvTrans": cashAdvTransPayload,
+        "CashAdvTrans": finalItemsCashAdvance
+            .map((item) => item.toJson())
+            .toList(),
         "CSHHeaderCustomFieldValues": [],
         "DocumentAttachment": {"File": attachmentPayload},
       };
@@ -7636,9 +8727,9 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd/MM/yyyy',
+        'dd-MM-yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd/MM/yyyy').parse(formattedDate);
+      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
@@ -7664,7 +8755,9 @@ class Controller extends GetxController {
         "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
             ? double.tryParse(estimatedamountINR.text) ?? 0
             : 0,
-        "PrefferedPaymentMethod": paidWithController.text,
+        "PrefferedPaymentMethod": paidWithController.text.trim().isEmpty
+            ? null
+            : paidWithController.text,
         "BusinessJustification": justificationController.text,
         "ReferenceId": referenceID.text.trim(),
         "CashAdvTrans": cashAdvTransPayload,
@@ -7799,8 +8892,11 @@ class Controller extends GetxController {
           );
         }
       } else {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
         Fluttertoast.showToast(
-          msg: " ${response.body}",
+          msg: " $message",
           backgroundColor: Colors.redAccent,
           textColor: Colors.white,
           toastLength: Toast.LENGTH_LONG,
@@ -7828,8 +8924,8 @@ class Controller extends GetxController {
     int recId,
   ) async {
     isLoadingGE1.value = true;
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -7865,7 +8961,7 @@ class Controller extends GetxController {
       "TotalAmountReporting": (double.tryParse(amountINR.text) ?? 0).toInt(),
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "Currency": currencyDropDowncontroller.text ?? '',
       "ExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
@@ -8085,8 +9181,8 @@ class Controller extends GetxController {
     int recId,
   ) async {
     isLoadingGE1.value = true;
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -8115,12 +9211,13 @@ class Controller extends GetxController {
       "ReferenceNumber": referenceID.text,
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
-      "PaymentMethod": paymentMethodID,
+      "PaymentMethod": paymentMethodID.trim().isEmpty ? null : paymentMethodID,
       "TotalAmountTrans": (double.tryParse(paidAmount.text) ?? 0).toInt(),
       "TotalAmountReporting": (double.tryParse(amountINR.text) ?? 0).toInt(),
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
@@ -8325,8 +9422,8 @@ class Controller extends GetxController {
     int recId,
     String expenseId,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -8353,7 +9450,9 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWithCashAdvance.value,
+      "PaymentMethod": (paidWithCashAdvance.value?.trim().isEmpty ?? true)
+          ? null
+          : paidWithCashAdvance.value,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -8455,8 +9554,8 @@ class Controller extends GetxController {
     String expenseId,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -8494,7 +9593,8 @@ class Controller extends GetxController {
           : 0,
 
       // if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
@@ -8578,11 +9678,143 @@ class Controller extends GetxController {
       }
     }
   }
+
+  Future<void> cashadvanceregistrationsHub(
+    context,
+    bool bool,
+    int recId,
+    String expenseId,
+    int workitemrecid,
+  ) async {
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    //  //  // print("receiptDate$receiptDate");
+    final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    //  //  // print("receiptDate$attachmentPayload");
+    //  //  // print("finalItems${finalItems.length}");
+    if (!bool) {
+      isUploading.value = true;
+    } else {
+      isGESubmitBTNLoading.value = true;
+    }
+    final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
+
+    //  //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
+    final Map<String, dynamic> requestBody = {
+      "ReceiptDate": receiptDate,
+      "ExpenseId": expenseId ?? '',
+      if (recId > 0) "RecId": recId,
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": userName.value,
+      "MerchantName": isManualEntryMerchant
+          ? manualPaidToController.text.trim()
+          : selectedPaidto?.merchantNames ?? '',
+      "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
+      "CashAdvReqId": cashAdvanceIds.text,
+      "Location": "", // or locationController.text.trim()
+      "ReferenceNumber": referenceID.text,
+      "PaymentMethod": paidWithController.text.trim().isEmpty
+          ? null
+          : paidWithController.text.trim(),
+      "TotalAmountTrans": paidAmount.text.isNotEmpty
+          ? double.tryParse(paidAmount.text) ?? 0
+          : 0,
+      "TotalAmountReporting": amountINR.text.isNotEmpty
+          ? double.tryParse(amountINR.text) ?? 0
+          : 0,
+
+      // if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
+      "ExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "UserExchRate": unitRate.text.isNotEmpty
+          ? double.tryParse(unitRate.text) ?? 1
+          : 1,
+      "workitemrecid": workitemrecid,
+      "Source": "Web",
+      "IsBillable": isBillable.value,
+      "ExpenseType": "CashAdvanceReturn",
+      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderExpensecategorycustomfieldvalues": [],
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
+      // if (!hasValidUnit) 'ProjectId': selectedProject?.code ?? '',
+      // if (!hasValidUnit) 'Description': descriptionController.text,
+      // if (!hasValidUnit) "TaxGroup": selectedTax?.taxGroupId ?? '',
+      // if (!hasValidUnit) "TaxAmont": double.tryParse(taxAmount.text) ?? 0,
+      // if (!hasValidUnit)
+      //   'AccountingDistributions':
+      //       accountingDistributions.map((e) => e?.toJson()).toList(),
+      "DocumentAttachment": {"File": attachmentPayload},
+      // if (hasValidUnit && finalItems.isNotEmpty)
+      "ExpenseTrans": finalItemsSpecific.map((item) => item.toJson()).toList(),
+    };
+    //  //  // print(jsonEncode(requestBody));
+    try {
+      final response = await ApiService.put(
+        Uri.parse(
+          '${Urls.cashadvanceregistrationApi}updateandaccept=$bool&screen_name=MyPendingApproval',
+        ),
+
+        body: jsonEncode(requestBody),
+      );
+      //  //  // print("requestBody$requestBody");
+      if (response.statusCode == 202 || response.statusCode == 280) {
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'] ?? 'Expense created';
+        final recId = data['detail']['RecId'];
+        clearFormFields();
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.green[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.green[800],
+          fontSize: 16.0,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: " ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        //  //  // print("❌  ${response.body}");
+        finalItems.clear();
+        finalItemsSpecific.clear();
+        if (!bool) {
+          isUploading.value = false;
+        } else {
+          isGESubmitBTNLoading.value = false;
+        }
+      }
+    } catch (e) {
+      //  //  // print("❌ Exception: $e");
+
+      if (!bool) {
+        isUploading.value = false;
+      } else {
+        isGESubmitBTNLoading.value = false;
+      }
+    }
+  }
   // Future<void> saveinviewPageGeneralExpense(context, bool bool) async {
   //   final digiSessionIdNew = const Uuid().v4();
 
   //   final dateString = receiptDateController.text.trim();
-  //   final parsedDate = DateFormat('dd/MM/yyyy').parse(dateString);
+  //   final parsedDate = DateFormat('dd-MM-yyyy').parse(dateString);
   //   final receiptDate = parsedDate.millisecondsSinceEpoch;
   //   final attachmentPayload = await buildDocumentAttachment(imageFiles);
   //   if (!bool) {
@@ -9669,14 +10901,18 @@ class Controller extends GetxController {
     }
   }
 
-  int parseDateToEpoch(String formattedDate) {
-    final date = DateFormat('dd-MMM-yyyy').parse(formattedDate);
-    return date.millisecondsSinceEpoch;
+  int? parseDateToEpoch(String formattedDate) {
+    try {
+      final date = DateFormat('dd-MM-yyyy').parse(formattedDate.trim());
+      return date.millisecondsSinceEpoch;
+    } catch (e) {
+      return null;
+    }
   }
 
   String formattedDate(int millis) {
     DateTime date = DateTime.fromMillisecondsSinceEpoch(millis);
-    return DateFormat('dd MMM yyyy').format(date);
+    return DateFormat('dd-MM-yyyy').format(date.toUtc());
   }
 
   Future<ExchangeRateResponse?> fetchExchangeRatePerdiem() async {
@@ -9718,6 +10954,7 @@ class Controller extends GetxController {
           lineAmount.text = totalAmount.toStringAsFixed(2);
           lineAmountINR.text = totalINR.toStringAsFixed(2);
           quantity.text = rate.toStringAsFixed(2);
+          exchangeCurrencyCode.text = data['Currencycode'];
         }
 
         return ExchangeRateResponse.fromJson(data);
@@ -9733,14 +10970,15 @@ class Controller extends GetxController {
         unitRate.clear();
       }
     } catch (e) {
-      //  //  // print('Error fetching exchange rate: $e');
+      //  // print('Error fetching exchange rate: $e');
       return null;
     }
     return null;
   }
 
   Future<List<AllocationLine>> fetchPerDiemRates() async {
-    //  //  // print('its Callies');
+    //  // print('its Callies');
+    print("fromDate111${fromDateController.text}");
     isLoadingGE1.value = true;
     try {
       final fromDate = parseDateToEpoch(fromDateController.text);
@@ -9750,7 +10988,7 @@ class Controller extends GetxController {
       final token = Params.userToken ?? '';
 
       // Guard against empty location
-
+      print("fromDate111$fromDate");
       final url = Uri.parse(
         '${Urls.perDiemFetchRate}$fromDate&Todate=$toDate&Location=$location&EmployeeId=$employeeId',
       );
@@ -9830,7 +11068,9 @@ class Controller extends GetxController {
     selectedVehicleType = null;
     selectedLocation = null;
     selectedLocation = null;
+
     split.clear();
+    accountingDistributions.clear();
     update();
     // Reset allocation and accounting distribution data
     allocationLines = [];
@@ -9853,6 +11093,117 @@ class Controller extends GetxController {
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         String message = "Expense deleted successfully";
+
+        if (response.body.isNotEmpty) {
+          final responseData = jsonDecode(response.body);
+          message = responseData['detail']?['message'] ?? message;
+        }
+
+        await fetchGetallGExpense();
+
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 22, 87, 3),
+          textColor: Colors.white,
+          fontSize: 16,
+        );
+
+        return true;
+      } else {
+        String message = "Failed to delete expense";
+
+        if (response.body.isNotEmpty) {
+          final responseData = jsonDecode(response.body);
+          message = responseData['detail']?['message'] ?? message;
+        }
+
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16,
+        );
+
+        return false;
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: "Error deleting expense",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16,
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> deleteAttachment(int recId) async {
+    final Uri url = Uri.parse(
+      '${Urls.baseURL}/api/v1/kanban/tasks/attachments/attachment?RecId=$recId&screen_name=Tasks',
+    );
+
+    try {
+      final response = await ApiService.delete(url);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        String message = "Expense deleted successfully";
+
+        if (response.body.isNotEmpty) {
+          final responseData = jsonDecode(response.body);
+          message = responseData['detail']?['message'] ?? message;
+        }
+
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 22, 87, 3),
+          textColor: Colors.white,
+          fontSize: 16,
+        );
+
+        return true;
+      } else {
+        String message = "Failed to delete expense";
+
+        if (response.body.isNotEmpty) {
+          final responseData = jsonDecode(response.body);
+          message = responseData['detail']?['message'] ?? message;
+        }
+
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16,
+        );
+
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteBoard(int recId) async {
+    final Uri url = Uri.parse(
+      '${Urls.baseURL}api/v1/kanban/boards/boards/boards?RecId=$recId',
+    );
+
+    try {
+      final response = await ApiService.delete(url);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        String message = "Board deleted successfully";
 
         if (response.body.isNotEmpty) {
           final responseData = jsonDecode(response.body);
@@ -10068,6 +11419,32 @@ class Controller extends GetxController {
     }
   }
 
+  List<Map<String, dynamic>> buildCustomFieldValues() {
+    return customFields
+        .where((field) {
+          final fieldType = field['FieldType'];
+          final value = fieldType == 'List'
+              ? field['SelectedValue']
+              : field['EnteredValue'];
+
+          return value != null && value.toString().trim().isNotEmpty;
+        })
+        .map((field) {
+          final fieldType = field['FieldType'];
+          final value = fieldType == 'List'
+              ? field['SelectedValue']
+              : field['EnteredValue'];
+
+          return {
+            "CustomFieldEntity": field['CustomFieldEntity'] ?? "",
+            "FieldId": field['FieldId'] ?? "",
+            "FieldValue": value.toString(),
+            "FieldName": field['FieldName'] ?? "",
+          };
+        })
+        .toList();
+  }
+
   Future<void> updatePerDiemDetails(
     context,
     bool bool,
@@ -10091,7 +11468,7 @@ class Controller extends GetxController {
         "ReceiptDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "Currency": selectedCurrency.value?.code ?? 'INR',
+        "Currency": currencyDropDowncontroller.text,
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -10132,15 +11509,15 @@ class Controller extends GetxController {
         buttonLoader.value = false;
         isUploading.value = false;
         clearFormFieldsPerdiem();
-        fetchPerDiemRates();
+        // fetchPerDiemRates();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
           msg: " ${responseData['detail']['message']}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
-          backgroundColor: const Color.fromARGB(255, 88, 1, 250),
-          textColor: const Color.fromARGB(255, 212, 210, 241),
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
           fontSize: 16.0,
         );
         //  //  //  // print("✅ ");
@@ -10150,10 +11527,10 @@ class Controller extends GetxController {
         final message = data['detail']['message'];
         final recId = data['detail']['RecId'];
         clearFormFieldsPerdiem();
-        fetchPerDiemRates();
+        // fetchPerDiemRates();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
-          msg: "$message ",
+          msg: "$message",
           backgroundColor: Colors.orange[100],
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
@@ -10164,7 +11541,7 @@ class Controller extends GetxController {
         final data = jsonDecode(response.body);
         final detail = data['detail'];
         clearFormFieldsPerdiem();
-        fetchPerDiemRates();
+        // fetchPerDiemRates();
         final List<String> justificationReq = List<String>.from(
           detail['message'] ?? [],
         );
@@ -10262,7 +11639,7 @@ class Controller extends GetxController {
         isUploading.value = false;
       }
     } catch (e) {
-      //  //  // print("❌ Exception: $e");
+      print("❌ Exception: $e");
       buttonLoader.value = false;
     }
   }
@@ -10293,7 +11670,7 @@ class Controller extends GetxController {
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
-        "Currency": "INR",
+        "Currency": currencyDropDowncontroller.text,
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -10309,7 +11686,7 @@ class Controller extends GetxController {
         "ToDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderCustomFieldValues": buildCustomFieldValues,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -10333,11 +11710,11 @@ class Controller extends GetxController {
         buttonLoader.value = false;
         isUploading.value = false;
         clearFormFieldsPerdiem();
-        fetchPerDiemRates();
+        // fetchPerDiemRates();
         Navigator.pushNamed(context, AppRoutes.approvalDashboard);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: " ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -10494,7 +11871,7 @@ class Controller extends GetxController {
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
-        "Currency": "INR",
+        "Currency": currencyDropDowncontroller.text,
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -10510,7 +11887,7 @@ class Controller extends GetxController {
         "ToDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderCustomFieldValues": buildCustomFieldValues,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -10534,7 +11911,7 @@ class Controller extends GetxController {
         buttonLoader.value = false;
         isUploading.value = false;
         clearFormFieldsPerdiem();
-        fetchPerDiemRates();
+        // fetchPerDiemRates();
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
@@ -10588,7 +11965,7 @@ class Controller extends GetxController {
         // for (var expense in specificPerdiemList) {
         //   expenseIdController.text = expense.expenseId;
         //   receiptDateController.text =
-        //       DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+        //       DateFormat('dd-MM-yyyy').format(expense.receiptDate);
         // }
         //  //  //  // print("Perdiem ID: ${expenseIdController.text}");
         isLoadingGE2.value = false;
@@ -10648,7 +12025,7 @@ class Controller extends GetxController {
         // for (var expense in specificPerdiemList) {
         //   expenseIdController.text = expense.expenseId;
         //   receiptDateController.text =
-        //       DateFormat('dd/MM/yyyy').format(expense.receiptDate);
+        //       DateFormat('dd-MM-yyyy').format(expense.receiptDate);
         // }
         //  //  //  // print("Perdiem ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
@@ -10852,7 +12229,10 @@ class Controller extends GetxController {
 
   List<Map<String, dynamic>> buildPartialCancelTrans() {
     return modifiedDays.entries.map((e) {
-      return {"RecId": e.key, "CancelRequest": e.value};
+      return {
+        "RecId": e.key,
+        "CancelRequest": e.value.replaceAll(" ", ""), // ✅ removes space
+      };
     }).toList();
   }
 
@@ -10891,7 +12271,7 @@ class Controller extends GetxController {
           backgroundColor: Colors.green[100],
           textColor: Colors.green[800],
         );
-          Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Navigator.pushNamed(context, AppRoutes.leaveDashboard);
         return true;
       } else {
         Fluttertoast.showToast(
@@ -10905,7 +12285,7 @@ class Controller extends GetxController {
         return false;
       }
     } catch (e) {
-      // debugPrint("Cancel Leave Error: $e");
+      debugPrint("Cancel Leave Error: $e");
       return false;
     }
   }
@@ -10935,7 +12315,7 @@ class Controller extends GetxController {
       );
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final String message =
-          responseData['detail']['message'] ?? 'No message found';
+          responseData['detail']['message'] ?? 'Cancel Successfully';
       if (response.statusCode == 200 || response.statusCode == 201) {
         Fluttertoast.showToast(
           msg: message,
@@ -10944,7 +12324,7 @@ class Controller extends GetxController {
           backgroundColor: Colors.green[100],
           textColor: Colors.green[800],
         );
-          Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
       } else {
         Fluttertoast.showToast(
           msg: message,
@@ -10955,7 +12335,6 @@ class Controller extends GetxController {
         );
       }
     } catch (e) {
-      Fluttertoast.showToast(msg: "Partial cancellation failed");
     } finally {
       setButtonLoading('cancel', false);
     }
@@ -10990,7 +12369,7 @@ class Controller extends GetxController {
           textColor: Colors.green[800],
         );
         // ignore: use_build_context_synchronously
-        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Navigator.pushNamed(context, AppRoutes.leaveDashboard);
       } else {
         Fluttertoast.showToast(
           msg: message,
@@ -11060,12 +12439,13 @@ class Controller extends GetxController {
   }
 
   Future<void> fetchMileageRates() async {
+    vehicleTypes.clear();
     isLoadingGE2.value = true;
     final dateToUse = selectedDateMileage ?? DateTime.now();
     //  //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  //  // print("fetchExpenseCategory$selectedDateMileage");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     try {
       final response = await ApiService.get(
@@ -11090,6 +12470,16 @@ class Controller extends GetxController {
         // );
         isLoadingGE2.value = false;
       } else {
+        final data = jsonDecode(response.body);
+        final message = data['detail']['message'];
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.red,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
         // debugPrint("API  ${response.statusCode}");
         isLoadingGE2.value = false;
       }
@@ -11199,6 +12589,7 @@ class Controller extends GetxController {
 
   void resetFieldsMileage() {
     cashAdvanceListDropDown.clear();
+    selectedDateMileage = null;
     expenseIdController.clear();
     employeeIdController.clear();
     mileageVehicleName.clear();
@@ -11208,7 +12599,7 @@ class Controller extends GetxController {
     // isRoundTrip = false;
     mileagDateController.clear();
     vehicleTypes.clear();
-
+    isEnable.value = false;
     tripControllers.clear();
     tripControllers.add(TextEditingController());
     tripControllers.add(TextEditingController());
@@ -11242,15 +12633,17 @@ class Controller extends GetxController {
         "ExpenseId": expenseId ?? "",
         "ExpenseType": "Mileage",
         "RecId": recId,
-        "Currency": "INR",
+        "Currency": currencyDropDowncontroller.text,
         "MileageRateId": mileageVehicleID.text,
-        "VehicleType": selectedVehicleType?.name ?? "Car",
+        "VehicleType": selectedVehicleType?.name ?? "",
         "FromLocation": tripControllers.first.text,
         "ToLocation": tripControllers.last.text,
         "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": [],
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-        "AccountingDistributions": [],
+        "AccountingDistributions": accountingDistributions.isNotEmpty
+            ? accountingDistributions.map((e) => e?.toJson()).toList()
+            : [],
         "ExpenseTrans": expenseTransMap,
         "ProjectId": projectIdController.text.isEmpty
             ? null
@@ -11471,7 +12864,7 @@ class Controller extends GetxController {
         "ExpenseId": expenseId ?? "",
         "ExpenseType": "Mileage",
         "RecId": recId,
-        "Currency": "INR",
+        "Currency": currencyDropDowncontroller.text,
         "MileageRateId": mileageVehicleID.text,
         "VehicleType": selectedVehicleType?.name ?? "Car",
         "FromLocation": tripControllers.first.text,
@@ -11480,7 +12873,9 @@ class Controller extends GetxController {
         "CashAdvReqId": cashAdvanceIds.text,
         "ExpenseHeaderCustomFieldValues": [],
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-        "AccountingDistributions": [],
+        "AccountingDistributions": accountingDistributions.isNotEmpty
+            ? accountingDistributions.map((e) => e?.toJson()).toList()
+            : [],
         "ExpenseTrans": expenseTransMap,
         "ProjectId": projectIdController.text,
       };
@@ -11542,8 +12937,8 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final DateTime dateToFormat = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd/MM/yyyy').format(dateToFormat);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToFormat);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final url = Uri.parse(
@@ -11565,7 +12960,8 @@ class Controller extends GetxController {
   }
 
   Future<List<DimensionHierarchy>> fetchDimensionHierarchies() async {
-    final url = Uri.parse('${Urls.getdimensionsDropdownName}1752172200000');
+    int todayEpoch = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse('${Urls.getdimensionsDropdownName}$todayEpoch');
 
     final response = await ApiService.get(url);
 
@@ -12085,7 +13481,7 @@ class Controller extends GetxController {
     final dateToUse = selectedDate ?? DateTime.now();
 
     isUploadingCards.value = true;
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     String url =
         "${Urls.cashAdvanceList}"
@@ -12256,6 +13652,7 @@ class Controller extends GetxController {
         isUploadingCards.value = false;
       }
     } catch (e) {
+      print("cashadvanse$e");
       Get.snackbar('Error', 'Something went wrong: $e');
       isUploadingCards.value = false;
     } finally {
@@ -12327,14 +13724,21 @@ class Controller extends GetxController {
         apiStatus = selectedStatus;
         break;
       case 'All':
-        apiStatus = null;
+        apiStatus = '';
         break;
       default:
-        apiStatus = null;
+        apiStatus = '';
+    }
+
+    String filterQuery = 'CSHCashAdvReqHeader.CreatedBy__eq%3D${Params.userId}';
+
+    if (apiStatus.isNotEmpty) {
+      filterQuery += '%26CSHCashAdvReqHeader.ApprovalStatus__eq%3D$apiStatus';
     }
 
     String baseUrl =
-        '${Urls.cashAdvanceGetall}?filter_query=CSHCashAdvReqHeader.CreatedBy__eq%3D${Params.userId}%26CSHCashAdvReqHeader.ApprovalStatus__eq%3D$apiStatus&page=1&sort_order=asc';
+        '${Urls.cashAdvanceGetall}?filter_query=$filterQuery&page=1&sort_order=asc';
+
     final Uri url = Uri.parse(baseUrl);
 
     try {
@@ -12479,7 +13883,7 @@ class Controller extends GetxController {
     String? amount,
   ) async {
     final dateToUse = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     String? currencyCodes = currencyCode;
     final currencyValue = currencyCodes ?? "INR";
@@ -12490,7 +13894,7 @@ class Controller extends GetxController {
         : '0';
 
     final url = Uri.parse(
-      '${Urls.exchangeRateCA}/$amounts/$currencyValue/$fromDate',
+      '${Urls.exchangeRate}/$amounts/$currencyValue/$fromDate',
     );
 
     try {
@@ -12524,7 +13928,7 @@ class Controller extends GetxController {
   Map<String, double> exchangeRateCache = {};
   Future<double?> fetchExchangeRatecalculated(String currencyCode) async {
     final dateToUse = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd-MMM-yyyy').format(dateToUse);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
 
     final cacheKey = "$currencyCode-$fromDate";
@@ -12534,7 +13938,7 @@ class Controller extends GetxController {
       return exchangeRateCache[cacheKey];
     }
 
-    final url = Uri.parse('${Urls.exchangeRateCA}/1/$currencyCode/$fromDate');
+    final url = Uri.parse('${Urls.exchangeRate}/1/$currencyCode/$fromDate');
 
     try {
       final response = await ApiService.get(url);
@@ -12587,6 +13991,55 @@ class Controller extends GetxController {
               .toDouble();
 
           requestedPercentage.text = percentage.toString();
+          allowedPercentage.text = percentage.toString();
+          return percentage;
+        }
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+      }
+    } catch (e) {
+      //  //  // print('Error fetching MaxAllowedPercentage: $e');
+    }
+
+    return null;
+  }
+
+  Future<double?> fetchMaxAllowedPercentageViewReturn() async {
+    //  //  // print("Callx");
+    // Get the required values directly from controller
+    final dateToUse = selectedDate ?? DateTime.now();
+    final String requestDateEpoch = dateToUse.millisecondsSinceEpoch
+        .toStringAsFixed(2);
+    final String employeeId = Params.employeeId;
+    final String expenseCategory = selectedCategoryId;
+    final String location = locationController.text ?? '';
+
+    final url = Uri.parse(
+      '${Urls.maxAllowedPercentage}'
+      'RequestDate=$requestDateEpoch'
+      '&EmployeeId=$employeeId'
+      '&ExpenseCategory=$expenseCategory'
+      '&Location=$location',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['MaxAllowedPercentage'] != null) {
+          final double percentage = (data['MaxAllowedPercentage'] as num)
+              .toDouble();
 
           return percentage;
         }
@@ -12633,9 +14086,9 @@ class Controller extends GetxController {
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? DateFormat('dd/MM/yyyy').format(
-                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!),
-                )
+              ? 
+                  formatDate(cashAdvance.requestDate)
+                
               : '';
           // Add more controllers if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
@@ -12704,9 +14157,9 @@ class Controller extends GetxController {
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? DateFormat('dd/MM/yyyy').format(
-                  DateTime.fromMillisecondsSinceEpoch(cashAdvance.requestDate!),
-                )
+              ? 
+                  formatDate(cashAdvance.requestDate)
+                
               : '';
           // Add more  if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
@@ -12981,8 +14434,8 @@ class Controller extends GetxController {
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd/MM/yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd/MM/yyyy').parse(formatted.toString());
+    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
+    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -13005,11 +14458,14 @@ class Controller extends GetxController {
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
-      "PaymentMethod": paidWithController.text ?? '',
+      "PaymentMethod": paidWithController.text.trim().isEmpty
+          ? null
+          : paidWithController.text.trim(),
       "TotalAmountTrans": paidAmount.text.isNotEmpty ? paidAmount.text : 0,
       "TotalAmountReporting": amountINR.text.isNotEmpty ? amountINR.text : 0,
       "IsReimbursable": true,
-      "Currency": selectedCurrency.value?.code ?? 'INR',
+      "Currency":
+          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
       "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
       "Source": "Web",
@@ -13251,22 +14707,21 @@ class Controller extends GetxController {
       //  //  //  // print("Response body: ${response.body}");
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonData = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
 
-        if (jsonData.isNotEmpty && jsonData[0] is Map<String, dynamic>) {
-          //  //  // print("Successfully parsed approval data");
-          return jsonData[0] as Map<String, dynamic>;
-        } else {
-          //  //  // print("No valid data found in response");
-          throw Exception('Invalid or empty data structure returned from API');
+        if (decoded is List && decoded.isNotEmpty) {
+          if (decoded.first is Map<String, dynamic>) {
+            return decoded.first;
+          }
         }
+
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+
+        return {}; // ✅ safe fallback
       } else {
-        //  //  //  // print(
-        //   "API Error - Status: ${response.statusCode}, Body: ${response.body}",
-        // );
-        throw Exception(
-          'Failed to load approval data: ${response.reasonPhrase}',
-        );
+        throw Exception('Failed: ${response.reasonPhrase}');
       }
     } catch (e) {
       // print("Exception during fetchApprovalData: $e");
@@ -13431,14 +14886,19 @@ class Controller extends GetxController {
         }
       }
       return null;
+    } catch (e) {
+      print(e);
     } finally {
       isLoadingGE2.value = false;
     }
   }
 
-  Future<void> fetchAndAppendReports() async {
+  Future<void> fetchAndAppendReports([String? functionalArea]) async {
+    getAllListReport.clear();
     isLoadingGE1.value = true;
-    final response = await ApiService.get(Uri.parse(Urls.reportsList));
+    final response = await ApiService.get(
+      Uri.parse('${Urls.reportsList}?FunctionalArea=$functionalArea'),
+    );
 
     if (response.statusCode == 200) {
       isLoadingGE1.value = false;
@@ -13504,7 +14964,7 @@ class Controller extends GetxController {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) => const Center(child: SkeletonLoaderPage()),
       );
 
       // Fetch report data
@@ -13519,7 +14979,148 @@ class Controller extends GetxController {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReportCreateScreen(
+            builder: (context) => CashAdvanceReportCreateScreen(
+              existingReport: reportData,
+              isEdit: bool,
+              isEditable: false,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report not found')));
+      }
+    } catch (e) {
+      // Close loading indicator if still showing
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(' ${e.toString()}')));
+    }
+  }
+
+  void expensenavigateToEditReportScreen(
+    BuildContext context,
+    int recId,
+    bool bool,
+  ) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: SkeletonLoaderPage()),
+      );
+
+      // Fetch report data
+      final reportData = await fetchReportDetails(recId);
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      if (reportData != null) {
+        // Navigate to edit screen with the report data
+        // ignore: use_build_context_synchronously
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ExpenseReportCreateScreen(
+              existingReport: reportData,
+              isEdit: bool,
+              isEditable: false,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report not found')));
+      }
+    } catch (e) {
+      // Close loading indicator if still showing
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(' ${e.toString()}')));
+    }
+  }
+
+  void leavenavigateToEditReportScreen(
+    BuildContext context,
+    int recId,
+    bool bool,
+  ) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: SkeletonLoaderPage()),
+      );
+
+      // Fetch report data
+      final reportData = await fetchReportDetails(recId);
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      if (reportData != null) {
+        // Navigate to edit screen with the report data
+        // ignore: use_build_context_synchronously
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LeaveReportCreateScreen(
+              existingReport: reportData,
+              isEdit: bool,
+              isEditable: false,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Report not found')));
+      }
+    } catch (e) {
+      // Close loading indicator if still showing
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(' ${e.toString()}')));
+    }
+  }
+
+  void timeSheetnavigateToEditReportScreen(
+    BuildContext context,
+    int recId,
+    bool bool,
+  ) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: SkeletonLoaderPage()),
+      );
+
+      // Fetch report data
+      final reportData = await fetchReportDetails(recId);
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      if (reportData != null) {
+        // Navigate to edit screen with the report data
+        // ignore: use_build_context_synchronously
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TimeSheetsReportCreateScreen(
               existingReport: reportData,
               isEdit: bool,
               isEditable: false,
@@ -14225,59 +15826,122 @@ class Controller extends GetxController {
       String sortBy = "y";
       String extraParams = "";
 
+      /// ✅ Dynamic Date Range → 1st of this month → today (inclusive)
       final now = DateTime.now();
 
       final DateTime startDate = DateTime(now.year, now.month, 1);
 
+      // +1 day so today is fully included
       final DateTime endDate = DateTime(now.year, now.month, now.day + 1);
 
       final int startMillis = startDate.millisecondsSinceEpoch;
       final int endMillis = endDate.millisecondsSinceEpoch;
+      int today = DateTime.now().millisecondsSinceEpoch;
 
       /// 🔹 Widget-specific logic
-      if (widgetName == "ExpensesThisMonth" ||
-          widgetName == "TotalCashAdvances") {
-        sortBy = "Value";
-        extraParams = "&start_date=$startMillis&end_date=$endMillis";
-      } else if (widgetName == "ExpensesByProjects" ||
-          widgetName == "ExpensesByCountries" ||
-          widgetName == "top10empleavecancellation") {
-        sortBy = "y";
-      } else if (widgetName == "ExpenseBySource") {
-        sortBy = "YAxis";
-        extraParams = "&";
-      } else if (widgetName == "TotalExpenses" ||
-          widgetName == "NoOfMyPendingApprovalsCard" ||
-          widgetName == "NoOfEscalations" ||
-          widgetName == "MyPendingApprovals" ||
-          widgetName == "AverageExpenseByEmployees" ||
-          widgetName == "NoOfApprovalDelegations" ||
-          widgetName == "NoOfAutoApprovedExpenses" ||
-          widgetName == "NoOfAutoRejectedApprovals") {
-        sortBy = "Value";
-      } else {
-        sortBy = "YAxis";
+      /// 🔹 Widget-specific logic
+      switch (widgetName) {
+        case "ExpensesThisMonth":
+          sortBy = "Value";
+          extraParams = "&start_date=$startMillis&end_date=$endMillis";
+
+        /// SUMMARY BOXES
+        case "TotalCashAdvances":
+        case "TotalExpenses":
+        case "NoOfMyPendingApprovalsCard":
+        case "TotalLeaveMonth":
+        case "totleavemonth":
+        case "NoOfEscalations":
+        case "NoOfAutoRejectedApprovals":
+        case "NoOfAutoApprovedExpenses":
+        case "NoOfApprovalDelegations":
+        case "AverageExpenseByEmployees":
+          sortBy = "Value";
+          break;
+
+        /// LINE CHARTS
+        case "CashAdvanceTrends":
+        case "ExpenseTrends":
+        case "CashAdvanceReturnTrends":
+        case "EmployeesLeaveConnectedWithWeekends":
+        case "empleaveconectwithweekends":
+        case "PolicyComplianceRateForCashAdvances":
+        case "Top5Spenders":
+        case "ExpensesByEmployeeGrades":
+        case "MileageByTop5Employees":
+        case "Top5SpendingDepartments":
+        case "ExpensesByDepartment":
+          sortBy = "y";
+          break;
+
+        /// MULTI BAR CHARTS
+        case "ExpensesByCategories":
+        case "ExpenseBySource":
+          sortBy = "YAxis";
+          break;
+
+        /// BAR CHARTS
+        case "ExpensesByProjects":
+        case "NoOfCashAdvancesByApprovalStatus":
+        case "CashAdvancesByBusinessJustification":
+        case "Top5CashAdvanceRequesters":
+        case "NoOfExpensesByStatus":
+        case "Top10ExpenseCategoriesByLocations":
+        case "top5leavecodevsleaves":
+        case "leavetypevsleaves":
+        case "top10empleavecancellation":
+          sortBy = "y";
+          break;
+
+        /// PIE CHARTS
+        case "ExpenseAmountByExpenseStatus":
+        case "ExpensesAmountByApprovalStatus":
+        case "SumOfCashAdvancesByApprovalStatus":
+        case "RepeatedPolicyViolationsByEmployeesForCashAdvances":
+        case "top10empleavecancelcount":
+          sortBy = "YAxis";
+          break;
+
+        /// DONUT
+        case "ExpensesByPaymentMethods":
+          sortBy = "YAxis";
+          break;
+
+        /// TABLE WIDGETS
+        case "ExpensesByCountries":
+        case "LeaveBalanceOverview":
+        case "PendingApprovals":
+          sortBy = "YAxis";
+          break;
+        case "leavehistory":
+          sortBy = "YAxis";
+          extraParams = "end_date=$today&periods=5";
+        default:
+          sortBy = "YAxis";
       }
 
-      /// 🔹 Draft handled separately
+      /// 🔹 Draft APIs handled separately
       if (widgetName == "DraftExpenses") {
         await _fetchDraftExpenses();
         return;
       }
+
       if (widgetName == "draftleaves") {
         await _fetchDraftLeave();
         return;
       }
+
       if (widgetName == "mypendingleaves") {
         await pendingApprovalLeaveRequisitions();
         return;
       }
-      if (widgetName.toLowerCase() == "MyPendingApprovals") {
-        fetchPendingApprovals();
-      }
-      if (widgetName.toLowerCase() == "leavecalanderview") {
-        final now = DateTime.now();
 
+      if (widgetName == "MyPendingApprovals") {
+        await fetchPendingApprovals();
+        return;
+      }
+
+      if (widgetName == "leavecalanderview") {
         final fromDate = DateTime(
           now.year,
           now.month,
@@ -14294,10 +15958,10 @@ class Controller extends GetxController {
         ).millisecondsSinceEpoch;
 
         await loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
-
         return;
       }
 
+      /// 🔹 Filters
       final filterQuery = _buildFilterQuery(
         item.filterProps?.advanceFilterations,
       );
@@ -14317,21 +15981,36 @@ class Controller extends GetxController {
 
       final response = await ApiService.get(url);
 
+      /// 🔴 Handle 500 or other errors safely
+      if (response.statusCode >= 500) {
+        debugPrint("SERVER ERROR (${response.statusCode}) → $widgetName");
+
+        final cacheKey = item.id ?? widgetName;
+
+        update();
+        return;
+      }
+
       if (response.statusCode != 200) {
         debugPrint("API Failed (${response.statusCode}) for ${item.id}");
         return;
       }
 
       final decoded = jsonDecode(response.body);
+
+      if (decoded == null) {
+        debugPrint("Empty response for ${item.id}");
+        return;
+      }
+
       final widgetResponse = WidgetDataResponse.fromJson(decoded);
 
-      /// ✅ VERY IMPORTANT
-      /// Use UNIQUE ID instead of widgetName
+      /// Use unique cache key
       final cacheKey = item.id ?? widgetName;
 
       widgetDataCache[cacheKey] = widgetResponse;
 
-      update(); // GetX refresh UI
+      update(); // Refresh GetX UI
     } catch (e, stack) {
       debugPrint("Error fetching widget ${item.id}: $e");
       debugPrint(stack.toString());
@@ -14730,7 +16409,7 @@ class Controller extends GetxController {
     final email = Params.userId ?? "";
 
     final url = Uri.parse(
-      "${Urls.baseURL}/api.digixpense.com/api/v1/leaverequisition/leavemanagement/leaverequisitions?filter_query=LVRLeaveHeader.CreatedBy__eq%3D$email"
+      "${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/leaverequisitions?filter_query=LVRLeaveHeader.CreatedBy__eq%3D$email"
       "%26LVRLeaveHeader.ApprovalStatus__eq%3DCreated&page=1&sort_order=as",
     );
 
@@ -14777,20 +16456,19 @@ class Controller extends GetxController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        getAllListGExpense.value = (data as List)
+        final list = (data as List)
             .map((item) => GExpense.fromJson(item))
             .toList();
 
-        //  //  // print("✅ Fetched Expenses: $getAllListGExpense");
+        getAllListGExpense.value = list;
+
         isLoadingGE1.value = false;
-        return [];
+        return list; // ✅ return actual data
       } else {
-        //  //  // print('❌ Failed to load expenses. Status code: ${response.statusCode}');
         isLoadingGE1.value = false;
         return [];
       }
     } catch (e) {
-      //  //  // print('❌ Error fetching expenses: $e');
       isLoadingGE1.value = false;
       return [];
     }
@@ -14817,8 +16495,10 @@ class Controller extends GetxController {
         await pendingApprovalLeaveRequisitions();
         return;
       }
-      if (widgetName.toLowerCase() == "MyPendingApprovals") {
-        fetchPendingApprovals();
+
+      if (widgetName == "MyPendingApprovals") {
+        await fetchPendingApprovals();
+        return;
       }
       if (widgetName.toLowerCase() == "leavecalanderview") {
         final now = DateTime.now();
@@ -15258,7 +16938,7 @@ class Controller extends GetxController {
   }
 
   String? calendarId;
-
+  double? leaveBalance;
   void onDaySelected(DateTime day, DateTime focused) {
     selectedDay = day;
     focusedDay = focused;
@@ -15291,7 +16971,7 @@ class Controller extends GetxController {
 
     if (response.statusCode == 201) {
       final decoded = jsonDecode(response.body);
-
+      leaveBalance = decoded["LeaveBalance"] ?? "";
       calendarId = decoded["CalendarId"] ?? "";
       final List<dynamic> transactions = decoded["LeaveTransactions"] ?? [];
 
@@ -15347,7 +17027,7 @@ class Controller extends GetxController {
     bool submit = false,
     bool resubmit = false,
   }) async {
-    setFullPageLoading(true);
+    // setFullPageLoading(true);
 
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/requestleave'
@@ -15366,7 +17046,6 @@ class Controller extends GetxController {
     if (response.statusCode == 200 || response.statusCode == 201) {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final message = responseData['detail']['message'];
-      setFullPageLoading(false);
 
       resetForm();
       Navigator.pushNamed(context, AppRoutes.leaveDashboard);
@@ -15380,7 +17059,7 @@ class Controller extends GetxController {
       );
       return true;
     } else {
-      setFullPageLoading(false);
+      // setFullPageLoading(false);
       final Map<String, dynamic> responseData = jsonDecode(response.body);
       final message = responseData['detail']['message'] ?? 'Error';
       Fluttertoast.showToast(
@@ -15446,7 +17125,7 @@ class Controller extends GetxController {
     }
   }
 
-  Future<LeaveDetailsModel?> fetchSpecificLeaveDetails(
+  Future<LeaveDetailsModel?> fetchSpecificLeaveDetailsMyTeams(
     BuildContext context,
     int recId,
     bool readOnly,
@@ -15475,6 +17154,63 @@ class Controller extends GetxController {
             'item': leaveDetails,
             'readOnly': readOnly,
             'status': false,
+          },
+        );
+
+        return leaveDetails;
+      } else {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final message = responseData['detail']['message'];
+        selectedRunIds.clear();
+        fetchTimeRuns();
+        Fluttertoast.showToast(
+          msg: "$message ",
+          backgroundColor: Colors.red[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+        isLoadingLeaves.value = false;
+        //  // debugPrint('Failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      isLoadingLeaves.value = false;
+      //  // debugPrint('Error fetching leave details: $e');
+      return null;
+    }
+  }
+
+  Future<LeaveDetailsModel?> fetchSpecificLeaveDetails(
+    BuildContext context,
+    int recId,
+    bool readOnly,
+  ) async {
+    isLoadingLeaves.value = true;
+
+    final url = Uri.parse(
+      '${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/leavedetails'
+      '?recid=$recId&lock_id=$recId&screen_name=LVRLeaveHeader',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final leaveDetails = LeaveDetailsModel.fromJson(data);
+
+        isLoadingLeaves.value = false;
+
+        Navigator.pushNamed(
+          context,
+          AppRoutes.viewLeave,
+          arguments: {
+            'item': leaveDetails,
+            'readOnly': readOnly,
+            'status': true,
           },
         );
 
@@ -15598,7 +17334,7 @@ class Controller extends GetxController {
           arguments: {
             'item': leaveDetails,
             'readOnly': readOnly,
-            'status': false,
+            'status': true,
           },
         );
         isLoadingLeaves.value = false;
@@ -16411,7 +18147,7 @@ class Controller extends GetxController {
         isUtc: true,
       ).toLocal();
 
-      return DateFormat('dd MMM yy').format(date);
+      return DateFormat('dd-MM-yyyy').format(date);
     } catch (_) {
       return '--';
     }
@@ -17090,8 +18826,20 @@ class Controller extends GetxController {
     return defaultValue;
   }
 
+  Future<void> checkLocationDisclosure(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isShown = prefs.getBool('locationDisclosureShown') ?? false;
+
+    if (!isShown) {
+      showLocationDisclosure(context);
+    } else {
+      fetchCurrentLocation();
+    }
+  }
+
   GoogleMapController? mapController;
   Future<void> fetchCurrentLocation() async {
+    print("Getting Location ");
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
 
@@ -17135,6 +18883,39 @@ class Controller extends GetxController {
     };
 
     locationText.value = '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+  }
+
+  void showLocationDisclosure(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Location Permission Required"),
+          content: const Text(
+            "This app collects location data to verify employee attendance "
+            "and field visits even when the app is closed or not in use.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('locationDisclosureShown', true);
+                Navigator.pop(context);
+                await fetchCurrentLocation(); // CALL YOUR FUNCTION HERE
+              },
+              child: const Text("Allow"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Initialize default fields
@@ -17322,7 +19103,7 @@ class Controller extends GetxController {
 
   final punchStatus = PunchStatus.outDuty.obs;
 
-  final locationText = 'Fetching location...'.obs;
+  final locationText = ''.obs;
   final punchTimeText = '--'.obs;
   final statusText = 'Not In'.obs;
   final lastInText = ''.obs;
@@ -17336,9 +19117,6 @@ class Controller extends GetxController {
   Future<void> fetchLastPunch() async {
     isLoading.value = true;
 
-    // print('fetchLastPunch');
-    // selfie1.value = null;
-    // selfie2.value = null;
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/punchinpunchouttrans?filter_query=PUNAttendanceTransaction.EmployeeId__eq%3D${Params.employeeId}%26PUNAttendanceTransaction.IsActive__eq%3DTrue&page=1&sort_by=TransAttendanceId&sort_order=desc&limit=1',
     );
@@ -17347,9 +19125,10 @@ class Controller extends GetxController {
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(res.body);
-      final item = data.first;
+
       if (data.isNotEmpty) {
-        punchStatus.value = PunchStatus.inDuty;
+        final item = data.first; // ✅ safe now
+
         if (item['PunchOutTime'] == null) {
           punchStatus.value = PunchStatus.inDuty;
           statusText.value = 'In';
@@ -17357,21 +19136,28 @@ class Controller extends GetxController {
           punchStatus.value = PunchStatus.outDuty;
           statusText.value = 'Not in';
         }
-        // If PunchInTime is in milliseconds
+
         lastInTextResponse.value = DateTime.fromMillisecondsSinceEpoch(
           item['PunchInTime'],
-          isUtc: true, // ✅ important
+          isUtc: true,
         ).toIso8601String();
+
         recID = item['RecId'];
-        // Last session values
+
         lastInText.value = formatMillis(item['PunchInTime']);
         lastOutText.value = formatMillis(item['PunchOutTime']);
         totalDurationText.value = formatDuration(item['TotalDuration']);
+      } else {
+        // ✅ Handle empty response
+        punchStatus.value = PunchStatus.outDuty;
+        statusText.value = 'No Records';
+        lastInText.value = '';
+        lastOutText.value = '';
+        totalDurationText.value = '';
       }
-      isLoading.value = false;
-    } else {
-      isLoading.value = false;
     }
+
+    isLoading.value = false;
   }
 
   Timer? timer;
@@ -17499,11 +19285,8 @@ class Controller extends GetxController {
 
       final data = jsonDecode(response.body);
 
-      /// ✅ Safely extract message (handles all API formats)
-      String message =
-          data['detail']?['message'] ?? data['message'] ?? "Punch In Failed";
-
       if (response.statusCode == 200 || response.statusCode == 201) {
+        String message = data['detail']?['message'];
         fetchLastPunch();
         isLoading.value = false;
         Fluttertoast.showToast(
@@ -17512,6 +19295,8 @@ class Controller extends GetxController {
           textColor: Colors.green[800],
         );
       } else {
+        String message =
+            data?['detail']?['message'] ?? response.body ?? "Server Error";
         punchStatus.value = PunchStatus.outDuty;
         statusText.value = 'Not in';
         isLoading.value = false;
@@ -17526,11 +19311,11 @@ class Controller extends GetxController {
       isLoading.value = false;
 
       Fluttertoast.showToast(
-        msg: "Something went wrong. Please try again.",
+        msg: "Internal Server Error",
         backgroundColor: Colors.red[100],
         textColor: Colors.red[800],
       );
-
+      fetchLastPunch();
       debugPrint("Punch In Error: $e");
     } finally {
       isLoading.value = false;
@@ -17613,7 +19398,7 @@ class Controller extends GetxController {
         );
       } else {
         isLoading.value = false;
-
+        fetchLastPunch();
         Fluttertoast.showToast(
           msg: message,
           backgroundColor: Colors.red[100],
@@ -17645,6 +19430,37 @@ class Controller extends GetxController {
     final u = DateTime.now().toUtc();
     final base = u.toIso8601String().replaceAll('Z', '');
     return base.padRight(26, '0') + 'Z';
+  }
+
+  RxBool isAiActive = false.obs;
+  RxBool isAiLoading = false.obs;
+  Future<void> checkAiHealth() async {
+    try {
+      isAiLoading.value = true;
+
+      final response = await ApiService.post(
+        Uri.parse("${Urls.baseURL}/api/v1/aiapis/aiapis/aihealth"),
+
+        body: jsonEncode({}), // if body required
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // 🔥 Handle response
+        if (data != null && data['status'] == 'active') {
+          isAiActive.value = true;
+        } else {
+          isAiActive.value = false;
+        }
+      } else {
+        isAiActive.value = false;
+      }
+    } catch (e) {
+      isAiActive.value = false;
+    } finally {
+      isAiLoading.value = false;
+    }
   }
 
   String _formatTime(DateTime time) {

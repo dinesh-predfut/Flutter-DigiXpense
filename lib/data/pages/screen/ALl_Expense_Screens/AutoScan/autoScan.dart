@@ -7,12 +7,14 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:file_picker/file_picker.dart' show FilePicker, FileType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
@@ -42,8 +44,8 @@ class AutoScanExpensePage extends StatefulWidget {
 class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late List<Map<String, dynamic>> expenseTrans;
-  final controller = Get.put(Controller());
-  final controllerItems = Get.put(Controller());
+  late final Controller controller;
+
   bool _isItemized = false;
   bool _isSubmitAttempted = false;
   bool _isReimbursable = true;
@@ -54,7 +56,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
 
   late PageController _pageController;
   bool allowMultSelect = false;
-    bool allowCashAd = false;
+  bool allowCashAd = false;
   final TextEditingController receiptDateController = TextEditingController();
   final TextEditingController merchantController = TextEditingController();
   final TextEditingController referenceController = TextEditingController();
@@ -71,9 +73,11 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   bool _isTyping = false;
 
   final PhotoViewController _photoViewController = PhotoViewController();
+
   @override
   void initState() {
     super.initState();
+    controller = Get.find<Controller>();
     _focusNode = FocusNode();
     _focusNode.addListener(() {
       setState(() {
@@ -81,6 +85,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       });
     });
     _featureFuture = controller.getAllFeatureStates();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.isLoadingOCR.value = true;
       controller.isEnable.value = true;
@@ -93,9 +98,12 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       await controller.fetchProjectName();
       controller.fetchTaxGroup();
       controller.fetchUnit();
-_loadSettings();
-      controller.getUserPref(context);
-      await controller.fetchExpenseCategory();
+      controller.fetchExpenseCategory();
+      _loadSettings();
+        if (widget.apiResponse == null) {
+          controller.getUserPref(context);
+        }
+      // controller.getUserPref(context);
 
       controller.fetchPaidwith();
       _initializeUnits();
@@ -114,12 +122,12 @@ _loadSettings();
       _isItemized =
           expenseTrans.length > 1 ||
           (expenseTrans.isNotEmpty && expenseTrans[0]['Description'] != null);
-              WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _initializeFormFromApiResponse();
-              });
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        _initializeFormFromApiResponse();
+      });
     } else {
       receiptDateController.text = DateFormat(
-        'dd-MMM-yyyy',
+        'dd-MM-yyyy',
       ).format(DateTime.now());
     }
 
@@ -128,66 +136,86 @@ _loadSettings();
       controller.currencyDropDown();
     });
   }
-  Future<void> _pickFile() async {
-    try {
-      controller.isImageLoading.value = true;
 
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
-      );
+    Future<void> _pickFile() async {
+      try {
+        controller.isImageLoading.value = true;
 
-      if (result == null) return;
+        final result = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          type: FileType.custom,
+           allowedExtensions: controller.allowedExtensions,
+        );
 
-      for (final pickedFile in result.files) {
-        if (pickedFile.path == null) continue;
+        if (result == null) return;
 
-        File file = File(pickedFile.path!);
-        final ext = pickedFile.extension?.toLowerCase();
+        for (final pickedFile in result.files) {
+          if (pickedFile.path == null) continue;
 
-        /// ✅ IMAGE FLOW
-        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
-          final croppedFile = await _cropImage(file);
+          File file = File(pickedFile.path!);
+          final ext = pickedFile.extension?.toLowerCase();
 
-          if (croppedFile != null) {
-            final croppedImage = File(croppedFile.path);
-
-            await _processSelectedFile(croppedImage);
+          if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+            final croppedFile = await _cropImage(file);
+            if (croppedFile != null) {
+              final croppedImage = File(croppedFile.path);
+              final compressedImage = await _compressImage(croppedImage); // ✅ Compress after crop
+              await _processSelectedFile(compressedImage ?? croppedImage);
+            }
+          } else {
+            await _processSelectedFile(file);
           }
         }
-        /// ✅ PDF / EXCEL / DOC FLOW
-        else {
-          await _processSelectedFile(file);
-        }
+      } catch (e) {
+        debugPrint("❌ File pick error: $e");
+      } finally {
+        controller.isImageLoading.value = false;
       }
-    } catch (e) {
-      debugPrint("❌ File pick error: $e");
-    } finally {
-      controller.isImageLoading.value = false;
     }
+
+    /// Compresses the image and returns a new [File], or null on failure.
+    Future<File?> _compressImage(File file) async {
+      try {
+        final dir = await getTemporaryDirectory();
+        final targetPath =
+            '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_compressed.jpg';
+
+        final compressedFile = await FlutterImageCompress.compressAndGetFile(
+          file.absolute.path,
+          targetPath,
+          quality: 70,        // 0–100 — lower = smaller file
+          minWidth: 1024,     // max width in px
+          minHeight: 1024,    // max height in px
+          format: CompressFormat.jpeg,
+        );
+
+        if (compressedFile == null) return null;
+
+        final originalSize = await file.length();
+        final compressedSize = await compressedFile.length();
+        debugPrint(
+          '🗜️ Compressed: ${_formatBytes(originalSize)} → ${_formatBytes(compressedSize)}',
+        );
+
+        return File(compressedFile.path);
+      } catch (e) {
+        debugPrint('❌ Compression error: $e');
+        return null;
+      }
+    }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 
   Future<void> _processSelectedFile(File file) async {
-    // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
 
-    if ( controller.digiScanEnable!) {
-      /// ✅ AutoScan Enabled → Upload directly
-      // ignore: use_build_context_synchronously
+    if (controller.digiScanEnable!) {
       await controller.sendUploadedFileToServer(context, file);
     } else {
-      /// ✅ AutoScan Disabled → Navigate
-      // ignore: use_build_context_synchronously
       Navigator.pushNamed(
         context,
         AppRoutes.autoScan,
@@ -203,13 +231,13 @@ _loadSettings();
         if (mounted) {
           setState(() {
             allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
-            allowCashAd=settings.allowCashAdvAgainstExpenseReg;
-            print("allowDocAttachments$allowMultSelect");
+            allowCashAd = settings.allowCashAdvAgainstExpenseReg;
           });
         }
       });
     }
   }
+
   Future<void> _initializeUnits() async {
     await controller.fetchUnit();
 
@@ -217,15 +245,10 @@ _loadSettings();
       (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
       orElse: () => controller.unit.first,
     );
-    // final matchedCategory = controller.expenseCategory.firstWhere(
-    //   (e) => e.categoryName == controller.categoryController.text,
-    // );
 
     setState(() {
       controller.selectedunit ??= defaultUnit;
-      // controller.selectedIcon.value = matchedCategory.expenseCategoryIcon!;
     });
-    print("selectedIcon${controller.selectedIcon.value}");
   }
 
   void _showDuplicateDialog(BuildContext context) {
@@ -239,7 +262,6 @@ _loadSettings();
           TextButton(
             onPressed: () {
               Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-
               controller.isDuplicated = false;
             },
             child: Text(
@@ -251,7 +273,6 @@ _loadSettings();
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () {
               Navigator.pop(context);
-              // _handleDuplicateContinue();
             },
             child: Text(AppLocalizations.of(context)!.continueText),
           ),
@@ -266,7 +287,7 @@ _loadSettings();
         ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp)
         : DateTime.now();
 
-    receiptDateController.text = DateFormat('dd-MMM-yyyy').format(date);
+    receiptDateController.text = DateFormat('dd-MM-yyyy').format(date);
 
     controller.selectedDate = date;
     controller.isManualEntryMerchant = true;
@@ -280,7 +301,9 @@ _loadSettings();
     descriptionController.text = widget.apiResponse!['Description'] ?? '';
     controller.paidWithController.text =
         widget.apiResponse!['PaymentMethodId'] ?? '';
-    currencyController.text = widget.apiResponse!['Currency'] ?? '';
+    controller.currencyDropDowncontroller.text =
+        widget.apiResponse!['Currency'] ?? '';
+
     commentsController.text = widget.apiResponse!['Comments'] ?? '';
     controller.isAlcohol = widget.apiResponse!['IsAlcohol'] ?? false;
     controller.isTobacco = widget.apiResponse!['IsTobacco'] ?? false;
@@ -338,8 +361,6 @@ _loadSettings();
     _isItemized = false;
 
     final isFirst = itemizeSections.isEmpty;
-
-    // get paid amount once
     final double paidAmount =
         double.tryParse(controller.paidAmount.text) ?? 0.0;
 
@@ -347,21 +368,16 @@ _loadSettings();
       itemizeSections.add(
         ItemizeSection(
           index: itemizeSections.length + 1,
-
-          // ✅ Prefill ONLY for first itemize
           quantity: isFirst ? "1.00" : "",
           unitPrice: isFirst ? paidAmount.toStringAsFixed(2) : "",
-
           onDelete: itemizeSections.isNotEmpty
               ? () => _removeItemizeSection(itemizeSections.length)
               : null,
-
           updateTotalAmount: _updateTotalAmount,
         ),
       );
     });
 
-    // ✅ Recalculate after adding
     _updateTotalAmount();
   }
 
@@ -440,21 +456,6 @@ _loadSettings();
     await controller.saveGeneralExpense(context, value, false);
   }
 
-  // @override
-  // void dispose() {
-  //   receiptDateController.dispose();
-  //   merchantController.dispose();
-  //   referenceController.dispose();
-  //   controller.paidAmount.dispose();
-  //   taxAmountController.dispose();
-  //   descriptionController.dispose();
-  //   paymentMethodController.dispose();
-  //   currencyController.dispose();
-  //   cashAdvanceController.dispose();
-  //   commentsController.dispose();
-  //   totalInINRController.dispose();
-  //   super.dispose();
-  // }
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
 
@@ -484,7 +485,7 @@ _loadSettings();
   Future<File?> _cropImage(File file) async {
     final croppedFile = await ImageCropper().cropImage(
       sourcePath: file.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // optional
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop Image',
@@ -502,8 +503,6 @@ _loadSettings();
     if (croppedFile != null) {
       final croppedImage = File(croppedFile.path);
       return croppedImage;
-      // ignore: use_build_context_synchronously
-      // await controller.sendUploadedFileToServer(context, croppedImage);
     }
 
     return null;
@@ -531,21 +530,20 @@ _loadSettings();
         (c) => c.categoryId == controller.categoryController.text,
         orElse: () => controller.expenseCategory.first,
       );
+
+      // ✅ Set category-related limits from 2nd code
+      if (controller.selectedCategory != null) {
+        controller.itemisationMandatory.value =
+            controller.selectedCategory!.itemisationMandatory;
+        controller.minExpenseAmount.value =
+            (controller.selectedCategory!.minExpensesAmount ?? 0).toDouble();
+        controller.maxExpenseAmount.value =
+            (controller.selectedCategory!.maxExpenseAmount ?? 0).toDouble();
+        controller.receiptRequiredLimit.value =
+            (controller.selectedCategory!.receiptRequiredLimit ?? 0).toDouble();
+      }
     }
 
-    // if (controller.project.isNotEmpty) {
-    //   controller.selectedProject = controller.project.firstWhere(
-    //     (e) => e.code == widget.items!.projectId,
-    //     orElse: () => controller.project.first,
-    //   );
-    // }
-
-    // if (controller.currencies.isNotEmpty) {
-    //   controller.selectedCurrency.value = controller.currencies.firstWhere(
-    //     (e) => e.name == currencyController.text,
-    //     orElse: () => controller.currencies.first,
-    //   );
-    // }
     setState(() {});
   }
 
@@ -554,8 +552,7 @@ _loadSettings();
   }
 
   void _zoomOut() {
-    final currentScale =
-        _photoViewController.scale ?? 1.0; // default scale if null
+    final currentScale = _photoViewController.scale ?? 1.0;
     _photoViewController.scale = currentScale / 1.2;
   }
 
@@ -565,20 +562,37 @@ _loadSettings();
     });
   }
 
+  bool _isImage(String path) {
+    final ext = path.toLowerCase();
+    return ext.endsWith('.jpg') ||
+        ext.endsWith('.jpeg') ||
+        ext.endsWith('.png');
+  }
+
+  bool _isPdf(String path) {
+    return path.toLowerCase().endsWith('.pdf');
+  }
+
+  bool _isExcel(String path) {
+    return path.toLowerCase().endsWith('.xls') ||
+        path.toLowerCase().endsWith('.xlsx');
+  }
+
+  void _openFile(File file) {
+    OpenFilex.open(file.path);
+  }
+
   void _showFullImage(File file, int index) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(
-        0.9,
-      ), // darker transparent background
+      barrierColor: Colors.black.withOpacity(0.9),
       builder: (context) {
         return Dialog(
-          backgroundColor: Colors.transparent, // remove white box background
+          backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(8),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Full image view
               PhotoView.customChild(
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 9.0,
@@ -587,21 +601,16 @@ _loadSettings();
                 ),
                 child: Image.file(file, fit: BoxFit.contain),
               ),
-
-              // Close button (top-left)
               Positioned(
                 top: 30,
                 right: 20,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 30),
                   onPressed: () {
-                    // controller.closeField();
                     Navigator.pop(context);
                   },
                 ),
               ),
-
-              // Floating edit & delete buttons (top-right)
               Positioned(
                 top: 80,
                 right: 20,
@@ -645,32 +654,423 @@ _loadSettings();
       },
     );
   }
-bool _isImage(String path) {
-  final ext = path.toLowerCase();
-  return ext.endsWith('.jpg') ||
-      ext.endsWith('.jpeg') ||
-      ext.endsWith('.png');
-}
 
-bool _isPdf(String path) {
-  return path.toLowerCase().endsWith('.pdf');
-}
+  // ─── UI helpers (from 2nd code style) ───────────────────────────────────────
 
-bool _isExcel(String path) {
-  return path.toLowerCase().endsWith('.xls') ||
-      path.toLowerCase().endsWith('.xlsx');
-}
-void _openFile(File file) {
-  OpenFilex.open(file.path);
-}
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required bool isReadOnly,
+    void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: isReadOnly,
+          onChanged: onChanged,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
+        // const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ExpansionTile(
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.deepPurple,
+              ),
+            ),
+            collapsedIconColor: Colors.grey,
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            children: children,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateField(
+    String label,
+    TextEditingController controllers, {
+    required bool isReadOnly,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controllers,
+      readOnly: true,
+      enabled: !isReadOnly,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.calendar_today),
+          onPressed: isReadOnly
+              ? null
+              : () async {
+                  DateTime initialDate = DateTime.now();
+                  if (controllers.text.isNotEmpty) {
+                    try {
+                      initialDate = DateFormat(
+                        'dd-MM-yyyy',
+                      ).parseStrict(controllers.text.trim());
+                    } catch (e) {
+                      initialDate = DateTime.now();
+                    }
+                  }
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+
+                  if (picked != null) {
+                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controller.selectedDate = picked;
+                  }
+                },
+        ),
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  // ─── Image / file viewer (same as 2nd code) ─────────────────────────────────
+
+  Widget _buildFileViewer() {
+    return Obx(() {
+      return Stack(
+        children: [
+          Obx(() {
+            return GestureDetector(
+              onTap: () {
+                if (controller.imageFiles.isEmpty &&
+                    controller.isEnable.value) {
+                  _pickFile();
+                }
+              },
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: MediaQuery.of(context).size.height * 0.3,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: controller.imageFiles.isEmpty
+                    ? Center(
+                        child: Text(
+                          AppLocalizations.of(context)!.tapToUploadDocs,
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          PageView.builder(
+                            controller: _pageController,
+                            itemCount: controller.imageFiles.length,
+                            onPageChanged: (index) {
+                              controller.currentIndex.value = index;
+                            },
+                            itemBuilder: (_, index) {
+                              final file = controller.imageFiles[index];
+                              final path = file.path;
+
+                              return GestureDetector(
+                                onTap: () => _openFile(file),
+                                child: Container(
+                                  margin: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.deepPurple,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: _isImage(path)
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          child: Image.file(
+                                            file,
+                                            fit: BoxFit.cover,
+                                            width: double.infinity,
+                                          ),
+                                        )
+                                      : _isPdf(path)
+                                      ? Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.picture_as_pdf,
+                                              size: 70,
+                                              color: Colors.red,
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: Text(
+                                                file.path.split('/').last,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : _isExcel(path)
+                                      ? Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.table_chart,
+                                              size: 70,
+                                              color: Colors.green,
+                                            ),
+                                            Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        )
+                                      : Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                              Icons.insert_drive_file,
+                                              size: 70,
+                                            ),
+                                            Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Page count
+                          Positioned(
+                            bottom: 40,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Obx(
+                                () => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Add button
+                          if (controller.isEnable.value)
+                            Positioned(
+                              bottom: 16,
+                              right: 16,
+                              child: GestureDetector(
+                                onTap: _pickFile,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.deepPurple,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: const Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            );
+          }),
+
+          // Loading overlay
+          if (controller.isImageLoading.value)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    });
+  }
+
+  // ─── Status / icon badges ────────────────────────────────────────────────────
+
+  Widget _buildStatusBadges() {
+    return Row(
+      children: [
+        if (controller.isAlcohol)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.redAccent.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Image.asset('assets/alcohol.png', height: 24, width: 24),
+          ),
+        if (controller.isAlcohol) const SizedBox(width: 10),
+        Obx(() {
+          final iconPath = controller.selectedIcon.value;
+          final showIcon = iconPath.isNotEmpty;
+          return Row(
+            children: [
+              if (showIcon)
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.redAccent.withOpacity(0.4),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: AnimatedOpacity(
+                    opacity: _isTyping ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: _buildCategoryIcon(iconPath),
+                  ),
+                ),
+            ],
+          );
+        }),
+        if (controller.isTobacco) const SizedBox(width: 10),
+        if (controller.isTobacco)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.redAccent.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Image.asset('assets/Tobacco.jpg', height: 24, width: 24),
+          ),
+        const SizedBox(width: 10),
+        if (controller.isDuplicated)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.redAccent.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Image.asset(
+              'assets/duplicateIcons.png',
+              height: 24,
+              width: 24,
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool showIcon = controller.isAlcohol;
-    final iconPath = controller.selectedIcon.value;
-    final selectedIcon = iconPath.isNotEmpty;
     return WillPopScope(
       onWillPop: () async {
-        // Show a confirmation dialog
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -678,7 +1078,7 @@ void _openFile(File file) {
             content: Text(AppLocalizations.of(context)!.exitWarning),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false), // Stay
+                onPressed: () => Navigator.of(context).pop(false),
                 child: Text(AppLocalizations.of(context)!.cancel),
               ),
               TextButton(
@@ -686,10 +1086,9 @@ void _openFile(File file) {
                   controller.closeField();
                   Navigator.pushNamed(context, AppRoutes.dashboard_Main);
                 },
-                // Confirm exit
                 child: Text(
                   AppLocalizations.of(context)!.ok,
-                  style: TextStyle(color: Colors.red),
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
@@ -697,11 +1096,11 @@ void _openFile(File file) {
         );
 
         if (shouldExit ?? false) {
-          controller.clearFormFields(); // ✅ Clear only if user confirms
-          return true; // Allow navigation (pop)
+          controller.clearFormFields();
+          return true;
         }
 
-        return false; // Cancel navigation
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -713,637 +1112,174 @@ void _openFile(File file) {
               : Form(
                   key: _formKey,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                Obx(() {
-  return GestureDetector(
-    onTap: _pickFile,
-    child: Container(
-      width: MediaQuery.of(context).size.width * 0.9,
-      height: MediaQuery.of(context).size.height * 0.3,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey, width: 2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-
-      /// ✅ EMPTY VIEW
-      child: controller.imageFiles.isEmpty
-          ? Center(
-              child: Text(
-                AppLocalizations.of(context)!
-                    .tapToUploadDocs,
-              ),
-            )
-
-          /// ✅ FILE PREVIEW VIEW
-          : Stack(
-              children: [
-                PageView.builder(
-                  controller: _pageController,
-                  itemCount:
-                      controller.imageFiles.length,
-                  onPageChanged: (index) {
-                    controller.currentIndex.value =
-                        index;
-                  },
-
-                  itemBuilder: (_, index) {
-                    final file =
-                        controller.imageFiles[index];
-                    final path = file.path;
-
-                    return GestureDetector(
-                      onTap: () =>
-                          _openFile(file),
-
-                      child: Container(
-                        margin:
-                            const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.deepPurple,
-                          ),
-                          borderRadius:
-                              BorderRadius.circular(
-                                8,
-                              ),
-                        ),
-
-                        /// ✅ IMAGE
-                        child: _isImage(path)
-                            ? ClipRRect(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                      8,
-                                    ),
-                                child: Image.file(
-                                  file,
-                                  fit: BoxFit.cover,
-                                  width:
-                                      double.infinity,
-                                ),
-                              )
-
-                            /// ✅ PDF
-                            : _isPdf(path)
-                                ? Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .center,
-                                    children: [
-                                      const Icon(
-                                        Icons
-                                            .picture_as_pdf,
-                                        size: 70,
-                                        color:
-                                            Colors.red,
-                                      ),
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets
-                                                .all(
-                                                  8,
-                                                ),
-                                        child: Text(
-                                          file.path
-                                              .split(
-                                                '/',
-                                              )
-                                              .last,
-                                          textAlign:
-                                              TextAlign
-                                                  .center,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-
-                            /// ✅ EXCEL
-                                : _isExcel(path)
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment
-                                                .center,
-                                        children: [
-                                          const Icon(
-                                            Icons
-                                                .table_chart,
-                                            size:
-                                                70,
-                                            color: Colors
-                                                .green,
-                                          ),
-                                          Text(
-                                            file.path
-                                                .split(
-                                                  '/',
-                                                )
-                                                .last,
-                                            textAlign:
-                                                TextAlign
-                                                    .center,
-                                          ),
-                                        ],
-                                      )
-
-                            /// ✅ OTHER FILE
-                                    : Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment
-                                                .center,
-                                        children: [
-                                          const Icon(
-                                            Icons
-                                                .insert_drive_file,
-                                            size:
-                                                70,
-                                          ),
-                                          Text(
-                                            file.path
-                                                .split(
-                                                  '/',
-                                                )
-                                                .last,
-                                            textAlign:
-                                                TextAlign
-                                                    .center,
-                                          ),
-                                        ],
-                                      ),
-                      ),
-                    );
-                  },
-                ),
-
-                /// ✅ PAGE COUNT
-                Positioned(
-                  bottom: 40,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Obx(
-                      () => Container(
-                        padding:
-                            const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 16,
-                            ),
-                        decoration: BoxDecoration(
-                          color: Colors.black
-                              .withOpacity(0.5),
-                          borderRadius:
-                              BorderRadius.circular(
-                                20,
-                              ),
-                        ),
-                        child: Text(
-                          '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                          style:
-                              const TextStyle(
-                                color:
-                                    Colors.white,
-                                fontSize: 18,
-                              ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                /// ✅ ADD BUTTON
-                if (controller.isEnable.value)
-                  Positioned(
-                    bottom: 16,
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: _pickFile,
-                      child: Container(
-                        decoration:
-                            BoxDecoration(
-                              color: Colors
-                                  .deepPurple,
-                              shape:
-                                  BoxShape.circle,
-                              border: Border.all(
-                                color:
-                                    Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                        padding:
-                            const EdgeInsets.all(
-                              8,
-                            ),
-                        child: const Icon(
-                          Icons.add,
-                          color:
-                              Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-    ),
-  );
-}),
+                        // ── File viewer ───────────────────────────────────
+                        _buildFileViewer(),
                         const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            if (showIcon)
-                              Container(
-                                padding: const EdgeInsets.all(
-                                  8,
-                                ), // inner padding
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent.withOpacity(
-                                    0.1,
-                                  ), // light background
-                                  borderRadius: BorderRadius.circular(
-                                    12,
-                                  ), // rounded edges
-                                  border: Border.all(
-                                    color: Colors.redAccent.withOpacity(0.4),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.redAccent.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Image.asset(
-                                  'assets/alcohol.png',
-                                  height: 24,
-                                  width: 24,
-                                ),
-                              ),
-                            if (showIcon) SizedBox(width: 10),
-                            Obx(() {
-                              final iconPath = controller.selectedIcon.value;
-                              final showIcon = iconPath.isNotEmpty;
 
-                              return Row(
-                                children: [
-                                  if (showIcon)
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.redAccent.withOpacity(
-                                          0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.redAccent.withOpacity(
-                                            0.4,
-                                          ),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.redAccent.withOpacity(
-                                              0.2,
-                                            ),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: AnimatedOpacity(
-                                        opacity: _isTyping ? 0.0 : 1.0,
-                                        duration: const Duration(
-                                          milliseconds: 250,
-                                        ),
-                                        child: _buildCategoryIcon(iconPath),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            }),
-                            if (controller.isTobacco) const SizedBox(width: 10),
-                            if (controller.isTobacco)
-                              Container(
-                                padding: const EdgeInsets.all(
-                                  8,
-                                ), // inner padding
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent.withOpacity(
-                                    0.1,
-                                  ), // light background
-                                  borderRadius: BorderRadius.circular(
-                                    12,
-                                  ), // rounded edges
-                                  border: Border.all(
-                                    color: Colors.redAccent.withOpacity(0.4),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.redAccent.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Image.asset(
-                                  'assets/Tobacco.jpg',
-                                  height: 24,
-                                  width: 24,
-                                ),
-                              ),
-                            SizedBox(width: 10),
-
-                            if (controller.isDuplicated)
-                              Container(
-                                padding: const EdgeInsets.all(
-                                  8,
-                                ), // inner padding
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent.withOpacity(
-                                    0.1,
-                                  ), // light background
-                                  borderRadius: BorderRadius.circular(
-                                    12,
-                                  ), // rounded edges
-                                  border: Border.all(
-                                    color: Colors.redAccent.withOpacity(0.4),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.redAccent.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Image.asset(
-                                  'assets/duplicateIcons.png',
-                                  height: 24,
-                                  width: 24,
-                                ),
-                              ),
-                          ],
-                        ),
+                        // ── Status badges ─────────────────────────────────
+                        _buildStatusBadges(),
                         const SizedBox(height: 16),
-                        Column(
-                          children: [
-                            Obx(() {
-                              if (controller.isSequenceLoading.value) {
-                                return const SizedBox();
-                              }
 
-                              final hideField = controller.hasModule("Expense");
+                        // ── Receipt details header ─────────────────────────
+                        Text(
+                          AppLocalizations.of(context)!.receiptDetails,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
 
-                              if (hideField) {
-                                return const SizedBox.shrink();
-                              }
+                        // ── Expense ID (sequence) ─────────────────────────
+                        Obx(() {
+                          if (controller.isSequenceLoading.value) {
+                            return const SizedBox();
+                          }
+                          final hideField = controller.hasModule("Expense");
+                          if (hideField) return const SizedBox.shrink();
+                          return _buildTextField(
+                            label:
+                                '${AppLocalizations.of(context)!.expenseId} *',
+                            controller: controller.expenseIdController,
+                            isReadOnly: true,
+                          );
+                        }),
 
-                              return Column(
-                                children: [
-                                  TextFormField(
-                                    controller: controller.expenseIdController,
-                                    decoration: InputDecoration(
-                                      labelText:
-                                          '${AppLocalizations.of(context)!.expenseId} *',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              );
-                            }),
-                            TextFormField(
-                              controller: receiptDateController,
-                              decoration: InputDecoration(
-                                labelText:
-                                    '${AppLocalizations.of(context)!.receiptDate} *',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.calendar_today),
-                                  onPressed: () async {
-                                    final date = await showDatePicker(
-                                      context: context,
-                                      initialDate: DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime.now(),
-                                    );
-                                    if (date != null) {
-                                      receiptDateController.text = DateFormat(
-                                        'yyyy-MM-dd',
-                                      ).format(date);
-                                    }
-                                  },
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return AppLocalizations.of(
-                                    context,
-                                  )!.fieldRequired;
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          '${AppLocalizations.of(context)!.paidTo} *',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: TextButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                controller
-                                                        .isManualEntryMerchant =
-                                                    !controller
-                                                        .isManualEntryMerchant;
-                                                if (controller
-                                                    .isManualEntryMerchant) {
-                                                  controller.selectedPaidto =
-                                                      null;
-                                                } else {
-                                                  controller
-                                                      .manualPaidToController
-                                                      .clear();
-                                                }
-                                              });
-                                            },
-                                            // 🔥 disables the toggle button if not enabled
-                                            child: Text(
-                                              controller.isManualEntryMerchant
-                                                  ? AppLocalizations.of(
-                                                      context,
-                                                    )!.selectFromMerchantList
-                                                  : AppLocalizations.of(
-                                                      context,
-                                                    )!.enterMerchantManually,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                        // ── Receipt date ──────────────────────────────────
+                        _buildDateField(
+                          '${AppLocalizations.of(context)!.receiptDate} *',
+                          receiptDateController,
+                          isReadOnly: false,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return AppLocalizations.of(
+                                context,
+                              )!.fieldRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
 
-                                    const SizedBox(height: 8),
-                                    if (!controller.isManualEntryMerchant) ...[
-                                      SearchableMultiColumnDropdownField<
-                                        MerchantModel
-                                      >(
-                                        labelText: AppLocalizations.of(
-                                          context,
-                                        )!.selectMerchant,
-                                        columnHeaders: [
-                                          AppLocalizations.of(
-                                            context,
-                                          )!.merchantName,
-                                          AppLocalizations.of(
-                                            context,
-                                          )!.merchantId,
-                                        ],
-                                        items: controller.paidTo,
-                                        selectedValue:
-                                            controller.selectedPaidto,
-                                        searchValue: (p) =>
-                                            '${p.merchantNames} ${p.merchantId}',
-                                        displayText: (p) => p.merchantNames,
-                                        validator: (value) {
-                                          print("validator$value");
-                                          if (controller
-                                              .paidToController
-                                              .text
-                                              .isEmpty) {
-                                            return AppLocalizations.of(
-                                              context,
-                                            )!.fieldRequired;
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (p) {
-                                          setState(() {
-                                            controller.selectedPaidto = p;
-                                            controller.paidToController.text =
-                                                p!.merchantNames;
-                                          });
-                                        },
-                                        controller: controller.paidToController,
-                                        rowBuilder: (p, searchQuery) {
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                              horizontal: 16,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(p.merchantNames),
-                                                ),
-                                                Expanded(
-                                                  child: Text(p.merchantId),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ] else
-                                      TextFormField(
-                                        controller:
-                                            controller.manualPaidToController,
-                                        // 🔥 disables text field
-                                        decoration: InputDecoration(
-                                          labelText: AppLocalizations.of(
-                                            context,
-                                          )!.enterMerchantName,
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return AppLocalizations.of(
-                                              context,
-                                            )!.pleaseEnterMerchantName;
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (val) {
-                                          setState(() {});
-                                        },
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-
-                                // if (!_isItemized)
-                                //   SearchableMultiColumnDropdownField<Project>(
-                                //     labelText:
-                                //         '${AppLocalizations.of(context)!.projectName}',
-                                //     columnHeaders: [
-                                //       AppLocalizations.of(context)!.projectName,
-                                //       AppLocalizations.of(context)!.projectName,
-                                //     ],
-                                //     items: controller.project,
-                                //     selectedValue: controller.selectedProject,
-                                //     searchValue: (p) => '${p.name} ${p.code}',
-                                //     displayText: (p) => p.code,
-                                //     validator: (value) {
-                                //       // if (controller
-                                //       //     .projectDropDowncontroller
-                                //       //     .text
-                                //       //     .isEmpty) {
-                                //       //   return AppLocalizations.of(
-                                //       //     context,
-                                //       //   )!.fieldRequired;
-                                //       // }
-                                //       // return null;
-                                //     },
-                                //     onChanged: (p) {
-                                //       setState(() {
-                                //         controller.selectedProject = p;
-                                //       });
-                                //     },
-                                //     controller: controller.projectDropDowncontroller,
-                                //     rowBuilder: (p, searchQuery) {
-                                //       return Padding(
-                                //         padding: const EdgeInsets.symmetric(
-                                //           vertical: 12,
-                                //           horizontal: 16,
-                                //         ),
-                                //         child: Row(
-                                //           children: [
-                                //             Expanded(child: Text(p.name)),
-                                //             Expanded(child: Text(p.code)),
-                                //           ],
-                                //         ),
-                                //       );
-                                //     },
-                                //   ),
-
-                                 if(allowCashAd)
-                        const SizedBox(height: 12),
-                        if(allowCashAd)
+                        // ── Paid To ───────────────────────────────────────
+                        Text(
+                          '${AppLocalizations.of(context)!.paidTo} *',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Obx(
-                              () => Container(
-                                child:
+                            const SizedBox(height: 8),
+                            if (!controller.isManualEntryMerchant)
+                              SearchableMultiColumnDropdownField<MerchantModel>(
+                                labelText: AppLocalizations.of(
+                                  context,
+                                )!.selectMerchant,
+                                columnHeaders: [
+                                  AppLocalizations.of(context)!.merchantName,
+                                  AppLocalizations.of(context)!.merchantId,
+                                ],
+                                items: controller.paidTo,
+                                selectedValue: controller.selectedPaidto,
+                                searchValue: (p) =>
+                                    '${p.merchantNames} ${p.merchantId}',
+                                displayText: (p) => p.merchantNames,
+                                validator: (value) {
+                                  if (controller
+                                      .paidToController
+                                      .text
+                                      .isEmpty) {
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.fieldRequired;
+                                  }
+                                  return null;
+                                },
+                                onChanged: (p) {
+                                  setState(() {
+                                    controller.selectedPaidto = p;
+                                    controller.paidToController.text =
+                                        p!.merchantNames;
+                                  });
+                                },
+                                controller: controller.paidToController,
+                                rowBuilder: (p, searchQuery) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: Text(p.merchantNames)),
+                                        Expanded(child: Text(p.merchantId)),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                            else
+                              TextFormField(
+                                controller: controller.manualPaidToController,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(
+                                    context,
+                                  )!.enterMerchantName,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.pleaseEnterMerchantName;
+                                  }
+                                  return null;
+                                },
+                                onChanged: (val) {
+                                  setState(() {});
+                                },
+                              ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    controller.isManualEntryMerchant =
+                                        !controller.isManualEntryMerchant;
+                                    if (controller.isManualEntryMerchant) {
+                                      controller.selectedPaidto = null;
+                                    } else {
+                                      controller.manualPaidToController.clear();
+                                    }
+                                  });
+                                },
+                                child: Text(
+                                  controller.isManualEntryMerchant
+                                      ? AppLocalizations.of(
+                                          context,
+                                        )!.selectFromMerchantList
+                                      : AppLocalizations.of(
+                                          context,
+                                        )!.enterMerchantManually,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // ── Cash Advance ──────────────────────────────────
+                     
+                        if (allowCashAd)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Obx(
+                                () =>
                                     MultiSelectMultiColumnDropdownField<
                                       CashAdvanceDropDownModel
                                     >(
@@ -1351,7 +1287,7 @@ void _openFile(File file) {
                                         context,
                                       )!.cashAdvanceRequest,
                                       items: controller.cashAdvanceListDropDown,
-                                      isMultiSelect: allowMultSelect ?? false,
+                                      isMultiSelect: allowMultSelect,
                                       dropdownMaxHeight: 300,
                                       selectedValue:
                                           controller.singleSelectedItem,
@@ -1403,818 +1339,783 @@ void _openFile(File file) {
                                       },
                                     ),
                               ),
+                            ],
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // ── Paid With ─────────────────────────────────────
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SearchableMultiColumnDropdownField<
+                              PaymentMethodModel
+                            >(
+                              labelText: AppLocalizations.of(context)!.paidWith,
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.paymentName,
+                                AppLocalizations.of(context)!.paymentId,
+                              ],
+                              items: controller.paymentMethods,
+                              selectedValue: controller.selectedPaidWith,
+                              searchValue: (p) =>
+                                  '${p.paymentMethodName} ${p.paymentMethodId}',
+                              displayText: (p) => p.paymentMethodName,
+                              validator: (value) => null,
+                              onChanged: (p) {
+                                setState(() {
+                                  controller.selectedPaidWith = p;
+                                  controller.paidWithController.text =
+                                      p!.paymentMethodId;
+                                  controller.isReimbursableEnabled.value =
+                                      p.reimbursible;
+                                });
+                              },
+                              controller: controller.paidWithController,
+                              rowBuilder: (p, searchQuery) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(p.paymentMethodName),
+                                      ),
+                                      Expanded(child: Text(p.paymentMethodId)),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        // const SizedBox(height: 8),
+
+                        // ── Config fields (Reference ID, Project, etc.) ───
+                        ...controller.configList
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] != 'Location' &&
+                                  field['FieldName'] != 'Is Billable' &&
+                                  field['FieldName'] != 'Tax Amount' &&
+                                  field['FieldName'] != 'Tax Group' &&
+                                  field['FieldName'] != 'Is Reimbursible' &&
+                                  field['FieldName'] != 'Project Id',
+                            )
+                            .map((field) {
+                              final String label = field['FieldName'];
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
+
+                              Widget inputField;
+
+                              if (label == 'Project Id') {
+                                inputField =
+                                    SearchableMultiColumnDropdownField<Project>(
+                                      enabled: !_isItemized,
+                                      labelText:
+                                          "${AppLocalizations.of(context)!.projectName}${isMandatory ? " *" : ""}",
+                                      columnHeaders: [
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.projectName,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.projectName,
+                                      ],
+                                      items: controller.project,
+                                      selectedValue: controller.selectedProject,
+                                      searchValue: (p) => '${p.name} ${p.code}',
+                                      displayText: (p) => p.code,
+                                      onChanged: (p) {
+                                        setState(() {
+                                          controller.selectedProject = p;
+                                        });
+                                      },
+                                      controller:
+                                          controller.projectDropDowncontroller,
+                                      rowBuilder: (p, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(child: Text(p.name)),
+                                              Expanded(child: Text(p.code)),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
+                              } else if (label == 'Refrence Id') {
+                                inputField = _buildTextField(
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.referenceId,
+                                  controller: referenceController,
+                                  isReadOnly: true,
+                                );
+                              } else {
+                                inputField = TextFormField(
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        "$label${isMandatory ? " *" : ""}",
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 16),
+                                  inputField,
+                                ],
+                              );
+                            })
+                            .toList(),
+                        if (!_isItemized) ...[
+                          ...controller.configList
+                              .where(
+                                (field) =>
+                                    field['IsEnabled'] == true &&
+                                    field['FieldName'] != 'Location' &&
+                                    field['FieldName'] != 'Is Billable' &&
+                                    field['FieldName'] != 'Tax Amount' &&
+                                    field['FieldName'] != 'Tax Group' &&
+                                    field['FieldName'] != 'Is Reimbursible' &&
+                                    field['FieldName'] != 'Refrence Id',
+                              )
+                              .map((field) {
+                                final String label = field['FieldName'];
+                                final bool isMandatory =
+                                    field['IsMandatory'] ?? false;
+
+                                Widget inputField;
+
+                                if (label == 'Project Id') {
+                                  inputField =
+                                      SearchableMultiColumnDropdownField<
+                                        Project
+                                      >(
+                                        enabled: !_isItemized,
+                                        labelText:
+                                            "${AppLocalizations.of(context)!.projectName}${isMandatory ? " *" : ""}",
+                                        columnHeaders: [
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.projectName,
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.projectName,
+                                        ],
+                                        items: controller.project,
+                                        selectedValue:
+                                            controller.selectedProject,
+                                        searchValue: (p) =>
+                                            '${p.name} ${p.code}',
+                                        displayText: (p) => p.code,
+                                        onChanged: (p) {
+                                          setState(() {
+                                            controller.selectedProject = p;
+                                          });
+                                        },
+                                        controller: controller
+                                            .projectDropDowncontroller,
+                                        rowBuilder: (p, searchQuery) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                              horizontal: 16,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(child: Text(p.name)),
+                                                Expanded(child: Text(p.code)),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      );
+                                } else if (label == 'Refrence Id') {
+                                  inputField = _buildTextField(
+                                    label: AppLocalizations.of(
+                                      context,
+                                    )!.referenceId,
+                                    controller: referenceController,
+                                    isReadOnly: true,
+                                  );
+                                } else {
+                                  inputField = TextFormField(
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          "$label${isMandatory ? " *" : ""}",
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 16),
+                                    inputField,
+                                  ],
+                                );
+                              })
+                              .toList(),
+                        ],
+                        // ── Paid For (category) – only when not itemized ──
+                        if (!_isItemized) ...[
+                          const SizedBox(height: 16),
+                          SearchableMultiColumnDropdownField<ExpenseCategory>(
+                            labelText:
+                                '${AppLocalizations.of(context)!.paidFor} *',
+                            columnHeaders: [
+                              AppLocalizations.of(context)!.categoryName,
+                              AppLocalizations.of(context)!.categoryId,
+                            ],
+                            items: controller.expenseCategory,
+                            selectedValue: controller.selectedCategory,
+                            searchValue: (p) =>
+                                '${p.categoryName} ${p.categoryId}',
+                            displayText: (p) => p.categoryId,
+                            validator: (value) {
+                              if (controller.categoryController.text.isEmpty) {
+                                return AppLocalizations.of(
+                                  context,
+                                )!.fieldRequired;
+                              }
+                              return null;
+                            },
+                            onChanged: (p) {
+                              controller.selectedIcon.value = '';
+                              controller.selectedCategory = p;
+                              if (p != null && p.expenseCategoryIcon != null) {
+                                controller.selectedIcon.value =
+                                    p.expenseCategoryIcon!;
+                              }
+                              controller.categoryController.text =
+                                  p?.categoryId ?? '';
+
+                              // ✅ From 2nd code
+                              if (p != null) {
+                                controller.itemisationMandatory.value =
+                                    p.itemisationMandatory;
+                                controller.minExpenseAmount.value =
+                                    (p.minExpensesAmount ?? 0).toDouble();
+                                controller.maxExpenseAmount.value =
+                                    (p.maxExpenseAmount ?? 0).toDouble();
+                                controller.receiptRequiredLimit.value =
+                                    (p.receiptRequiredLimit ?? 0).toDouble();
+                              }
+                            },
+                            controller: controller.categoryController,
+                            rowBuilder: (p, searchQuery) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(p.categoryName)),
+                                    Expanded(child: Text(p.categoryId)),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+
+                        // ── Amount / Currency / Rate row ──────────────────
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                enabled: !_isItemized,
+                                controller: controller.paidAmount,
+                                onChanged: (_) {
+                                  final paid =
+                                      double.tryParse(
+                                        controller.paidAmount.text,
+                                      ) ??
+                                      0.0;
+                                  final rate =
+                                      double.tryParse(
+                                        controller.unitRate.text,
+                                      ) ??
+                                      1.0;
+                                  controller.amountINR.text = (paid * rate)
+                                      .toStringAsFixed(2);
+                                },
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*'),
+                                  ),
+                                ],
+                                decoration: InputDecoration(
+                                  labelText:
+                                      '${AppLocalizations.of(context)!.paidAmount} *',
+                                  border: const OutlineInputBorder(
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(0),
+                                      bottomRight: Radius.circular(0),
+                                      topLeft: Radius.circular(10),
+                                      bottomLeft: Radius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                                onEditingComplete: () {
+                                  final value = double.tryParse(
+                                    controller.paidAmount.text,
+                                  );
+                                  if (value != null) {
+                                    controller.paidAmount.text = value
+                                        .toStringAsFixed(2);
+                                  }
+                                },
+                              ),
+                            ),
+                            Expanded(
+                              child: Obx(
+                                () =>
+                                    SearchableMultiColumnDropdownField<
+                                      Currency
+                                    >(
+                                      alignLeft: -90,
+                                      dropdownWidth: 280,
+                                      labelText: "",
+                                      columnHeaders: [
+                                        AppLocalizations.of(context)!.code,
+                                        AppLocalizations.of(context)!.name,
+                                        AppLocalizations.of(context)!.symbol,
+                                      ],
+                                      items: controller.currencies,
+                                      selectedValue:
+                                          controller.selectedCurrency.value,
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        22,
+                                        2,
+                                        92,
+                                      ),
+                                      searchValue: (c) =>
+                                          '${c.code} ${c.name} ${c.symbol}',
+                                      displayText: (c) => c.code,
+                                      inputDecoration: const InputDecoration(
+                                        suffixIcon: Icon(
+                                          Icons.arrow_drop_down_outlined,
+                                        ),
+                                        filled: true,
+                                        fillColor: Color.fromARGB(
+                                          55,
+                                          5,
+                                          23,
+                                          128,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(0),
+                                            bottomLeft: Radius.circular(0),
+                                            topRight: Radius.circular(10),
+                                            bottomRight: Radius.circular(10),
+                                          ),
+                                        ),
+                                      ),
+                                      validator: (value) {
+                                        if (controller
+                                            .currencyDropDowncontroller
+                                            .text
+                                            .isEmpty) {
+                                          return AppLocalizations.of(
+                                            context,
+                                          )!.fieldRequired;
+                                        }
+                                        return null;
+                                      },
+                                      onChanged: (c) {
+                                        controller.selectedCurrency.value = c;
+                                        controller.fetchExchangeRate();
+                                        controller
+                                                .currencyDropDowncontroller
+                                                .text =
+                                            c!.code;
+                                      },
+                                      controller:
+                                          controller.currencyDropDowncontroller,
+                                      rowBuilder: (c, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(child: Text(c.code)),
+                                              Expanded(child: Text(c.name)),
+                                              Expanded(child: Text(c.symbol)),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: controller.unitRate,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.of(context)!.rate,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.pleaseEnterValidNumber;
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return AppLocalizations.of(
+                                      context,
+                                    )!.pleaseEnterValidNumber;
+                                  }
+                                  return null;
+                                },
+                                onChanged: (val) {
+                                  final paid =
+                                      double.tryParse(
+                                        controller.paidAmount.text,
+                                      ) ??
+                                      0.0;
+                                  final rate = double.tryParse(val) ?? 1.0;
+                                  controller.amountINR.text = (paid * rate)
+                                      .toStringAsFixed(2);
+                                  controller.isVisible.value = true;
+                                },
+                              ),
                             ),
                           ],
                         ),
 
-                                if (!_isItemized) const SizedBox(height: 16),
-                                SearchableMultiColumnDropdownField<
-                                  PaymentMethodModel
-                                >(
-                                  labelText: AppLocalizations.of(
-                                    context,
-                                  )!.paidWith,
-                                  columnHeaders: [
-                                    AppLocalizations.of(context)!.paymentName,
-                                    AppLocalizations.of(context)!.paymentId,
-                                  ],
-                                  items: controller.paymentMethods,
-                                  selectedValue: controller.selectedPaidWith,
-                                  searchValue: (p) =>
-                                      '${p.paymentMethodName} ${p.paymentMethodId}',
-                                  displayText: (p) => p.paymentMethodName,
-                                  validator: (value) {
-                                    return null;
-                                  },
-                                  onChanged: (p) {
-                                    setState(() {
-                                      controller.selectedPaidWith = p;
-                                      controller.paidWithController.text =
-                                          p!.paymentMethodId;
-                                      controller.isReimbursableEnabled.value =
-                                          p.reimbursible;
-                                    });
-                                  },
-                                  controller: controller.paidWithController,
-                                  rowBuilder: (p, searchQuery) {
-                                    return Padding(
+                        // ── Total in INR ──────────────────────────────────
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: controller.amountINR,
+                          enabled: false,
+                          decoration: InputDecoration(
+                            labelText:
+                                '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+
+                        // ── Comments (non-itemized) ───────────────────────
+                        if (!_isItemized) ...[
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            label: AppLocalizations.of(context)!.comments,
+                            controller: descriptionController,
+                            isReadOnly: true,
+                          ),
+                        ],
+
+                        // ── Is Reimbursable (non-itemized) ────────────────
+                        ...controller.configList
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Is Reimbursible' &&
+                                  !_isItemized,
+                            )
+                            .map((field) {
+                              if (!controller.isReimbursableEnabled.value &&
+                                  controller.isReimbursiteCreate.value) {
+                                controller.isReimbursable = false;
+                                controller.isReimbursiteCreate.value = false;
+                              }
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Theme(
+                                    data: Theme.of(context).copyWith(
+                                      switchTheme: SwitchThemeData(
+                                        thumbColor:
+                                            WidgetStateProperty.resolveWith<
+                                              Color?
+                                            >((states) {
+                                              final selected = states.contains(
+                                                WidgetState.selected,
+                                              );
+                                              if (states.contains(
+                                                WidgetState.disabled,
+                                              )) {
+                                                return selected
+                                                    ? Colors.green
+                                                    : null;
+                                              }
+                                              return selected
+                                                  ? Colors.green
+                                                  : null;
+                                            }),
+                                        trackColor:
+                                            WidgetStateProperty.resolveWith<
+                                              Color?
+                                            >((states) {
+                                              final selected = states.contains(
+                                                WidgetState.selected,
+                                              );
+                                              if (states.contains(
+                                                WidgetState.disabled,
+                                              )) {
+                                                return selected
+                                                    ? Colors.green.withOpacity(
+                                                        0.5,
+                                                      )
+                                                    : null;
+                                              }
+                                              return selected
+                                                  ? Colors.green.withOpacity(
+                                                      0.5,
+                                                    )
+                                                  : null;
+                                            }),
+                                      ),
+                                    ),
+                                    child: SwitchListTile(
+                                      title: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.isReimbursable,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      value: controller.isReimbursable,
+                                      onChanged:
+                                          controller.isReimbursableEnabled.value
+                                          ? (val) {
+                                              setState(() {
+                                                controller.isReimbursable = val;
+                                                controller.isReimbursite = val;
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            })
+                            .toList(),
+
+                        // ── Is Billable (non-itemized) ────────────────────
+                        ...controller.configList
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Is Billable' &&
+                                  !_isItemized,
+                            )
+                            .map((field) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Theme(
+                                    data: Theme.of(context).copyWith(
+                                      switchTheme: SwitchThemeData(
+                                        thumbColor:
+                                            MaterialStateProperty.resolveWith<
+                                              Color?
+                                            >((states) {
+                                              if (states.contains(
+                                                MaterialState.disabled,
+                                              )) {
+                                                return controller
+                                                        .isBillableCreate
+                                                    ? Colors.blue
+                                                    : Colors.grey.shade400;
+                                              }
+                                              if (states.contains(
+                                                MaterialState.selected,
+                                              )) {
+                                                return Colors.blue;
+                                              }
+                                              return Colors.grey.shade400;
+                                            }),
+                                        trackColor:
+                                            MaterialStateProperty.resolveWith<
+                                              Color?
+                                            >((states) {
+                                              if (states.contains(
+                                                MaterialState.disabled,
+                                              )) {
+                                                return controller
+                                                        .isBillableCreate
+                                                    ? Colors.blue.withOpacity(
+                                                        0.5,
+                                                      )
+                                                    : Colors.grey.shade300;
+                                              }
+                                              if (states.contains(
+                                                MaterialState.selected,
+                                              )) {
+                                                return Colors.blue.withOpacity(
+                                                  0.5,
+                                                );
+                                              }
+                                              return Colors.grey.shade300;
+                                            }),
+                                      ),
+                                    ),
+                                    child: SwitchListTile(
+                                      title: Text(
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.isBillable,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      value: controller.isBillableCreate,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          controller.isBillableCreate = val;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              );
+                            })
+                            .toList(),
+
+                        // ── Itemize section ───────────────────────────────
+                        const SizedBox(height: 16),
+                        _buildItemizedFields(),
+
+                        // ── Action buttons ────────────────────────────────
+                        const SizedBox(height: 16),
+                        Center(
+                          child: Column(
+                            children: [
+                              // Submit button
+                              Obx(() {
+                                final isSubmitLoading =
+                                    controller.buttonLoaders['submit'] ?? false;
+                                final isAnyLoading = controller
+                                    .buttonLoaders
+                                    .values
+                                    .any((l) => l);
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
-                                        horizontal: 16,
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(p.paymentMethodName),
-                                          ),
-                                          Expanded(
-                                            child: Text(p.paymentMethodId),
-                                          ),
-                                        ],
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                if (!_isItemized)
-                                  SearchableMultiColumnDropdownField<
-                                    ExpenseCategory
-                                  >(
-                                    labelText:
-                                        '${AppLocalizations.of(context)!.paidFor} *',
-                                    columnHeaders: [
-                                      AppLocalizations.of(
-                                        context,
-                                      )!.categoryName,
-                                      AppLocalizations.of(context)!.categoryId,
-                                    ],
-                                    items: controller.expenseCategory,
-                                    selectedValue: controller.selectedCategory,
-                                    searchValue: (p) =>
-                                        '${p.categoryName} ${p.categoryId}',
-                                    displayText: (p) => p.categoryId,
-                                    validator: (value) {
-                                      if (controller
-                                          .categoryController
-                                          .text
-                                          .isEmpty) {
-                                        return AppLocalizations.of(
-                                          context,
-                                        )!.fieldRequired;
-                                      }
-                                      return null;
-                                    },
-                                    onChanged: (p) {
-                                      controller.selectedIcon.value =
-                                          ''; // clear old icon first
-                                      controller.selectedCategory = p;
-
-                                      if (p != null &&
-                                          p.expenseCategoryIcon != null) {
-                                        controller.selectedIcon.value =
-                                            p.expenseCategoryIcon!;
-                                      }
-
-                                      // Optional if you want to set text
-                                      controller.categoryController.text =
-                                          p?.categoryId ?? '';
-                                    },
-
-                                    controller: controller.categoryController,
-                                    rowBuilder: (p, searchQuery) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(p.categoryName),
-                                            ),
-                                            Expanded(child: Text(p.categoryId)),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-
-                                if (!_isItemized) const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        enabled: !_isItemized,
-                                        controller: controller.paidAmount,
-                                        onChanged: (_) {
-                                          // controller.fetchExchangeRate();
-
-                                          final paid =
-                                              double.tryParse(
-                                                controller.paidAmount.text,
-                                              ) ??
-                                              0.0;
-                                          final rate =
-                                              double.tryParse(
-                                                controller.unitRate.text,
-                                              ) ??
-                                              1.0;
-
-                                          final result = paid * rate;
-
-                                          controller.amountINR.text = result
-                                              .toStringAsFixed(2);
-                                        },
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(
-                                            RegExp(r'^\d*\.?\d*'),
-                                          ), // Only digits and dots allowed
-                                        ],
-                                        decoration: InputDecoration(
-                                          labelText:
-                                              '${AppLocalizations.of(context)!.paidAmount} *',
-                                          border: const OutlineInputBorder(
-                                            borderRadius: BorderRadius.only(
-                                              topRight: Radius.circular(0),
-                                              bottomRight: Radius.circular(0),
-                                              topLeft: Radius.circular(10),
-                                              bottomLeft: Radius.circular(10),
-                                            ),
-                                          ),
-                                        ),
-                                        onEditingComplete: () {
-                                          String text =
-                                              controller.paidAmount.text;
-                                          double? value = double.tryParse(text);
-                                          if (value != null) {
-                                            controller.paidAmount.text = value
-                                                .toStringAsFixed(2);
-                                          }
-                                        },
+                                      backgroundColor: const Color.fromARGB(
+                                        255,
+                                        26,
+                                        2,
+                                        110,
                                       ),
                                     ),
-                                    Expanded(
-                                      child: Obx(
-                                        () => SearchableMultiColumnDropdownField<Currency>(
-                                          // enabled: controller.isEnable.value,
-                                          alignLeft: -90,
-                                          dropdownWidth: 280,
-                                          labelText: "",
-                                          columnHeaders: [
-                                            AppLocalizations.of(context)!.code,
-                                            AppLocalizations.of(context)!.name,
+                                    onPressed: (isSubmitLoading || isAnyLoading)
+                                        ? null
+                                        : () {
+                                            if (_formKey.currentState!
+                                                .validate()) {
+                                              controller.setButtonLoading(
+                                                'submit',
+                                                true,
+                                              );
+                                              _submitForm(true).whenComplete(
+                                                () {
+                                                  controller.setButtonLoading(
+                                                    'submit',
+                                                    false,
+                                                  );
+                                                },
+                                              );
+                                            }
+                                          },
+                                    child: isSubmitLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
                                             AppLocalizations.of(
                                               context,
-                                            )!.symbol,
-                                          ],
-                                          items: controller.currencies,
-                                          selectedValue:
-                                              controller.selectedCurrency.value,
-                                          backgroundColor: const Color.fromARGB(
-                                            255,
-                                            22,
-                                            2,
-                                            92,
-                                          ),
-                                          searchValue: (c) =>
-                                              '${c.code} ${c.name} ${c.symbol}',
-                                          displayText: (c) => c.code,
-                                          inputDecoration:
-                                              const InputDecoration(
-                                                suffixIcon: Icon(
-                                                  Icons
-                                                      .arrow_drop_down_outlined,
-                                                ),
-                                                filled: true,
-                                                fillColor: Color.fromARGB(
-                                                  55,
-                                                  5,
-                                                  23,
-                                                  128,
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.only(
-                                                        topLeft:
-                                                            Radius.circular(0),
-                                                        bottomLeft:
-                                                            Radius.circular(0),
-                                                        topRight:
-                                                            Radius.circular(10),
-                                                        bottomRight:
-                                                            Radius.circular(10),
-                                                      ),
-                                                ),
-                                              ),
-                                          validator: (value) {
-                                            if (controller
-                                                .currencyDropDowncontroller
-                                                .text
-                                                .isEmpty) {
-                                              return AppLocalizations.of(
-                                                context,
-                                              )!.fieldRequired;
-                                            }
-                                            return null;
-                                          },
-                                          onChanged: (c) {
-                                            controller.selectedCurrency.value =
-                                                c;
-                                            controller.fetchExchangeRate();
-                                          },
-                                          controller: controller
-                                              .currencyDropDowncontroller,
-                                          rowBuilder: (c, searchQuery) {
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                    horizontal: 16,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(child: Text(c.code)),
-                                                  Expanded(child: Text(c.name)),
-                                                  Expanded(
-                                                    child: Text(c.symbol),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: TextFormField(
-                                        // enabled: controller.isEnable.value,
-                                        controller: controller.unitRate,
-                                        decoration: InputDecoration(
-                                          labelText: AppLocalizations.of(
-                                            context,
-                                          )!.rate,
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                            )!.submit,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
                                             ),
                                           ),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return AppLocalizations.of(
-                                              context,
-                                            )!.pleaseEnterValidNumber;
-                                          }
-                                          if (double.tryParse(value) == null) {
-                                            return AppLocalizations.of(
-                                              context,
-                                            )!.pleaseEnterValidNumber;
-                                          }
-                                          return null;
-                                        },
-                                        onChanged: (val) {
-                                          // Fetch exchange rate if needed
-                                          // controller.fetchExchangeRate();
-
-                                          final paid =
-                                              double.tryParse(
-                                                controller.paidAmount.text,
-                                              ) ??
-                                              0.0;
-                                          final rate =
-                                              double.tryParse(val) ?? 1.0;
-
-                                          // ✅ Perform calculation
-                                          final result = paid * rate;
-
-                                          controller.amountINR.text = result
-                                              .toStringAsFixed(2);
-                                          controller.isVisible.value = true;
-
-                                          print("Paid Amount: $paid");
-                                          print("Rate: $rate");
-                                          print(
-                                            "Calculated INR Amount: ${controller.amountINR.text}",
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (!_isItemized) const SizedBox(height: 16),
-                                if (!_isItemized)
-                                  TextFormField(
-                                    controller: descriptionController,
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(
-                                        context,
-                                      )!.comments,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 20,
-                                            horizontal: 16,
-                                          ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
                                   ),
-                                ...controller.configList
-                                    .where(
-                                      (field) =>
-                                          field['IsEnabled'] == true &&
-                                          field['FieldName'] != 'Location' &&
-                                          field['FieldName'] != 'Is Billable' &&
-                                          field['FieldName'] !=
-                                              'Is Reimbursible',
-                                    )
-                                    .map((field) {
-                                      final String label = field['FieldName'];
-                                      final bool isMandatory =
-                                          field['IsMandatory'] ?? false;
+                                );
+                              }),
+                              const SizedBox(height: 12),
 
-                                      Widget inputField;
-
-                                      /// 🔹 PROJECT
-                                      if (label == 'Project Id') {
-                                        inputField =
-                                            SearchableMultiColumnDropdownField<
-                                              Project
-                                            >(
-                                              enabled: !_isItemized,
-                                              labelText:
-                                                  "${AppLocalizations.of(context)!.projectName}${isMandatory ? " *" : ""}",
-                                              columnHeaders: [
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.projectName,
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.projectName,
-                                              ],
-                                              items: controller.project,
-                                              selectedValue:
-                                                  controller.selectedProject,
-                                              searchValue: (p) =>
-                                                  '${p.name} ${p.code}',
-                                              displayText: (p) => p.code,
-                                              onChanged: (p) {
-                                                setState(() {
-                                                  controller.selectedProject =
-                                                      p;
-                                                });
-                                              },
-                                              controller: controller
-                                                  .projectDropDowncontroller,
-                                              rowBuilder: (p, searchQuery) {
-                                                return Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16,
-                                                      ),
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(p.name),
-                                                      ),
-                                                      Expanded(
-                                                        child: Text(p.code),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                      }
-                                      /// 🔹 TAX GROUP
-                                      else if (!_isItemized &&
-                                          label == 'Tax Group') {
-                                        inputField =
-                                            SearchableMultiColumnDropdownField<
-                                              TaxGroupModel
-                                            >(
-                                              labelText:
-                                                  "${AppLocalizations.of(context)!.taxGroup}${isMandatory ? " *" : ""}",
-                                              columnHeaders: [
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.taxGroup,
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.taxId,
-                                              ],
-                                              items: controller.taxGroup,
-                                              selectedValue:
-                                                  controller.selectedTax,
-                                              searchValue: (tax) =>
-                                                  '${tax.taxGroup} ${tax.taxGroupId}',
-                                              displayText: (tax) =>
-                                                  tax.taxGroupId,
-                                              onChanged: (tax) {
-                                                setState(() {
-                                                  controller.selectedTax = tax;
-                                                });
-                                              },
-                                              rowBuilder: (tax, searchQuery) {
-                                                return Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16,
-                                                      ),
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          tax.taxGroup,
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        child: Text(
-                                                          tax.taxGroupId,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                      }
-                                      /// 🔹 TAX AMOUNT
-                                      else if (!_isItemized &&
-                                          label == 'Tax Amount') {
-                                        inputField = TextFormField(
-                                          controller: taxAmountController,
-                                          keyboardType: TextInputType.number,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter.allow(
-                                              RegExp(r'^\d*\.?\d{0,2}'),
-                                            ),
-                                          ],
-                                          decoration: InputDecoration(
-                                            labelText:
-                                                "${AppLocalizations.of(context)!.taxAmount}${isMandatory ? " *" : ""}",
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      /// 🔹 REFERENCE ID
-                                      else if (label == 'Refrence Id') {
-                                        inputField = TextFormField(
-                                          controller: referenceController,
-                                          decoration: InputDecoration(
-                                            labelText: AppLocalizations.of(
-                                              context,
-                                            )!.referenceId,
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      /// 🔹 IS REIMBURSABLE
-                                      /// 🔹 DEFAULT FIELD
-                                      else {
-                                        inputField = TextFormField(
-                                          decoration: InputDecoration(
-                                            labelText:
-                                                "$label${isMandatory ? " *" : ""}",
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                        );
-                                      }
-
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 12),
-                                          inputField,
-                                        ],
-                                      );
-                                    })
-                                    .toList(),
-                                ...controller.configList
-                                    .where(
-                                      (field) =>
-                                          field['IsEnabled'] == true &&
-                                          field['FieldName'] ==
-                                              'Is Reimbursible' &&
-                                          !_isItemized,
-                                    )
-                                    .map((field) {
-                                      if (!controller
-                                              .isReimbursableEnabled
-                                              .value &&
-                                          controller
-                                              .isReimbursiteCreate
-                                              .value) {
-                                        controller.isReimbursable = false;
-                                        controller.isReimbursiteCreate.value =
-                                            false;
-                                      }
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 8),
-
-                                          Theme(
-                                            data: Theme.of(context).copyWith(
-                                              switchTheme: SwitchThemeData(
-                                                thumbColor:
-                                                    WidgetStateProperty.resolveWith<
-                                                      Color?
-                                                    >((states) {
-                                                      final selected = states
-                                                          .contains(
-                                                            WidgetState
-                                                                .selected,
-                                                          );
-                                                      if (states.contains(
-                                                        WidgetState.disabled,
-                                                      )) {
-                                                        return selected
-                                                            ? Colors.green
-                                                            : null;
-                                                      }
-                                                      return selected
-                                                          ? Colors.green
-                                                          : null;
-                                                    }),
-                                                trackColor:
-                                                    WidgetStateProperty.resolveWith<
-                                                      Color?
-                                                    >((states) {
-                                                      final selected = states
-                                                          .contains(
-                                                            WidgetState
-                                                                .selected,
-                                                          );
-                                                      if (states.contains(
-                                                        WidgetState.disabled,
-                                                      )) {
-                                                        return selected
-                                                            ? Colors.green
-                                                                  .withOpacity(
-                                                                    0.5,
-                                                                  )
-                                                            : null;
-                                                      }
-                                                      return selected
-                                                          ? Colors.green
-                                                                .withOpacity(
-                                                                  0.5,
-                                                                )
-                                                          : null;
-                                                    }),
-                                              ),
-                                            ),
-                                            child: SwitchListTile(
-                                              title: Text(
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.isReimbursable,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              value: controller.isReimbursable,
-                                              onChanged:
-                                                  controller
-                                                      .isReimbursableEnabled
-                                                      .value
-                                                  ? (val) {
-                                                      setState(() {
-                                                        controller
-                                                                .isReimbursable =
-                                                            val;
-                                                        controller
-                                                                .isReimbursite =
-                                                            val;
-                                                      });
-                                                    }
-                                                  : null,
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    })
-                                    .toList(),
-
-                                ...controller.configList
-                                    .where(
-                                      (field) =>
-                                          field['IsEnabled'] == true &&
-                                          field['FieldName'] == 'Is Billable' &&
-                                          !_isItemized,
-                                    )
-                                    .map((field) {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 8),
-
-                                          Theme(
-                                            data: Theme.of(context).copyWith(
-                                              switchTheme: SwitchThemeData(
-                                                thumbColor:
-                                                    MaterialStateProperty.resolveWith<
-                                                      Color?
-                                                    >((states) {
-                                                      if (states.contains(
-                                                        MaterialState.disabled,
-                                                      )) {
-                                                        return controller
-                                                                .isBillableCreate
-                                                            ? Colors.blue
-                                                            : Colors
-                                                                  .grey
-                                                                  .shade400;
-                                                      }
-                                                      if (states.contains(
-                                                        MaterialState.selected,
-                                                      )) {
-                                                        return Colors.blue;
-                                                      }
-                                                      return Colors
-                                                          .grey
-                                                          .shade400;
-                                                    }),
-                                                trackColor:
-                                                    MaterialStateProperty.resolveWith<
-                                                      Color?
-                                                    >((states) {
-                                                      if (states.contains(
-                                                        MaterialState.disabled,
-                                                      )) {
-                                                        return controller
-                                                                .isBillableCreate
-                                                            ? Colors.blue
-                                                                  .withOpacity(
-                                                                    0.5,
-                                                                  )
-                                                            : Colors
-                                                                  .grey
-                                                                  .shade300;
-                                                      }
-                                                      if (states.contains(
-                                                        MaterialState.selected,
-                                                      )) {
-                                                        return Colors.blue
-                                                            .withOpacity(0.5);
-                                                      }
-                                                      return Colors
-                                                          .grey
-                                                          .shade300;
-                                                    }),
-                                              ),
-                                            ),
-                                            child: SwitchListTile(
-                                              title: Text(
-                                                AppLocalizations.of(
-                                                  context,
-                                                )!.isBillable,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              value:
-                                                  controller.isBillableCreate,
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  controller.isBillableCreate =
-                                                      val;
-                                                  controller.isBillableCreate =
-                                                      val;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    })
-                                    .toList(),
-                              ],
-                            ),
-                            _buildItemizedFields(),
-
-                            const SizedBox(height: 16),
-                            Center(
-                              child: Column(
+                              // Save + Cancel row
+                              Row(
                                 children: [
                                   Obx(() {
+                                    final isSaveLoading =
+                                        controller.buttonLoaders['saveGE'] ??
+                                        false;
                                     final isSubmitLoading =
                                         controller.buttonLoaders['submit'] ??
                                         false;
                                     final isAnyLoading = controller
                                         .buttonLoaders
                                         .values
-                                        .any((loading) => loading);
-
-                                    return SizedBox(
-                                      width: double.infinity,
+                                        .any((l) => l);
+                                    return Expanded(
                                       child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          backgroundColor: const Color.fromARGB(
-                                            255,
-                                            26,
-                                            2,
-                                            110,
-                                          ),
-                                        ),
                                         onPressed:
-                                            (isSubmitLoading || isAnyLoading)
+                                            (isSaveLoading ||
+                                                isSubmitLoading ||
+                                                isAnyLoading)
                                             ? null
                                             : () {
                                                 if (_formKey.currentState!
                                                     .validate()) {
                                                   controller.setButtonLoading(
-                                                    'submit',
+                                                    'saveGE',
                                                     true,
                                                   );
-                                                  // controller.addToFinalItems(
-                                                  //   widget.items!,
-                                                  // );
-                                                  //   if (widget.items.unprocessedRecId !=
-                                                  //       null) {
-                                                  //     controller
-                                                  //         .saveinviewPageGeneralExpenseUnProcess(
-                                                  //           context,
-                                                  //           true,
-                                                  //           true,
-                                                  //           widget
-                                                  //               .items!
-                                                  //               .unprocessedRecId!,
-                                                  //         )
-                                                  //         .whenComplete(() {
-                                                  //           controller.setButtonLoading(
-                                                  //             'submit',
-                                                  //             false,
-                                                  //           );
-                                                  //           controller.setButtonLoading(
-                                                  //             'saveGE',
-                                                  //             false,
-                                                  //           );
-                                                  //         });
-                                                  //   } else {
-                                                  //      controller
-                                                  //     .addToFinalItems(widget.items!);
-                                                  // controller
-                                                  //     .saveinviewPageGeneralExpense(
-                                                  //         context,
-                                                  //         true,
-                                                  //         false,
-                                                  //         widget.items!.recId!)
-                                                  //     .whenComplete(() {
-                                                  //   controller.setButtonLoading(
-                                                  //       'submit', false);
-                                                  // });
-
-                                                  //     }
                                                   _submitForm(
-                                                    true,
+                                                    false,
                                                   ).whenComplete(() {
                                                     controller.setButtonLoading(
                                                       'submit',
@@ -2223,7 +2124,12 @@ void _openFile(File file) {
                                                   });
                                                 }
                                               },
-                                        child: isSubmitLoading
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF1E7503,
+                                          ),
+                                        ),
+                                        child: isSaveLoading
                                             ? const SizedBox(
                                                 height: 20,
                                                 width: 20,
@@ -2236,200 +2142,45 @@ void _openFile(File file) {
                                             : Text(
                                                 AppLocalizations.of(
                                                   context,
-                                                )!.submit,
+                                                )!.save,
                                                 style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                 ),
                                               ),
                                       ),
                                     );
                                   }),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      // 🟢 Save Button
-                                      Obx(() {
-                                        final isSaveLoading =
-                                            controller
-                                                .buttonLoaders['saveGE'] ??
-                                            false;
-                                        final isSubmitLoading =
-                                            controller
-                                                .buttonLoaders['submit'] ??
-                                            false;
-                                        final isAnyLoading = controller
-                                            .buttonLoaders
-                                            .values
-                                            .any((loading) => loading);
-
-                                        return Expanded(
-                                          child: ElevatedButton(
-                                            onPressed:
-                                                (isSaveLoading ||
-                                                    isSubmitLoading ||
-                                                    isAnyLoading)
-                                                ? null
-                                                : () {
-                                                    if (_formKey.currentState!
-                                                        .validate()) {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'saveGE',
-                                                            true,
-                                                          );
-                                                      //       controller.addToFinalItems(
-                                                      //         widget.items,
-                                                      //       );
-                                                      //       if (widget
-                                                      //               .items
-                                                      //               .unprocessedRecId !=
-                                                      //           null) {
-                                                      //         controller
-                                                      //             .saveinviewPageGeneralExpenseUnProcess(
-                                                      //               context,
-                                                      //               true,
-                                                      //               true,
-                                                      //               widget
-                                                      //                   .items!
-                                                      //                   .unprocessedRecId!,
-                                                      //             )
-                                                      //             .whenComplete(() {
-                                                      //               controller
-                                                      //                   .setButtonLoading(
-                                                      //                     'submit',
-                                                      //                     false,
-                                                      //                   );
-                                                      //               controller
-                                                      //                   .setButtonLoading(
-                                                      //                     'saveGE',
-                                                      //                     false,
-                                                      //                   );
-                                                      //             });
-                                                      //       } else {
-                                                      //         controller.addToFinalItems(
-                                                      //         widget.items,
-                                                      //       );
-                                                      //       if (widget
-                                                      //               .items
-                                                      //               .unprocessedRecId !=
-                                                      //           null) {
-                                                      //         controller
-                                                      //             .saveinviewPageGeneralExpenseUnProcess(
-                                                      //               context,
-                                                      //               true,
-                                                      //               true,
-                                                      //               widget
-                                                      //                   .items!
-                                                      //                   .unprocessedRecId!,
-                                                      //             )
-                                                      //             .whenComplete(() {
-                                                      //               controller
-                                                      //                   .setButtonLoading(
-                                                      //                     'submit',
-                                                      //                     false,
-                                                      //                   );
-                                                      //               controller
-                                                      //                   .setButtonLoading(
-                                                      //                     'saveGE',
-                                                      //                     false,
-                                                      //                   );
-                                                      //             });
-                                                      //       } else {
-                                                      //          controller
-                                                      //     .addToFinalItems(widget.items!);
-                                                      // controller
-                                                      //     .saveinviewPageGeneralExpense(
-                                                      //         context,
-                                                      //         false,
-                                                      //         false,
-                                                      //         widget.items!.recId!)
-                                                      //     .whenComplete(() {
-                                                      //   controller.setButtonLoading(
-                                                      //       'submit', false);
-                                                      // });
-                                                      //       }
-                                                      // }
-
-                                                      _submitForm(
-                                                        false,
-                                                      ).whenComplete(() {
-                                                        controller
-                                                            .setButtonLoading(
-                                                              'submit',
-                                                              false,
-                                                            );
-                                                      });
-                                                    }
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(
-                                                0xFF1E7503,
-                                              ), // Green button
-                                            ),
-                                            child: isSaveLoading
-                                                ? const SizedBox(
-                                                    height: 20,
-                                                    width: 20,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          color: Colors.white,
-                                                          strokeWidth: 2,
-                                                        ),
-                                                  )
-                                                : Text(
-                                                    AppLocalizations.of(
-                                                      context,
-                                                    )!.save,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                          ),
-                                        );
-                                      }),
-                                      const SizedBox(width: 12),
-
-                                      // 🟠 Cancel Button
-                                      Obx(() {
-                                        final isAnyLoading = controller
-                                            .buttonLoaders
-                                            .values
-                                            .any((loading) => loading);
-
-                                        return Expanded(
-                                          child: ElevatedButton(
-                                            onPressed: isAnyLoading
-                                                ? null
-                                                : () {
-                                                    controller.chancelButton(
-                                                      context,
-                                                    );
-                                                    controller.closeField();
-                                                  },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.grey,
-                                            ),
-                                            child: Text(
-                                              AppLocalizations.of(
-                                                context,
-                                              )!.cancel,
-                                            ),
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                                  // Add space before Submit button
-
-                                  // 🟣 Submit Button
+                                  const SizedBox(width: 12),
+                                  Obx(() {
+                                    final isAnyLoading = controller
+                                        .buttonLoaders
+                                        .values
+                                        .any((l) => l);
+                                    return Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: isAnyLoading
+                                            ? null
+                                            : () {
+                                                controller.chancelButton(
+                                                  context,
+                                                );
+                                                controller.closeField();
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.grey,
+                                        ),
+                                        child: Text(
+                                          AppLocalizations.of(context)!.cancel,
+                                        ),
+                                      ),
+                                    );
+                                  }),
                                 ],
                               ),
-                            ),
-
-                            const SizedBox(height: 26),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(height: 26),
                       ],
                     ),
                   ),
@@ -2459,8 +2210,6 @@ void _openFile(File file) {
                   color: Colors.deepPurple,
                 ),
               ),
-              // backgroundColor: Colors.white,
-              // collapsedBackgroundColor: Colors.white,
               textColor: Colors.deepPurple,
               iconColor: Colors.deepPurple,
               collapsedIconColor: Colors.grey,
@@ -2487,27 +2236,21 @@ void _openFile(File file) {
                     final theme = Theme.of(context);
                     final loc = AppLocalizations.of(context)!;
 
-                    // While waiting for API → show nothing (or a small placeholder if needed)
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SizedBox.shrink();
                     }
-
-                    if (!snapshot.hasData) {
-                      return const SizedBox.shrink();
-                    }
+                    if (!snapshot.hasData) return const SizedBox.shrink();
 
                     final featureStates = snapshot.data!;
                     final isEnabled =
                         featureStates['EnableItemization'] ?? false;
-                    print("featureStates$isEnabled");
-                    // ❌ Hide button completely if feature disabled
+
                     if (!isEnabled) return const SizedBox.shrink();
 
-                    // ✅ Show button only when feature is enabled
                     return OutlinedButton.icon(
-                      onPressed: () => {
-                        _addItemizeSection(),
-                        _isItemized = true,
+                      onPressed: () {
+                        _addItemizeSection();
+                        _isItemized = true;
                       },
                       style: OutlinedButton.styleFrom(
                         backgroundColor: theme.colorScheme.onPrimary,
@@ -2543,6 +2286,10 @@ void _openFile(File file) {
     }
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ItemizeSection
+// ════════════════════════════════════════════════════════════════════════════════
 
 class ItemizeSection {
   int index;
@@ -2595,9 +2342,18 @@ class ItemizeSection {
       );
       controller.selectedCategory = matchingCategory;
       categoryController.text = matchingCategory.categoryId;
+
+      // ✅ From 2nd code
+      controller.itemisationMandatory.value =
+          matchingCategory.itemisationMandatory;
+      controller.minExpenseAmount.value =
+          (matchingCategory.minExpensesAmount ?? 0).toDouble();
+      controller.maxExpenseAmount.value =
+          (matchingCategory.maxExpenseAmount ?? 0).toDouble();
+      controller.receiptRequiredLimit.value =
+          (matchingCategory.receiptRequiredLimit ?? 0).toDouble();
     }
 
-    // categoryController.text = category ?? '';
     descriptionController.text = description ?? '';
     quantityController.text = quantity ?? '1';
     unitPriceController.text = unitPrice ?? '0';
@@ -2615,27 +2371,11 @@ class ItemizeSection {
     double unitPrice = double.tryParse(unitPriceController.text) ?? 0;
     lineAmountController.text = (qty * unitPrice).toStringAsFixed(2);
 
-    // Calculate line amount in INR
     double rate = double.tryParse(controller.unitRate.text) ?? 1.0;
     lineAmountINRController.text = (qty * unitPrice * rate).toStringAsFixed(2);
 
-    // Update the total amount in parent
     updateTotalAmount();
   }
-
-  // void dispose() {
-  //   quantityController.removeListener(_updateLineAmount);
-  //   unitPriceController.removeListener(_updateLineAmount);
-  //   categoryController.dispose();
-  //   descriptionController.dispose();
-  //   quantityController.dispose();
-  //   unitPriceController.dispose();
-  //   uomIdController.dispose();
-  //   taxAmountController.dispose();
-  //   commentsController.dispose();
-  //   lineAmountController.dispose();
-  //   lineAmountINRController.dispose();
-  // }
 
   Widget build(
     BuildContext context,
@@ -2653,6 +2393,7 @@ class ItemizeSection {
         child: ExpansionTile(
           title: Text('${AppLocalizations.of(context)!.item} $index'),
           children: [
+            // ── Header row with delete / add ──────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -2662,17 +2403,14 @@ class ItemizeSection {
                     onPressed: removeItemizeSection,
                     tooltip: 'Remove this item',
                   ),
-                // IconButton(
-                //   icon: const Icon(Icons.add, color: Colors.green),
-                //   onPressed: addItemizeSection,
-                //   tooltip: 'Add new item',
-                // ),
               ],
             ),
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // ── Category ────────────────────────────────────────
                   SearchableMultiColumnDropdownField<ExpenseCategory>(
                     labelText: '${AppLocalizations.of(context)!.paidFor} *',
                     columnHeaders: [
@@ -2692,8 +2430,17 @@ class ItemizeSection {
                     onChanged: (p) {
                       controller.selectedIcon.value = "";
                       controller.selectedCategory = p;
-                      // controller.selectedIcon.value = p!.expenseCategoryIcon!;
                       categoryController.text = p!.categoryId;
+
+                      // ✅ From 2nd code
+                      controller.itemisationMandatory.value =
+                          p.itemisationMandatory;
+                      controller.minExpenseAmount.value =
+                          (p.minExpensesAmount ?? 0).toDouble();
+                      controller.maxExpenseAmount.value =
+                          (p.maxExpenseAmount ?? 0).toDouble();
+                      controller.receiptRequiredLimit.value =
+                          (p.receiptRequiredLimit ?? 0).toDouble();
                     },
                     controller: categoryController,
                     rowBuilder: (p, searchQuery) {
@@ -2712,6 +2459,8 @@ class ItemizeSection {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Unit ────────────────────────────────────────────
                   SearchableMultiColumnDropdownField<Unit>(
                     labelText: '${AppLocalizations.of(context)!.unit} *',
                     columnHeaders: [
@@ -2746,6 +2495,8 @@ class ItemizeSection {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Description / Comments ───────────────────────────
                   TextFormField(
                     controller: descriptionController,
                     decoration: InputDecoration(
@@ -2761,6 +2512,8 @@ class ItemizeSection {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Config fields inside itemize ─────────────────────
                   ...controller.configList
                       .where(
                         (field) =>
@@ -2776,7 +2529,6 @@ class ItemizeSection {
 
                         Widget inputField;
 
-                        /// 🔹 PROJECT
                         if (label == 'Project Id') {
                           inputField = SearchableMultiColumnDropdownField<Project>(
                             labelText:
@@ -2822,9 +2574,7 @@ class ItemizeSection {
                               );
                             },
                           );
-                        }
-                        /// 🔹 TAX GROUP
-                        else if (label == 'Tax Group') {
+                        } else if (label == 'Tax Group') {
                           inputField =
                               SearchableMultiColumnDropdownField<TaxGroupModel>(
                                 labelText:
@@ -2838,12 +2588,6 @@ class ItemizeSection {
                                 searchValue: (tax) =>
                                     '${tax.taxGroup} ${tax.taxGroupId}',
                                 displayText: (tax) => tax.taxGroupId,
-                                // validator: (value) {
-                                //   if (controller.selectedTax == null) {
-                                //     return AppLocalizations.of(context)!.fieldRequired;
-                                //   }
-                                //   return null;
-                                // },
                                 onChanged: (tax) {
                                   controller.selectedTax = tax;
                                 },
@@ -2862,9 +2606,7 @@ class ItemizeSection {
                                   );
                                 },
                               );
-                        }
-                        /// 🔹 TAX AMOUNT
-                        else if (label == 'Tax Amount') {
+                        } else if (label == 'Tax Amount') {
                           inputField = TextFormField(
                             controller: taxAmountController,
                             keyboardType: TextInputType.number,
@@ -2899,44 +2641,9 @@ class ItemizeSection {
                       })
                       .toList(),
 
-                  // SearchableMultiColumnDropdownField<Project>(
-                  //   labelText: '${AppLocalizations.of(context)!.projectId} *',
-                  //   columnHeaders: [
-                  //     AppLocalizations.of(context)!.projectName,
-                  //     AppLocalizations.of(context)!.projectId,
-                  //   ],
-                  //   items: controller.project,
-                  //   selectedValue: controller.selectedProject,
-                  //   searchValue: (p) => '${p.name} ${p.code}',
-                  //   displayText: (p) => p.code,
-                  //   validator: (value) {
-                  //     if (controller.projectDropDowncontroller.text.isEmpty) {
-                  //       return AppLocalizations.of(context)!.fieldRequired;
-                  //     }
-                  //     return null;
-                  //   },
-                  //   onChanged: (p) {
-                  //     controller.selectedProject = p;
-                  //     controller.projectDropDowncontroller.text = p!.code;
-                  //   },
-                  //   controller: controller.projectDropDowncontroller,
-                  //   rowBuilder: (p, searchQuery) {
-                  //     return Padding(
-                  //       padding: const EdgeInsets.symmetric(
-                  //         vertical: 12,
-                  //         horizontal: 16,
-                  //       ),
-                  //       child: Row(
-                  //         children: [
-                  //           Expanded(child: Text(p.name)),
-                  //           Expanded(child: Text(p.code)),
-                  //         ],
-                  //       ),
-                  //     );
-                  //   },
-                  // ),
                   const SizedBox(height: 16),
 
+                  // ── Unit price + Quantity ────────────────────────────
                   Row(
                     children: [
                       Expanded(
@@ -2957,7 +2664,7 @@ class ItemizeSection {
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'^\d*\.?\d{0,2}'),
-                            ), // Allows numbers with up to 2 decimal places
+                            ),
                           ],
                           onChanged: (value) {
                             final qty =
@@ -2965,10 +2672,9 @@ class ItemizeSection {
                             final unit =
                                 double.tryParse(unitPriceController.text) ??
                                 0.0;
-                            final calculatedLineAmount = qty * unit;
-                            lineAmountController.text = calculatedLineAmount
+                            lineAmountController.text = (qty * unit)
                                 .toStringAsFixed(2);
-                            var finalValueCount = controllerItems
+                            controllerItems
                                 .getTotalLineAmount()
                                 .toStringAsFixed(2);
                             updateTotalAmount();
@@ -3007,7 +2713,7 @@ class ItemizeSection {
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'^\d*\.?\d{0,2}'),
-                            ), // Allows numbers with up to 2 decimal places
+                            ),
                           ],
                           onChanged: (value) {
                             updateTotalAmount();
@@ -3028,6 +2734,8 @@ class ItemizeSection {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Line amount row ──────────────────────────────────
                   Row(
                     children: [
                       Expanded(
@@ -3053,9 +2761,8 @@ class ItemizeSection {
                           controller: lineAmountINRController,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: AppLocalizations.of(
-                              context,
-                            )!.lineAmountInInr,
+                            labelText:
+                                '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 20,
                               horizontal: 16,
@@ -3071,6 +2778,8 @@ class ItemizeSection {
                   ),
 
                   const SizedBox(height: 24),
+
+                  // ── Is Reimbursable ──────────────────────────────────
                   ...controller.configList
                       .where(
                         (field) =>
@@ -3087,7 +2796,6 @@ class ItemizeSection {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 8),
-
                             Theme(
                               data: Theme.of(context).copyWith(
                                 switchTheme: SwitchThemeData(
@@ -3146,6 +2854,8 @@ class ItemizeSection {
                         );
                       })
                       .toList(),
+
+                  // ── Is Billable ──────────────────────────────────────
                   ...controller.configList
                       .where(
                         (field) =>
@@ -3157,7 +2867,6 @@ class ItemizeSection {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 8),
-
                             Theme(
                               data: Theme.of(context).copyWith(
                                 switchTheme: SwitchThemeData(
@@ -3224,6 +2933,7 @@ class ItemizeSection {
               ),
             ),
 
+            // ── Account Distribution ───────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -3277,1898 +2987,3 @@ class ItemizeSection {
     );
   }
 }
-
-// import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
-// import 'package:diginexa/core/comman/widgets/button.dart';
-// import 'package:diginexa/core/comman/widgets/searchDropown.dart';
-// import 'package:diginexa/data/models.dart';
-// import 'package:diginexa/data/service.dart';
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-// import 'package:get/get_core/src/get_main.dart';
-// import 'dart:io';
-// import 'package:intl/intl.dart';
-
-// class AutoScanExpensePage extends StatefulWidget {
-//   final File imageFile;
-//   final Map<String, dynamic> apiResponse;
-
-//   const AutoScanExpensePage({
-//     Key? key,
-//     required this.imageFile,
-//     required this.apiResponse,
-//   }) : super(key: key);
-
-//   @override
-//   State<AutoScanExpensePage> createState() => _AutoScanExpensePageState();
-// }
-
-// class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
-//   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-//   late List<Map<String, dynamic>> expenseTrans;
-//   final controller = Get.put(Controller());
-//    final controllerItems = Get.put(Controller());
-//   bool _isItemized = false;
-//   bool _isReimbursable = true;
-//   bool _isBillable = false;
-
-//   // Main form controllers
-//   final TextEditingController receiptDateController = TextEditingController();
-//   final TextEditingController merchantController = TextEditingController();
-//   final TextEditingController referenceController = TextEditingController();
-//   // final TextEditingController controller.paidAmount = TextEditingController();
-//   final TextEditingController taxAmountController = TextEditingController();
-//   final TextEditingController descriptionController = TextEditingController();
-//   final TextEditingController paymentMethodController = TextEditingController();
-//   final TextEditingController currencyController = TextEditingController();
-//   final TextEditingController cashAdvanceController = TextEditingController();
-//   final TextEditingController commentsController = TextEditingController();
-//   final TextEditingController totalInINRController = TextEditingController();
-
-//   // Itemize sections
-//   final List<ItemizeSection> itemizeSections = [];
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     controller.configuration();
-//     controller.selectedDate ??= DateTime.now();
-//     controller.fetchPaidto();
-//     controller.fetchPaidwith();
-//     controller.fetchProjectName();
-//     controller.fetchTaxGroup();
-//     controller.fetchUnit();
-
-//     controller.getUserPref(context);
-//     controller.fetchExpenseCategory();
-//     controller.configuration();
-//     controller.fetchPaidwith();
-//     _initializeUnits();
-//     WidgetsBinding.instance.addPostFrameCallback((_) async {
-//       await controller.fetchExchangeRate();
-//       controller.currencyDropDown();
-//       // ✅ Only after exchange rate is fetched
-//       print("Now continue with other logic...");
-//     });
-//     expenseTrans = List<Map<String, dynamic>>.from(
-//         widget.apiResponse['ExpenseTrans'] ?? []);
-//     _isItemized = expenseTrans.length > 1 ||
-//         (expenseTrans.isNotEmpty && expenseTrans[0]['Description'] != null);
-//     _initializeFormFromApiResponse();
-//   }
-
-//   Future<void> _initializeUnits() async {
-//     await controller.fetchUnit();
-
-//     final defaultUnit = controller.unit.firstWhere(
-//       (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
-//       orElse: () => controller.unit.first,
-//     );
-
-//     setState(() {
-//       controller.selectedunit ??= defaultUnit;
-//       controller.selectedunit ??= defaultUnit;
-//     });
-//   }
-
-//   void _initializeFormFromApiResponse() {
-//     // Parse receipt date (timestamp in milliseconds)
-//     final date = DateTime.fromMillisecondsSinceEpoch(
-//         widget.apiResponse['ReceiptDate'] ?? 0);
-//     receiptDateController.text = DateFormat('yyyy-MM-dd').format(date);
-//     controller.selectedDate = date;
-//     // Map main fields
-//     merchantController.text = widget.apiResponse['Merchant'] ?? '';
-//     referenceController.text = widget.apiResponse['ReferenceNumber'] ?? '';
-//     controller.paidAmount.text =
-//         (widget.apiResponse['TotalAmount'] ?? 0).toStringAsFixed(2);
-//     taxAmountController.text =
-//         (widget.apiResponse['TaxAmount'] ?? 0).toStringAsFixed(2);
-//     descriptionController.text = widget.apiResponse['Description'] ?? '';
-//     paymentMethodController.text = widget.apiResponse['PaymentMethod'] ?? '';
-//     currencyController.text = widget.apiResponse['Currency'] ?? '';
-//     commentsController.text = widget.apiResponse['Comments'] ?? '';
-
-//     // Calculate total in INR (placeholder - replace with actual calculation)
-//     double total = double.tryParse(controller.paidAmount.text) ?? 0;
-//     double rate = double.tryParse(controller.unitRate.text) ?? 1;
-//     totalInINRController.text = (total * rate).toStringAsFixed(2);
-
-//     // Create itemize sections from ExpenseTrans
-//     for (var i = 0; i < expenseTrans.length; i++) {
-//       final item = expenseTrans[i];
-//       itemizeSections.add(ItemizeSection(
-//         index: i + 1,
-//         category: item['ExpenseCategory'] ?? '',
-//         description: item['Description'] ?? '',
-//         quantity: (item['Quantity'] ?? 1).toStringAsFixed(2),
-//         unitPrice: (item['UnitPriceTrans'] ?? 0).toStringAsFixed(2),
-//         uomId: item['UomId'] ?? '',
-//         taxAmount: (item['TaxAmount'] ?? 0).toStringAsFixed(2),
-//         isReimbursable: item['IsReimbursable'] ?? true,
-//         isBillable: item['IsBillable'] ?? false,
-//         onDelete: i > 0 ? () => _removeItemizeSection(i) : null,
-//       ));
-//     }
-//   }
-
-//   void _addItemizeSection() {
-//     setState(() {
-//       itemizeSections.add(ItemizeSection(
-//         index: itemizeSections.length + 1,
-//         onDelete: itemizeSections.isNotEmpty
-//             ? () => _removeItemizeSection(itemizeSections.length)
-//             : null,
-//       ));
-//     });
-//   }
-
-//   void _removeItemizeSection(int index) {
-//     setState(() {
-//       itemizeSections.removeAt(index);
-//     });
-//   }
-
-//   void _submitForm(bool bool) {
-//     print("Form is invalid");
-//     // if (!_formKey.currentState!.validate()) return;
-//     if (_formKey.currentState!.validate()) {
-//       print("Form is valid");
-//     } else {
-//       print("Form is invalid");
-//     }
-//     // Prepare the data to submit
-//     // final formData = {
-//     //   'ReceiptDate': receiptDateController.text,
-//     //   'Merchant': merchantController.text,
-//     //   'ReferenceNumber': referenceController.text,
-//     //   'TotalAmount': double.tryParse(controller.paidAmount.text) ?? 0,
-//     //   'TaxAmount': double.tryParse(taxAmountController.text) ?? 0,
-//     //   'Description': descriptionController.text,
-//     //   'PaymentMethod': paymentMethodController.text,
-//     //   'Currency': currencyController.text,
-//     //   'Comments': commentsController.text,
-//     //   'IsItemized': _isItemized,
-//     //   'IsReimbursable': _isReimbursable,
-//     //   'IsBillable': _isBillable,
-//     //   'ExpenseTrans': _isItemized
-//     //       ? itemizeSections.map((section) => section.toMap()).toList()
-//     //       : null,
-//     //   'ImagePath': widget.imageFile.path,
-//     // };
-//     // controller.imageFiles=[];
-//     // controller.paidAmount.text = controller.paidAmount.text;
-//     controller.taxAmount.text = taxAmountController.text;
-//     controller.descriptionController.text = descriptionController.text;
-//     controller.rememberMe = _isReimbursable;
-//     controller.isBillable = _isBillable;
-//     controller.referenceController.text = referenceController.text;
-//     controller.receiptDateController.text = receiptDateController.text;
-//     if (widget.imageFile.existsSync()) {
-//       controller.imageFiles.add(widget.imageFile);
-//       print("✅ File added: ${widget.imageFile.path}");
-//     } else {
-//       print("❌ File does not exist: ${widget.imageFile.path}");
-//     }
-//     List<AccountingDistribution> distributions = [];
-//     // print('Submitting form data: $formData');
-//     controller.finalItems.clear();
-//     for (int i = 0; i < itemizeSections.length; i++) {
-//       final item = itemizeSections[i];
-//       for (final split in item.split) {
-//         distributions.add(
-//           AccountingDistribution(
-//             transAmount: split.amount ?? 0.0, // Safe null handling
-//             reportAmount: split.amount ?? 0.0,
-//             allocationFactor: split.percentage,
-//             dimensionValueId: split.paidFor ?? '', // Safe null handling
-//           ),
-//         );
-//       }
-//       controller.finalItems.add(
-//         ExpenseItem(
-//           expenseCategoryId: item.categoryController.text.trim(),
-//           quantity: double.tryParse(item.quantityController.text) ?? 0,
-//           uomId: item.uomIdController.text.trim(),
-//           unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
-//           taxAmount: double.tryParse(item.taxAmountController.text) ?? 0,
-//           taxGroup: controller.selectedTax?.taxGroupId ?? '',
-//           lineAmountTrans: double.tryParse(item.lineAmountController.text) ?? 0,
-//           lineAmountReporting:
-//               double.tryParse(item.lineAmountINRController.text) ?? 0,
-//           projectId: controller.projectDropDowncontroller.text,
-//           description: item.descriptionController.text.trim(),
-//           isReimbursable: item._isReimbursable,
-//           isBillable: item.isBillable,
-//           accountingDistributions: item.accountingDistributions
-//               .whereType<AccountingDistribution>()
-//               .toList(),
-//         ),
-//       );
-//     }
-
-//     controller.saveGeneralExpense(context, bool);
-//     // Navigate to success screen
-//   }
-
-//   @override
-//   void dispose() {
-//     receiptDateController.dispose();
-//     merchantController.dispose();
-//     referenceController.dispose();
-//     controller.paidAmount.dispose();
-//     taxAmountController.dispose();
-//     descriptionController.dispose();
-//     paymentMethodController.dispose();
-//     currencyController.dispose();
-//     cashAdvanceController.dispose();
-//     commentsController.dispose();
-//     totalInINRController.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     // ignore: deprecated_member_use
-//     return WillPopScope(
-//         onWillPop: () async {
-//           controller.clearFormFields();
-//           return true; // allow back navigation
-//         },
-//         child: Scaffold(
-//           appBar: AppBar(
-//             title: const Text('Auto Scan '),
-//           ),
-//           body: Form(
-//             key: _formKey,
-//             child: SingleChildScrollView(
-//               padding: const EdgeInsets.all(16),
-//               child: Column(
-//                 children: [
-//                   // Scanned image preview
-//                   _buildImagePreview(),
-//                   const SizedBox(height: 20),
-
-//                   // Common fields for both itemized and non-itemized
-//                   _buildCommonFieldsSection(),
-
-//                   // Itemized or non-itemized specific fields
-//                   if (_isItemized) _buildItemizedFields(),
-
-//                   // Toggle buttons and action buttons
-//                   _buildBottomSection(),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ));
-//   }
-
-//   Widget _buildImagePreview() {
-//     return Container(
-//       height: 200,
-//       decoration: BoxDecoration(
-//         border: Border.all(color: Colors.grey),
-//         borderRadius: BorderRadius.circular(8),
-//       ),
-//       child: Image.file(
-//         widget.imageFile,
-//         fit: BoxFit.cover,
-//         width: double.infinity,
-//       ),
-//     );
-//   }
-
-//   Widget _buildCommonFieldsSection() {
-//     return Column(
-//       children: [
-//         _buildDateField('Receipt Date *', receiptDateController),
-
-//         SearchableMultiColumnDropdownField<MerchantModel>(
-//           labelText: 'Paid To *',
-//           columnHeaders: const ['Merchant Name', 'Merchant ID'],
-//           items: controller.paidTo,
-//           selectedValue: controller.selectedPaidto,
-//           searchValue: (p) => '${p.merchantNames} ${p.merchantId}',
-//           displayText: (p) => p.merchantNames,
-//           validator: (value) => value == null ? 'Please select Paid To' : null,
-//           onChanged: (p) {
-//             if (p != null) {
-//               setState(() {
-//                 controller.selectedPaidto = p;
-//                 merchantController.text = p.merchantNames;
-//               });
-//               print("merchantController: ${merchantController.text}");
-//               print("Selected Merchant: $p");
-//             } else {
-//               print("Null value selected");
-//             }
-//           },
-//           rowBuilder: (p, searchQuery) {
-//             Widget highlight(String text) {
-//               final query = searchQuery.toLowerCase();
-//               final full = text.toLowerCase();
-//               final start = full.indexOf(query);
-
-//               if (start == -1 || query.isEmpty) return Text(text);
-
-//               final end = start + query.length;
-//               return RichText(
-//                 text: TextSpan(
-//                   children: [
-//                     TextSpan(
-//                       text: text.substring(0, start),
-//                       
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(start, end),
-//                       style: const TextStyle(
-//                         color: Colors.black,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(end),
-//                       
-//                     ),
-//                   ],
-//                 ),
-//               );
-//             }
-
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   Expanded(child: highlight(p.merchantNames)),
-//                   Expanded(child: highlight(p.merchantId)),
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//         const SizedBox(height: 16),
-//         if (!_isItemized)
-//           SearchableMultiColumnDropdownField<Project>(
-//             labelText: 'Project *',
-//             columnHeaders: const ['Project Name', 'Project ID'],
-//             items: controller.project,
-//             selectedValue: controller.selectedProject,
-//             searchValue: (p) => '${p.name} ${p.code}',
-//             displayText: (p) => p.code,
-//             validator: (value) =>
-//                 value == null ? 'Please select Project' : null,
-//             onChanged: (p) {
-//               setState(() {
-//                 controller.selectedProject = p;
-//               });
-//             },
-//             controller: controller.projectDropDowncontroller,
-//             rowBuilder: (p, searchQuery) {
-//               Widget highlight(String text) {
-//                 final query = searchQuery.toLowerCase();
-//                 final lowerText = text.toLowerCase();
-//                 final matchIndex = lowerText.indexOf(query);
-
-//                 if (matchIndex == -1 || query.isEmpty) return Text(text);
-
-//                 final end = matchIndex + query.length;
-//                 return RichText(
-//                   text: TextSpan(
-//                     children: [
-//                       TextSpan(
-//                         text: text.substring(0, matchIndex),
-//                         
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(matchIndex, end),
-//                         style: const TextStyle(
-//                           color: Colors.black,
-//                           fontWeight: FontWeight.bold,
-//                         ),
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(end),
-//                         
-//                       ),
-//                     ],
-//                   ),
-//                 );
-//               }
-
-//               return Padding(
-//                 padding:
-//                     const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//                 child: Row(
-//                   children: [
-//                     Expanded(child: highlight(p.name)),
-//                     Expanded(child: highlight(p.code)),
-//                   ],
-//                 ),
-//               );
-//             },
-//           ),
-//         if (!_isItemized) const SizedBox(height: 16),
-
-//         SearchableMultiColumnDropdownField<PaymentMethodModel>(
-//           // enabled: controller.isEnable.value,
-//           labelText: 'Paid With',
-//           columnHeaders: const ['Payment Name', 'Payment ID'],
-//           items: controller.paymentMethods,
-//           selectedValue: controller.selectedPaidWith,
-//           searchValue: (p) => '${p.paymentMethodName} ${p.paymentMethodId}',
-//           displayText: (p) => p.paymentMethodName,
-//           validator: (_) => null,
-//           onChanged: (p) {
-//             setState(() {
-//               controller.selectedPaidWith = p;
-//               controller.paymentMethodeID = p!.paymentMethodId;
-//             });
-//           },
-//           rowBuilder: (p, searchQuery) {
-//             Widget highlight(String text) {
-//               final query = searchQuery.toLowerCase();
-//               final lowerText = text.toLowerCase();
-//               final start = lowerText.indexOf(query);
-
-//               if (start == -1 || query.isEmpty) return Text(text);
-
-//               final end = start + query.length;
-//               return RichText(
-//                 text: TextSpan(
-//                   children: [
-//                     TextSpan(
-//                       text: text.substring(0, start),
-//                       
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(start, end),
-//                       style: const TextStyle(
-//                         color: Colors.black,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(end),
-//                       
-//                     ),
-//                   ],
-//                 ),
-//               );
-//             }
-
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   Expanded(child: highlight(p.paymentMethodName)),
-//                   Expanded(child: highlight(p.paymentMethodId)),
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//         const SizedBox(height: 16),
-//         if (!_isItemized)
-//           SearchableMultiColumnDropdownField<ExpenseCategory>(
-//             labelText: 'Paid For *',
-//             columnHeaders: const ['Category Name', 'Category ID'],
-//             items: controller.expenseCategory,
-//             selectedValue: controller.selectedCategory,
-//             searchValue: (p) => '${p.categoryName} ${p.categoryId}',
-//             displayText: (p) => p.categoryId,
-//             validator: (value) =>
-//                 value == null ? 'Please select Category' : null,
-//             onChanged: (p) {
-//               setState(() {
-//                 controller.selectedCategory = p;
-//               });
-//             },
-//             controller: controller.categoryController,
-//             rowBuilder: (p, searchQuery) {
-//               Widget highlight(String text) {
-//                 final query = searchQuery.toLowerCase();
-//                 final lower = text.toLowerCase();
-//                 final matchIndex = lower.indexOf(query);
-
-//                 if (matchIndex == -1 || query.isEmpty) return Text(text);
-
-//                 final end = matchIndex + query.length;
-//                 return RichText(
-//                   text: TextSpan(
-//                     children: [
-//                       TextSpan(
-//                         text: text.substring(0, matchIndex),
-//                         
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(matchIndex, end),
-//                         style: const TextStyle(
-//                           color: Colors.black,
-//                           fontWeight: FontWeight.bold,
-//                         ),
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(end),
-//                         
-//                       ),
-//                     ],
-//                   ),
-//                 );
-//               }
-
-//               return Padding(
-//                 padding:
-//                     const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//                 child: Row(
-//                   children: [
-//                     Expanded(child: highlight(p.categoryName)),
-//                     Expanded(child: highlight(p.categoryId)),
-//                   ],
-//                 ),
-//               );
-//             },
-//           ),
-//         if (!_isItemized) const SizedBox(height: 16),
-
-//         _buildTextField(label: 'Reference *', controller: referenceController),
-//         // const SizedBox(height: 16),
-//         // Rest of the non-itemized fields
-
-//         // Row(
-//         //   children: [
-//         //     Expanded(
-//         //       child: TextFormField(
-//         //         controller: controller.paidAmount,
-//         //         decoration: const InputDecoration(labelText: 'Paid Amount'),
-//         //         keyboardType: TextInputType.number,
-//         //         validator: (value) {
-//         //           if (value == null || value.isEmpty) {
-//         //             return 'Please enter amount';
-//         //           }
-//         //           if (double.tryParse(value) == null) {
-//         //             return 'Please enter valid number';
-//         //           }
-//         //           return null;
-//         //         },
-//         //       ),
-//         //     ),
-//         //     const SizedBox(width: 16),
-//         //     Expanded(
-//         //       child: TextFormField(
-//         //         controller: controller.unitRate,
-//         //         decoration: const InputDecoration(labelText: 'Rate *'),
-//         //         keyboardType: TextInputType.number,
-//         //         validator: (value) {
-//         //           if (value == null || value.isEmpty) {
-//         //             return 'Please enter rate';
-//         //           }
-//         //           if (double.tryParse(value) == null) {
-//         //             return 'Please enter valid number';
-//         //           }
-//         //           return null;
-//         //         },
-//         //       ),
-//         //     ),
-//         //     const SizedBox(width: 16),
-//         //     Expanded(
-//         //       child: TextFormField(
-//         //         controller: totalInINRController,
-//         //         decoration:
-//         //             const InputDecoration(labelText: 'Total Amount In INR'),
-//         //         readOnly: true,
-//         //       ),
-//         //     ),
-//         //   ],
-//         // ),
-//         const SizedBox(height: 16),
-
-//         Row(
-//           children: [
-//             Expanded(
-//               child: TextFormField(
-//                 enabled: !_isItemized,
-//                 controller: controller.paidAmount,
-//                 onChanged: (_) {
-//                   controller.fetchExchangeRate();
-
-//                   final paid =
-//                       double.tryParse(controller.paidAmount.text) ?? 0.0;
-//                   final rate = double.tryParse(controller.unitRate.text) ?? 1.0;
-
-//                   final result = paid * rate;
-
-//                   controller.amountINR.text = result.toStringAsFixed(2);
-//                 },
-//                 keyboardType: TextInputType.number,
-//                 decoration: const InputDecoration(
-//                   labelText: 'Paid Amount *',
-//                   border: OutlineInputBorder(
-//                     borderRadius: BorderRadius.only(
-//                         topRight: Radius.circular(0),
-//                         bottomRight: Radius.circular(0),
-//                         topLeft: Radius.circular(10),
-//                         bottomLeft: Radius.circular(10)),
-//                   ),
-//                 ),
-//                 onEditingComplete: () {
-//                   String text = controller.paidAmount.text;
-//                   double? value = double.tryParse(text);
-//                   if (value != null) {
-//                     controller.paidAmount.text =
-//                         value.toStringAsFixed(2); // Format value
-//                   }
-//                   // Call once
-//                 },
-//               ),
-//             ),
-//             Expanded(
-//                 child: Obx(() => SearchableMultiColumnDropdownField<Currency>(
-//                       // enabled: controller.isEnable.value,
-//                       alignLeft: -90,
-//                       dropdownWidth: 280,
-//                       labelText: "",
-//                       columnHeaders: const ['Code', 'Name', 'Symbol'],
-//                       items: controller.currencies,
-//                       selectedValue: controller.selectedCurrency.value,
-//                       backgroundColor: const Color.fromARGB(255, 22, 2, 92),
-//                       searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
-//                       displayText: (c) => c.code,
-//                       inputDecoration: const InputDecoration(
-//                         suffixIcon: Icon(Icons.arrow_drop_down_outlined),
-//                         filled: true,
-//                         fillColor: Color.fromARGB(55, 5, 23, 128),
-//                         border: OutlineInputBorder(
-//                           borderRadius: BorderRadius.only(
-//                             topLeft: Radius.circular(0),
-//                             bottomLeft: Radius.circular(0),
-//                             topRight: Radius.circular(10),
-//                             bottomRight: Radius.circular(10),
-//                           ),
-//                         ),
-//                       ),
-//                       validator: (c) =>
-//                           c == null ? 'Please pick a currency' : null,
-//                       onChanged: (c) {
-//                         controller.selectedCurrency.value = c;
-//                         controller.fetchExchangeRate();
-//                       },
-//                       controller: controller.currencyDropDowncontroller,
-//                       rowBuilder: (c, searchQuery) {
-//                         Widget highlight(String text) {
-//                           final query = searchQuery.toLowerCase();
-//                           final lowerText = text.toLowerCase();
-//                           final matchIndex = lowerText.indexOf(query);
-
-//                           if (matchIndex == -1 || query.isEmpty) {
-//                             return Text(text,
-//                                 style: const TextStyle(color: Colors.white));
-//                           }
-
-//                           final end = matchIndex + query.length;
-//                           return RichText(
-//                             text: TextSpan(
-//                               children: [
-//                                 TextSpan(
-//                                   text: text.substring(0, matchIndex),
-//                                   style: const TextStyle(color: Colors.white),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(matchIndex, end),
-//                                   style: const TextStyle(
-//                                     color: Colors.black,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(end),
-//                                   style: const TextStyle(color: Colors.white),
-//                                 ),
-//                               ],
-//                             ),
-//                           );
-//                         }
-
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                               vertical: 12, horizontal: 16),
-//                           child: Row(
-//                             children: [
-//                               Expanded(child: highlight(c.code)),
-//                               Expanded(child: highlight(c.name)),
-//                               Expanded(child: highlight(c.symbol)),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ))),
-//             const SizedBox(width: 10),
-//             Expanded(
-//               child: TextFormField(
-//                 controller: controller.unitRate,
-//                 decoration: InputDecoration(
-//                   labelText: 'Rate *',
-//                   border: OutlineInputBorder(
-//                     borderRadius: BorderRadius.circular(10),
-//                   ),
-//                 ),
-//                 // initialValue: controller.unitRate,
-//               ),
-//             ),
-//           ],
-//         ),
-//         if (!_isItemized) const SizedBox(height: 16),
-//         if (!_isItemized)
-//           SearchableMultiColumnDropdownField<TaxGroupModel>(
-//             labelText: 'Tax Group *',
-//             columnHeaders: const ['Tax Group', 'Tax ID'],
-//             items: controller.taxGroup,
-//             selectedValue: controller.selectedTax,
-//             searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
-//             displayText: (tax) => tax.taxGroupId,
-//             validator: (value) =>
-//                 value == null ? 'Please select Tax Group ' : null,
-//             onChanged: (tax) {
-//               setState(() {
-//                 controller.selectedTax = tax;
-//               });
-//             },
-//             rowBuilder: (tax, searchQuery) {
-//               Widget highlight(String text) {
-//                 final lowerQuery = searchQuery.toLowerCase();
-//                 final lowerText = text.toLowerCase();
-//                 final start = lowerText.indexOf(lowerQuery);
-//                 if (start == -1 || searchQuery.isEmpty) return Text(text);
-
-//                 final end = start + searchQuery.length;
-//                 return RichText(
-//                   text: TextSpan(
-//                     children: [
-//                       TextSpan(
-//                         text: text.substring(0, start),
-//                         
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(start, end),
-//                         style: const TextStyle(
-//                           color: Colors.black,
-//                         ),
-//                       ),
-//                       TextSpan(
-//                         text: text.substring(end),
-//                         
-//                       ),
-//                     ],
-//                   ),
-//                 );
-//               }
-
-//               return Padding(
-//                 padding:
-//                     const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//                 child: Row(
-//                   children: [
-//                     Expanded(child: highlight(tax.taxGroup)),
-//                     Expanded(child: highlight(tax.taxGroupId)),
-//                   ],
-//                 ),
-//               );
-//             },
-//           ),
-//         if (!_isItemized) const SizedBox(height: 16),
-//         if (!_isItemized) _buildNumberField('Tax Amount', taxAmountController),
-//         if (!_isItemized) const SizedBox(height: 16),
-//         if (!_isItemized)
-//           _buildTextField(
-//             label: "Comments",
-//             controller: commentsController,
-//           ),
-//         if (!_isItemized)
-//           Align(
-//             child: ElevatedButton(
-//               onPressed: () {
-//                 setState(() {
-//                   _isItemized = true;
-//                   // Initialize with one empty item when switching to itemized
-//                   if (itemizeSections.isEmpty) {
-//                     _addItemizeSection();
-//                   }
-//                 });
-//               },
-//               child: const Text('Add Itemize'),
-//             ),
-//           ),
-//       ],
-//     );
-//   }
-
-//   Widget _buildItemizedFields() {
-//     return Column(
-//       children: [
-//         _buildSection(
-//           title: 'Itemized Expenses',
-//           children: [
-//             ...itemizeSections.asMap().entries.map((entry) {
-//               int index = entry.key;
-//               var section = entry.value;
-
-//               return section.build(
-//                 context,
-//                 _addItemizeSection,
-//                 () =>
-//                     _removeItemizeSection(index), // 👈 bind current index here
-//               );
-//             }).toList(),
-//             Center(
-//               child: ElevatedButton(
-//                 onPressed: _addItemizeSection,
-//                 child: const Text('Add Item'),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ],
-//     );
-//   }
-
-//   Widget _buildNonItemizedFields() {
-//     return _buildSection(
-//       title: 'Expense Details',
-//       children: [
-//         // Add a button to switch to itemized mode
-
-//         // Rest of the non-itemized fields
-//         SearchableMultiColumnDropdownField<Project>(
-//           labelText: 'Project *',
-//           columnHeaders: const ['Project Name', 'Project ID'],
-//           items: controller.project,
-//           selectedValue: controller.selectedProject,
-//           searchValue: (p) => '${p.name} ${p.code}',
-//           displayText: (p) => p.code,
-//           validator: (value) => value == null ? 'Please select Project' : null,
-//           onChanged: (p) {
-//             setState(() {
-//               controller.selectedProject = p;
-//             });
-//           },
-//           controller: controller.projectDropDowncontroller,
-//           rowBuilder: (p, searchQuery) {
-//             Widget highlight(String text) {
-//               final query = searchQuery.toLowerCase();
-//               final lowerText = text.toLowerCase();
-//               final matchIndex = lowerText.indexOf(query);
-
-//               if (matchIndex == -1 || query.isEmpty) return Text(text);
-
-//               final end = matchIndex + query.length;
-//               return RichText(
-//                 text: TextSpan(
-//                   children: [
-//                     TextSpan(
-//                       text: text.substring(0, matchIndex),
-//                       
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(matchIndex, end),
-//                       style: const TextStyle(
-//                         color: Colors.black,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(end),
-//                       
-//                     ),
-//                   ],
-//                 ),
-//               );
-//             }
-
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   Expanded(child: highlight(p.name)),
-//                   Expanded(child: highlight(p.code)),
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//         const SizedBox(height: 16),
-//         SearchableMultiColumnDropdownField<ExpenseCategory>(
-//           labelText: 'Paid For *',
-//           columnHeaders: const ['Category Name', 'Category ID'],
-//           items: controller.expenseCategory,
-//           selectedValue: controller.selectedCategory,
-//           searchValue: (p) => '${p.categoryName} ${p.categoryId}',
-//           displayText: (p) => p.categoryId,
-//           validator: (value) => value == null ? 'Please select Category' : null,
-//           onChanged: (p) {
-//             setState(() {
-//               controller.selectedCategory = p;
-//             });
-//           },
-//           controller: controller.categoryController,
-//           rowBuilder: (p, searchQuery) {
-//             Widget highlight(String text) {
-//               final query = searchQuery.toLowerCase();
-//               final lower = text.toLowerCase();
-//               final matchIndex = lower.indexOf(query);
-
-//               if (matchIndex == -1 || query.isEmpty) return Text(text);
-
-//               final end = matchIndex + query.length;
-//               return RichText(
-//                 text: TextSpan(
-//                   children: [
-//                     TextSpan(
-//                       text: text.substring(0, matchIndex),
-//                       
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(matchIndex, end),
-//                       style: const TextStyle(
-//                         color: Colors.black,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(end),
-//                       
-//                     ),
-//                   ],
-//                 ),
-//               );
-//             }
-
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   Expanded(child: highlight(p.categoryName)),
-//                   Expanded(child: highlight(p.categoryId)),
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//         const SizedBox(height: 16),
-//         Row(
-//           children: [
-//             Expanded(
-//               child: TextFormField(
-//                 controller: controller.paidAmount,
-//                 decoration: const InputDecoration(labelText: 'Paid Amount'),
-//                 keyboardType: TextInputType.number,
-//                 validator: (value) {
-//                   if (value == null || value.isEmpty) {
-//                     return 'Please enter amount';
-//                   }
-//                   if (double.tryParse(value) == null) {
-//                     return 'Please enter valid number';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//             ),
-//             const SizedBox(width: 16),
-//             Expanded(
-//               child: TextFormField(
-//                 controller: controller.unitRate,
-//                 decoration: const InputDecoration(labelText: 'Rate *'),
-//                 keyboardType: TextInputType.number,
-//                 validator: (value) {
-//                   if (value == null || value.isEmpty) {
-//                     return 'Please enter rate';
-//                   }
-//                   if (double.tryParse(value) == null) {
-//                     return 'Please enter valid number';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//             ),
-//             const SizedBox(width: 16),
-//             Expanded(
-//               child: TextFormField(
-//                 controller: totalInINRController,
-//                 decoration:
-//                     const InputDecoration(labelText: 'Total Amount In INR'),
-//                 readOnly: true,
-//               ),
-//             ),
-//           ],
-//         ),
-//         const SizedBox(height: 16),
-//         SearchableMultiColumnDropdownField<TaxGroupModel>(
-//           labelText: 'Tax Group *',
-//           columnHeaders: const ['Tax Group', 'Tax ID'],
-//           items: controller.taxGroup,
-//           selectedValue: controller.selectedTax,
-//           searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
-//           displayText: (tax) => tax.taxGroupId,
-//           validator: (value) =>
-//               value == null ? 'Please select Tax Group ' : null,
-//           onChanged: (tax) {
-//             setState(() {
-//               controller.selectedTax = tax;
-//             });
-//           },
-//           rowBuilder: (tax, searchQuery) {
-//             Widget highlight(String text) {
-//               final lowerQuery = searchQuery.toLowerCase();
-//               final lowerText = text.toLowerCase();
-//               final start = lowerText.indexOf(lowerQuery);
-//               if (start == -1 || searchQuery.isEmpty) return Text(text);
-
-//               final end = start + searchQuery.length;
-//               return RichText(
-//                 text: TextSpan(
-//                   children: [
-//                     TextSpan(
-//                       text: text.substring(0, start),
-//                       
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(start, end),
-//                       style: const TextStyle(
-//                         color: Colors.black,
-//                       ),
-//                     ),
-//                     TextSpan(
-//                       text: text.substring(end),
-//                       
-//                     ),
-//                   ],
-//                 ),
-//               );
-//             }
-
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-//               child: Row(
-//                 children: [
-//                   Expanded(child: highlight(tax.taxGroup)),
-//                   Expanded(child: highlight(tax.taxGroupId)),
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//         const SizedBox(height: 16),
-//         _buildNumberField('Tax Amount', taxAmountController),
-//         const SizedBox(height: 16),
-//         _buildTextField(
-//           label: "Comments",
-//           controller: commentsController,
-//         ),
-//       ],
-//     );
-//   }
-
-//   Widget _buildBottomSection() {
-//     return Column(
-//       children: [
-//         // TextButton(
-//         //   onPressed: () {
-//         //     // Handle Account Distribution
-//         //   },
-//         //   child: const Text('Account Distribution'),
-//         // ),
-//         const SizedBox(height: 20),
-//         Obx(() {
-//           return SizedBox(
-//               width: double.infinity,
-//               child: GradientButton(
-//                 text: "Submit",
-//                 isLoading: controller.buttonLoader.value,
-//                 onPressed: () => {
-//                   _submitForm(true),
-//                 },
-//               ));
-//         }),
-//         const SizedBox(height: 12),
-//         Row(
-//           children: [
-//             Expanded(
-//               child: ElevatedButton(
-//                 onPressed: () => {
-//                   _submitForm(false),
-//                 },
-//                 style: ElevatedButton.styleFrom(
-//                     backgroundColor: const Color(0xFF8E6EFF)),
-//                 child: const Text("Save"),
-//               ),
-//             ),
-//             const SizedBox(width: 12),
-//             Expanded(
-//               child: ElevatedButton(
-//                 onPressed: () => {controller.chancelButton(context)},
-//                 style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-//                 child: const Text("Cancel"),
-//               ),
-//             ),
-//           ],
-//         ),
-//         // Row(
-//         //   children: [
-//         //     Expanded(
-//         //       child: ElevatedButton(
-//         //         onPressed: () {
-//         //           // Save action
-//         //           if (_formKey.currentState!.validate()) {
-//         //             ScaffoldMessenger.of(context).showSnackBar(
-//         //               const SnackBar(
-//         //                   content: Text('Expense saved successfully')),
-//         //             );
-//         //           }
-//         //         },
-//         //         child: const Text('Save'),
-//         //       ),
-//         //     ),
-//         //     const SizedBox(width: 16),
-//         //     Expanded(
-//         //       child: ElevatedButton(
-//         //         onPressed: _submitForm,
-//         //         style: ElevatedButton.styleFrom(
-//         //           backgroundColor: Colors.green,
-//         //         ),
-//         //         child: const Text('Submit'),
-//         //       ),
-//         //     ),
-//         //     const SizedBox(width: 16),
-//         //     Expanded(
-//         //       child: ElevatedButton(
-//         //         onPressed: () {
-//         //           Navigator.pop(context);
-//         //         },
-//         //         style: ElevatedButton.styleFrom(
-//         //           backgroundColor: Colors.grey,
-//         //         ),
-//         //         child: const Text('Close'),
-//         //       ),
-//         //     ),
-//         //   ],
-//         // ),
-//       ],
-//     );
-//   }
-
-//   Widget _buildSection({
-//     required String title,
-//     required List<Widget> children,
-//   }) {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
-//       child: Card(
-//         elevation: 0,
-//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//         child: ExpansionTile(
-//           initiallyExpanded: true,
-//           title: Text(
-//             title,
-//             style: const TextStyle(
-//               fontWeight: FontWeight.bold,
-//               fontSize: 16,
-//               color: Colors.deepPurple,
-//             ),
-//           ),
-//           backgroundColor: Colors.white,
-//           collapsedBackgroundColor: Colors.white,
-//           textColor: Colors.deepPurple,
-//           iconColor: Colors.deepPurple,
-//           collapsedIconColor: Colors.grey,
-//           childrenPadding:
-//               const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-//           shape:
-//               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//           children: children,
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildTextField({
-//     required String label,
-//     required TextEditingController controller,
-//   }) {
-//     return Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         TextField(
-//           controller: controller,
-//           decoration: InputDecoration(
-//             labelText: label,
-//             contentPadding:
-//                 const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-//             border: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(6),
-//             ),
-//           ),
-//         ),
-//         const SizedBox(height: 12),
-//       ],
-//     );
-//   }
-
-//   Widget _buildNumberField(String label, TextEditingController controller) {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 16),
-//       child: TextFormField(
-//         controller: controller,
-//         keyboardType: TextInputType.number,
-//         decoration: InputDecoration(
-//           labelText: label,
-//           border: OutlineInputBorder(
-//             borderRadius: BorderRadius.circular(10),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildDateField(String label, TextEditingController controller) {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 16),
-//       child: TextFormField(
-//         controller: controller,
-//         decoration: InputDecoration(
-//           labelText: label,
-//           border: OutlineInputBorder(
-//             borderRadius: BorderRadius.circular(10),
-//           ),
-//           suffixIcon: IconButton(
-//             icon: const Icon(Icons.calendar_today),
-//             onPressed: () async {
-//               final date = await showDatePicker(
-//                 context: context,
-//                 initialDate: DateTime.now(),
-//                 firstDate: DateTime(2000),
-//                 lastDate: DateTime.now(),
-//               );
-//               if (date != null) {
-//                 controller.text = DateFormat('yyyy-MM-dd').format(date);
-//               }
-//             },
-//           ),
-//         ),
-//         validator: (value) {
-//           if (value == null || value.isEmpty) {
-//             return 'Please select $label';
-//           }
-//           return null;
-//         },
-//       ),
-//     );
-//   }
-// }
-
-// class ItemizeSection {
-//   int index;
-//   final String? category;
-//   final String? description;
-//   final String? quantity;
-//   final String? unitPrice;
-//   final String? uomId;
-//   final String? taxAmount;
-//   final bool isReimbursable;
-//   final bool isBillable;
-//   VoidCallback? onDelete;
-//   final controller = Get.put(Controller());
-//   List<AccountingSplit> split = [AccountingSplit(percentage: 100.0)];
-
-//   final TextEditingController categoryController = TextEditingController();
-//   final TextEditingController descriptionController = TextEditingController();
-//   final TextEditingController quantityController = TextEditingController();
-//   final TextEditingController unitPriceController = TextEditingController();
-//   final TextEditingController uomIdController = TextEditingController();
-//   final TextEditingController taxAmountController = TextEditingController();
-//   final TextEditingController commentsController = TextEditingController();
-//   final TextEditingController lineAmountController = TextEditingController();
-//   final TextEditingController lineAmountINRController = TextEditingController();
-//   bool _isReimbursable;
-//   bool _isBillable;
-//   List<AccountingDistribution?> accountingDistributions = [];
-//   ItemizeSection({
-//     required this.index,
-//     this.category,
-//     this.description,
-//     this.quantity,
-//     this.unitPrice,
-//     this.uomId,
-//     this.taxAmount,
-//     this.isReimbursable = true,
-//     this.isBillable = false,
-//     this.onDelete,
-//     this.accountingDistributions = const [],
-//   })  : _isReimbursable = isReimbursable,
-//         _isBillable = isBillable {
-//     categoryController.text = category ?? '';
-//     descriptionController.text = description ?? '';
-//     quantityController.text = quantity ?? '1';
-//     unitPriceController.text = unitPrice ?? '0';
-//     uomIdController.text = uomId ?? '';
-//     taxAmountController.text = taxAmount ?? '0';
-
-//     // Calculate initial line amount
-//     _updateLineAmount();
-
-//     // Add listeners to update line amount when quantity or unit price changes
-//     quantityController.addListener(_updateLineAmount);
-//     unitPriceController.addListener(_updateLineAmount);
-//   }
-
-//   void _updateLineAmount() {
-//     double qty = double.tryParse(quantityController.text) ?? 0;
-//     double unitPrice = double.tryParse(unitPriceController.text) ?? 0;
-//     lineAmountController.text = (qty * unitPrice).toStringAsFixed(2);
-//     controller.paidAmount.text = (qty * unitPrice).toStringAsFixed(2);
-//     // Calculate line amount in INR (placeholder - replace with actual rate)
-//     double rate = double.tryParse(controller.unitRate.text) ?? 1;
-//     lineAmountINRController.text = (qty * unitPrice * rate).toStringAsFixed(2);
-//   }
-
-//   void dispose() {
-//     quantityController.removeListener(_updateLineAmount);
-//     unitPriceController.removeListener(_updateLineAmount);
-//     categoryController.dispose();
-//     descriptionController.dispose();
-//     quantityController.dispose();
-//     unitPriceController.dispose();
-//     uomIdController.dispose();
-//     taxAmountController.dispose();
-//     commentsController.dispose();
-//     lineAmountController.dispose();
-//     lineAmountINRController.dispose();
-//   }
-
-//   Map<String, dynamic> toMap() {
-//     return {
-//       'ExpenseCategory': categoryController.text,
-//       'Description': descriptionController.text,
-//       'Quantity': int.tryParse(quantityController.text) ?? 1,
-//       'UnitPriceTrans': double.tryParse(unitPriceController.text) ?? 0,
-//       'UomId': uomIdController.text,
-//       'TaxAmount': double.tryParse(taxAmountController.text) ?? 0,
-//       'Comments': commentsController.text,
-//       'LineAmount': double.tryParse(lineAmountController.text) ?? 0,
-//       'LineAmountINR': double.tryParse(lineAmountINRController.text) ?? 0,
-//       'IsReimbursable': _isReimbursable,
-//       'IsBillable': _isBillable,
-//     };
-//   }
-
-//   Widget build(BuildContext context, void Function() addItemizeSection,
-//       void Function() removeItemizeSection) {
-//          final controllerItems = Get.put(Controller());
-//     return Card(
-//         color: Colors.grey[10],
-//         margin: const EdgeInsets.only(bottom: 16),
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         child: Theme(
-//           data: Theme.of(context).copyWith(
-//             dividerColor: Colors.transparent,
-//           ),
-//           child: ExpansionTile(
-//             title: Text('Item $index'),
-//             children: [
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.end,
-//                 children: [
-//                   if (onDelete != null)
-//                     IconButton(
-//                       icon: const Icon(Icons.delete, color: Colors.red),
-//                       onPressed: removeItemizeSection,
-//                       tooltip: 'Remove this item',
-//                     ),
-//                   IconButton(
-//                     icon: const Icon(Icons.add, color: Colors.green),
-//                     onPressed: addItemizeSection,
-//                     tooltip: 'Add new item',
-//                   ),
-//                 ],
-//               ),
-//               Padding(
-//                 padding: const EdgeInsets.all(16),
-//                 child: Column(
-//                   children: [
-//                     SearchableMultiColumnDropdownField<Project>(
-//                       labelText: 'Project *',
-//                       columnHeaders: const ['Project Name', 'Project ID'],
-//                       items: controller.project,
-//                       selectedValue: controller.selectedProject,
-//                       searchValue: (p) => '${p.name} ${p.code}',
-//                       displayText: (p) => p.code,
-//                       validator: (value) =>
-//                           value == null ? 'Please select Project' : null,
-//                       onChanged: (p) {
-//                         controller.selectedProject = p;
-//                         controller.projectDropDowncontroller.text = p!.code;
-//                       },
-//                       controller: controller.projectDropDowncontroller,
-//                       rowBuilder: (p, searchQuery) {
-//                         Widget highlight(String text) {
-//                           final query = searchQuery.toLowerCase();
-//                           final lowerText = text.toLowerCase();
-//                           final matchIndex = lowerText.indexOf(query);
-
-//                           if (matchIndex == -1 || query.isEmpty)
-//                             return Text(text);
-
-//                           final end = matchIndex + query.length;
-//                           return RichText(
-//                             text: TextSpan(
-//                               children: [
-//                                 TextSpan(
-//                                   text: text.substring(0, matchIndex),
-//                                   
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(matchIndex, end),
-//                                   style: const TextStyle(
-//                                     color: Colors.black,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(end),
-//                                   
-//                                 ),
-//                               ],
-//                             ),
-//                           );
-//                         }
-
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                               vertical: 12, horizontal: 16),
-//                           child: Row(
-//                             children: [
-//                               Expanded(child: highlight(p.name)),
-//                               Expanded(child: highlight(p.code)),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                     const SizedBox(height: 16),
-//                     SearchableMultiColumnDropdownField<ExpenseCategory>(
-//                       labelText: 'Paid For *',
-//                       columnHeaders: const ['Category Name', 'Category ID'],
-//                       items: controller.expenseCategory,
-//                       selectedValue: controller.selectedCategory,
-//                       searchValue: (p) => '${p.categoryName} ${p.categoryId}',
-//                       displayText: (p) => p.categoryId,
-//                       validator: (value) =>
-//                           value == null ? 'Please select Category' : null,
-//                       onChanged: (p) {
-//                         controller.selectedCategory = p;
-//                       },
-//                       controller: categoryController,
-//                       rowBuilder: (p, searchQuery) {
-//                         Widget highlight(String text) {
-//                           final query = searchQuery.toLowerCase();
-//                           final lower = text.toLowerCase();
-//                           final matchIndex = lower.indexOf(query);
-
-//                           if (matchIndex == -1 || query.isEmpty)
-//                             return Text(text);
-
-//                           final end = matchIndex + query.length;
-//                           return RichText(
-//                             text: TextSpan(
-//                               children: [
-//                                 TextSpan(
-//                                   text: text.substring(0, matchIndex),
-//                                   
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(matchIndex, end),
-//                                   style: const TextStyle(
-//                                     color: Colors.black,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(end),
-//                                   
-//                                 ),
-//                               ],
-//                             ),
-//                           );
-//                         }
-
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                               vertical: 12, horizontal: 16),
-//                           child: Row(
-//                             children: [
-//                               Expanded(child: highlight(p.categoryName)),
-//                               Expanded(child: highlight(p.categoryId)),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                     const SizedBox(height: 16),
-//                     SearchableMultiColumnDropdownField<Unit>(
-//                       labelText: 'Unit *',
-//                       columnHeaders: const ['Uom Id', 'Uom Name'],
-//                       items: controller.unit,
-//                       selectedValue: controller.selectedunit,
-//                       searchValue: (tax) => '${tax.code} ${tax.name}',
-//                       displayText: (tax) => tax.code,
-//                       validator: (tax) =>
-//                           tax == null ? 'Please select a Unit' : null,
-//                       onChanged: (tax) {
-//                         controller.selectedunit = tax;
-//                         uomIdController.text = tax!.code;
-//                       },
-//                       controller: uomIdController,
-//                       rowBuilder: (tax, searchQuery) {
-//                         Widget highlight(String text) {
-//                           final query = searchQuery.toLowerCase();
-//                           final lower = text.toLowerCase();
-//                           final matchIndex = lower.indexOf(query);
-
-//                           if (matchIndex == -1 || query.isEmpty)
-//                             return Text(text);
-
-//                           final end = matchIndex + query.length;
-//                           return RichText(
-//                             text: TextSpan(
-//                               children: [
-//                                 TextSpan(
-//                                   text: text.substring(0, matchIndex),
-//                                   
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(matchIndex, end),
-//                                   style: const TextStyle(
-//                                     color: Colors.black,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(end),
-//                                   
-//                                 ),
-//                               ],
-//                             ),
-//                           );
-//                         }
-
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                               vertical: 12, horizontal: 16),
-//                           child: Row(
-//                             children: [
-//                               Expanded(child: highlight(tax.code)),
-//                               Expanded(child: highlight(tax.name)),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                     const SizedBox(height: 16),
-//                     TextFormField(
-//                       controller: commentsController,
-//                       decoration: InputDecoration(
-//                           labelText: "Comment",
-//                           contentPadding: const EdgeInsets.symmetric(
-//                               vertical: 20, horizontal: 16),
-//                           border: OutlineInputBorder(
-//                             borderRadius: BorderRadius.circular(6),
-//                           )),
-//                       maxLines: 2,
-//                     ),
-//                     const SizedBox(height: 16),
-//                     Row(
-//                       children: [
-//                         Expanded(
-//                           child: TextFormField(
-//                             controller: unitPriceController,
-//                             decoration: InputDecoration(
-//                                 labelText: "Unit Amount *",
-//                                 contentPadding: const EdgeInsets.symmetric(
-//                                     vertical: 20, horizontal: 16),
-//                                 border: OutlineInputBorder(
-//                                   borderRadius: BorderRadius.circular(6),
-//                                 )),
-//                             keyboardType: TextInputType.number,
-//                             onChanged: (value) {
-//                               final qty =
-//                                   double.tryParse(quantityController.text) ??
-//                                       0.0;
-//                               final unit =
-//                                   double.tryParse(unitPriceController.text) ??
-//                                       0.0;
-//                               final calculatedLineAmount = qty * unit;
-//                               lineAmountController.text =
-//                                   calculatedLineAmount.toStringAsFixed(2);
-//                               var finalValueCount =
-//                                   controllerItems.getTotalLineAmount().toStringAsFixed(2);
-//                               print(
-//                                   "calculatedLineAmount: $qty x $unit = $calculatedLineAmount finalCount$finalValueCount");
-//                             },
-                            
-//                             validator: (value) {
-//                               if (value == null || value.isEmpty) {
-//                                 return 'Please enter amount';
-//                               }
-//                               if (double.tryParse(value) == null) {
-//                                 return 'Please enter valid number';
-//                               }
-//                               return null;
-//                             },
-//                           ),
-//                         ),
-//                         const SizedBox(width: 16),
-//                         Expanded(
-//                           child: TextFormField(
-//                             controller: quantityController,
-//                             decoration: InputDecoration(
-//                                 labelText: "Quantity *",
-//                                 contentPadding: const EdgeInsets.symmetric(
-//                                     vertical: 20, horizontal: 16),
-//                                 border: OutlineInputBorder(
-//                                   borderRadius: BorderRadius.circular(6),
-//                                 )),
-//                             keyboardType: TextInputType.number,
-//                             validator: (value) {
-//                               if (value == null || value.isEmpty) {
-//                                 return 'Please enter quantity';
-//                               }
-//                               if (double.tryParse(value) == null) {
-//                                 return 'Please enter valid number';
-//                               }
-//                               return null;
-//                             },
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                     const SizedBox(height: 16),
-//                     Row(
-//                       children: [
-//                         Expanded(
-//                           child: TextFormField(
-//                             controller: lineAmountController,
-//                             decoration: InputDecoration(
-//                                 labelText: "Line Amont",
-//                                 contentPadding: const EdgeInsets.symmetric(
-//                                     vertical: 20, horizontal: 16),
-//                                 border: OutlineInputBorder(
-//                                   borderRadius: BorderRadius.circular(6),
-//                                 )),
-//                             readOnly: true,
-//                           ),
-//                         ),
-//                         const SizedBox(width: 16),
-//                         Expanded(
-//                           child: TextFormField(
-//                             controller: lineAmountINRController,
-//                             decoration: InputDecoration(
-//                                 labelText: "Line Amount in INR",
-//                                 contentPadding: const EdgeInsets.symmetric(
-//                                     vertical: 20, horizontal: 16),
-//                                 border: OutlineInputBorder(
-//                                   borderRadius: BorderRadius.circular(6),
-//                                 )),
-//                             readOnly: true,
-//                           ),
-//                         )
-//                       ],
-//                     ),
-//                     const SizedBox(height: 16),
-//                     SearchableMultiColumnDropdownField<TaxGroupModel>(
-//                       labelText: 'Tax Group *',
-//                       columnHeaders: const ['Tax Group', 'Tax ID'],
-//                       items: controller.taxGroup,
-//                       selectedValue: controller.selectedTax,
-//                       searchValue: (tax) => '${tax.taxGroup} ${tax.taxGroupId}',
-//                       displayText: (tax) => tax.taxGroupId,
-//                       validator: (value) =>
-//                           value == null ? 'Please select Tax Group ' : null,
-//                       onChanged: (tax) {
-//                         controller.selectedTax = tax;
-//                       },
-//                       rowBuilder: (tax, searchQuery) {
-//                         Widget highlight(String text) {
-//                           final lowerQuery = searchQuery.toLowerCase();
-//                           final lowerText = text.toLowerCase();
-//                           final start = lowerText.indexOf(lowerQuery);
-//                           if (start == -1 || searchQuery.isEmpty)
-//                             return Text(text);
-
-//                           final end = start + searchQuery.length;
-//                           return RichText(
-//                             text: TextSpan(
-//                               children: [
-//                                 TextSpan(
-//                                   text: text.substring(0, start),
-//                                   
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(start, end),
-//                                   style: const TextStyle(
-//                                     color: Colors.black,
-//                                   ),
-//                                 ),
-//                                 TextSpan(
-//                                   text: text.substring(end),
-//                                   
-//                                 ),
-//                               ],
-//                             ),
-//                           );
-//                         }
-
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                               vertical: 12, horizontal: 16),
-//                           child: Row(
-//                             children: [
-//                               Expanded(child: highlight(tax.taxGroup)),
-//                               Expanded(child: highlight(tax.taxGroupId)),
-//                             ],
-//                           ),
-//                         );
-//                       },
-//                     ),
-//                     const SizedBox(height: 16),
-//                     TextFormField(
-//                       controller: taxAmountController,
-//                       decoration: InputDecoration(
-//                           labelText: "Tax Amount",
-//                           contentPadding: const EdgeInsets.symmetric(
-//                               vertical: 20, horizontal: 16),
-//                           border: OutlineInputBorder(
-//                             borderRadius: BorderRadius.circular(6),
-//                           )),
-//                       keyboardType: TextInputType.number,
-//                     ),
-//                     const SizedBox(height: 16),
-//                     const SizedBox(height: 24),
-//                     Obx(() => SwitchListTile(
-//                         title: const Text("Is Reimbursable",
-//                             style: TextStyle(
-//                                 fontSize: 16,
-//                                 fontWeight: FontWeight.w500,
-//                                 color: Colors.black87)),
-//                         value: controller.isReimbursiteCreate.value,
-//                         activeColor: Colors.green,
-//                         inactiveThumbColor: Colors.grey.shade400,
-//                         inactiveTrackColor: Colors.grey.shade300,
-//                         onChanged: (val) {
-//                           controller.isReimbursiteCreate.value = val;
-//                         })),
-//                     Obx(() => SwitchListTile(
-//                         title: const Text("Is Billable",
-//                             style: TextStyle(
-//                                 fontSize: 16,
-//                                 fontWeight: FontWeight.w500,
-//                                 color: Colors.black87)),
-//                         value: controller.isisBillablereate.value,
-//                         activeColor: Colors.blue,
-//                         inactiveThumbColor: Colors.grey.shade400,
-//                         inactiveTrackColor: Colors.grey.shade300,
-//                         onChanged: (val) {
-//                           controller.isisBillablereate.value = val;
-//                         })),
-//                     Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         TextButton(
-//                           onPressed: () {
-//                             final double lineAmount =
-//                                 double.tryParse(lineAmountController.text) ??
-//                                     0.0;
-
-//                             showModalBottomSheet(
-//                               context: context,
-//                               isScrollControlled: true,
-//                               shape: const RoundedRectangleBorder(
-//                                 borderRadius: BorderRadius.vertical(
-//                                     top: Radius.circular(16)),
-//                               ),
-//                               builder: (context) => Padding(
-//                                 padding: EdgeInsets.only(
-//                                   bottom:
-//                                       MediaQuery.of(context).viewInsets.bottom,
-//                                   left: 16,
-//                                   right: 16,
-//                                   top: 24,
-//                                 ),
-//                                 child: SingleChildScrollView(
-//                                   child: AccountingDistributionWidget(
-//                                     index: index,
-//                                     splits: split,
-//                                     lineAmount: lineAmount,
-//                                     onChanged: (i, updatedSplit) {
-//                                       split[i] = updatedSplit;
-//                                     },
-//                                     onDistributionChanged: (newList) {
-//                                       controller.accountingDistributions
-//                                           .addAll(newList);
-//                                     },
-//                                   ),
-//                                 ),
-//                               ),
-//                             );
-//                           },
-//                           child: const Text('Account Distribution'),
-//                         ),
-//                       ],
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ));
-//   }
-// }
-
-// class SubmissionSuccessScreen extends StatelessWidget {
-//   final File imageFile;
-//   final Map<String, dynamic> formData;
-
-//   const SubmissionSuccessScreen({
-//     Key? key,
-//     required this.imageFile,
-//     required this.formData,
-//   }) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text('Submission Successful'),
-//       ),
-//       body: Center(
-//         child: Column(
-//           mainAxisAlignment: MainAxisAlignment.center,
-//           children: [
-//             const Icon(Icons.check_circle, color: Colors.green, size: 100),
-//             const SizedBox(height: 20),
-//             const Text(
-//               'Expense Submitted Successfully!',
-//               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-//             ),
-//             const SizedBox(height: 20),
-//             ElevatedButton(
-//               onPressed: () {
-//                 Navigator.pop(context);
-//               },
-//               child: const Text('Return to Home'),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }

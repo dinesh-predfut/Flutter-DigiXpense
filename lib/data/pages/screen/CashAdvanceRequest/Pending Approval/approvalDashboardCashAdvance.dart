@@ -223,13 +223,7 @@ class _PendingApprovalDashboardforPendingState
                     return Column(
                       children: [
                         // Top Content in scroll view
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
+                     
                                   Stack(
                                     children: [
                                       if (primaryColor !=
@@ -512,11 +506,8 @@ class _PendingApprovalDashboardforPendingState
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                                
+                               const SizedBox(height: 15),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Padding(
@@ -596,6 +587,8 @@ class _PendingApprovalDashboardforPendingState
                                     query,
                                   ) ||
                                   item.referenceId.toLowerCase().contains(
+                                    query,
+                                  ) ||   item.requisitionId.toLowerCase().contains(
                                     query,
                                   );
                             }).toList();
@@ -1144,7 +1137,6 @@ class _PendingApprovalDashboardforPendingState
   }
 
   Widget _buildCard(PendingCashAdvanceApproval item, BuildContext context) {
-    final controller = Get.put(Controller());
     final id = item.workitemrecid;
 
     return Obx(() {

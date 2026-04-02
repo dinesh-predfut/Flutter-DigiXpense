@@ -43,8 +43,8 @@ class PendingApprovalsLeaveDashboard extends StatefulWidget {
 class _PendingApprovalsLeaveDashboardState
     extends State<PendingApprovalsLeaveDashboard>
     with TickerProviderStateMixin {
-  // late final Controller controller;
-  final controller = Get.put(Controller());
+  late final Controller controller;
+  // final controller = Get.put(Controller());
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -53,8 +53,8 @@ class _PendingApprovalsLeaveDashboardState
 
   // Tab related variables
   int _selectedTabIndex = 0;
-  late final List<String> _tabTitles = [
-    AppLocalizations.of(context)!.calendarView,
+   late final List<String> _tabTitles = [
+    AppLocalizations.of(context)!.tableView,
     AppLocalizations.of(context)!.calendarView,
   ];
 
@@ -62,6 +62,7 @@ class _PendingApprovalsLeaveDashboardState
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   final Map<DateTime, List<LeaveCancellationModel>> _events = {};
+  CalendarFormat _viewMode = CalendarFormat.month;
   CalendarFormat _calendarFormat = CalendarFormat.month;
   bool isLoading = false;
   Rxn<File> profileImage = Rxn<File>();
@@ -90,7 +91,7 @@ class _PendingApprovalsLeaveDashboardState
   @override
   void initState() {
     super.initState();
-    // controller = Get.find(); // Use existing controller
+    controller = Get.find(); // Use existing controller
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       loadLeaveAnalytics();
@@ -155,9 +156,7 @@ class _PendingApprovalsLeaveDashboardState
     // Initialize events from controller's leave data
     for (var leave in controller.approvalsfilteredLeaves) {
       if (leave.applicationDate != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(
-          leave.applicationDate!,
-        );
+        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate);
         final dateOnly = DateTime(date.year, date.month, date.day);
 
         if (_events[dateOnly] == null) {
@@ -611,7 +610,7 @@ class _PendingApprovalsLeaveDashboardState
         children: [
           const SizedBox(height: 12),
 
-          // Calendar Format Selector
+          /// Month Week Day Buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -634,6 +633,8 @@ class _PendingApprovalsLeaveDashboardState
           ),
 
           const SizedBox(height: 12),
+
+          /// Today + Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -641,238 +642,322 @@ class _PendingApprovalsLeaveDashboardState
               children: [
                 SizedBox(
                   height: 32,
+                  child: OutlinedButton(
+                    onPressed: _goToToday,
+                    child: const Text("Today", style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
                   child: OutlinedButton.icon(
                     onPressed: () => _openFilterBottomSheet(context),
                     icon: const Icon(Icons.filter_alt_outlined, size: 16),
-                    label: const Text('Filter', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+                    label: const Text("Filter", style: TextStyle(fontSize: 12)),
                   ),
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
-          // Table Calendar Container with Fixed Height
-          Container(
-            height: 500, // Fixed height for calendar
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Calendar - Takes most of the space
-                Expanded(
-                  child: Obx(() {
-                    return Stack(
-                      children: [
-                        TableCalendar<LeaveDetailsModel>(
-                          firstDay: DateTime.utc(2000, 1, 1),
-                          lastDay: DateTime.utc(2050, 12, 31),
-                          focusedDay: controller.focusedDay,
-                          calendarFormat: _calendarFormat,
 
-                          eventLoader: (date) {
-                            final key = DateTime(
-                              date.year,
-                              date.month,
-                              date.day,
-                            );
-                            return controller.events[key] ?? [];
-                          },
+          /// CALENDAR VIEW
+          if (_viewMode != CalendarFormat.twoWeeks)
+            Container(
+              height: 500,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Obx(() {
+                return Stack(
+                  children: [
+                    TableCalendar<LeaveDetailsModel>(
+                      firstDay: DateTime.utc(2000, 1, 1),
+                      lastDay: DateTime.utc(2050, 12, 31),
+                      focusedDay: controller.focusedDay,
+                      calendarFormat: _calendarFormat,
 
-                          selectedDayPredicate: (d) =>
-                              isSameDay(d, controller.selectedDay),
+                      eventLoader: (date) {
+                        final key = DateTime(date.year, date.month, date.day);
+                        return controller.events[key] ?? [];
+                      },
 
-                          headerStyle: const HeaderStyle(
-                            titleCentered: true,
-                            formatButtonVisible: false,
-                          ),
+                      selectedDayPredicate: (day) {
+                        return isSameDay(controller.selectedDay, day);
+                      },
 
-                          calendarStyle: CalendarStyle(
-                            markerDecoration: BoxDecoration(),
-                            markersAlignment: Alignment.bottomCenter,
-                            markersMaxCount: 3,
-                          ),
+                      headerStyle: const HeaderStyle(
+                        titleCentered: true,
+                        formatButtonVisible: false,
+                      ),
 
-                          calendarBuilders: CalendarBuilders(
-                            markerBuilder: (context, date, events) {
-                              if (events.isEmpty)
-                                return const SizedBox.shrink();
+                      calendarStyle: CalendarStyle(
+                        markersAlignment: Alignment.bottomCenter,
+                        markersMaxCount: 3,
 
-                              final dots = events
-                                  .take(3)
-                                  .map((e) => (e).leaveColor ?? '#e13333')
-                                  .toList();
-
-                              return Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: dots.map((hex) {
-                                  return Container(
-                                    width: 6,
-                                    height: 6,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _colorFromHex(hex),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  );
-                                }).toList(),
-                              );
-                            },
-                          ),
-
-                          onDaySelected: (selected, focused) {
-                            controller.onDaySelected(selected, focused);
-                            setState(() {});
-                          },
-
-                          onPageChanged: (focused) {
-                            controller.focusedDay = focused;
-
-                            final range = controller.getMonthRangeEpoch(
-                              focused,
-                            );
-
-                            controller.loadCalendarLeaves(
-                              fromDate: range['from']!,
-                              toDate: range['to']!,
-                            );
-                          },
+                        todayDecoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
                         ),
 
-                        // 🔄 Loader overlay
-                        if (controller.isCalendarLoading.value)
-                          Positioned.fill(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.08),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }),
-                ),
+                        selectedDecoration: const BoxDecoration(
+                          color: Colors.deepPurple,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
 
-                // Selected Day Events - Only shows when there are events
-              ],
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, date, events) {
+                          if (events.isEmpty) return const SizedBox();
+
+                          final dots = events
+                              .take(3)
+                              .map((e) => e.leaveColor ?? "#e13333")
+                              .toList();
+
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: dots.map((hex) {
+                              return Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _colorFromHex(hex),
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+
+                      onDaySelected: (selected, focused) {
+                        controller.onDaySelected(selected, focused);
+                        setState(() {});
+
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                          );
+                        });
+                      },
+
+                      onPageChanged: (focused) {
+                        controller.focusedDay = focused;
+
+                        final range = controller.getMonthRangeEpoch(focused);
+
+                        controller.loadCalendarLeaves(
+                          fromDate: range['from']!,
+                          toDate: range['to']!,
+                        );
+                      },
+                    ),
+
+                    if (controller.isCalendarLoading.value)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.08),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
             ),
-          ),
+
+          /// DAY VIEW (TODAY CARD)
+          if (_viewMode == CalendarFormat.twoWeeks)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildTodayLeaveCard(),
+            ),
+
+          const SizedBox(height: 12),
+
+          /// Bottom Leave List
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _buildBottomList(),
           ),
 
-          // Add some bottom padding for better scrolling
           const SizedBox(height: 20),
         ],
       ),
     );
   }
 
+  void _goToToday() {
+    final today = DateTime.now();
+
+    controller.focusedDay = today;
+    controller.selectedDay = today;
+
+    final range = controller.getMonthRangeEpoch(today);
+
+    controller.loadCalendarLeaves(
+      fromDate: range['from']!,
+      toDate: range['to']!,
+    );
+
+    setState(() {});
+
+    /// Scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  Widget _buildTodayLeaveCard() {
+    final today = DateTime.now();
+    final key = DateTime(today.year, today.month, today.day);
+
+    final leaves = controller.events[key] ?? [];
+
+    if (leaves.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: Text("No Leave Today", style: TextStyle(fontSize: 14)),
+          ),
+        ),
+      );
+    }
+
+    final leave = leaves.first;
+
+    return Card(
+      color: Colors.amber,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: ListTile(
+        title: Text(
+          leave.leaveCode ?? "Leave",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(leave.employeeName ?? ""),
+      ),
+    );
+  }
+
   void _openFilterBottomSheet(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final controller = Get.find<Controller>(); // adjust to your controller
+    final controller = Get.find<Controller>();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.95,
-        minChildSize: 0.7,
-        maxChildSize: 1.0,
-        expand: true,
-        builder: (_, scrollController) => SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
-              ),
-            ),
-            child: Padding(
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.6,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) {
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
               padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                physics: const ClampingScrollPhysics(),
-                child: Form(
-                  key: controller.filterFormKey, // optional: use a form key
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDragHandle(),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: Text(
-                          localizations.filterations,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Form(
+                      key: controller.filterFormKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDragHandle(),
+                          const SizedBox(height: 16),
+
+                          /// Title
+                          Center(
+                            child: Text(
+                              localizations.filterations,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
+
+                          const SizedBox(height: 24),
+
+                          _buildDatePickerField(context),
+                          const SizedBox(height: 16),
+
+                          _buildViewTypeDropdown(context, controller),
+                          const SizedBox(height: 16),
+
+                          Obx(
+                            () => controller.showEmployeeField.value
+                                ? _buildEmployeeMultiSelect(context, controller)
+                                : const SizedBox(),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          _buildStatusDropdown(context, controller),
+
+                          const SizedBox(height: 16),
+
+                          _buildLeaveCodeMultiSelect(context, controller),
+
+                          const SizedBox(height: 16),
+
+                          _buildNotifyingUsersMultiSelect(context, controller),
+
+                          const SizedBox(height: 28),
+
+                          _buildActionButtons(context, controller),
+
+                          const SizedBox(height: 10),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-
-                      _buildDatePickerField(context),
-                      const SizedBox(height: 16),
-
-                      _buildViewTypeDropdown(context, controller),
-                      const SizedBox(height: 16),
-
-                      Obx(
-                        () => controller.showEmployeeField.value
-                            ? _buildEmployeeMultiSelect(context, controller)
-                            : const SizedBox(),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildStatusDropdown(context, controller),
-                      const SizedBox(height: 16),
-
-                      _buildLeaveCodeMultiSelect(context, controller),
-                      const SizedBox(height: 16),
-
-                      _buildNotifyingUsersMultiSelect(context, controller),
-                      const SizedBox(height: 24),
-
-                      _buildActionButtons(context, controller),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -908,7 +993,7 @@ class _PendingApprovalsLeaveDashboardState
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd/MM/yyyy',
+                      'dd-MM-yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -989,9 +1074,11 @@ class _PendingApprovalsLeaveDashboardState
         } else if (option == "My Team Leave") {
           controller.showEmployeeField.value = false;
           controller.scopeFilters = "my_team_leaves";
+          controller.fetchEmployeesFilter();
         } else {
           controller.showEmployeeField.value = false;
           controller.scopeFilters = "my_leaves";
+          controller.fetchEmployeesFilter();
         }
         // Clear previous employee selection when type changes
         controller.selectedEmployeesFilter.clear();
@@ -1112,33 +1199,29 @@ class _PendingApprovalsLeaveDashboardState
   ) {
     final localizations = AppLocalizations.of(context)!;
 
-    return MultiSelectMultiColumnDropdownField<Employee>(
+    return MultiSelectMultiColumnDropdownField<LeaveEmployee>(
       labelText: '${localizations.all} ${localizations.employees}',
-      items: controller.employees,
-      selectedValues: controller.selectedNotifyingUsers,
+      items: controller.employeesFilter,
+      selectedValues: controller.selectedEmployeesFilter,
       isMultiSelect: true,
-      searchValue: (user) => '${user.id} ${user.firstName}',
-      displayText: (user) => user.firstName,
+      searchValue: (user) => '${user.employeeId} ${user.employeeName}',
+      displayText: (user) => user.employeeName,
       validator: (values) {
-        if (controller.selectedNotifyingUsers.isEmpty) {
+        if (controller.selectedEmployeesFilter.isEmpty) {
           return '${localizations.notifyingUsers} ${localizations.fieldRequired}';
         }
         return null;
       },
       onMultiChanged: (users) {
-        controller.selectedNotifyingUsers.assignAll(users);
+        controller.selectedEmployeesFilter.assignAll(users);
       },
       columnHeaders: [localizations.employeeId, localizations.name],
       rowBuilder: (emp, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Row(
           children: [
-            Expanded(child: Text(emp.id)),
-            Expanded(
-              child: Text(
-                '${emp.firstName} ${emp.middleName} ${emp.lastName}'.trim(),
-              ),
-            ),
+            Expanded(child: Text(emp.employeeId)),
+            Expanded(child: Text(emp.employeeName)),
           ],
         ),
       ),
@@ -1186,7 +1269,27 @@ class _PendingApprovalsLeaveDashboardState
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              controller.resetFilters(); // reset filters
+              final now = DateTime.now();
+              final fromDate = DateTime(
+                now.year,
+                now.month,
+                1,
+              ).millisecondsSinceEpoch;
+
+              final toDate = DateTime(
+                now.year,
+                now.month + 1,
+                0,
+                23,
+                59,
+                59,
+              ).millisecondsSinceEpoch;
+
+              controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
+              Navigator.pop(context); // close dialog/page
+            },
             child: Text(localizations.cancel),
           ),
         ),
@@ -1219,17 +1322,22 @@ class _PendingApprovalsLeaveDashboardState
         return GestureDetector(
           onTap: () => _openDetail(ev),
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
               ],
             ),
             child: Row(
               children: [
+                /// Leave Color Dot
                 Container(
                   width: 12,
                   height: 12,
@@ -1239,36 +1347,67 @@ class _PendingApprovalsLeaveDashboardState
                     shape: BoxShape.circle,
                   ),
                 ),
+
+                /// Main Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      /// Leave Type
                       Text(
                         ev.leaveCode,
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
                         ),
                       ),
+
                       const SizedBox(height: 6),
+
+                      /// Employee Name + ID
                       Text(
-                        ev.employeeName, // Show employee name instead
+                        ev.employeeName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      Text(
+                        "ID: ${ev.employeeId}",
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${ev.duration} day${ev.duration != 1 ? 's' : ''}', // Show duration
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 11,
+
+                      const SizedBox(height: 6),
+
+                      /// Duration Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${ev.duration} day${ev.duration != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                /// Date Section
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -1287,8 +1426,9 @@ class _PendingApprovalsLeaveDashboardState
                     ),
                   ],
                 ),
+
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, size: 18),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
               ],
             ),
           ),
@@ -1328,34 +1468,35 @@ class _PendingApprovalsLeaveDashboardState
     );
   }
 
-  Widget _buildFormatButton(String text, CalendarFormat format) {
-    final isSelected = _calendarFormat == format;
+  Widget _buildFormatButton(String text, CalendarFormat mode) {
+    final bool isSelected = _viewMode == mode;
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        onPressed: () {
           setState(() {
-            _calendarFormat = format;
+            _viewMode = mode;
+
+            if (mode == CalendarFormat.month) {
+              _calendarFormat = CalendarFormat.month;
+            } else if (mode == CalendarFormat.week) {
+              _calendarFormat = CalendarFormat.week;
+            } else {
+              controller.onDaySelected(DateTime.now(), DateTime.now());
+            }
           });
         },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).primaryColor
-                : Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.grey[700],
-              ),
-            ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isSelected
+              ? Theme.of(context).primaryColor
+              : Colors.white,
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: isSelected ? Colors.white : Colors.black,
           ),
         ),
       ),
@@ -1659,7 +1800,7 @@ class _PendingApprovalsLeaveDashboardState
                     if (direction == DismissDirection.startToEnd) {
                       await controller.fetchSpecificApprovalDetails(
                         context,
-                        item.workitemrecid!,
+                        item.workitemrecid,
                         false,
                         item.leaveCancelId.isEmpty,
                       );
@@ -1786,8 +1927,7 @@ class _PendingApprovalsLeaveDashboardState
                             final success = await controller
                                 .postApprovalActionLeave(
                                   context,
-                                  workitemrecid:
-                                      controller.selectedLeaveIds.value,
+                                  workitemrecid: controller.selectedLeaveIds,
                                   decision: status,
                                   comment: commentController.text,
                                 );
@@ -2004,8 +2144,7 @@ class _PendingApprovalsLeaveDashboardState
   }
 
   Widget _buildStyledCard(LeaveCancellationModel item, BuildContext context) {
-    final controller = Get.put(Controller());
-    final int id = item.workitemrecid!;
+    final int id = item.workitemrecid;
 
     return Obx(() {
       final selectedIds = controller.selectedLeaveIds;
@@ -2023,7 +2162,7 @@ class _PendingApprovalsLeaveDashboardState
           } else {
             await controller.fetchSpecificApprovalDetails(
               context,
-              item.workitemrecid!,
+              item.workitemrecid,
               false,
               item.leaveCancelId.isEmpty,
             );
@@ -2072,18 +2211,19 @@ class _PendingApprovalsLeaveDashboardState
                     ),
 
                     const SizedBox(height: 4),
-Text(
-                    '${AppLocalizations.of(context)!.fromDate}: ${_isoDate(item.fromDate)} | ${AppLocalizations.of(context)!.toDate}: ${_isoDate(item.toDate)}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                    Text(
+                      '${AppLocalizations.of(context)!.fromDate}: ${_isoDate(item.fromDate)} | ${AppLocalizations.of(context)!.toDate}: ${_isoDate(item.toDate)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     Row(
                       children: [
-                        /// LEFT
                         Expanded(
-                          child: Text(
-                            '${AppLocalizations.of(context)!.noOfDays} ${item.duration}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          child: item.duration != 0.0
+                              ? Text(
+                                  '${AppLocalizations.of(context)!.noOfDays} ${item.duration}',
+                                  style: const TextStyle(fontSize: 12),
+                                )
+                              : const SizedBox(),
                         ),
 
                         /// RIGHT STATUS CHIP

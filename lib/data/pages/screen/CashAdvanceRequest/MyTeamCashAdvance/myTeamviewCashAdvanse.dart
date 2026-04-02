@@ -83,7 +83,7 @@ class _ViewMyteamCashAdvanceExpensePageState
 
     final timestamp = widget.items!.requestDate; // assuming this is int
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final formatted = DateFormat('dd/MM/yyyy').format(dateTime);
+    final formatted = DateFormat('dd-MM-yyyy').format(dateTime);
     requestDateController.text = formatted;
 
     if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
@@ -2126,7 +2126,7 @@ employeeId.text=widget.items!.employeeId;
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          controller.chancelButton(context);
+                          controller.chancelButtonCA(context);
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
@@ -2326,7 +2326,7 @@ employeeId.text=widget.items!.employeeId;
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          controller.chancelButton(context);
+                          controller.chancelButtonCA(context);
                         },
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey),
@@ -2341,7 +2341,7 @@ employeeId.text=widget.items!.employeeId;
               else if (!controller.isEnable.value)
                 ElevatedButton(
                   onPressed: () {
-                    controller.chancelButton(context);
+                    controller.chancelButtonCA(context);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
                   child: const Text(
@@ -2517,7 +2517,7 @@ employeeId.text=widget.items!.employeeId;
                                         controller.setButtonLoading(
                                             'close_review', true);
                                         try {
-                                          controller.chancelButton(context);
+                                          controller.chancelButtonCA(context);
                                         } finally {
                                           controller.setButtonLoading(
                                               'close_review', false);
@@ -2674,7 +2674,7 @@ employeeId.text=widget.items!.employeeId;
                                         controller.setButtonLoading(
                                             'close_approval', true);
                                         try {
-                                          controller.chancelButton(context);
+                                          controller.chancelButtonCA(context);
                                         } finally {
                                           controller.setButtonLoading(
                                               'close_approval', false);
@@ -3041,7 +3041,7 @@ void _showFullImage(File file, int index) {
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                     lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
@@ -3084,7 +3084,7 @@ void _showFullImage(File file, int index) {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

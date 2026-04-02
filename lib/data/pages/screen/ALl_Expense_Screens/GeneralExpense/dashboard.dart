@@ -2,13 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
-import 'package:diginexa/core/comman/widgets/noDataFind.dart' show CommonNoDataWidget;
+import 'package:diginexa/core/comman/widgets/noDataFind.dart'
+    show CommonNoDataWidget;
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,7 +29,8 @@ class GeneralExpenseDashboard extends StatefulWidget {
 
 class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     with TickerProviderStateMixin {
-     final controller = Get.find<Controller>();
+  final controller = Get.find<Controller>();
+
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -48,14 +53,19 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
   @override
   void initState() {
     super.initState();
+    // controller = Get.find(); // Use existing controller
+
     loadFuture();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
+      controller.selectedExpenseType.value = "All Expenses";
+      controller.selectedStatusDropDown.value = "Un Reported";
+
       _loadProfileImage();
     });
     _scrollController = ScrollController();
-
+    controller.selectedStatus = "Un Reported";
     // Load data
     // controller.loadProfilePictureFromStorage();
     controller.fetchNotifications();
@@ -77,10 +87,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         _animationController.repeat();
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-          controller.getPersonalDetails(context);
-    controller.fetchMileageRates();
-
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.getPersonalDetails(context);
+      // controller.fetchMileageRates();
+ await controller.loadSequenceModules();
       controller.fetchGetallGExpense().then((_) {
         controller.isLoadingGE1.value = false;
       });
@@ -147,24 +157,28 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         'icon': Icons.receipt,
         'route': AppRoutes.expenseForm,
         'featureId': 'EnableGeneralExpense', // ← matches API response
+        "permission": "Expense Registration",
       },
       {
         'label': loc.addPerDiem,
         'icon': Icons.food_bank,
         'route': AppRoutes.perDiem,
         'featureId': 'EnablePerdiem',
+        "permission": "Expense Registration",
       },
       {
         'label': loc.addCashAdvanceReturn,
         'icon': Icons.attach_money,
         'route': AppRoutes.cashAdvanceReturnForms,
         'featureId': 'EnableCashAdvanceRequisition',
+        "permission": "Expense Registration",
       },
       {
         'label': loc.addMileage,
         'icon': Icons.directions_car,
         'route': AppRoutes.mileageExpensefirst,
         'featureId': 'EnableMileage',
+        "permission": "Expense Registration",
       },
     ];
     return WillPopScope(
@@ -450,7 +464,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   future: controller.getAllFeatureStates(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
-                      return const SizedBox(height: 56); // or show loading
+                      return const SizedBox(height: 2); // or show loading
                     }
 
                     final featureStates = snapshot.data!;
@@ -458,15 +472,22 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                     // Filter buttons: only keep those where feature is enabled
                     final visibleButtons = allButtons.where((btn) {
                       final featureId = btn['featureId'] as String;
-                      return featureStates[featureId] == true;
+                      final permission = btn['permission'] as String;
+                      final featureEnabled = featureStates[featureId] == true;
+                      final hasPermission = PermissionHelper.canWrite(
+                        permission,
+                      );
+                      return featureEnabled && hasPermission;
                     }).toList();
 
+                    // if (visibleButtons.isEmpty) {
+                    //   return const SizedBox(
+                    //     height: 56,
+                    //   ); // or show "No actions available"
+                    // }
                     if (visibleButtons.isEmpty) {
-                      return const SizedBox(
-                        height: 56,
-                      ); // or show "No actions available"
+                      return const SizedBox.shrink();
                     }
-
                     return SizedBox(
                       height: 46,
                       child: ListView.separated(
@@ -516,13 +537,12 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                 const SizedBox(height: 8),
 
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // ------------------ Status Dropdown ------------------
-
                     // ------------------ Expense Type Dropdown ------------------
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                        padding: const EdgeInsets.only(left: 16.0, right: 8.0),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
@@ -536,19 +556,14 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               underline: SizedBox(),
                               dropdownColor: theme.colorScheme.primary,
                               borderRadius: BorderRadius.circular(10),
-                              style: TextStyle(
-                                fontSize: 12,
-                                // color: theme.colorScheme.secondary, // ACTIVE VALUE COLOR
-                              ),
+                              style: TextStyle(fontSize: 12),
                               icon: Icon(
                                 Icons.arrow_drop_down,
                                 color: theme.colorScheme.primary,
                               ),
                               onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  controller.selectedExpenseType.value =
-                                      newValue;
-                                }
+                                controller.selectedExpenseType.value =
+                                    newValue!;
                               },
                               items:
                                   [
@@ -571,11 +586,10 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                                       .selectedExpenseType
                                                       .value ==
                                                   value
-                                              ? Theme.of(context)
-                                                    .colorScheme
-                                                    .secondary // ACTIVE DROPDOWN ITEM COLOR
-                                              : Colors
-                                                    .white, // popup text color
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.secondary
+                                              : Colors.white,
                                         ),
                                       ),
                                     );
@@ -585,9 +599,11 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                         ),
                       ),
                     ),
+
+                    // ------------------ Status Dropdown ------------------
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        padding: const EdgeInsets.only(left: 8.0, right: 16.0),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
@@ -603,15 +619,15 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                               borderRadius: BorderRadius.circular(10),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: theme
-                                    .colorScheme
-                                    .secondary, // ACTIVE VALUE COLOR
+                                color: theme.colorScheme.secondary,
                               ),
                               icon: Icon(
                                 Icons.arrow_drop_down,
                                 color: theme.colorScheme.primary,
                               ),
                               onChanged: (String? newValue) {
+                                controller.selectedStatusDropDown.value =
+                                    newValue!;
                                 if (newValue != null &&
                                     newValue != controller.selectedStatus) {
                                   controller.selectedStatus = newValue;
@@ -620,30 +636,29 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                   controller.fetchGetallGExpense();
                                 }
                               },
-                              items: statusOptions.map<DropdownMenuItem<String>>((
-                                String value,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  enabled: true,
-                                  child: Text(
-                                    value,
-                                    style: TextStyle(
-                                      fontSize: 12,
-
-                                      color:
-                                          controller
-                                                  .selectedStatusDropDown
-                                                  .value ==
-                                              value
-                                          ? theme
-                                                .colorScheme
-                                                .secondary // ACTIVE DROPDOWN ITEM COLOR
-                                          : Colors.white, // popup text color
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                              items: statusOptions
+                                  .map<DropdownMenuItem<String>>((
+                                    String value,
+                                  ) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      enabled: true,
+                                      child: Text(
+                                        value,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              controller
+                                                      .selectedStatusDropDown
+                                                      .value ==
+                                                  value
+                                              ? theme.colorScheme.secondary
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
                             ),
                           ),
                         ),
@@ -655,7 +670,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                 // const SizedBox(height: 8),
                 Expanded(
                   child: Obx(() {
-                    print("isLoadingGE1 => ${controller.isLoadingGE1.value}");
                     return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredExpenses.isEmpty
@@ -670,6 +684,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                 key: ValueKey(item.expenseId),
                                 background: _buildSwipeActionLeft(isLoading),
                                 secondaryBackground: _buildSwipeActionRight(),
+
                                 confirmDismiss: (direction) async {
                                   if (direction ==
                                       DismissDirection.startToEnd) {
@@ -708,13 +723,38 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                                     }
                                     setState(() => isLoading = false);
                                     return false;
-                                  } else if (item.approvalStatus == "Created") {
+                                  } else if (direction ==
+                                      DismissDirection.endToStart) {
+                                    final canDelete =
+                                        PermissionHelper.canDelete(
+                                          "Expense Registration",
+                                        );
+
+                                    final isDeletable =
+                                        item.approvalStatus == "Created";
+
+                                    // ❌ No permission
+                                    if (!canDelete) {
+                                      Fluttertoast.showToast(
+                                        msg: "No delete permission",
+                                      );
+                                      return false;
+                                    }
+
+                                    // ❌ Wrong status
+                                    if (!isDeletable) {
+                                      // Fluttertoast.showToast(
+                                      //   msg: "Only 'Created' items can be deleted",
+                                      // );
+                                      return false;
+                                    }
+
                                     final shouldDelete = await showDialog<bool>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         title: Text(loc.delete),
                                         content: Text(
-                                          '${loc.delete} "${item.expenseId}"?',
+                                          '${loc.deleteConfirmation} "${item.expenseId}"?',
                                         ),
                                         actions: [
                                           TextButton(
@@ -736,10 +776,13 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
                                     if (shouldDelete == true) {
                                       setState(() => isLoading = true);
+
                                       await controller.deleteExpense(
                                         item.recId,
                                       );
+
                                       setState(() => isLoading = false);
+
                                       return true; // remove item from UI
                                     }
 
@@ -929,7 +972,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
           // ✅ Show count
           Text(
-            'Count: ${card.count}',
+            '${AppLocalizations.of(context)!.count}: ${card.count}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -1042,7 +1085,6 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         if (item.expenseType == "PerDiem") {
           controller.fetchSecificPerDiemItem(context, item.recId, false);
         } else if (item.expenseType == "General Expenses") {
-     
           controller.fetchSecificExpenseItem(context, item.recId, true);
           controller.fetchExpenseHistory(item.recId);
         } else if (item.expenseType == "Mileage") {
@@ -1077,7 +1119,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!.toUtc())
                         : 'No date',
                     style: const TextStyle(
                       fontSize: 12,

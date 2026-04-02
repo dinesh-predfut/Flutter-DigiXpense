@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/comman/widgets/multiselectDropdown.dart';
+import '../../../../../core/comman/widgets/permissionHelper.dart';
 import '../../../../../l10n/app_localizations.dart';
 
 class CreatePerDiemPage extends StatefulWidget {
@@ -32,6 +33,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   String? statusApproval;
   late int? workitemrecid;
   bool allowMultSelect = false;
+  String? expenseIdError;
+  String? noOfDaysError;
+  String? perDiemError;
   late Future<List<ExpenseHistory>> historyFuture;
 
   @override
@@ -40,10 +44,16 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     if (widget.item != null) {
       historyFuture = controller.fetchExpenseHistory(widget.item!.recId);
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeDataCashAdvance();
       _loadSettings();
+      await controller.loadSequenceModules();
       controller.loadAllCustomFieldValues();
+      controller.fetchLocation();
+      controller.fetchUsers();
+      loadAndAppendCashAdvanceList();
+      controller.fetchCustomFields();
+      controller.configuration();
       controller.isReadOnly = widget.isReadOnly;
 
       if (widget.item != null) {
@@ -55,7 +65,14 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
           controller.isEditMode = false;
           controller.isReadOnly = true;
         }
-
+        if (widget.item!.approvalStatus == "Approved" ||
+            widget.item!.approvalStatus == "Pending") {
+          setState(() {
+            controller.isEditModePerdiem = false;
+          });
+          // controller.isEditMode = false;
+          // controller.isReadOnly = true;
+        }
         workitemrecid = widget.item!.workitemrecid;
 
         controller.split = (widget.item!.accountingDistributions).map((dist) {
@@ -84,15 +101,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
           controller.isEditModePerdiem = false;
         });
       }
-
-      controller.fetchLocation();
-      controller.fetchUsers();
-      loadAndAppendCashAdvanceList();
-      controller.fetchCustomFields();
-      controller.configuration();
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await _initializeData();
-      });
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeData();
       if (widget.item == null) {
         await controller.fetchPerDiemRates();
         controller.fetchExchangeRatePerdiem();
@@ -164,14 +175,47 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
             : field['EnteredValue'];
 
         if (isCustomMandatory && (value == null || value.toString().isEmpty)) {
-          field['Error'] = 'Please enter ${field['FieldLabel']}';
+          field['Error'] = AppLocalizations.of(context)!.fieldRequired;
           isValid = false;
         } else {
           field['Error'] = null; // Clear error
         }
       }
     });
+    final hideField = controller.hasModule("Expense");
 
+    if (!hideField) {
+      if (controller.expenseIdController.text.trim().isEmpty) {
+        setState(() {
+          expenseIdError = AppLocalizations.of(
+            context,
+          )!.fieldRequired; // 🔥 create this variable
+        });
+        isValid = false;
+      } else {
+        setState(() {
+          expenseIdError = null;
+        });
+      }
+    }
+    // Validate No Of Days
+    if (controller.daysController.text.trim().isEmpty) {
+      noOfDaysError = AppLocalizations.of(context)!.fieldRequired;
+      isValid = false;
+    } else if (double.tryParse(controller.daysController.text.trim()) == null) {
+      noOfDaysError = AppLocalizations.of(context)!.fieldRequired;
+      isValid = false;
+    } else {
+      noOfDaysError = null;
+    }
+
+    // Validate Per Diem
+    if (controller.perDiemController.text.trim().isEmpty) {
+      perDiemError = AppLocalizations.of(context)!.fieldRequired;
+      isValid = false;
+    } else {
+      perDiemError = null;
+    }
     return isValid;
   }
 
@@ -181,7 +225,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
     controller.fromDateController.text = formatted;
     controller.toDateController.text = formatted;
-
+    print("Its Called1112${controller.fromDateController.text}11");
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([controller.fetchProjectName()]);
     });
@@ -225,17 +269,32 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         controller.selectedLocation = null;
         controller.locationController.clear();
       }
+      if (controller.cashAdvanceIds.text.isNotEmpty) {
+        final ids = controller.cashAdvanceIds.text
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList();
 
+        controller.cashAdvanceIds.text = ids.join(',');
+
+        controller.multiSelectedItems.clear();
+        controller.multiSelectedItems.addAll(
+          controller.cashAdvanceListDropDown.where(
+            (e) => ids.contains(e.cashAdvanceReqId),
+          ),
+        );
+      }
       // Safe date handling
       if (item.fromDate != null) {
         controller.fromDateController.text = DateFormat(
-          'dd-MMM-yyyy',
+          'dd-MM-yyyy',
         ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate!));
       }
 
       if (item.toDate != null) {
         controller.toDateController.text = DateFormat(
-          'dd-MMM-yyyy',
+          'dd-MM-yyyy',
         ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate!));
       }
 
@@ -271,7 +330,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   }
 
   String formatDate(DateTime date) {
-    return DateFormat('dd-MMM-yyyy').format(date);
+    return DateFormat('dd-MM-yyyy').format(date);
   }
 
   Future<void> _initializeDataCashAdvance() async {
@@ -310,13 +369,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       default:
         buttonColor = Colors.grey;
     }
-
-    if (controller.expenseIdController.text.isEmpty && widget.item != null) {
-      controller.isLoadingGE2.value = true;
-    } else {
-      controller.isLoadingGE2.value = false;
-    }
-
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (controller.expenseIdController.text.isEmpty && widget.item != null) {
+        controller.isLoadingGE2.value = true;
+      } else {
+        controller.isLoadingGE2.value = false;
+      }
+    });
     return WillPopScope(
       onWillPop: () async {
         if (!controller.isEditModePerdiem) {
@@ -369,10 +428,13 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
             if (!controller.isReadOnly)
               if (!widget.isReadOnly &&
                       widget.item != null &&
+                      PermissionHelper.canUpdate("Expense Registration") &&
                       widget.item!.approvalStatus != "Approved" &&
                       widget.item!.approvalStatus != "Cancelled" &&
                       widget.item!.approvalStatus != "Pending" ||
-                  widget.item!.stepType != null &&
+                  widget.item != null &&
+                      widget.item!.stepType != null &&
+                      PermissionHelper.canUpdate("Expense Registration") &&
                       (widget.item!.approvalStatus == "Pending" ||
                           widget.item!.approvalStatus == "Created"))
                 IconButton(
@@ -410,7 +472,9 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  debugPrint("Status: $statusApproval");
+                                  debugPrint(
+                                    "Status: ${controller.isEditModePerdiem.toString()}",
+                                  );
                                 },
                                 icon: const Icon(
                                   Icons.donut_large,
@@ -456,21 +520,51 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                         const SizedBox(height: 20),
                         if (widget.item != null)
                           buildTextField(
-                            "${loc.expenseId}*",
+                            "${loc.expenseId}s*",
                             controller.expenseIdController,
-                            readOnly: true,
+                            null,
+                            readOnly: false,
                           ),
+                        if (widget.item == null) ...[
+                          Obx(() {
+                            if (controller.isSequenceLoading.value) {
+                              return const SizedBox(); // or loader
+                            }
+
+                            final hideField = controller.hasModule("Expense");
+
+                            if (hideField) {
+                              return const SizedBox.shrink(); // ✅ hide
+                            }
+
+                            return Column(
+                              children: [
+                                TextFormField(
+                                  controller: controller.expenseIdController,
+                                  decoration: InputDecoration(
+                                    labelText: '${loc.expenseId} *',
+                                    errorText: expenseIdError,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            );
+                          }),
+                        ],
+
                         if (widget.item != null)
                           buildTextField(
                             "${loc.employeeId} *",
                             controller.employeeIdController,
-                            readOnly: true,
+                            null,
+                            readOnly: false,
                           ),
                         if (widget.item != null)
                           buildTextField(
                             "${loc.employeeName} *",
                             controller.employeeName,
-                            readOnly: true,
+                            null,
+                            readOnly: false,
                           ),
                         ...controller.configList
                             .where(
@@ -632,22 +726,26 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             >(
                               labelText: loc.cashAdvanceRequest,
                               items: controller.cashAdvanceListDropDown,
-                              isMultiSelect: allowMultSelect ?? false,
+                              isMultiSelect: allowMultSelect,
                               selectedValue: controller.singleSelectedItem,
                               selectedValues: controller.multiSelectedItems,
                               enabled: controller.isEditModePerdiem,
-                              searchValue: (proj) => '${proj.cashAdvanceReqId}',
+                              searchValue: (proj) => proj.cashAdvanceReqId,
                               displayText: (proj) => proj.cashAdvanceReqId,
                               validator: (proj) => proj == null
                                   ? loc.pleaseSelectCashAdvanceField
                                   : null,
-                              onChanged: (item) {
-                                controller.cashAdvanceIds.text = item
-                                    .toString();
+                              onChanged: (item) {},
+                              onMultiChanged: (items) {
+                                controller.multiSelectedItems.clear();
+                                controller.multiSelectedItems.addAll(items);
+
+                                controller.cashAdvanceIds.text = items
+                                    .map((e) => e.cashAdvanceReqId)
+                                    .join(',');
                               },
-                              onMultiChanged: (items) {},
                               columnHeaders: [loc.requestId, loc.requestDate],
-                              // controller: controller.cashAdvanceIds,
+                              controller: controller.cashAdvanceIds,
                               rowBuilder: (proj, searchQuery) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -692,7 +790,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                   child: buildTextField(
                                     "${loc.noOfDays}*",
                                     controller.daysController,
-                                    readOnly: true,
+                                    noOfDaysError,
+                                    readOnly: false,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -711,17 +810,20 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             buildTextField(
                               "${loc.perDiem}*",
                               controller.perDiemController,
-                              readOnly: true,
+                              perDiemError,
+                              readOnly: false,
                             ),
                             buildTextField(
-                              "${loc.totalAmount} ${controller.exchangeCurrencyCode.text}*",
+                              '${loc.totalAmountIN} ${controller.organizationCurrency}',
                               controller.exchangeamountInController,
-                              readOnly: true,
+                              null,
+                              readOnly: false,
                             ),
                             buildTextField(
-                              loc.totalAmountInInr,
+                              '${loc.totalAmountIN} ${controller.organizationCurrency}',
                               controller.amountInController,
-                              readOnly: true,
+                              null,
+                              readOnly: false,
                             ),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 14),
@@ -736,172 +838,180 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 ),
                               ),
                             ),
-                            Obx(() {
-                              return Column(
-                                children: controller.customFields.map((field) {
-                                  final String label =
-                                      field['FieldLabel'] ?? field['FieldName'];
-                                  final bool isMandatory =
-                                      field['IsMandatory'] ?? false;
+                            // Obx(() {
+                            //   return Column(
+                            //     children: controller.customFields.map((field) {
+                            //       final String label =
+                            //           field['FieldLabel'] ?? field['FieldName'];
+                            //       final bool isMandatory =
+                            //           field['IsMandatory'] ?? false;
 
-                                  Widget inputField;
+                            //       Widget inputField;
 
-                                  if (field['FieldType'] == 'List') {
-                                    inputField =
-                                    inputField =
-                                        SearchableMultiColumnDropdownField<
-                                          CustomDropdownValue
-                                        >(
-                                          labelText:
-                                              '$label${isMandatory ? " *" : ""}',
-                                          items:
-                                              (field['Options']
-                                                  as List<
-                                                    CustomDropdownValue
-                                                  >?) ??
-                                              [],
-                                          selectedValue: field['SelectedValue'],
-                                          searchValue: (val) => val.valueName,
-                                          enabled: controller.isEditModePerdiem,
-                                          displayText: (val) => val.valueName,
-                                          columnHeaders: const [
-                                            'Value ID',
-                                            'Value Name',
-                                          ],
-                                          rowBuilder: (val, searchQuery) =>
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 10,
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(val.valueId),
-                                                    ),
-                                                    Expanded(
-                                                      child: Text(
-                                                        val.valueName,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          validator: (val) =>
-                                              isMandatory && val == null
-                                              ? 'Please select a value'
-                                              : null,
-                                          onChanged: (val) {
-                                            field['SelectedValue'] = val;
-                                            field['Error'] = null;
-                                            controller.customFields.refresh();
-                                          },
-                                        );
-                                  } else {
-                                    inputField = TextField(
-                                      enabled: controller.isEditModePerdiem,
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                    );
-                                  }
+                            //       if (field['FieldType'] == 'List') {
+                            //         inputField = inputField =
+                            //             SearchableMultiColumnDropdownField<
+                            //               CustomDropdownValue
+                            //             >(
+                            //               labelText:
+                            //                   '$label${isMandatory ? " *" : ""}',
+                            //               items:
+                            //                   (field['Options']
+                            //                       as List<
+                            //                         CustomDropdownValue
+                            //                       >?) ??
+                            //                   [],
+                            //               selectedValue: field['SelectedValue'],
 
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: inputField,
-                                  );
-                                }).toList(),
-                              );
-                            }),
+                            //               searchValue: (val) => val.valueName,
+                            //               enabled: controller.isEditModePerdiem,
+                            //               displayText: (val) => val.valueName,
+                            //               columnHeaders: const [
+                            //                 'Value ID',
+                            //                 'Value Name',
+                            //               ],
+                            //               rowBuilder: (val, searchQuery) =>
+                            //                   Padding(
+                            //                     padding:
+                            //                         const EdgeInsets.symmetric(
+                            //                           vertical: 10,
+                            //                           horizontal: 16,
+                            //                         ),
+                            //                     child: Row(
+                            //                       children: [
+                            //                         Expanded(
+                            //                           child: Text(val.valueId),
+                            //                         ),
+                            //                         Expanded(
+                            //                           child: Text(
+                            //                             val.valueName,
+                            //                           ),
+                            //                         ),
+                            //                       ],
+                            //                     ),
+                            //                   ),
+                            //               // validator: (val) =>
+                            //               //     isMandatory &&
+                            //               //         field['SelectedValue'] == null
+                            //               //     ? AppLocalizations.of(context)!.fieldRequired
+                            //               //     : null,
+                            //               onChanged: (val) {
+                            //                 field['SelectedValue'] = val;
+                            //                 field['Error'] = null;
+                            //                 controller.customFields.refresh();
+                            //               },
+                            //             );
+                            //       } else {
+                            //         inputField = TextFormField(
+                            //           enabled: controller.isEditModePerdiem,
+                            //           decoration: InputDecoration(
+                            //             labelText:
+                            //                 '$label${isMandatory ? " *" : ""}',
+                            //             border: const OutlineInputBorder(),
+                            //             errorText: field['Error'],
+                            //           ),
+                            //           onChanged: (value) {
+                            //             field['EnteredValue'] = value;
+                            //           },
 
-                            if (controller.isEditModePerdiem)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      final double lineAmount =
-                                          double.tryParse(
-                                            controller.amountInController.text,
-                                          ) ??
-                                          0.0;
+                            //           validator: (value) {
+                            //             if (isMandatory &&
+                            //                 (value == null ||
+                            //                     value.trim().isEmpty)) {
+                            //               return '$label is required';
+                            //             }
+                            //             return null;
+                            //           },
+                            //         );
+                            //       }
 
-                                      if (controller.split.isEmpty &&
-                                          controller
-                                              .accountingDistributions
-                                              .isNotEmpty) {
-                                        controller.split.assignAll(
-                                          controller.accountingDistributions
-                                              .map((e) {
-                                                return AccountingSplit(
-                                                  paidFor:
-                                                      e?.dimensionValueId ?? '',
-                                                  percentage:
-                                                      e?.allocationFactor ??
-                                                      0.0,
-                                                  amount: e?.transAmount ?? 0.0,
-                                                );
-                                              })
-                                              .toList(),
-                                        );
-                                      } else if (controller.split.isEmpty) {
-                                        controller.split.add(
-                                          AccountingSplit(percentage: 100.0),
-                                        );
-                                      }
+                            //       return Padding(
+                            //         padding: const EdgeInsets.symmetric(
+                            //           vertical: 8,
+                            //         ),
+                            //         child: inputField,
+                            //       );
+                            //     }).toList(),
+                            //   );
+                            // }),
 
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        shape: const RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(16),
-                                          ),
-                                        ),
-                                        builder: (context) => Padding(
-                                          padding: EdgeInsets.only(
-                                            bottom: MediaQuery.of(
-                                              context,
-                                            ).viewInsets.bottom,
-                                            left: 16,
-                                            right: 16,
-                                            top: 24,
-                                          ),
-                                          child: SingleChildScrollView(
-                                            child: AccountingDistributionWidget(
-                                              splits: controller.split,
-                                              lineAmount: lineAmount,
-                                              onChanged: (i, updatedSplit) {
-                                                if (!mounted) return;
-                                                controller.split[i] =
-                                                    updatedSplit;
-                                              },
-                                              onDistributionChanged: (newList) {
-                                                if (!mounted) return;
-                                                controller
-                                                    .accountingDistributions
-                                                    .clear();
-                                                controller
-                                                    .accountingDistributions
-                                                    .addAll(newList);
-                                              },
-                                            ),
-                                          ),
-                                        ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    final double lineAmount =
+                                        double.tryParse(
+                                          controller.amountInController.text,
+                                        ) ??
+                                        0.0;
+
+                                    if (controller.split.isEmpty &&
+                                        controller
+                                            .accountingDistributions
+                                            .isNotEmpty) {
+                                      controller.split.assignAll(
+                                        controller.accountingDistributions.map((
+                                          e,
+                                        ) {
+                                          return AccountingSplit(
+                                            paidFor: e?.dimensionValueId ?? '',
+                                            percentage:
+                                                e?.allocationFactor ?? 0.0,
+                                            amount: e?.transAmount ?? 0.0,
+                                          );
+                                        }).toList(),
                                       );
-                                    },
-                                    child: Text(loc.accountDistribution),
-                                  ),
-                                ],
-                              ),
+                                    } else if (controller.split.isEmpty) {
+                                      controller.split.add(
+                                        AccountingSplit(percentage: 100.0),
+                                      );
+                                    }
+
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16),
+                                        ),
+                                      ),
+                                      builder: (context) => Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: MediaQuery.of(
+                                            context,
+                                          ).viewInsets.bottom,
+                                          left: 16,
+                                          right: 16,
+                                          top: 24,
+                                        ),
+                                        child: SingleChildScrollView(
+                                          child: AccountingDistributionWidget(
+                                            isEnable:
+                                                controller.isEditModePerdiem,
+                                            splits: controller.split,
+                                            lineAmount: lineAmount,
+                                            onChanged: (i, updatedSplit) {
+                                              if (!mounted) return;
+                                              controller.split[i] =
+                                                  updatedSplit;
+                                            },
+                                            onDistributionChanged: (newList) {
+                                              if (!mounted) return;
+                                              controller.accountingDistributions
+                                                  .clear();
+                                              controller.accountingDistributions
+                                                  .addAll(newList);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(loc.accountDistribution),
+                                ),
+                              ],
+                            ),
                             if (widget.item != null) const SizedBox(height: 10),
                             if (widget.item != null)
                               _buildSection(
@@ -1096,7 +1206,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.grey,
                                       ),
-                                      child: Text(loc.cancel),
+                                      child: Text(loc.close),
                                     ),
                                   ),
                                 ],
@@ -2067,18 +2177,20 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
 
   Widget buildTextField(
     String label,
-    TextEditingController controller, {
+    TextEditingController controller,
+    String? error, {
     bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
-        readOnly: readOnly,
+        enabled: readOnly,
         decoration: InputDecoration(
           labelText: label,
           filled: true,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          errorText: error,
         ),
       ),
     );
@@ -2100,7 +2212,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                 if (controllers.text.trim().isNotEmpty) {
                   try {
                     initialDate = DateFormat(
-                      'dd-MMM-yyyy',
+                      'dd-MM-yyyy',
                     ).parseStrict(controllers.text.trim());
                   } catch (_) {}
                 }
@@ -2112,7 +2224,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                     controller.fromDateController.text.isNotEmpty) {
                   try {
                     firstDate = DateFormat(
-                      'dd-MMM-yyyy',
+                      'dd-MM-yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                   } catch (_) {}
                 }
@@ -2128,7 +2240,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   if (!isFromDate &&
                       controller.fromDateController.text.isNotEmpty) {
                     final fromDate = DateFormat(
-                      'dd-MMM-yyyy',
+                      'dd-MM-yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                     if (picked.isBefore(fromDate)) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -2145,7 +2257,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   controllers.text = formatDate(picked);
                   await controller.fetchPerDiemRates();
                   controller.fetchExchangeRatePerdiem();
-
+                  loadAndAppendCashAdvanceList();
                   if (controller.locationController.text.isNotEmpty) {
                     loadAndAppendCashAdvanceList();
                   }
@@ -2155,7 +2267,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         child: AbsorbPointer(
           child: TextField(
             controller: controllers,
-            readOnly: true,
+            enabled: enabled,
             decoration: InputDecoration(
               labelText: label,
               filled: true,
@@ -2429,7 +2541,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${loc.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${loc.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

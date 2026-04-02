@@ -1,7 +1,9 @@
 import 'package:diginexa/data/models.dart';
+import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -13,6 +15,7 @@ import 'package:diginexa/core/constant/Parames/params.dart';
 import '../../../../../core/comman/widgets/pageLoaders.dart';
 import '../../../../../core/constant/url.dart';
 import '../../../../../l10n/app_localizations.dart';
+import 'notifiarModels.dart';
 
 class ExpensePaginationPage extends StatefulWidget {
   const ExpensePaginationPage({super.key});
@@ -317,7 +320,7 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
                 pw.Text(item.notes),
                 pw.SizedBox(height: 6),
                 pw.Text(
-                  '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                  '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                   style: const pw.TextStyle(color: PdfColors.grey),
                 ),
               ],
@@ -387,7 +390,40 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
     List<int> visibleIndexes = List.generate(
         endIndex - currentPageStartIndex, (i) => i + currentPageStartIndex);
 
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        final reportModel = Provider.of<ReportModel>(context, listen: false);
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(AppLocalizations.of(context)!.exitForm),
+            content: Text(AppLocalizations.of(context)!.exitWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false), // Stay
+                child: Text(AppLocalizations.of(context)!.cancel),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(true), // Confirm exit
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldExit ?? false) {
+          reportModel.clearMISFields();
+          Navigator.pushNamed(context, AppRoutes.dashboard_Main);
+          return true; // allow back navigation
+        }
+
+        return false; // cancel back navigation
+      },
+      child:  Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.reports,
             style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -473,7 +509,7 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
                     ],
                   ),
                 ),
-    );
+    ));
   }
 
   bool isImageFile(String fileExtension) {
@@ -933,7 +969,7 @@ class _ExpensePaginationPageState extends State<ExpensePaginationPage> {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

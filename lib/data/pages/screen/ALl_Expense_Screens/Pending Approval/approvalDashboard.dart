@@ -11,6 +11,7 @@ import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
+import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -29,7 +30,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     with TickerProviderStateMixin {
   // final controllers = Get.put(Controller());
   bool isLoading = false;
-  final controller = Get.put(Controller());
+   final controller = Get.find<Controller>();
 
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
@@ -137,11 +138,14 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
   @override
   void initState() {
     super.initState();
+    
+
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchController.clear();
       controller.selectedExpenseIds.clear();
+      controller.selectedExpenseType.value = "All Expenses";
     });
     controller.fetchNotifications();
     controller.fetchAndCombineData().then((_) {
@@ -162,14 +166,9 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
               });
       }
     });
-    setState(() {
-      controller.isEnable.value = false;
-    });
 
-    print("${controller.isEnable.value}isEnable");
-   
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       _loadDataOnce();
+      _loadDataOnce();
       setState(() {
         _dragOffset = MediaQuery.of(context).size.height * 0.3;
       });
@@ -193,7 +192,17 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
       // controller.isImageLoading.value = false;
     }
   }
-
+ void _onUserScroll() {
+    if (_animationController.isAnimating) {
+      _animationController.stop();
+    }
+    Future.delayed(const Duration(seconds: 8), () {
+      if (!mounted) return;
+      if (!_animationController.isAnimating) {
+        _animationController.repeat();
+      }
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -203,7 +212,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     WillPopScope(
       onWillPop: () async {
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-        controller.selectedExpenseIds.clear();
+        // controller.selectedExpenseIds.clear();
         return true; // allow back navigation
       },
       child: Scaffold(
@@ -447,24 +456,35 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Obx(() {
-                            return SizedBox(
-                              height: 140,
-                              child: ListView.builder(
-                                controller: _scrollController,
-                                scrollDirection: Axis.horizontal,
-                                physics:
-                                    const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
-                                itemCount:
-                                    controller.manageExpensesCards.length,
-                                itemBuilder: (context, index) {
-                                  final card =
-                                      controller.manageExpensesCards[index];
-                                  return _buildStyledCard(card);
-                                },
-                              ),
-                            );
-                          }),
+                           SizedBox(
+                  height: 140,
+                  child: Obx(() {
+                    if (controller.manageExpensesCards.isEmpty) {
+                      return Center(child: Text(loc.pleaseWait));
+                    }
+                    return NotificationListener<UserScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification.direction == ScrollDirection.idle) {
+                          _onUserScroll();
+                        }
+                        return false;
+                      },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: controller.manageExpensesCards.length,
+                        itemBuilder: (context, index) {
+                          final card = controller.manageExpensesCards[index];
+                          return GestureDetector(
+                            onTap: _onUserScroll,
+                            child:  _buildStyledCard(card)
+                          );
+                        },
+                      ),
+                    );
+                  }),
+                ),
                           const SizedBox(height: 15),
                           Center(
                             child: SizedBox(
@@ -501,61 +521,69 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                             children: [
                               // ------------------ Status Dropdown ------------------
                               Expanded(
-                                child:  Padding(
-    padding: const EdgeInsets.only(right: 16, left: 16),
-    child: Obx(() {
-      final isDisabled = controller.selectedExpenseIds.isEmpty;
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: 16,
+                                    left: 16,
+                                  ),
+                                  child: Obx(() {
+                                    final isDisabled =
+                                        controller.selectedExpenseIds.isEmpty;
 
-      return Container(
-        height: 47,
-        width: 140,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: isDisabled
-              ? Colors.grey
-              : Theme.of(context).colorScheme.primary,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: PopupMenuButton<String>(
-          enabled: !isDisabled, // ✅ disables tap
-          onSelected: (value) {
-            if (value == "approve") {
-              showActionPopup(context, "Approve");
-            } else if (value == "reject") {
-              showActionPopup(context, "Reject");
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: "approve",
-              child: Text("Approval"),
-            ),
-            PopupMenuItem(
-              value: "reject",
-              child: Text("Reject"),
-            ),
-          ],
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Bulk Action",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                color: Colors.white,
-              ),
-            ],
-          ),
-        ),
-      );
-    }),
-  ),
-                                
+                                    return Container(
+                                      height: 47,
+                                      width: 140,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDisabled
+                                            ? Colors.grey
+                                            : Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: PopupMenuButton<String>(
+                                        enabled: !isDisabled, // ✅ disables tap
+                                        onSelected: (value) {
+                                          if (value == "approve") {
+                                            showActionPopup(context, "Approve");
+                                          } else if (value == "reject") {
+                                            showActionPopup(context, "Reject");
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            value: "approve",
+                                            child: Text("Approval"),
+                                          ),
+                                          PopupMenuItem(
+                                            value: "reject",
+                                            child: Text("Reject"),
+                                          ),
+                                        ],
+                                        child: const Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "Bulk Action",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.arrow_drop_down,
+                                              color: Colors.white,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
                               ),
 
                               // ------------------ Expense Type Dropdown ------------------
@@ -642,7 +670,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                 SizedBox(
                   height: MediaQuery.of(context).size.height * 0.47,
                   child: Obx(() {
-                    return controller.isLoadingGE1.value  
+                    return controller.isLoadingGE1.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredpendingApprovals.isEmpty
                         ? const CommonNoDataWidget()
@@ -671,7 +699,6 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                                           );
                                     } else if (item.expenseType ==
                                         "General Expenses") {
-                                      
                                       controller
                                           .fetchSecificApprovalExpenseItem(
                                             context,
@@ -1247,7 +1274,7 @@ Widget _swipeBg(IconData icon, Alignment align) {
 }
 
 Widget _buildCard(ExpenseModel item, BuildContext context) {
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
   final id = item.workitemrecid;
 
   return Obx(() {

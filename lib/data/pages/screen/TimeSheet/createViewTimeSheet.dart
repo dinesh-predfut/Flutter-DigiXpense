@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
+    show PermissionHelper;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
@@ -83,7 +85,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       case 'Weekly':
         return 'Week';
       case 'BiWeekly':
-        return 'BiWeek';
+        return 'Biweekly';
       case 'Monthly':
         return 'Month';
       case 'Semimonthly':
@@ -91,7 +93,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       case 'Day':
         return 'Day';
       default:
-        return 'Week';
+        return 'None';
     }
   }
 
@@ -314,17 +316,23 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           controller.dateRange = null;
         });
         Navigator.pushNamed(context, AppRoutes.timeSheetDashboard);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        final message = responseData['detail']['message'];
         Fluttertoast.showToast(
-          msg: "Timesheet Saved Successfully",
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.green,
           textColor: Colors.white,
-          fontSize: 16.0,
         );
       } else {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        final message = responseData['detail']['message'];
+
         Fluttertoast.showToast(
-          msg: "Timesheet Submit Error",
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red,
@@ -392,8 +400,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       controller.loadSequenceModules();
 
       controller.Sheetconfiguration();
+      if (PermissionHelper.canUpdate("Timesheet Requisition")) {
+        controller.isEnable.value = false;
+      }
       if (controller.statusApproval == "Review") {
         controller.isEnable.value = false;
+      }
+      if (widget.team!) {
+        controller.sheetEnable.value = false;
       }
       if (!widget.status) {
         if (controller.statusApproval == "Approved") {
@@ -496,6 +510,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           actions: [
             if (!widget.team! &&
                 widget.status &&
+                PermissionHelper.canRead("Timesheet Requisition") &&
                 controller.statusApproval != "Approved" &&
                 controller.statusApproval != "Cancelled" &&
                 controller.statusApproval != "Pending")
@@ -583,8 +598,12 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                               ),
                             ],
                           ),
-
-                        _buildBottomButtons(context),
+                        if (PermissionHelper.canUpdate("Timesheet Requisition"))
+                          _buildBottomButtons(context),
+                        if (!PermissionHelper.canUpdate(
+                          "Timesheet Requisition",
+                        ))
+                          _buildViewModeButtons(),
                       ],
                     ),
                   ),
@@ -594,6 +613,27 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           );
         }),
       ),
+    );
+  }
+
+  Widget _buildViewModeButtons() {
+    return Column(
+      children: [
+        const SizedBox(height: 22),
+
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: Colors.grey,
+            minimumSize: const Size(double.infinity, 50),
+          ),
+          child: Text(
+            AppLocalizations.of(context)!.close,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 
@@ -755,8 +795,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                 child: Text(
                   controller.dateRange == null
                       ? 'Select'
-                      : '${DateFormat('dd/MM/yyyy').format(controller.dateRange!.start)} - '
-                            '${DateFormat('dd/MM/yyyy').format(controller.dateRange!.end)}',
+                      : '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.start)} - '
+                            '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.end)}',
                 ),
               ),
             ),
@@ -981,7 +1021,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
   String _formatDate(int millis) {
     final date = DateTime.fromMillisecondsSinceEpoch(millis);
-    return DateFormat('dd MMM yyyy, hh:mm a').format(date);
+    return DateFormat('dd-MM-yyyy, hh:mm a').format(date);
   }
 
   Widget _periodDropdown() {
@@ -1416,7 +1456,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           final timestamp = int.tryParse(value.toString());
           if (timestamp != null) {
             final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-            return DateFormat('dd/MM/yyyy').format(date);
+            return DateFormat('dd-MM-yyyy').format(date);
           }
         } catch (e) {
           print('Error parsing date: $e');
@@ -1429,7 +1469,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           final timestamp = int.tryParse(value.toString());
           if (timestamp != null) {
             final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-            return DateFormat('dd/MM/yyyy HH:mm').format(date);
+            return DateFormat('dd-MM-yyyy HH:mm').format(date);
           }
         } catch (e) {
           print('Error parsing datetime: $e');
@@ -3138,7 +3178,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
         widget.field['FieldType']?.toString().toLowerCase() ?? 'text';
     final isMandatory = widget.field['IsMandatory'] ?? false;
     final label = '${widget.field['FieldName']}${isMandatory ? ' *' : ''}';
-    // final initialDate = DateFormat('yyyy-MM-dd').parse(_controller.text);
+    // final initialDate = DateFormat('dd-MM-yyyy').parse(_controller.text);
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -3438,7 +3478,7 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Center(
+          Center(
             child: Text(
               AppLocalizations.of(context)!.timeDetails,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -3448,24 +3488,22 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
           const SizedBox(height: 16),
 
           /// Time From
-          /// 
-         
-         
-controller.buildConfigurableField(
+          ///
+          controller.buildConfigurableField(
             fieldName: "Startime-Endtime",
             builder: (isEnabled, isMandatory) {
-              return  Obx(
-            () => TextField(
-              controller: timeFromCtrl,
-              readOnly: true,
-              enabled: controller.sheetEnable.value,
-              decoration: InputDecoration(
-                labelText: "${AppLocalizations.of(context)!.startTime} *",
-                suffixIcon: Icon(Icons.access_time),
-              ),
-              onTap: () => _pickTime(timeFromCtrl, true),
-            ),
-          );
+              return Obx(
+                () => TextField(
+                  controller: timeFromCtrl,
+                  readOnly: true,
+                  enabled: controller.sheetEnable.value,
+                  decoration: InputDecoration(
+                    labelText: "${AppLocalizations.of(context)!.startTime} *",
+                    suffixIcon: Icon(Icons.access_time),
+                  ),
+                  onTap: () => _pickTime(timeFromCtrl, true),
+                ),
+              );
             },
           ),
           const SizedBox(height: 12),
@@ -3494,9 +3532,11 @@ controller.buildConfigurableField(
           /// Total Hours
           TextField(
             controller: totalHoursCtrl,
-            readOnly: true,
-            enabled: false,
-            decoration:  InputDecoration(labelText: "${AppLocalizations.of(context)!.totalHours} *"),
+            // readOnly: true,
+            enabled: controller.sheetEnable.value,
+            decoration: InputDecoration(
+              labelText: "${AppLocalizations.of(context)!.totalHours} *",
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -3506,7 +3546,9 @@ controller.buildConfigurableField(
             () => TextField(
               controller: commentCtrl,
               enabled: controller.sheetEnable.value,
-              decoration:  InputDecoration(labelText: AppLocalizations.of(context)!.comment),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.comment,
+              ),
             ),
           ),
 
@@ -3520,7 +3562,7 @@ controller.buildConfigurableField(
                 onPressed: () {
                   Navigator.pop(context);
                 },
-                child:  Text(AppLocalizations.of(context)!.close),
+                child: Text(AppLocalizations.of(context)!.close),
               ),
 
               const SizedBox(width: 8),
@@ -3545,7 +3587,7 @@ controller.buildConfigurableField(
 
                           Navigator.pop(context);
                         },
-                        child:  Text(AppLocalizations.of(context)!.save),
+                        child: Text(AppLocalizations.of(context)!.save),
                       )
                     : const SizedBox(),
               ),
@@ -5007,7 +5049,7 @@ class _SegmentEditBottomSheetState extends State<SegmentEditBottomSheet> {
         int.tryParse(millis.toString()) ?? 0,
         isUtc: true,
       ).toLocal();
-      return DateFormat('dd MMM yyyy, hh:mm a').format(date);
+      return DateFormat('dd-MM-yyyy, hh:mm a').format(date);
     } catch (_) {
       return '--';
     }

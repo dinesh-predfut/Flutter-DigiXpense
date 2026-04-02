@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
@@ -105,7 +106,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchProjectName();
-      controller.fetchExpenseCategory();
+      controller.fetchCashAdvanceExpenseCategory();
       controller.configuration();
       controller.fetchUnit();
       controller.configuration();
@@ -121,7 +122,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
 
         if (widget.items!.receiptDate != null) {
           final formatted = DateFormat(
-            'dd/MM/yyyy',
+            'dd-MM-yyyy',
           ).format(widget.items!.receiptDate);
           controller.selectedDate = widget.items!.receiptDate;
           receiptDateController.text = formatted;
@@ -241,7 +242,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd/MM/yyyy').parseStrict(value);
+        DateFormat('dd-MM-yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
       }
@@ -848,7 +849,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                 widget.items!.approvalStatus != "Pending" ||
                 widget.items!.stepType != null &&
                 (widget.items!.approvalStatus == "Pending" ||
-                    widget.items!.approvalStatus == "Created"))
+                    widget.items!.approvalStatus == "Created") && PermissionHelper.canUpdate("Expense Registration"))
               IconButton(
                 icon: Icon(
                   widget.items!.stepType == "Approval"
@@ -1525,7 +1526,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller: controller.amountINR,
       enabled: false,
       decoration: InputDecoration(
-        labelText: '${AppLocalizations.of(context)!.amountInInr}*',
+        labelText: '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
         filled: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -1686,7 +1687,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                                 itemController
                                                     .toExpenseItemUpdateModel();
                                           });
-                                          controller.fetchExpenseCategory();
+                                          controller.fetchCashAdvanceExpenseCategory();
                                         }
                                       },
                                     );
@@ -2111,7 +2112,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      label: AppLocalizations.of(context)!.lineAmountInInr,
+      label: '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
       controller: itemController.lineAmountINR,
       isReadOnly: false,
       validator: (value) => _validateNumericField(
@@ -3296,15 +3297,26 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                      lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
-                    controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
-                    controller.selectedDate = picked;
+                setState(() {
+                      controller.selectedDate = picked;
+
+                      controller.selectedProject = null;
+                      for (var c in itemizeControllers) {
+                        c.expenseCategory.value = [];
+                        c.categoryController.clear();
+                        c.projectDropDowncontroller.clear();
+                      }
+                    });
+                    loadAndAppendCashAdvanceList();
+                    controller.fetchCashAdvanceExpenseCategory();
                     controller.fetchProjectName();
+                    controller.selectedDate = picked;
+                
                   }
                 },
         ),
@@ -3374,7 +3386,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd MMM yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 13,

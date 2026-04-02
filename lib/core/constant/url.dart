@@ -1,6 +1,7 @@
 class Urls {
-  // static const String baseURL = "https://api.digixpense.com";
-  static const String baseURL = "https://digixepenseapi.loclx.io";
+  static const String baseURL = "https://api.digixpense.com";
+  // static const String baseURL = "https://digixepenseapi.loclx.io";
+  
 //   static const String baseURL = "http://69.30.253.234:9700";
             //   static const String baseURL = "http://192.168.11.58:9700";
     static const login = "$baseURL/api/v1/tenant/auth/login/";
@@ -54,6 +55,8 @@ class Urls {
       "$baseURL/api/v1/expenseregistration/expenseregistration/currency?filter_query=STPCompanyCurrencies.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const expenseCategory =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expensecategory?ProjectId=";
+      static const cashAdvanceexpenseCategory =
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cashadvanceexpensecategory?ProjectId=";
   static const exchangeRateCA =
       "$baseURL/api/v1/masters/financemgmt/exchmgmt/exchangerates/exchangerateconversionfromorg";
         static const exchangeRate =
@@ -83,7 +86,7 @@ class Urls {
       static const externalApprovals =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/externalapproval/takeaction";
        static const updateApprovalStatusLeave =
-          "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=LeaveCancellation";
+          "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=LeaveRequisition";
   static const updateApprovalStatusCashAdvance =
       "$baseURL/api/v1/masters/approvalmanagement/workflowapproval/approveraction?functionalentity=CashAdvanceRequisition";
        static const sheetApprovals =
@@ -94,6 +97,8 @@ class Urls {
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/detailedapproval?";
   static const getTrackingDetails =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expenselog?filter_query=EXPExpenseTransLog.";
+       static const getTrackingDetailsLeave =
+      "$baseURL/api/v1/leaverequisition/leavemanagement/trackinghistory?filter_query=LVRLeaveTransLog.";
   static const unProcessedList =
       "$baseURL/api/v1/expenseregistration/expenseregistration/unprocessedexpenseheader?filter_query=EXPUnProcessedExpenses.CreatedBy__eq%3D";
   static const cashadvanceTracking =

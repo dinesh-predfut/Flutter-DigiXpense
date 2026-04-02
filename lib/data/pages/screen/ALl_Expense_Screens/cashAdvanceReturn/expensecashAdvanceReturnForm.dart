@@ -39,7 +39,7 @@ class CashAdvanceReturnForm extends StatefulWidget {
 class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     with TickerProviderStateMixin {
   final controller = Get.find<Controller>();
-  final controllerItems = Get.put(Controller());
+  final controllerItems = Get.find<Controller>();
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
   RxList<CashAdvanceDropDownModel> cashAdvanceList =
@@ -58,7 +58,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   // bool controller.setQuality.value = true;
   bool allowMultSelect = false;
   late Future<Map<String, bool>> _featureFuture;
-
+  String? expenseIdError;
   bool _isTyping = false;
   late FocusNode _focusNode;
   bool clearField = false;
@@ -77,6 +77,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+
     controller.selectedDate ??= DateTime.now();
     _focusNode.addListener(() {
       setState(() {
@@ -91,11 +92,12 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
     // controller.fetchPaidto();
 
-    itemizeControllers.add(Controller());
-
     controller.isManualEntryMerchant = false;
+    itemizeControllers.add(Controller());
     _initializeUnits();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.isLoadingGE2.value = true;
+
       // Safe to update observables here
       controller.configuration();
       controller.fetchPaidto();
@@ -105,9 +107,10 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       controller.fetchUnit();
       controller.currencyDropDown();
       controller.getUserPref(context);
-      controller.fetchExpenseCategory();
+      controller.fetchCashAdvanceExpenseCategory();
       _loadSettings();
       loadAndAppendCashAdvanceList();
+      controller.isLoadingGE2.value = false;
 
       // controller.isLoadingGE2.value = false
       // controller.fetchExchangeRate();
@@ -151,29 +154,45 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   bool validateDropdowns() {
     bool isValid = true;
 
-    if (allowMultSelect) {
-      print("allowMultSelect$allowMultSelect");
-      setState(() {
-        // selectReferenceIDError = null;
+    if (allowMultSelect == true) {
+      if (controller.multiSelectedItems.isEmpty) {
+        cashAdvanceField.value = AppLocalizations.of(
+          context,
+        )!.pleaseSelectCashAdvanceField;
+        isValid = false;
+      } else {
         cashAdvanceField.value = null;
-      });
+      }
     } else {
       if (controller.singleSelectedItem == null) {
         cashAdvanceField.value = AppLocalizations.of(
           context,
         )!.pleaseSelectCashAdvanceField;
-        ;
         isValid = false;
-      }
-      setState(() {
-        // selectReferenceIDError = null;
+      } else {
         cashAdvanceField.value = null;
-      });
+      }
     }
-    setState(() {
-      paidwithError.value = null;
-    });
 
+    paidwithError.value = null;
+
+    setState(() {});
+    final hideField = controller.hasModule("Expense");
+
+    if (!hideField) {
+      if (controller.expenseIdController.text.trim().isEmpty) {
+        setState(() {
+          expenseIdError = AppLocalizations.of(
+            context,
+          )!.fieldRequired; // 🔥 create this variable
+        });
+        isValid = false;
+      } else {
+        setState(() {
+          expenseIdError = null;
+        });
+      }
+    }
     // Validate Date
     // if (controller.selectedDate == null) {
     //   setState(() {
@@ -211,8 +230,18 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     if (picked != null && picked != controller.selectedDate) {
       setState(() {
         controller.selectedDate = picked;
-        selectDate = null;
+
+        controller.selectedProject = null;
+        for (var c in itemizeControllers) {
+          c.expenseCategory.value = [];
+          c.categoryController.clear();
+          c.projectDropDowncontroller.clear();
+        }
       });
+      loadAndAppendCashAdvanceList();
+      controller.fetchCashAdvanceExpenseCategory();
+      controller.fetchProjectName();
+      controller.selectedDate = picked;
     }
   }
 
@@ -239,17 +268,25 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     Colors.pink.shade200,
   ];
   Future<void> _initializeUnits() async {
-    await controller.fetchUnit(); // Wait for units to be fetched
+    await controller.fetchUnit();
+
     Timer(const Duration(seconds: 5), () {
-      print("controller.unit${controller.selectedunit}");
+      print("controller.unit ${controller.unit}");
+      print("controller.selectedunit ${controller.selectedunit}");
+
+      if (controller.unit.isEmpty) {
+        print("Unit list is empty. Cannot assign default.");
+        return;
+      }
+
       if (controller.selectedunit == null) {
         final defaultUnit = controller.unit.firstWhere(
           (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
           orElse: () => controller.unit.first,
         );
+
         setState(() {
-          controller.selectedunit ??= defaultUnit;
-          controller.selectedunit ??= defaultUnit;
+          controller.selectedunit = defaultUnit;
         });
       }
     });
@@ -520,6 +557,85 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     return isValid;
   }
 
+  /// Validates ALL itemize pages, returns index of first invalid one or -1
+  int _getFirstInvalidItemizeIndex() {
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final c = itemizeControllers[i];
+
+      // Check category
+      if (c.selectedCategoryId.isEmpty) return i;
+
+      // Check quantity
+      if (c.quantity.text.isEmpty) return i;
+
+      // Check unit amount
+      if (c.unitAmount.text.isEmpty) return i;
+
+      final value = double.tryParse(c.lineAmountINR.text);
+      if (value == null || value <= 0) return i;
+
+      // // Check min/max range
+      // final min = c.minExpenseAmount.value;
+      // final max = c.maxExpenseAmount.value;
+      // if (value < min) return i;
+      // if (value > max && max != 0.0) return i;
+
+      // Check unit
+      if (c.selectedunit == null) return i;
+
+      // Check tax amount if mandatory
+      if (isFieldMandatory('Tax Amount') && c.taxAmount.text.isEmpty) return i;
+
+      // Check project if mandatory
+      if (isFieldMandatory('Project Id') && c.selectedProject == null) return i;
+    }
+    return -1; // ✅ All valid
+  }
+
+  /// Navigates to the invalid itemize tab and triggers its error UI
+  void _navigateToInvalidItemize(int invalidIndex) {
+    setState(() {
+      _selectedItemizeIndex = invalidIndex; // ← switches the active tab
+    });
+
+    // Small delay to let the page rebuild before showing errors
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final c = itemizeControllers[invalidIndex];
+
+      // Trigger all error flags on the invalid page
+      setState(() {
+        if (c.selectedCategoryId.isEmpty) {
+          c.showPaidForError.value = true;
+        }
+        if (c.quantity.text.isEmpty) {
+          c.showQuantityError.value = true;
+        }
+        if (c.unitAmount.text.isEmpty) {
+          c.showUnitAmountError.value = true;
+          c.unitAmountErrorText.value = "Amount is required";
+        }
+        if (c.selectedunit == null) {
+          _showUnitError = true;
+        }
+        if (isFieldMandatory('Tax Amount') && c.taxAmount.text.isEmpty) {
+          c.showTaxAmountError.value = true;
+        }
+        if (isFieldMandatory('Project Id') && c.selectedProject == null) {
+          c.showProjectError.value = true;
+        }
+      });
+
+      Fluttertoast.showToast(
+        msg: "Please fill all required fields in item ${invalidIndex + 1}",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -694,7 +810,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                   controller.showProjectError.value = false;
                                 }
                               });
-                              controller.fetchExpenseCategory();
+                              controller.fetchCashAdvanceExpenseCategory();
                             },
                             rowBuilder: (proj, searchQuery) {
                               return Padding(
@@ -863,6 +979,20 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 final fetchCategory = (controller.expenseCategory.isNotEmpty)
                     ? controller.expenseCategory
                     : controllerItems.expenseCategory;
+
+                // 👉 Handle empty state
+                if (fetchCategory.isEmpty) {
+                  return Center(
+                    child: Text(
+                      AppLocalizations.of(context)!.noDataFound,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  );
+                }
 
                 return GridView.count(
                   shrinkWrap: true,
@@ -1067,7 +1197,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildTextInput(
-                            "${loc.lineAmountInInr}  *",
+                            '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency} *',
                             controller.lineAmountINR,
                             enabled: false,
                           ),
@@ -1316,6 +1446,15 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           onPressed: () {
                             if (showItemizeDetails) {
                               if (_validateCurrentItemizeForm()) {
+                                final invalidIndex =
+                                    _getFirstInvalidItemizeIndex();
+
+                                if (invalidIndex != -1 &&
+                                    invalidIndex != _selectedItemizeIndex) {
+                                  // ❌ Another page has invalid fields → navigate to it
+                                  _navigateToInvalidItemize(invalidIndex);
+                                  return;
+                                }
                                 setState(() {
                                   controller.showQuantityError.value = false;
                                   controller.showUnitAmountError.value = false;
@@ -1515,6 +1654,15 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                 print('isValid${itemizeControllers.length}');
                                 if (isValid) {
                                   if (showItemizeDetails) {
+                                    final invalidIndex =
+                                        _getFirstInvalidItemizeIndex();
+
+                                    if (invalidIndex != -1 &&
+                                        invalidIndex != _selectedItemizeIndex) {
+                                      // ❌ Another page has invalid fields → navigate to it
+                                      _navigateToInvalidItemize(invalidIndex);
+                                      return;
+                                    }
                                     controllerItems.finalItems =
                                         itemizeControllers
                                             .map((c) => c.toExpenseItemModel())
@@ -1753,7 +1901,31 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
+                      Obx(() {
+                        if (controller.isSequenceLoading.value) {
+                          return const SizedBox(); // or loader
+                        }
+
+                        final hideField = controller.hasModule("Expense");
+
+                        if (hideField) {
+                          return const SizedBox.shrink(); // ✅ hide
+                        }
+
+                        return Column(
+                          children: [
+                            TextFormField(
+                              controller: controller.expenseIdController,
+                              decoration: InputDecoration(
+                                labelText: '${loc.requestId} *',
+                                errorText: expenseIdError,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      }),
+
                       FormField<DateTime>(
                         validator: (value) {
                           if (controller.selectedDate == null) {
@@ -1785,7 +1957,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                       Text(
                                         controller.selectedDate == null
                                             ? '${loc.selectDate} '
-                                            : DateFormat('dd/MM/yyyy').format(
+                                            : DateFormat('dd-MM-yyyy').format(
                                                 controller.selectedDate!,
                                               ),
                                         style: TextStyle(
@@ -1892,7 +2064,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           MultiSelectMultiColumnDropdownField<
                             CashAdvanceDropDownModel
                           >(
-                            labelText: loc.cashAdvanceRequest,
+                            labelText: '${loc.cashAdvanceRequest} *',
                             controller: controller.cashAdvanceIds,
                             items: controller.cashAdvanceListDropDown,
                             isMultiSelect: allowMultSelect ?? false,
@@ -1902,14 +2074,24 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                             // enabled: controller.isEnable.value,
                             searchValue: (proj) => proj.cashAdvanceReqId,
                             displayText: (proj) => proj.cashAdvanceReqId,
-                            validator: (proj) => proj == null
-                                ? '${loc.cashAdvanceRequest} '
-                                : null,
+                            validator: (proj) {
+                              if (allowMultSelect == true) {
+                                return controller.multiSelectedItems.isEmpty
+                                    ? loc.pleaseSelectCashAdvanceField
+                                    : null;
+                              } else {
+                                return controller.singleSelectedItem == null
+                                    ? loc.pleaseSelectCashAdvanceField
+                                    : null;
+                              }
+                            },
                             onChanged: (item) {
                               controller.singleSelectedItem = item;
+                              cashAdvanceField.value = null;
                             },
                             onMultiChanged: (items) {
                               controller.multiSelectedItems.assignAll(items);
+                              cashAdvanceField.value = null;
                             },
                             columnHeaders: [loc.requestId, loc.requestDate],
                             rowBuilder: (proj, searchQuery) {
@@ -2036,7 +2218,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                       Icon(icons[index % icons.length]),
                                       const SizedBox(width: 10),
                                       Expanded(
-                                        child: Text(method.paymentMethodName),
+                                        child: Text(method.paymentMethodId),
                                       ),
                                     ],
                                   ),
@@ -2421,23 +2603,15 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       },
     );
   }
-Future<void> _pickFile() async {
+
+  Future<void> _pickFile() async {
     try {
       controller.isImageLoading.value = true;
 
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -2469,16 +2643,15 @@ Future<void> _pickFile() async {
       controller.isImageLoading.value = false;
     }
   }
-Future<void> _processSelectedFile(File file) async {
+
+  Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
-
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+    setState(() {
+      controller.imageFiles.add(file);
+    });
   }
+
   Widget _buildImageArea() {
     final loc = AppLocalizations.of(context)!;
 
@@ -2501,7 +2674,7 @@ Future<void> _processSelectedFile(File file) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-         Obx(() {
+        Obx(() {
           return GestureDetector(
             onTap: _pickFile,
             child: Container(
@@ -2534,8 +2707,11 @@ Future<void> _processSelectedFile(File file) async {
                             final path = file.path;
 
                             return GestureDetector(
-                             onTap: () =>
-    controller.openFile(context, file, index),
+                              onTap: () => controller.openFilewhileCreate(
+                                context,
+                                file,
+                                index,
+                              ),
 
                               child: Container(
                                 margin: const EdgeInsets.all(8),
@@ -2669,7 +2845,6 @@ Future<void> _processSelectedFile(File file) async {
             ),
           );
         }),
-      
       ],
     );
   }
@@ -2720,7 +2895,7 @@ Future<void> _processSelectedFile(File file) async {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.upload_file),
                       label: Text(loc.upload),
-                      onPressed: () => _pickImage(ImageSource.gallery),
+                      onPressed: _pickFile,
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
@@ -3029,7 +3204,8 @@ Future<void> _processSelectedFile(File file) async {
                       controller: controller.amountINR,
                       enabled: false,
                       decoration: InputDecoration(
-                        labelText: '${loc.amountInInr}  *',
+                        labelText:
+                            '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
                         filled: true,
                         border: const OutlineInputBorder(),
                       ),

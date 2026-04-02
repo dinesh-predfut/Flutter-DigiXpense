@@ -97,7 +97,7 @@ class _ColorPickerGridState extends State<ColorPickerGrid> {
   }
 
   Widget _buildColorGrid(Map<Color, String> colors) {
-    final controller = Get.find<Controller>();
+    final controller = Get.put(Controller());
 
     return SizedBox(
       height: 120, // reduced height

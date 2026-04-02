@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
@@ -38,7 +40,7 @@ class ExpenseCreationForm extends StatefulWidget {
 class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     with TickerProviderStateMixin {
   final controller = Get.find<Controller>();
-  final controllerItems = Get.put(Controller());
+  final controllerItems = Get.find<Controller>();
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
   FocusNode selectMerchantFocusNode = FocusNode();
@@ -64,6 +66,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   String? _paidTo;
   bool? isThereReferenceID = false;
   String? paidToError;
+  String? expenseIdError;
   final RxnString paidwithError = RxnString();
   String? selectDate;
   String? selectReferenceIDError;
@@ -82,11 +85,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       });
     });
     // controller.fetchPaidto();
-
-    itemizeControllers.add(Controller());
+    controller.split.clear();
+    controller.accountingDistributions.clear();
     controller.isManualEntryMerchant = false;
     _loadSettings();
     _featureFuture = controller.getAllFeatureStates();
+    itemizeControllers.add(Controller());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeUnits();
       controller.loadSequenceModules();
@@ -124,12 +128,10 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   Future<void> _loadSettings() async {
     final settings = await controller.fetchGeneralSettings();
     if (settings != null) {
-      setState(() {
-        allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
-        allowCashAd = settings.allowCashAdvAgainstExpenseReg;
-        print("allowDocAttachments$allowMultSelect");
-        // isLoading = false;
-      });
+      allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+      allowCashAd = settings.allowCashAdvAgainstExpenseReg;
+      print("allowDocAttachments$allowMultSelect");
+      // isLoading = false;
     } else {
       // setState(() => isLoading = false);
     }
@@ -184,12 +186,56 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       isValid = false;
     }
 
-    // 3. Validate Unit Amount
+    // // 3. Validate Unit Amount
+    // if (currentController.unitAmount.text.isEmpty) {
+    //   setState(() => currentController.showUnitAmountError.value = true);
+    //   isValid = false;
+    // }
     if (currentController.unitAmount.text.isEmpty) {
-      setState(() => currentController.showUnitAmountError.value = true);
+      currentController.showUnitAmountError.value = true;
+      currentController.unitAmountErrorText.value = AppLocalizations.of(
+        context,
+      )!.fieldRequired;
       isValid = false;
-    }
+    } else {
+      final value = double.tryParse(currentController.lineAmountINR.text);
 
+      if (value == null || value <= 0) {
+        currentController.showUnitAmountError.value = true;
+        currentController.unitAmountErrorText.value = AppLocalizations.of(
+          context,
+        )!.enterValidAmount;
+        isValid = false;
+      } else {
+        final min = currentController.minExpenseAmount.value;
+        final max = currentController.maxExpenseAmount.value;
+        final receiptLimit = controller.receiptRequiredLimit.value;
+        controller.isReceiptRequired.value = receiptLimit < value;
+        // if (receiptLimit > 0 && value >= receiptLimit) {
+        //   controller.isReceiptRequired.value = true;
+        // } else {
+        //   controller.isReceiptRequired.value = false;
+        // }
+        if (value < min) {
+          currentController.showUnitAmountError.value = true;
+          currentController.unitAmountErrorText.value = AppLocalizations.of(
+            context,
+          )!.reportedAmountNotWithinRange;
+          isValid = false;
+        } else if (value > max && max != 0.0) {
+          currentController.showUnitAmountError.value = true;
+          currentController.unitAmountErrorText.value = AppLocalizations.of(
+            context,
+          )!.reportedAmountNotWithinRange;
+
+          isValid = false;
+        } else {
+          // ✅ VALID
+          currentController.showUnitAmountError.value = false;
+          currentController.unitAmountErrorText.value = "";
+        }
+      }
+    }
     // 4. Validate Unit
     if (currentController.selectedunit == null) {
       setState(() => _showUnitError = true);
@@ -267,7 +313,20 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     //     paidwithError = null;
     //   });
     // }
+    final hideField = controller.hasModule("Expense");
 
+    if (!hideField) {
+      if (controller.expenseIdController.text.trim().isEmpty) {
+        setState(() {
+          expenseIdError = loc.fieldRequired; // 🔥 create this variable
+        });
+        isValid = false;
+      } else {
+        setState(() {
+          expenseIdError = null;
+        });
+      }
+    }
     // Validate Reference ID
     if (isThereReferenceID == true && controller.referenceID.text.isEmpty) {
       setState(() {
@@ -293,7 +352,14 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       setState(() {
         controller.selectedDate = picked;
         selectDate = null;
+        controller.selectedProject = null;
+        for (var c in itemizeControllers) {
+          c.expenseCategory.value = [];
+        }
       });
+      loadAndAppendCashAdvanceList();
+      controller.fetchExpenseCategory();
+      controller.fetchProjectName();
     }
   }
 
@@ -552,6 +618,85 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     );
   }
 
+  /// Navigates to the invalid itemize tab and triggers its error UI
+  void _navigateToInvalidItemize(int invalidIndex) {
+    setState(() {
+      _selectedItemizeIndex = invalidIndex; // ← switches the active tab
+    });
+
+    // Small delay to let the page rebuild before showing errors
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final c = itemizeControllers[invalidIndex];
+
+      // Trigger all error flags on the invalid page
+      setState(() {
+        if (c.selectedCategoryId.isEmpty) {
+          c.showPaidForError.value = true;
+        }
+        if (c.quantity.text.isEmpty) {
+          c.showQuantityError.value = true;
+        }
+        if (c.unitAmount.text.isEmpty) {
+          c.showUnitAmountError.value = true;
+          c.unitAmountErrorText.value = "Amount is required";
+        }
+        if (c.selectedunit == null) {
+          _showUnitError = true;
+        }
+        if (isFieldMandatory('Tax Amount') && c.taxAmount.text.isEmpty) {
+          c.showTaxAmountError.value = true;
+        }
+        if (isFieldMandatory('Project Id') && c.selectedProject == null) {
+          c.showProjectError.value = true;
+        }
+      });
+
+      Fluttertoast.showToast(
+        msg: "Please fill all required fields in item ${invalidIndex + 1}",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    });
+  }
+
+  /// Validates ALL itemize pages, returns index of first invalid one or -1
+  int _getFirstInvalidItemizeIndex() {
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final c = itemizeControllers[i];
+
+      // Check category
+      if (c.selectedCategoryId.isEmpty) return i;
+
+      // Check quantity
+      if (c.quantity.text.isEmpty) return i;
+
+      // Check unit amount
+      if (c.unitAmount.text.isEmpty) return i;
+
+      final value = double.tryParse(c.lineAmountINR.text);
+      if (value == null || value <= 0) return i;
+
+      // Check min/max range
+      final min = c.minExpenseAmount.value;
+      final max = c.maxExpenseAmount.value;
+      if (value < min) return i;
+      if (value > max && max != 0.0) return i;
+
+      // Check unit
+      if (c.selectedunit == null) return i;
+
+      // Check tax amount if mandatory
+      if (isFieldMandatory('Tax Amount') && c.taxAmount.text.isEmpty) return i;
+
+      // Check project if mandatory
+      if (isFieldMandatory('Project Id') && c.selectedProject == null) return i;
+    }
+    return -1; // ✅ All valid
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -582,6 +727,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
         if (shouldExit ?? false) {
           controller.clearFormFields(); // ✅ Clear data only if user confirms
+          controller.clearFormFieldsPerdiem();
           return true; // allow back navigation
         }
 
@@ -721,6 +867,9 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 ? loc.pleaseSelectProject
                                 : null,
                             onChanged: (proj) {
+                              if (proj == null) {
+                                controller.fetchExpenseCategory();
+                              }
                               setState(() {
                                 controller.selectedProject = proj;
                                 controllerItems.selectedProject = proj;
@@ -750,11 +899,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   horizontal: 0,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isMatch
-                                      ? Colors.blue.withOpacity(
-                                          0.15,
-                                        ) // Highlight color
-                                      : null,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -859,7 +1003,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 //   horizontal: 16,
                                 // ),
                                 decoration: BoxDecoration(
-                                  
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
@@ -982,6 +1125,18 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                 final fetchCategory = (controller.expenseCategory.isNotEmpty)
                     ? controller.expenseCategory
                     : controllerItems.expenseCategory;
+                if (fetchCategory.isEmpty) {
+                  return Center(
+                    child: Text(
+                      AppLocalizations.of(context)!.noDataFound,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  );
+                }
 
                 return GridView.count(
                   shrinkWrap: true,
@@ -1088,7 +1243,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                             decoration: InputDecoration(
                               labelText: "${loc.unitAmount} *",
                               errorText: controller.showUnitAmountError.value
-                                  ? loc.unitAmountRequired
+                                  ? ""
                                   : null,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -1180,6 +1335,21 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           ),
                       ],
                     ),
+                  if (showItemizeDetails)
+                    Obx(
+                      () => controller.showUnitAmountError.value
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                controller.unitAmountErrorText.value,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 8,
+                                ),
+                              ),
+                            )
+                          : const SizedBox(),
+                    ),
                   if (showItemizeDetails) const SizedBox(height: 16),
                   if (showItemizeDetails)
                     Row(
@@ -1194,7 +1364,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         const SizedBox(width: 12),
                         Expanded(
                           child: _buildTextInput(
-                            "${loc.lineAmountInInr} *",
+                            "${loc.lineAmountInInr} ${controllerItems.organizationCurrency} *",
                             controller.lineAmountINR,
                             enabled: false,
                           ),
@@ -1528,6 +1698,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           onPressed: () {
                             if (showItemizeDetails) {
                               if (_validateCurrentItemizeForm()) {
+                                // ✅ Step 1: Validate current page first
                                 setState(() {
                                   controller.showQuantityError.value = false;
                                   controller.showUnitAmountError.value = false;
@@ -1545,58 +1716,82 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   isValid = false;
                                 }
 
-                                if (_itemizeCount >= 1) {
-                                  print(
-                                    "controller.unitAmount.text${_itemizeCount}",
+                                if (controller.quantity.text.isEmpty) {
+                                  setState(
+                                    () => controller.showQuantityError.value =
+                                        true,
                                   );
+                                  isValid = false;
+                                }
 
-                                  if (controller.quantity.text.isEmpty) {
-                                    setState(
-                                      () => controller.showQuantityError.value =
-                                          true,
-                                    );
-                                    isValid = false;
-                                  }
-                                  if (showItemizeDetails) {
-                                    if (controller.unitAmount.text.isEmpty) {
-                                      setState(
-                                        () =>
-                                            controller
-                                                    .showUnitAmountError
-                                                    .value =
-                                                true,
-                                      );
-                                      isValid = false;
-                                    }
-
-                                    if (controller.selectedunit == null) {
-                                      setState(() => _showUnitError = true);
-                                      isValid = false;
-                                    }
-                                  }
-                                  final taxAmountMandatory = isFieldMandatory(
-                                    'Tax Amount',
+                                if (controller.unitAmount.text.isEmpty) {
+                                  controller.showUnitAmountError.value = true;
+                                  controller.unitAmountErrorText.value =
+                                      "Amount is required";
+                                  isValid = false;
+                                } else {
+                                  final value = double.tryParse(
+                                    controller.lineAmountINR.text,
                                   );
-                                  // Validate other mandatory fields
-                                  if (controller.taxAmount.text.isEmpty &&
-                                      taxAmountMandatory) {
-                                    setState(
-                                      () =>
-                                          controller.showTaxAmountError.value =
-                                              true,
-                                    );
+                                  if (value == null || value <= 0) {
+                                    controller.showUnitAmountError.value = true;
+                                    controller.unitAmountErrorText.value =
+                                        "Enter valid amount";
                                     isValid = false;
+                                  } else {
+                                    final min =
+                                        controller.minExpenseAmount.value;
+                                    final max =
+                                        controller.maxExpenseAmount.value;
+                                    final receiptLimit = controllerItems
+                                        .receiptRequiredLimit
+                                        .value;
+                                    controllerItems.isReceiptRequired.value =
+                                        receiptLimit < value;
+
+                                    if (value < min) {
+                                      controller.showUnitAmountError.value =
+                                          true;
+                                      controller.unitAmountErrorText.value =
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.reportedAmountNotWithinRange;
+                                      isValid = false;
+                                    } else if (value > max && max != 0.0) {
+                                      controller.showUnitAmountError.value =
+                                          true;
+                                      controller.unitAmountErrorText.value =
+                                          AppLocalizations.of(
+                                            context,
+                                          )!.reportedAmountNotWithinRange;
+                                      isValid = false;
+                                    } else {
+                                      controller.showUnitAmountError.value =
+                                          false;
+                                      controller.unitAmountErrorText.value = "";
+                                    }
                                   }
                                 }
 
-                                // Validate Project Id if mandatory
+                                if (controller.selectedunit == null) {
+                                  setState(() => _showUnitError = true);
+                                  isValid = false;
+                                }
+
+                                final taxAmountMandatory = isFieldMandatory(
+                                  'Tax Amount',
+                                );
+                                if (controller.taxAmount.text.isEmpty &&
+                                    taxAmountMandatory) {
+                                  setState(
+                                    () => controller.showTaxAmountError.value =
+                                        true,
+                                  );
+                                  isValid = false;
+                                }
+
                                 final projectIdMandatory = isFieldMandatory(
                                   'Project Id',
-                                );
-
-                                print("projectIdMandatory$projectIdMandatory");
-                                print(
-                                  "projectIdMandatory${controller.selectedProject == null}",
                                 );
                                 if (projectIdMandatory &&
                                     controller.selectedProject == null) {
@@ -1612,24 +1807,44 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   );
                                 }
 
-                                print('isValid$isValid');
-                                print('isValid${itemizeControllers.length}');
-                                if (isValid) {
-                                  if (showItemizeDetails) {
-                                    controllerItems.finalItems =
-                                        itemizeControllers
-                                            .map((c) => c.toExpenseItemModel())
-                                            .toList();
-                                    _nextStep();
-                                    FocusScope.of(context).unfocus();
-                                  } else {
-                                    _nextStep();
-                                    FocusScope.of(context).unfocus();
-                                  }
+                                // ✅ Current page invalid → stop here
+                                if (!isValid) return;
+
+                                // ✅ Step 2: NOW validate ALL other itemize pages
+                                final invalidIndex =
+                                    _getFirstInvalidItemizeIndex();
+
+                                if (invalidIndex != -1 &&
+                                    invalidIndex != _selectedItemizeIndex) {
+                                  // ❌ Another page has invalid fields → navigate to it
+                                  _navigateToInvalidItemize(invalidIndex);
+                                  return;
                                 }
+
+                                // ✅ Step 3: All pages valid → proceed
+                                controllerItems.descriptionController.text =
+                                    controller.descriptionController.text;
+
+                                if (controller.itemisationMandatory.value) {
+                                  Fluttertoast.showToast(
+                                    msg: "Itemize is required",
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM,
+                                    backgroundColor: Colors.red,
+                                    textColor: Colors.white,
+                                    fontSize: 16.0,
+                                  );
+                                  return;
+                                }
+
+                                controllerItems.finalItems = itemizeControllers
+                                    .map((c) => c.toExpenseItemModel())
+                                    .toList();
+                                _nextStep();
+                                FocusScope.of(context).unfocus();
                               } else {
                                 Fluttertoast.showToast(
-                                  msg: "Please check all Field",
+                                  msg: "Please check all Fields",
                                   toastLength: Toast.LENGTH_SHORT,
                                   gravity: ToastGravity.BOTTOM,
                                   backgroundColor: Colors.red,
@@ -1638,6 +1853,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 );
                               }
                             } else {
+                              // non-itemize path unchanged
                               if (validateExpenseForm()) {
                                 setState(() {
                                   controller.showQuantityError.value = false;
@@ -1670,16 +1886,49 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   }
                                   if (showItemizeDetails) {
                                     if (controller.unitAmount.text.isEmpty) {
-                                      setState(
-                                        () =>
-                                            controller
-                                                    .showUnitAmountError
-                                                    .value =
-                                                true,
-                                      );
+                                      controller.showUnitAmountError.value =
+                                          true;
+                                      controller.unitAmountErrorText.value =
+                                          "Amount is required";
                                       isValid = false;
-                                    }
+                                    } else {
+                                      final value = double.tryParse(
+                                        controller.lineAmountINR.text,
+                                      );
 
+                                      if (value == null || value <= 0) {
+                                        controller.showUnitAmountError.value =
+                                            true;
+                                        controller.unitAmountErrorText.value =
+                                            "Enter valid amount";
+                                        isValid = false;
+                                      } else {
+                                        final min =
+                                            controller.minExpenseAmount.value;
+                                        final max =
+                                            controller.maxExpenseAmount.value;
+
+                                        if (value < min) {
+                                          controller.showUnitAmountError.value =
+                                              true;
+                                          controller.unitAmountErrorText.value =
+                                              "Amount should be ≥ $min";
+                                          isValid = false;
+                                        } else if (value > max && max != 0.0) {
+                                          controller.showUnitAmountError.value =
+                                              true;
+                                          controller.unitAmountErrorText.value =
+                                              "Amount should be ≤ $max";
+                                          isValid = false;
+                                        } else {
+                                          // ✅ VALID
+                                          controller.showUnitAmountError.value =
+                                              false;
+                                          controller.unitAmountErrorText.value =
+                                              "";
+                                        }
+                                      }
+                                    }
                                     if (controller.selectedunit == null) {
                                       setState(() => _showUnitError = true);
                                       isValid = false;
@@ -1704,7 +1953,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 final projectIdMandatory = isFieldMandatory(
                                   'Project Id',
                                 );
-
+                                controllerItems.descriptionController.text =
+                                    controller.descriptionController.text;
+                                print(
+                                  "descriptionController${controller.descriptionController.text}",
+                                );
                                 print("projectIdMandatory$projectIdMandatory");
                                 print(
                                   "projectIdMandatory${controller.selectedProject == null}",
@@ -1871,6 +2124,22 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         controllers.selectedCategoryId = item.categoryId;
         controller.selectedCategoryId = item.categoryId;
         controller.categoryController.text = item.categoryId;
+        controller.itemisationMandatory.value = item.itemisationMandatory;
+        controllers.itemisationMandatory.value = item.itemisationMandatory;
+        controller.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
+            .toDouble();
+        controller.receiptRequiredLimit.value = (item.receiptRequiredLimit ?? 0)
+            .toDouble();
+        controller.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
+            .toDouble();
+        controllers.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
+            .toDouble();
+
+        controllers.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
+            .toDouble();
+
+        controllers.receiptRequiredLimit.value =
+            (item.receiptRequiredLimit ?? 0).toDouble();
       },
       child: Container(
         decoration: BoxDecoration(
@@ -1991,6 +2260,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                             controller.expenseIdController,
                                         decoration: InputDecoration(
                                           labelText: '${loc.expenseId} *',
+                                          errorText: expenseIdError,
                                         ),
                                       ),
                                       const SizedBox(height: 16),
@@ -2005,7 +2275,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   },
                                   child: InputDecorator(
                                     decoration: InputDecoration(
-                                      labelText: '${loc.requestDate} *',
+                                      labelText: '${loc.receiptDate} *',
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2018,7 +2288,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                         Text(
                                           controller.selectedDate == null
                                               ? loc.selectDate
-                                              : DateFormat('dd/MM/yyyy').format(
+                                              : DateFormat('dd-MM-yyyy').format(
                                                   controller.selectedDate!,
                                                 ),
                                         ),
@@ -2119,9 +2389,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                       horizontal: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: isMatch
-                                          ? Colors.blue.withOpacity(0.1)
-                                          : null,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Row(
@@ -2407,13 +2674,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                           Icon(icons[index % icons.length]),
                                           const SizedBox(width: 10),
                                           Expanded(
-                                            child: Text(
-                                              method.paymentMethodName,
-                                            ),
+                                            child: Text(method.paymentMethodId),
                                           ),
                                         ],
                                       ),
                                       value: method.paymentMethodId,
+                                      // ignore: deprecated_member_use
                                       groupValue:
                                           controller.paidWithCashAdvance.value,
 
@@ -2753,16 +3019,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'pdf',
-          'xls',
-          'xlsx',
-          'doc',
-          'docx',
-        ],
+         allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -2798,12 +3055,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   Future<void> _processSelectedFile(File file) async {
     // ✅ Check feature states
     final featureStates = await controller.getAllFeatureStates();
-
-    if (controller.digiScanEnable!) {
-      setState(() {
-        controller.imageFiles.add(file);
-      });
-    } else {}
+    setState(() {
+      controller.imageFiles.add(file);
+    });
   }
 
   Widget _buildImageArea() {
@@ -2861,8 +3115,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                             final path = file.path;
 
                             return GestureDetector(
-                             onTap: () =>
-    controller.openFile(context, file, index),
+                              onTap: () => controller.openFilewhileCreate(
+                                context,
+                                file,
+                                index,
+                              ),
 
                               child: Container(
                                 margin: const EdgeInsets.all(8),
@@ -2999,147 +3256,132 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       ],
     );
   }
-void _showFilePreview(File file, int index) {
-  final path = file.path.toLowerCase();
-  final isImage = controller.isImage(path);
 
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.9),
-    builder: (_) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(10),
-        child: Stack(
-          children: [
+  void _showFilePreview(File file, int index) {
+    final path = file.path.toLowerCase();
+    final isImage = controller.isImage(path);
 
-            /// ✅ FILE PREVIEW
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Stack(
+            children: [
+              /// ✅ FILE PREVIEW
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
 
-                child: isImage
-                    /// IMAGE ZOOM VIEW
-                    ? PhotoView(
-                        imageProvider: FileImage(file),
-                        backgroundDecoration:
-                            const BoxDecoration(
-                          color: Colors.black,
-                        ),
-                      )
-
-                    /// PDF / DOC / EXCEL VIEW
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            controller.isPdf(path)
-                                ? Icons.picture_as_pdf
-                                : controller.isExcel(path)
-                                    ? Icons.table_chart
-                                    : Icons.insert_drive_file,
-                            size: 90,
-                            color: Colors.white,
+                  child: isImage
+                      /// IMAGE ZOOM VIEW
+                      ? PhotoView(
+                          imageProvider: FileImage(file),
+                          backgroundDecoration: const BoxDecoration(
+                            color: Colors.black,
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            file.path.split('/').last,
-                            style: const TextStyle(
+                        )
+                      /// PDF / DOC / EXCEL VIEW
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              controller.isPdf(path)
+                                  ? Icons.picture_as_pdf
+                                  : controller.isExcel(path)
+                                  ? Icons.table_chart
+                                  : Icons.insert_drive_file,
+                              size: 90,
                               color: Colors.white,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-
-            /// ✅ CLOSE BUTTON
-            Positioned(
-              top: 30,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 30,
+                            const SizedBox(height: 12),
+                            Text(
+                              file.path.split('/').last,
+                              style: const TextStyle(color: Colors.white),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                 ),
-                onPressed: () => Navigator.pop(context),
               ),
-            ),
 
-            /// ✅ ACTION BUTTONS
-            if (controller.isEnable.value)
+              /// ✅ CLOSE BUTTON
               Positioned(
-                top: 90,
+                top: 30,
                 right: 20,
-                child: Column(
-                  children: [
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
 
-                    /// ✅ OPEN FILE
-                    FloatingActionButton.small(
-                      heroTag: "open_$index",
-                      backgroundColor: Colors.blue,
-                      child: const Icon(Icons.open_in_new),
-                      onPressed: () {
-                        Navigator.pop(context);
-                         controller.openFile(context, file, index);
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    if (isImage)
+              /// ✅ ACTION BUTTONS
+              if (controller.isEnable.value)
+                Positioned(
+                  top: 90,
+                  right: 20,
+                  child: Column(
+                    children: [
+                      /// ✅ OPEN FILE
                       FloatingActionButton.small(
-                        heroTag: "edit_$index",
-                        backgroundColor:
-                            Colors.deepPurple,
-                        child: const Icon(Icons.edit),
-                        onPressed: () async {
-                          final cropped =
-                              await _cropImage(file);
-
-                          if (cropped != null) {
-                            controller
-                                .imageFiles[index] =
-                                cropped;
-
-                            Navigator.pop(context);
-
-                            _showFilePreview(
-                                cropped, index);
-                          }
+                        heroTag: "open_$index",
+                        backgroundColor: Colors.blue,
+                        child: const Icon(Icons.open_in_new),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          controller.openFile(context, file, index);
                         },
                       ),
 
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                    /// ✅ DELETE
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      backgroundColor: Colors.red,
-                      child:
-                          const Icon(Icons.delete),
-                      onPressed: () {
-                        Navigator.pop(context);
+                      if (isImage)
+                        FloatingActionButton.small(
+                          heroTag: "edit_$index",
+                          backgroundColor: Colors.deepPurple,
+                          child: const Icon(Icons.edit),
+                          onPressed: () async {
+                            final cropped = await _cropImage(file);
 
-                        controller.imageFiles
-                            .removeAt(index);
-                      },
-                    ),
-                  ],
+                            if (cropped != null) {
+                              controller.imageFiles[index] = cropped;
+
+                              Navigator.pop(context);
+
+                              _showFilePreview(cropped, index);
+                            }
+                          },
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      /// ✅ DELETE
+                      FloatingActionButton.small(
+                        heroTag: "delete_$index",
+                        backgroundColor: Colors.red,
+                        child: const Icon(Icons.delete),
+                        onPressed: () {
+                          Navigator.pop(context);
+
+                          controller.imageFiles.removeAt(index);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-          ],
-        ),
-      );
-    },
-  );
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3185,7 +3427,7 @@ void _showFilePreview(File file, int index) {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.upload_file),
                       label: Text(loc.upload),
-                      onPressed: () => _pickFile
+                      onPressed: _pickFile,
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
@@ -3217,6 +3459,7 @@ void _showFilePreview(File file, int index) {
 
                             decoration: InputDecoration(
                               labelText: '${loc.paidAmount} *',
+                              errorStyle: const TextStyle(height: 0),
                               border: const OutlineInputBorder(
                                 borderRadius: BorderRadius.only(
                                   topRight: Radius.circular(0),
@@ -3227,13 +3470,50 @@ void _showFilePreview(File file, int index) {
                               ),
                             ),
                             validator: (value) {
+                              controller.paidAmountError.value = ''; // reset
+
                               if (value == null || value.trim().isEmpty) {
-                                return loc.paidAmountRequired;
+                                controller.paidAmountError.value =
+                                    loc.paidAmountRequired;
+                                return '';
                               }
-                              final parsed = double.tryParse(value);
+
+                              final parsed = double.tryParse(
+                                controller.amountINR.text,
+                              );
                               if (parsed == null || parsed <= 0) {
-                                return loc.enterValidAmount;
+                                controller.paidAmountError.value =
+                                    loc.enterValidAmount;
+                                return '';
                               }
+                              print("itemizw${controller.finalItems.length}");
+                              final min = controller.minExpenseAmount.value;
+                              final max = controller.maxExpenseAmount.value;
+                              final receiptLimit =
+                                  controller.receiptRequiredLimit.value;
+
+                              if (parsed < min &&
+                                  controller.finalItems.length <= 1) {
+                                controller.paidAmountError.value =
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.reportedAmountNotWithinRange;
+                                return '';
+                              }
+
+                              if (parsed > max &&
+                                  controller.finalItems.length <= 1 &&
+                                  max != 0.0) {
+                                controller.paidAmountError.value =
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.reportedAmountNotWithinRange;
+                                ;
+                                return '';
+                              }
+                              controller.isReceiptRequired.value =
+                                  receiptLimit < parsed;
+                              print("isReceiptRequired${receiptLimit}");
                               return null;
                             },
                             onChanged: (_) {
@@ -3371,7 +3651,22 @@ void _showFilePreview(File file, int index) {
                         ),
                       ],
                     ),
+                    Obx(() {
+                      if (controller.paidAmountError.value.isEmpty) {
+                        return const SizedBox();
+                      }
 
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 0, top: 6),
+                        child: Text(
+                          controller.paidAmountError.value,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 8,
+                          ),
+                        ),
+                      );
+                    }),
                     // Account Distribution Button
                     Obx(() {
                       return Column(
@@ -3469,6 +3764,7 @@ void _showFilePreview(File file, int index) {
                                 ),
                               ],
                             ),
+
                           const SizedBox(height: 20),
                         ],
                       );
@@ -3479,7 +3775,8 @@ void _showFilePreview(File file, int index) {
                       controller: controller.amountINR,
                       enabled: false,
                       decoration: InputDecoration(
-                        labelText: '${loc.amountInInr}*',
+                        labelText:
+                            '${loc.amountInInr} ${controller.organizationCurrency} *',
                         filled: true,
                         border: const OutlineInputBorder(),
                       ),
@@ -3523,7 +3820,7 @@ void _showFilePreview(File file, int index) {
                                 .any((loading) => loading);
 
                             return SizedBox(
-                               width: double.infinity,
+                              width: double.infinity,
                               height: 48,
                               child: ElevatedButton(
                                 onPressed:
@@ -3536,6 +3833,22 @@ void _showFilePreview(File file, int index) {
                                         _isSubmitAttempted = true;
                                         if (_formKey.currentState?.validate() ??
                                             false) {
+                                          if (controller
+                                                  .isReceiptRequired
+                                                  .value &&
+                                              controller.imageFiles.isEmpty) {
+                                            Fluttertoast.showToast(
+                                              msg: "Receipt is required",
+                                              toastLength: Toast.LENGTH_SHORT,
+                                              gravity: ToastGravity.BOTTOM,
+                                              backgroundColor: Colors.red,
+                                              textColor: Colors.white,
+                                              fontSize: 16.0,
+                                            );
+
+                                            return; // 🚨 STOP SUBMIT
+                                          }
+
                                           controller.setButtonLoading(
                                             'submit',
                                             true,
@@ -3617,6 +3930,24 @@ void _showFilePreview(File file, int index) {
                                             if (_formKey.currentState
                                                     ?.validate() ??
                                                 false) {
+                                              if (controller
+                                                      .isReceiptRequired
+                                                      .value &&
+                                                  controller
+                                                      .imageFiles
+                                                      .isEmpty) {
+                                                Fluttertoast.showToast(
+                                                  msg: "Receipt is required",
+                                                  toastLength:
+                                                      Toast.LENGTH_SHORT,
+                                                  gravity: ToastGravity.BOTTOM,
+                                                  backgroundColor: Colors.red,
+                                                  textColor: Colors.white,
+                                                  fontSize: 16.0,
+                                                );
+
+                                                return; // 🚨 STOP SUBMIT
+                                              }
                                               controller.setButtonLoading(
                                                 'save',
                                                 true,

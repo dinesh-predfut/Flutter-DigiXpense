@@ -18,7 +18,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:shared_preferences/shared_preferences.dart' show SharedPreferences;
+import 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferences;
 
 import '../../../../../core/comman/widgets/multiselectDropdown.dart';
 
@@ -32,7 +33,8 @@ class UnprocessEditExpensePage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<UnprocessEditExpensePage> createState() => _UnprocessEditExpensePageState();
+  State<UnprocessEditExpensePage> createState() =>
+      _UnprocessEditExpensePageState();
 }
 
 class _UnprocessEditExpensePageState extends State<UnprocessEditExpensePage>
@@ -42,7 +44,7 @@ class _UnprocessEditExpensePageState extends State<UnprocessEditExpensePage>
   final TextEditingController referenceController = TextEditingController();
   TextEditingController merhantName = TextEditingController();
   final PhotoViewController _photoViewController = PhotoViewController();
-Rxn<File> profileImage = Rxn<File>();
+  Rxn<File> profileImage = Rxn<File>();
   final List<String> paidToOptions = ['Amazon', 'Flipkart', 'Ola'];
   final List<String> paidWithOptions = ['Card', 'Cash', 'UPI'];
   final controller = Get.find<Controller>();
@@ -70,24 +72,23 @@ Rxn<File> profileImage = Rxn<File>();
     _pageController = PageController(
       initialPage: controller.currentIndex.value,
     );
-   controller.fetchPaidto();
-      controller.fetchPaidwith();
-      controller.fetchProjectName();
-      controller.fetchExpenseCategory();
-      controller.fetchUnit();
-      controller.fetchTaxGroup();
-      controller.currencyDropDown();
+    controller.fetchPaidto();
+    controller.fetchPaidwith();
+    controller.fetchProjectName();
+    controller.fetchExpenseCategory();
+    controller.fetchUnit();
+    controller.fetchTaxGroup();
+    controller.currencyDropDown();
     // controller.fetchExchangeRate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       calculateAmounts(widget.items!.exchRate.toString());
       controller.fetchExpenseDocImage(widget.items.recId);
-   
 
       _loadSettings();
     });
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-      'dd/MM/yyyy',
+      'dd-MM-yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
@@ -147,7 +148,7 @@ Rxn<File> profileImage = Rxn<File>();
 
     _initializeData();
   }
-  
+
   Future<void> _initializeData() async {
     await loadAndAppendCashAdvanceList();
     initializeCashAdvanceSelection();
@@ -1255,7 +1256,7 @@ Rxn<File> profileImage = Rxn<File>();
                           enabled: false,
                           decoration: InputDecoration(
                             labelText:
-                                '${AppLocalizations.of(context)!.amountInInr} *',
+                                '${AppLocalizations.of(context)!.amountInInr}  ${controller.organizationCurrency} *',
                             filled: true,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -1703,9 +1704,8 @@ Rxn<File> profileImage = Rxn<File>();
                                               },
                                             ),
                                             _buildTextField(
-                                              label: AppLocalizations.of(
-                                                context,
-                                              )!.lineAmountInInr,
+                                              label:
+                                                  '${AppLocalizations.of(context)!.lineAmountInInr}  ${controller.organizationCurrency}',
                                               controller:
                                                   itemController.lineAmountINR,
                                               isReadOnly: false,
@@ -2141,13 +2141,11 @@ Rxn<File> profileImage = Rxn<File>();
                                     child: CircularProgressIndicator(),
                                   );
                                 }
-  if (snapshot.hasError) {
-                                          return Center(
-                                            child: Text(
-                                              "No Data Available",
-                                            ),
-                                          );
-                                        }
+                                if (snapshot.hasError) {
+                                  return Center(
+                                    child: Text("No Data Available"),
+                                  );
+                                }
 
                                 final historyList = snapshot.data!;
                                 if (historyList.isEmpty) {
@@ -2236,50 +2234,49 @@ Rxn<File> profileImage = Rxn<File>();
                                                 );
                                               });
                                         } else {
-                                             controller.addToFinalItemsUnProcess(
-                                                widget.items,
-                                              );
-                                              if (widget
-                                                      .items
-                                                      .unprocessedRecId !=
-                                                  null) {
-                                                controller
-                                                    .saveinviewPageGeneralExpenseUnProcess(
-                                                      context,
-                                                      true,
-                                                      true,
-                                                      widget
-                                                          .items!
-                                                          .unprocessedRecId!,
-                                                    )
-                                                    .whenComplete(() {
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'submit',
-                                                            false,
-                                                          );
-                                                      controller
-                                                          .setButtonLoading(
-                                                            'saveGE',
-                                                            false,
-                                                          );
-                                                    });
-                                              } else {
-                                                 controller
-                                            .addToFinalItemsUnProcess(widget.items!);
-                                        controller
-                                            .saveinviewPageGeneralExpense(
-                                                context,
-                                                true,
-                                                true,
-                                                widget.items!.recId!)
-                                            .whenComplete(() {
-                                          controller.setButtonLoading(
-                                              'submit', false);
-                                        });
-                                              }
-                                            }
-                                        
+                                          controller.addToFinalItemsUnProcess(
+                                            widget.items,
+                                          );
+                                          if (widget.items.unprocessedRecId !=
+                                              null) {
+                                            controller
+                                                .saveinviewPageGeneralExpenseUnProcess(
+                                                  context,
+                                                  true,
+                                                  true,
+                                                  widget
+                                                      .items!
+                                                      .unprocessedRecId!,
+                                                )
+                                                .whenComplete(() {
+                                                  controller.setButtonLoading(
+                                                    'submit',
+                                                    false,
+                                                  );
+                                                  controller.setButtonLoading(
+                                                    'saveGE',
+                                                    false,
+                                                  );
+                                                });
+                                          } else {
+                                            controller.addToFinalItemsUnProcess(
+                                              widget.items!,
+                                            );
+                                            controller
+                                                .saveinviewPageGeneralExpense(
+                                                  context,
+                                                  true,
+                                                  true,
+                                                  widget.items!.recId!,
+                                                )
+                                                .whenComplete(() {
+                                                  controller.setButtonLoading(
+                                                    'submit',
+                                                    false,
+                                                  );
+                                                });
+                                          }
+                                        }
                                       },
                                 child: isResubmitLoading
                                     ? const SizedBox(
@@ -2421,66 +2418,63 @@ Rxn<File> profileImage = Rxn<File>();
                                           // controller.addToFinalItemsUnProcess(
                                           //   widget.items!,
                                           // );
-                                        //   if (widget.items.unprocessedRecId !=
-                                        //       null) {
-                                        //     controller
-                                        //         .saveinviewPageGeneralExpenseUnProcess(
-                                        //           context,
-                                        //           true,
-                                        //           true,
-                                        //           widget
-                                        //               .items!
-                                        //               .unprocessedRecId!,
-                                        //         )
-                                        //         .whenComplete(() {
-                                        //           controller.setButtonLoading(
-                                        //             'submit',
-                                        //             false,
-                                        //           );
-                                        //           controller.setButtonLoading(
-                                        //             'saveGE',
-                                        //             false,
-                                        //           );
-                                        //         });
-                                        //   } else {
-                                        //      controller
-                                        //     .addToFinalItemsUnProcess(widget.items!);
-                                        // controller
-                                        //     .saveinviewPageGeneralExpense(
-                                        //         context,
-                                        //         true,
-                                        //         false,
-                                        //         widget.items!.recId!)
-                                        //     .whenComplete(() {
-                                        //   controller.setButtonLoading(
-                                        //       'submit', false);
-                                        // });
-                                         
-                                        //     }
-                                         controller
-                                            .addToFinalItemsUnProcess(widget.items!);
-                                       controller
-                                                .saveinviewPageGeneralExpenseUnProcess(
-                                                  context,
-                                                  true,
-                                                  true,
-                                                  widget
-                                                      .items!
-                                                      .unprocessedRecId!,
-                                                )
-                                                .whenComplete(() {
-                                                  controller.setButtonLoading(
-                                                    'submit',
-                                                    false,
-                                                  );
-                                                  controller.setButtonLoading(
-                                                    'saveGE',
-                                                    false,
-                                                  );
-                                                });}
-                                          
-                                          
-                                        
+                                          //   if (widget.items.unprocessedRecId !=
+                                          //       null) {
+                                          //     controller
+                                          //         .saveinviewPageGeneralExpenseUnProcess(
+                                          //           context,
+                                          //           true,
+                                          //           true,
+                                          //           widget
+                                          //               .items!
+                                          //               .unprocessedRecId!,
+                                          //         )
+                                          //         .whenComplete(() {
+                                          //           controller.setButtonLoading(
+                                          //             'submit',
+                                          //             false,
+                                          //           );
+                                          //           controller.setButtonLoading(
+                                          //             'saveGE',
+                                          //             false,
+                                          //           );
+                                          //         });
+                                          //   } else {
+                                          //      controller
+                                          //     .addToFinalItemsUnProcess(widget.items!);
+                                          // controller
+                                          //     .saveinviewPageGeneralExpense(
+                                          //         context,
+                                          //         true,
+                                          //         false,
+                                          //         widget.items!.recId!)
+                                          //     .whenComplete(() {
+                                          //   controller.setButtonLoading(
+                                          //       'submit', false);
+                                          // });
+
+                                          //     }
+                                          controller.addToFinalItemsUnProcess(
+                                            widget.items!,
+                                          );
+                                          controller
+                                              .saveinviewPageGeneralExpenseUnProcess(
+                                                context,
+                                                true,
+                                                true,
+                                                widget.items!.unprocessedRecId!,
+                                              )
+                                              .whenComplete(() {
+                                                controller.setButtonLoading(
+                                                  'submit',
+                                                  false,
+                                                );
+                                                controller.setButtonLoading(
+                                                  'saveGE',
+                                                  false,
+                                                );
+                                              });
+                                        }
                                       },
                                 child: isSubmitLoading
                                     ? const SizedBox(
@@ -2529,111 +2523,112 @@ Rxn<File> profileImage = Rxn<File>();
                                                 'saveGE',
                                                 true,
                                               );
-                                        //       controller.addToFinalItemsUnProcess(
-                                        //         widget.items,
-                                        //       );
-                                        //       if (widget
-                                        //               .items
-                                        //               .unprocessedRecId !=
-                                        //           null) {
-                                        //         controller
-                                        //             .saveinviewPageGeneralExpenseUnProcess(
-                                        //               context,
-                                        //               true,
-                                        //               true,
-                                        //               widget
-                                        //                   .items!
-                                        //                   .unprocessedRecId!,
-                                        //             )
-                                        //             .whenComplete(() {
-                                        //               controller
-                                        //                   .setButtonLoading(
-                                        //                     'submit',
-                                        //                     false,
-                                        //                   );
-                                        //               controller
-                                        //                   .setButtonLoading(
-                                        //                     'saveGE',
-                                        //                     false,
-                                        //                   );
-                                        //             });
-                                        //       } else {
-                                        //         controller.addToFinalItemsUnProcess(
-                                        //         widget.items,
-                                        //       );
-                                        //       if (widget
-                                        //               .items
-                                        //               .unprocessedRecId !=
-                                        //           null) {
-                                        //         controller
-                                        //             .saveinviewPageGeneralExpenseUnProcess(
-                                        //               context,
-                                        //               true,
-                                        //               true,
-                                        //               widget
-                                        //                   .items!
-                                        //                   .unprocessedRecId!,
-                                        //             )
-                                        //             .whenComplete(() {
-                                        //               controller
-                                        //                   .setButtonLoading(
-                                        //                     'submit',
-                                        //                     false,
-                                        //                   );
-                                        //               controller
-                                        //                   .setButtonLoading(
-                                        //                     'saveGE',
-                                        //                     false,
-                                        //                   );
-                                        //             });
-                                        //       } else {
-                                        //          controller
-                                        //     .addToFinalItemsUnProcess(widget.items!);
-                                        // controller
-                                        //     .saveinviewPageGeneralExpense(
-                                        //         context,
-                                        //         false,
-                                        //         false,
-                                        //         widget.items!.recId!)
-                                        //     .whenComplete(() {
-                                        //   controller.setButtonLoading(
-                                        //       'submit', false);
-                                        // });
-                                        //       }
-                                            // }
-                                             controller
-                                            .addToFinalItemsUnProcess(widget.items!);
-                                        // controller
-                                        //     .saveinviewPageGeneralExpense(
-                                        //         context,
-                                        //         false,
-                                        //         false,
-                                        //         widget.items!.recId!)
-                                        //     .whenComplete(() {
-                                        //   controller.setButtonLoading(
-                                        //       'submit', false);
-                                        // });
-                                         controller
-                                                .saveinviewPageGeneralExpenseUnProcess(
-                                                  context,
-                                                  false,
-                                                  false,
-                                                  widget
-                                                      .items!
-                                                      .unprocessedRecId!,
-                                                )
-                                                .whenComplete(() {
-                                                  controller.setButtonLoading(
-                                                    'submit',
-                                                    false,
+                                              //       controller.addToFinalItemsUnProcess(
+                                              //         widget.items,
+                                              //       );
+                                              //       if (widget
+                                              //               .items
+                                              //               .unprocessedRecId !=
+                                              //           null) {
+                                              //         controller
+                                              //             .saveinviewPageGeneralExpenseUnProcess(
+                                              //               context,
+                                              //               true,
+                                              //               true,
+                                              //               widget
+                                              //                   .items!
+                                              //                   .unprocessedRecId!,
+                                              //             )
+                                              //             .whenComplete(() {
+                                              //               controller
+                                              //                   .setButtonLoading(
+                                              //                     'submit',
+                                              //                     false,
+                                              //                   );
+                                              //               controller
+                                              //                   .setButtonLoading(
+                                              //                     'saveGE',
+                                              //                     false,
+                                              //                   );
+                                              //             });
+                                              //       } else {
+                                              //         controller.addToFinalItemsUnProcess(
+                                              //         widget.items,
+                                              //       );
+                                              //       if (widget
+                                              //               .items
+                                              //               .unprocessedRecId !=
+                                              //           null) {
+                                              //         controller
+                                              //             .saveinviewPageGeneralExpenseUnProcess(
+                                              //               context,
+                                              //               true,
+                                              //               true,
+                                              //               widget
+                                              //                   .items!
+                                              //                   .unprocessedRecId!,
+                                              //             )
+                                              //             .whenComplete(() {
+                                              //               controller
+                                              //                   .setButtonLoading(
+                                              //                     'submit',
+                                              //                     false,
+                                              //                   );
+                                              //               controller
+                                              //                   .setButtonLoading(
+                                              //                     'saveGE',
+                                              //                     false,
+                                              //                   );
+                                              //             });
+                                              //       } else {
+                                              //          controller
+                                              //     .addToFinalItemsUnProcess(widget.items!);
+                                              // controller
+                                              //     .saveinviewPageGeneralExpense(
+                                              //         context,
+                                              //         false,
+                                              //         false,
+                                              //         widget.items!.recId!)
+                                              //     .whenComplete(() {
+                                              //   controller.setButtonLoading(
+                                              //       'submit', false);
+                                              // });
+                                              //       }
+                                              // }
+                                              controller
+                                                  .addToFinalItemsUnProcess(
+                                                    widget.items!,
                                                   );
-                                                  controller.setButtonLoading(
-                                                    'saveGE',
+                                              // controller
+                                              //     .saveinviewPageGeneralExpense(
+                                              //         context,
+                                              //         false,
+                                              //         false,
+                                              //         widget.items!.recId!)
+                                              //     .whenComplete(() {
+                                              //   controller.setButtonLoading(
+                                              //       'submit', false);
+                                              // });
+                                              controller
+                                                  .saveinviewPageGeneralExpenseUnProcess(
+                                                    context,
                                                     false,
-                                                  );
-                                                });
-                                          
-                                          }
+                                                    false,
+                                                    widget
+                                                        .items!
+                                                        .unprocessedRecId!,
+                                                  )
+                                                  .whenComplete(() {
+                                                    controller.setButtonLoading(
+                                                      'submit',
+                                                      false,
+                                                    );
+                                                    controller.setButtonLoading(
+                                                      'saveGE',
+                                                      false,
+                                                    );
+                                                  });
+                                            }
                                           },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(
@@ -2813,81 +2808,83 @@ Rxn<File> profileImage = Rxn<File>();
     });
   }
 
- void _showFullImage(File file, int index) {
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.9), // darker transparent background
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent, // remove white box background
-        insetPadding: const EdgeInsets.all(8),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Full image view
-            PhotoView.customChild(
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 9.0,
-              backgroundDecoration: const BoxDecoration(
-                color: Colors.transparent,
+  void _showFullImage(File file, int index) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(
+        0.9,
+      ), // darker transparent background
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent, // remove white box background
+          insetPadding: const EdgeInsets.all(8),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Full image view
+              PhotoView.customChild(
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 9.0,
+                backgroundDecoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
+                child: Image.file(file, fit: BoxFit.contain),
               ),
-              child: Image.file(file, fit: BoxFit.contain),
-            ),
 
-            // Close button (top-left)
-            Positioned(
-              top: 30,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 30),
-                onPressed: () => Navigator.pop(context),
+              // Close button (top-left)
+              Positioned(
+                top: 30,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
-            ),
 
-            // Floating edit & delete buttons (top-right)
-            Positioned(
-              top: 80,
-              right: 20,
-              child: Column(
-                children: [
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "edit_$index",
-                      onPressed: () async {
-                        final croppedFile = await _cropImage(file);
-                        if (croppedFile != null) {
-                          setState(() {
-                            controller.imageFiles[index] = croppedFile;
-                          });
+              // Floating edit & delete buttons (top-right)
+              Positioned(
+                top: 80,
+                right: 20,
+                child: Column(
+                  children: [
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "edit_$index",
+                        onPressed: () async {
+                          final croppedFile = await _cropImage(file);
+                          if (croppedFile != null) {
+                            setState(() {
+                              controller.imageFiles[index] = croppedFile;
+                            });
+                            Navigator.pop(context);
+                            _showFullImage(croppedFile, index);
+                          }
+                        },
+                        backgroundColor: Colors.deepPurple,
+                        child: const Icon(Icons.edit),
+                      ),
+                    const SizedBox(height: 12),
+                    if (controller.isEnable.value)
+                      FloatingActionButton.small(
+                        heroTag: "delete_$index",
+                        onPressed: () {
                           Navigator.pop(context);
-                          _showFullImage(croppedFile, index);
-                        }
-                      },
-                      backgroundColor: Colors.deepPurple,
-                      child: const Icon(Icons.edit),
-                    ),
-                  const SizedBox(height: 12),
-                  if (controller.isEnable.value)
-                    FloatingActionButton.small(
-                      heroTag: "delete_$index",
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          controller.imageFiles.removeAt(index);
-                        });
-                      },
-                      backgroundColor: Colors.red,
-                      child: const Icon(Icons.delete),
-                    ),
-                ],
+                          setState(() {
+                            controller.imageFiles.removeAt(index);
+                          });
+                        },
+                        backgroundColor: Colors.red,
+                        child: const Icon(Icons.delete),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Widget buildDateField(
     String label,
@@ -2922,13 +2919,13 @@ Rxn<File> profileImage = Rxn<File>();
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
                     controller.selectedDateMileage = picked;
-                    controller.fetchMileageRates();
+                    // controller.fetchMileageRates();
                     controller.selectedDate = picked;
                     controller.fetchProjectName();
                   }
@@ -2967,7 +2964,7 @@ Rxn<File> profileImage = Rxn<File>();
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd/MM/yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

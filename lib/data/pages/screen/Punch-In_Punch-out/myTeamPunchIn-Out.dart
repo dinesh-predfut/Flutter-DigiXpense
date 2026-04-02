@@ -820,6 +820,6 @@ String epochToIso(int? epoch) {
     String epochToDateTime(int? epoch) {
       if (epoch == null) return '-';
       final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
-      return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      return DateFormat('dd-MM-yyyy, hh:mm a').format(dt);
     }
   }

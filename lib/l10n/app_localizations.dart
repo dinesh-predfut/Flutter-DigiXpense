@@ -142,6 +142,12 @@ abstract class AppLocalizations {
   String get defaultLanguage;
   String get selectDateFormat;
   String get cancel;
+    String get example;
+      String get onlyLettersAndNumbers ;
+        String get zipMustIncludeNumber ;
+          String get noMatchingStates ;
+          String get invalidPhoneNumber  ;
+          String get emailsForReceiptForwarding;
   String get submit;
   String get save;
   String get emailSettings;
@@ -241,13 +247,19 @@ String get fullyCancel;
   String get allExpenses;
   String get generalExpenses;
   String get perDiem;
+    String get misReports;
+String get reportedAmountNotWithinRange;
+String get count;
   String get cashAdvanceReturn;
   String get mileage;
   String get noExpensesFound;
-
+String get createdBy;
+String get label; 
+String get stage;
+String get shelfNameRequired;
   String get view;
   String get unknownExpenseType;
-
+String get timesheet;
   String get generalExpenseForm;
   String get projectId;
   String get projectName;
@@ -268,6 +280,7 @@ String get fullyCancel;
   String get lineAmountInInr;
   String get accountDistribution;
   String get totalAmount;
+    String get totalAmountIN;
   String get comments;
   String get remove;
   String get itemize;
@@ -427,7 +440,9 @@ String get leavePartialCancellation;
   String get timezoneCode;
   String get timezoneId;
   String get languageName;
-
+String get totalRequestedAmountInINR;
+String get lineEstimatedAmountInINR;
+String get lineRequestedAmountInINR;
   String get languageId;
   String get id;
   String get paidAmountExceedsMaxPercentage;
@@ -470,8 +485,13 @@ String get leavePartialCancellation;
   String get availableColumnsHeader;
   String get availableColumnsLines;
   String get noColumnsAvailable;
-
+  String get addRule;
   String get table;
+    String get toDateValidation ;
+       String get confirmLogout  ;
+          String get logoutConfirmationMessage  ;
+       
+            
   String get column;
   String get condition;
   String get enterValueToMatch;
@@ -657,6 +677,7 @@ String get viewTeamMemberAttendance;
   String get balance;
   String get leaveRequisition;
   String get myLeave;
+   String get leave;
   String get myTeamLeave;
   String get myTeamLeaveCancellation;
   String get boardDashboard;
@@ -778,6 +799,8 @@ String get actualEndDate;
   String get uploadImage;
   String get removeMemberFromBoard;
     String get members;
+
+
 
 }
 
