@@ -155,7 +155,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.unitAmount.text = widget.items.totalAmountTrans
           .toStringAsFixed(2);
       controller.employeeName.text = widget.items!.employeeName!;
-      controller.employeeIdController.text = widget.items!.employeeId!;
+      controller.employeeDropDownController.text = widget.items!.employeeId!;
       controller.unitRate.text = widget.items.exchRate.toStringAsFixed(2);
       controller.cashAdvReqIds = widget.items.cashAdvReqId;
       controller.amountINR.text = widget.items.totalAmountReporting
@@ -1188,25 +1188,27 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             controller: controller.justificationnotes,
                             isReadOnly: false,
                           ),
-                        const SizedBox(height: 10),
+                         const SizedBox(height: 16),
                         _buildTextField(
                           label: "${AppLocalizations.of(context)!.expenseId} *",
                           controller: expenseIdController,
                           isReadOnly: false,
                         ),
-
+ const SizedBox(height: 16),
                         _buildTextField(
                           label:
                               "${AppLocalizations.of(context)!.employeeId} *",
-                          controller: controller.employeeIdController,
+                          controller: controller.employeeDropDownController,
                           isReadOnly: false,
                         ),
+                         const SizedBox(height: 16),
                         _buildTextField(
                           label:
                               "${AppLocalizations.of(context)!.employeeName} *",
                           controller: controller.employeeName,
                           isReadOnly: false,
                         ),
+                         const SizedBox(height: 16),
                         buildDateField(
                           '${AppLocalizations.of(context)!.receiptDate} *',
                           receiptDateController,
@@ -1409,7 +1411,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                             ],
                           ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -2098,7 +2100,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       // const SizedBox(height: 8),
                                                       inputField,
                                                       const SizedBox(
-                                                        height: 12,
+                                                        height: 16,
                                                       ),
                                                     ],
                                                   );
@@ -2201,7 +2203,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 );
                                               },
                                             ),
-                                            const SizedBox(height: 12),
+                                            const SizedBox(height: 16),
                                             _buildTextField(
                                               label: AppLocalizations.of(
                                                 context,
@@ -2220,6 +2222,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 });
                                               },
                                             ),
+                                             const SizedBox(height: 16),
                                             SearchableMultiColumnDropdownField<
                                               Unit
                                             >(
@@ -2283,7 +2286,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 );
                                               },
                                             ),
-                                            const SizedBox(height: 12),
+                                            const SizedBox(height: 16),
                                             _buildTextField(
                                               keyboardType:
                                                   TextInputType.number,
@@ -2331,6 +2334,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 });
                                               },
                                             ),
+                                             const SizedBox(height: 16),
                                             Obx(() {
                                               final error = itemController
                                                   .paidAmountError
@@ -2464,7 +2468,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       });
                                                     },
                                                   ),
-
+ 
                                                   /// ✅ ONLY SHOW ERROR WHEN EXISTS (no extra space)
                                                   if (error.isNotEmpty)
                                                     Padding(
@@ -2483,7 +2487,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 ],
                                               );
                                             }),
-                                            const SizedBox(height: 8),
+                                            const SizedBox(height: 16),
+                                            // const SizedBox(height: 8),
                                             _buildTextField(
                                               label: AppLocalizations.of(
                                                 context,
@@ -2501,6 +2506,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     );
                                               },
                                             ),
+                                             const SizedBox(height: 16),
                                             _buildTextField(
                                               label:
                                                   '${AppLocalizations.of(context)!.lineAmountInInr} '
@@ -2518,6 +2524,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 });
                                               },
                                             ),
+                                             const SizedBox(height: 16),
                                             ...controller.configList
                                                 .where(
                                                   (field) =>
@@ -3658,7 +3665,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
         ),
-        const SizedBox(height: 12),
+        // const SizedBox(height: 12),
       ],
     );
   }

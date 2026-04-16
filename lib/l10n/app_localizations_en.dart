@@ -589,7 +589,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cropImage => 'Crop Image';
   @override
-  String get referenceId => 'Reference';
+  String get referenceId => 'Reference Id';
+  @override String get reason => 'Reason';
+  @override String get add => 'Add';
   @override
   String get reliever => 'Reliever';
   @override

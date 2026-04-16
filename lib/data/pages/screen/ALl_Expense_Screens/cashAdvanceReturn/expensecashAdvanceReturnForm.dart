@@ -4,6 +4,7 @@ import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/models.dart';
@@ -54,6 +55,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   // bool controller.showQuantityError.value = false;
   // bool controller.showUnitAmountError.value = false;
   bool _showUnitError = false;
+  String? employeeError;
   // bool _showProjectError = false;
   // bool controller.setQuality.value = true;
   bool allowMultSelect = false;
@@ -102,6 +104,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       controller.configuration();
       controller.fetchPaidto();
       controller.fetchPaidwith();
+      controller.fetchEmployeesID();
       controller.fetchProjectName();
       controller.fetchTaxGroup();
       controller.fetchUnit();
@@ -1812,6 +1815,9 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
         controllers.selectedCategoryId = item.categoryId;
         controller.selectedCategoryId = item.categoryId;
 
+        if (item.itemisationMandatory && showItemizeDetails == false) {
+          _addItemize();
+        }
         print("Tapped Category Name: ${item.categoryName}");
         print("Tapped Category ID: ${controllers.selectedCategoryId}");
       },
@@ -1978,8 +1984,112 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           );
                         },
                       ),
+                       const SizedBox(height: 6),
+                      if (PermissionHelper.canRead("User Delegates") == true)
+                        const SizedBox(height: 6),
+                      if (PermissionHelper.canRead("User Delegates") == true)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SearchableMultiColumnDropdownField<EmployeeId>(
+                              labelText:
+                                  '${AppLocalizations.of(context)!.employeeId} *',
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.employeeName,
+                                AppLocalizations.of(context)!.employeeId,
+                              ],
+                              items: controller.employeesID,
+                              controller: controller.employeeDropDownController,
+                              selectedValue:
+                                  controller.selectedEmployeeID.value,
+                              searchValue: (emp) =>
+                                  '${emp.employeeName} ${emp.employeeId}',
+                              displayText: (emp) => emp.employeeId,
+                              validator: (emp) =>
+                                  controller
+                                      .employeeDropDownController
+                                      .text
+                                      .isEmpty
+                                  ? AppLocalizations.of(context)!.fieldRequired
+                                  : null,
+                              onChanged: (emp) {
+                                if (emp == null) {
+                                  controller.fetchEmployees();
+                                }
+                                setState(() {
+                                  controller.selectedEmployeeID.value = emp;
+                                  controller.employeeDropDownController.text =
+                                      emp!.employeeId;
+                                  controller.employeeName.text =
+                                      emp?.employeeName ?? '';
+                                });
+                              },
+                              rowBuilder: (emp, searchQuery) {
+                                bool isMatch = false;
+                                if (searchQuery.isNotEmpty) {
+                                  final searchableText =
+                                      '${emp.employeeName} ${emp.employeeId}'
+                                          .toLowerCase();
+                                  isMatch = searchableText.contains(
+                                    searchQuery.toLowerCase(),
+                                  );
+                                }
 
-                      const SizedBox(height: 6),
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 0,
+                                    horizontal: 0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            emp.employeeName,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            emp.employeeId,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 8),
+
+                            if (employeeError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  employeeError!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      // const SizedBox(height: 6),
 
                       // Reference ID Field
                       Obx(() {
@@ -3298,10 +3408,18 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         }
                                       },
                                 style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
                                   ),
-                                  backgroundColor: AppColors.gradientEnd,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    26,
+                                    2,
+                                    110,
+                                  ),
                                 ),
                                 child: isSubmitLoading
                                     ? const SizedBox(

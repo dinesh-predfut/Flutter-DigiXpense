@@ -514,9 +514,10 @@ class AppLocalizationsZh extends AppLocalizations {
 @override String get noMatchingStates => '没有匹配的州';
 @override String get invalidPhoneNumber => '无效的电话号码';
 @override String get emailsForReceiptForwarding => '用于转发收据的电子邮件';
-
+@override String get add => '添加';
   @override
   String get taxId => '税号';
+  @override String get reason => 'السبب';
   @override
   String get back => '返回';
   @override

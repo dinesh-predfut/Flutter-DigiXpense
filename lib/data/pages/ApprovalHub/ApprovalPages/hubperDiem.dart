@@ -178,10 +178,10 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
           .toString();
       controller.fromDateController.text = DateFormat(
         'dd-MM-yyyy',
-      ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate));
+      ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate,isUtc: true));
       controller.toDateController.text = DateFormat(
         'dd-MM-yyyy',
-      ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate));
+      ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate,isUtc: true));
       controller.expenseIdController.text = item.expenseId;
       controller.employeeIdController.text = item.employeeId!;
       controller.employeeName.text = item.employeeName ?? "";
@@ -480,7 +480,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                         readOnly: true,
                       ),
                       buildTextField(
-                        "${loc.totalAmountIN} ${controller.organizationCurrency} *",
+                        "${loc.totalAmountIN} ${controller.exchangeCurrencyCode.text} *",
                         controller.exchangeamountInController,
                         readOnly: true,
                       ),
@@ -1655,7 +1655,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: 'Effective From',
                   value: _formatDate(
-                    DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom),
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom,isUtc: true),
                   ),
                 ),
               ),
@@ -1675,7 +1675,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: 'Effective To',
                   value: _formatDate(
-                    DateTime.fromMillisecondsSinceEpoch(data.effectiveTo),
+                    DateTime.fromMillisecondsSinceEpoch(data.effectiveTo,isUtc: true),
                   ),
                 ),
               ),

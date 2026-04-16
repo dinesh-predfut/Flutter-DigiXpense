@@ -139,7 +139,9 @@ class Urls {
       "$baseURL/api/v1/mileageregistration/mileageregistration/mileageregistration?functionalentity=ExpenseRequisition&";
   static const mileageregistrationview =
       "$baseURL/api/v1/mileageregistration/mileageregistration/";
-  static const getNotifications = "$baseURL/api/v1/websocket/notifications/";
+  static const getNotifications = "$baseURL/api/v1/websocket/notifications1/";
+    static const getUnreadedNotifications = "$baseURL/api/v1/websocket/notifications/";
+
   static const getCustomField =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype";
   static const getdimensionsDropdownName =

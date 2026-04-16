@@ -33,17 +33,17 @@ class SetSharedPref {
     print("Saving userId: ${Params.refreshtoken}");
   }
 
-  Future<void> getData() async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
+Future<void> getData() async {
+  SharedPreferences pref = await SharedPreferences.getInstance();
 
-    Params.userToken = pref.getString("access_token") ?? "null";
-    Params.refreshtoken = pref.getString("refresh_token") ?? "null";
-    Params.employeeId = pref.getString("EmployeeId") ?? "null";
-    Params.userId = pref.getString("userId") ?? "null";
-      Params.userName = pref.getString("userName") ?? "null";
+  Params.userToken = pref.getString("access_token")!;
+  Params.refreshtoken = pref.getString("refresh_token")!;
+  Params.employeeId = pref.getString("EmployeeId")!;
+  Params.userId = pref.getString("userId")!;
+  Params.userName = pref.getString("userName")!;
 
-    print("Retrieved userId: ${Params.refreshtoken}");
-  } 
+  print("Retrieved refreshToken: ${Params.refreshtoken}");
+}
 
   Future<void> clearData() async {
     SharedPreferences pref = await SharedPreferences.getInstance();

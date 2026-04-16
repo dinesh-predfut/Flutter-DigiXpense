@@ -56,7 +56,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -72,7 +72,7 @@ class _MyTeamTimeSheetDashboard extends State<MyTeamTimeSheetDashboard>
       controller.selectedMyTeamSheetStatusDropDownmyTeam.value = "In Process";
     });
 
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.getPersonalDetails(context);

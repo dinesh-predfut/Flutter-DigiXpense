@@ -1832,7 +1832,10 @@ class CashAdvanceReqModel {
   factory CashAdvanceReqModel.fromJson(Map<String, dynamic> json) {
     return CashAdvanceReqModel(
       cashAdvanceReqId: json['CashAdvanceReqId'],
-      requestDate: DateTime.fromMillisecondsSinceEpoch(json['RequestDate']),
+      requestDate: DateTime.fromMillisecondsSinceEpoch(
+        json['RequestDate'],
+        isUtc: true,
+      ),
     );
   }
 
@@ -1924,10 +1927,10 @@ class ExpenseItemUpdate {
   final double lineAmountReporting;
   final String? projectId;
   final String? description;
-  final dynamic expenseId; // Modified to parse safely
+  final String? expenseId; // ✅ FIXED (was dynamic/int)
   bool isReimbursable;
   bool isBillable;
-  late final List<AccountingDistribution> accountingDistributions;
+  final List<AccountingDistribution> accountingDistributions;
 
   ExpenseItemUpdate({
     this.recId,
@@ -1947,50 +1950,55 @@ class ExpenseItemUpdate {
     required this.accountingDistributions,
   });
 
-  // Helper method for safe integer conversion
-  static int _toInt(dynamic value) {
-    if (value == null) return 0;
+  // ✅ SAFE INT
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
     if (value is int) return value;
     if (value is double) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
+    if (value is String && value.isNotEmpty) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 
-  // Helper method for safe double conversion
-  static double _toDouble(dynamic value) {
+  // ✅ SAFE DOUBLE
+  static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
     if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0.0;
+    if (value is String && value.isNotEmpty) {
+      return double.tryParse(value) ?? 0.0;
+    }
     return 0.0;
   }
 
-  static String? _normalizeString(String? value) =>
-      (value?.isNotEmpty ?? false) ? value : null;
-
-  // Helper method for safe string conversion
-  static String? _toString(dynamic value) {
-    if (value == null) return null;
-    return value.toString();
+  // ✅ SAFE BOOL
+  static bool _parseBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) {
+      return value.toLowerCase() == 'true' || value == '1';
+    }
+    if (value is int) return value == 1;
+    return false;
   }
 
   factory ExpenseItemUpdate.fromJson(Map<String, dynamic> json) {
     return ExpenseItemUpdate(
-      recId: json['RecId'],
+      recId: _parseInt(json['RecId']), // ✅ FIXED
       expenseCategoryId: json['ExpenseCategoryId']?.toString() ?? '',
-      quantity: _toDouble(json['Quantity']),
+      quantity: _parseDouble(json['Quantity']),
       uomId: json['UomId']?.toString() ?? '',
-      unitPriceTrans: (json['UnitPriceTrans'] ?? 0).toDouble(),
-      taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
+      unitPriceTrans: _parseDouble(json['UnitPriceTrans']), // ✅ FIXED
+      taxAmount: _parseDouble(json['TaxAmount']), // ✅ FIXED
       taxGroup: json['TaxGroup']?.toString(),
-      lineAmountTrans: (json['LineAmountTrans'] ?? 0).toDouble(),
-      lineAmountReporting: (json['LineAmountReporting'] ?? 0).toDouble(),
-
-      projectId: json['ProjectId'],
+      lineAmountTrans: _parseDouble(json['LineAmountTrans']), // ✅ FIXED
+      lineAmountReporting: _parseDouble(json['LineAmountReporting']), // ✅ FIXED
+      projectId: json['ProjectId']?.toString(),
       description: json['Description']?.toString(),
-      expenseId: json['ExpenseId']?.toString(),
-      isReimbursable: json['IsReimbursable'] ?? false,
-      isBillable: json['IsBillable'] ?? false,
+      expenseId: json['ExpenseId']?.toString(), // ✅ FIXED (string safe)
+      isReimbursable: _parseBool(json['IsReimbursable']), // ✅ FIXED
+      isBillable: _parseBool(json['IsBillable']), // ✅ FIXED
       accountingDistributions:
           (json['AccountingDistributions'] as List<dynamic>? ?? [])
               .map((e) => AccountingDistribution.fromJson(e))
@@ -2008,9 +2016,9 @@ class ExpenseItemUpdate {
     'TaxGroup': taxGroup,
     'LineAmountTrans': lineAmountTrans,
     'LineAmountReporting': lineAmountReporting,
-    'ProjectId': _normalizeString(projectId),
+    'ProjectId': projectId?.isNotEmpty == true ? projectId : null,
     'Description': description,
-    'ExpenseId': expenseId?.toString(),
+    'ExpenseId': expenseId,
     'IsReimbursable': isReimbursable,
     'IsBillable': isBillable,
     'ExpenseTransCustomFieldValues': [],
@@ -2135,7 +2143,7 @@ class UpcomingHoliday {
     return UpcomingHoliday(
       name: json['Name'] ?? '',
       holidayType: json['HolidayType'] ?? '',
-      date: DateTime.fromMillisecondsSinceEpoch(json['Date']),
+      date: DateTime.fromMillisecondsSinceEpoch(json['Date'], isUtc: true),
     );
   }
 }
@@ -2165,8 +2173,11 @@ class LastAppliedLeave {
       applicationDate: DateTime.fromMillisecondsSinceEpoch(
         json['ApplicationDate'],
       ),
-      fromDate: DateTime.fromMillisecondsSinceEpoch(json['FromDate']),
-      toDate: DateTime.fromMillisecondsSinceEpoch(json['ToDate']),
+      fromDate: DateTime.fromMillisecondsSinceEpoch(
+        json['FromDate'],
+        isUtc: true,
+      ),
+      toDate: DateTime.fromMillisecondsSinceEpoch(json['ToDate'], isUtc: true),
       duration: (json['Duration'] as num?)?.toDouble() ?? 0.0,
       approvalStatus: json['ApprovalStatus'] ?? '',
       cancellationStatus: json['CancellationStatus'] ?? '',
@@ -2969,7 +2980,8 @@ class LeaveTransactionModel {
   /// =======================
 
   /// Convert millis → DateTime
-  DateTime get date => DateTime.fromMillisecondsSinceEpoch(transDate);
+  DateTime get date =>
+      DateTime.fromMillisecondsSinceEpoch(transDate, isUtc: true);
 
   /// Check if half day
   bool get isHalfDay =>
@@ -3799,9 +3811,9 @@ class GESpeficExpense {
   final String? location;
   final int? workitemrecid;
   final String? stepType;
-  final int? unprocessedRecId; // 🆕 Added
-  final DateTime? fromDate; // 🆕 Added
-  final DateTime? toDate; // 🆕 Added
+  final int? unprocessedRecId;
+  final DateTime? fromDate;
+  final DateTime? toDate;
   final List<ExpenseItemUpdate> expenseTrans;
 
   GESpeficExpense({
@@ -3838,9 +3850,9 @@ class GESpeficExpense {
     this.workitemrecid,
     this.stepType,
     required this.cashAdvReqId,
-    this.unprocessedRecId, // 🆕 Added
-    this.fromDate, // 🆕 Added
-    this.toDate, // 🆕 Added
+    this.unprocessedRecId,
+    this.fromDate,
+    this.toDate,
   });
 
   factory GESpeficExpense.fromJson(Map<String, dynamic> json) {
@@ -3848,66 +3860,113 @@ class GESpeficExpense {
       expenseId: json['ExpenseId']?.toString() ?? '',
       projectId: json['ProjectId']?.toString(),
       paymentMethod: json['PaymentMethod']?.toString(),
-      totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
-      totalAmountReporting: (json['TotalAmountReporting'] ?? 0).toDouble(),
+      totalAmountTrans: _parseDouble(json['TotalAmountTrans']),
+      totalAmountReporting: _parseDouble(json['TotalAmountReporting']),
       expenseCategoryId: json['ExpenseCategoryId']?.toString(),
       merchantName: json['MerchantName']?.toString(),
       merchantId: json['MerchantId']?.toString(),
       employeeId: json['EmployeeId']?.toString(),
       employeeName: json['EmployeeName']?.toString(),
       justificateNotes: json['JustificationNotes']?.toString(),
-      receiptDate: json['ReceiptDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['ReceiptDate'])
-          : DateTime.now(),
+      receiptDate: _parseDate(json['ReceiptDate']) ?? DateTime.now(),
       approvalStatus: json['ApprovalStatus']?.toString(),
       currency: json['Currency']?.toString(),
       referenceNumber: json['ReferenceNumber']?.toString(),
       description: json['Description']?.toString(),
       source: json['Source']?.toString(),
-      exchRate: (json['ExchRate'] ?? 0).toDouble(),
-      userExchRate: (json['UserExchRate'] ?? 0).toDouble(),
+      exchRate: _parseDouble(json['ExchRate']),
+      userExchRate: _parseDouble(json['UserExchRate']),
       isBillable: _parseBool(json['IsBillable']),
       isPreauthorised: _parseBool(json['IsPreauthorised']),
       expenseType: json['ExpenseType']?.toString(),
       taxGroup: json['TaxGroup']?.toString(),
-      taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
+      taxAmount: _parseDouble(json['TaxAmount']),
       isReimbursable: _parseBool(json['IsReimbursable']),
       country: json['Country']?.toString(),
-      recId: json['RecId'] != null
-          ? int.tryParse(json['RecId'].toString())
-          : null,
+      recId: _parseInt(json['RecId']),
       expenseStatus: json['ExpenseStatus']?.toString(),
       location: json['Location']?.toString(),
       cashAdvReqId: json['CashAdvReqId']?.toString() ?? '',
-      workitemrecid: json['workitemrecid'] != null
-          ? int.tryParse(json['workitemrecid'].toString())
-          : null,
+      workitemrecid: _parseInt(json['workitemrecid']),
       stepType: json['StepType']?.toString(),
-      unprocessedRecId: json['UnprocessedRecId'] != null
-          ? int.tryParse(json['UnprocessedRecId'].toString())
-          : null, // 🆕 Added
-      fromDate: json['FromDate'] != null
-          ? DateTime.tryParse(json['FromDate'].toString())
-          : null, // 🆕 Added
-      toDate: json['ToDate'] != null
-          ? DateTime.tryParse(json['ToDate'].toString())
-          : null, // 🆕 Added
+      unprocessedRecId: _parseInt(json['UnprocessedRecId']),
+      fromDate: _parseDate(json['FromDate']),
+      toDate: _parseDate(json['ToDate']),
       expenseTrans: (json['ExpenseTrans'] as List<dynamic>? ?? [])
           .map((e) => ExpenseItemUpdate.fromJson(e))
           .toList(),
     );
   }
 
+  // ================= HELPERS =================
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String && value.isNotEmpty) {
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String && value.isNotEmpty) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   static bool _parseBool(dynamic value) {
+    if (value == null) return false;
     if (value is bool) return value;
     if (value is String) {
       return value.toLowerCase() == 'true' || value == '1';
     }
-    if (value is num) {
-      return value == 1;
-    }
+    if (value is int) return value == 1;
     return false;
   }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+
+    // timestamp (milliseconds)
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+    }
+
+    // string timestamp or ISO string
+    if (value is String && value.isNotEmpty) {
+      final intVal = int.tryParse(value);
+      if (intVal != null) {
+        return DateTime.fromMillisecondsSinceEpoch(intVal, isUtc: true);
+      }
+      return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
+}
+
+// Model
+class EmployeeId {
+  final String employeeId;
+  final String employeeName;
+  final String? dimension;
+
+  EmployeeId({
+    required this.employeeId,
+    required this.employeeName,
+    this.dimension,
+  });
+
+  factory EmployeeId.fromJson(Map<String, dynamic> json) => EmployeeId(
+    employeeId: json['EmployeeId'] ?? '',
+    employeeName: json['EmployeeName'] ?? '',
+    dimension: json['Dimension'],
+  );
 }
 
 class UnprocessExpenseModels {
@@ -4001,7 +4060,10 @@ class UnprocessExpenseModels {
       employeeName: json['EmployeeName']?.toString(),
       justificateNotes: json['JustificationNotes']?.toString(),
       receiptDate: json['ReceiptDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['ReceiptDate'])
+          ? DateTime.fromMillisecondsSinceEpoch(
+              json['ReceiptDate'],
+              isUtc: true,
+            )
           : DateTime.now(),
       approvalStatus: json['ApprovalStatus']?.toString(),
       currency: json['Currency']?.toString(),
@@ -4308,7 +4370,8 @@ class ExpenseHistory {
       createdDate: () {
         final raw = json['CreatedDatetime'];
         if (raw == null) return DateTime.now();
-        if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
+        if (raw is int)
+          return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true);
         if (raw is String) return DateTime.parse(raw);
         return DateTime.now();
       }(),
@@ -4826,7 +4889,10 @@ class LeaveTransaction {
     String? leaveId,
   }) {
     return LeaveTransaction(
-      transDate: DateTime.fromMillisecondsSinceEpoch(json['TransDate']),
+      transDate: DateTime.fromMillisecondsSinceEpoch(
+        json['TransDate'],
+        isUtc: true,
+      ),
       noOfDays: (json['NoOfDays'] as num?)?.toDouble() ?? 0.0,
       leaveCode: json['LeaveCode']?.toString() ?? '',
       approvalStatus: json['ApprovalStatus']?.toString() ?? '',
@@ -5111,6 +5177,7 @@ class NotificationModel {
       batchJobStatus: json['BatchJobStatus'],
       createdDatetime: DateTime.fromMillisecondsSinceEpoch(
         json['CreatedDatetime'],
+        isUtc: true,
       ),
       createdBy: json['CreatedBy'],
       modifiedDatetime: DateTime.parse(json['ModifiedDatetime']),
@@ -6433,6 +6500,7 @@ class LineItemModel {
   BoardModel? board;
   TaskModelDropDown? task;
   String? taskName;
+  int? recId;
 
   double hours;
   RxList<TaskModelDropDown> filteredTasks = <TaskModelDropDown>[].obs;
@@ -6448,6 +6516,7 @@ class LineItemModel {
     this.project,
     this.board,
     this.task,
+    this.recId,
     this.taskName,
     this.hours = 0,
     this.lineCustomFields = const [],
@@ -6677,7 +6746,61 @@ class TimeSheetRangeModel {
     );
   }
 }
+class RuleConfigSettings {
+  final bool breakTimeDeductionRequired;
+  final bool remarksMandatoryForOTDays;
+  final bool isOverTimeAllowed;
+  final String dayWeekStarts;
+  final String dayMonthStarts;
+  final bool attachmentsRequired;
+  final String frequency;
+  final bool requiredApproval;
+  final dynamic defaultWorkFlow;
+  final bool editableAfterApproval;
+  final bool sycWithOverTimeModule;
+  final String integrationSource;
+  final bool auditTrailEnabled;
+  final String captureMethod;
+  final String entryFrequency;
 
+  RuleConfigSettings({
+    required this.breakTimeDeductionRequired,
+    required this.remarksMandatoryForOTDays,
+    required this.isOverTimeAllowed,
+    required this.dayWeekStarts,
+    required this.dayMonthStarts,
+    required this.attachmentsRequired,
+    required this.frequency,
+    required this.requiredApproval,
+    this.defaultWorkFlow,
+    required this.editableAfterApproval,
+    required this.sycWithOverTimeModule,
+    required this.integrationSource,
+    required this.auditTrailEnabled,
+    required this.captureMethod,
+    required this.entryFrequency,
+  });
+
+  factory RuleConfigSettings.fromJson(Map<String, dynamic> json) {
+    return RuleConfigSettings(
+      breakTimeDeductionRequired: json['BreakTimeDeductionRequired'] ?? false,
+      remarksMandatoryForOTDays: json['RemarksMandatoryForOTDays'] ?? false,
+      isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
+      dayWeekStarts: json['DayWeekStarts'] ?? '',
+      dayMonthStarts: json['DayMonthStarts'] ?? '',
+      attachmentsRequired: json['AttachmentsRequired'] ?? false,
+      frequency: json['Frequency'] ?? '',
+      requiredApproval: json['RequiredApproval'] ?? false,
+      defaultWorkFlow: json['DefaultWorkFlow'],
+      editableAfterApproval: json['EditableAfterApproval'] ?? false,
+      sycWithOverTimeModule: json['SycWithOverTimeModule'] ?? false,
+      integrationSource: json['IntegrationSource'] ?? '',
+      auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
+      captureMethod: json['CaptureMethod'] ?? '',
+      entryFrequency: json['EntryFrequency'] ?? '',
+    );
+  }
+}
 class TimeEntryModel {
   final int entryDate;
   final int? timeFrom;
@@ -6686,11 +6809,13 @@ class TimeEntryModel {
   final bool timerRunning;
   final String? comment;
   final String? otHours;
+  int? recId;
 
   TimeEntryModel({
     required this.entryDate,
     this.timeFrom,
     this.timeTo,
+       this.recId,
     required this.totalHours,
     this.timerRunning = false,
     this.comment,
@@ -6705,6 +6830,7 @@ class TimeEntryModel {
     bool? timerRunning,
     String? comment,
     String? otHours,
+    int? recId,
   }) {
     return TimeEntryModel(
       entryDate: entryDate ?? this.entryDate,
@@ -6714,6 +6840,7 @@ class TimeEntryModel {
       timerRunning: timerRunning ?? this.timerRunning,
       comment: comment ?? this.comment,
       otHours: otHours ?? this.otHours,
+
     );
   }
 
@@ -6724,7 +6851,8 @@ class TimeEntryModel {
     "TotalHours": totalHours,
     "TimerRunning": timerRunning,
     "OTHours": otHours,
-    "Comment": comment,
+    "InternalComment": comment,
+    "RecId": recId,
   };
 
   void operator []=(int other, TimeEntryModel value) {}
@@ -8237,9 +8365,11 @@ class TimesheetModel {
   }
 
   /// 🔁 UI helper (optional)
-  DateTime get fromDateTime => DateTime.fromMillisecondsSinceEpoch(fromDate);
+  DateTime get fromDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(fromDate, isUtc: true);
 
-  DateTime get toDateTime => DateTime.fromMillisecondsSinceEpoch(toDate);
+  DateTime get toDateTime =>
+      DateTime.fromMillisecondsSinceEpoch(toDate, isUtc: true);
 }
 
 int _toInt(dynamic value) {
@@ -8282,15 +8412,24 @@ class PayrollsTeams {
 
       /// 🔑 milliseconds → DateTime
       paymentDate: json['PaymentDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['PaymentDate'])
+          ? DateTime.fromMillisecondsSinceEpoch(
+              json['PaymentDate'],
+              isUtc: true,
+            )
           : null,
 
       periodStartDate: json['PeriodStartDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['PeriodStartDate'])
+          ? DateTime.fromMillisecondsSinceEpoch(
+              json['PeriodStartDate'],
+              isUtc: true,
+            )
           : null,
 
       periodEndDate: json['PeriodEndDate'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['PeriodEndDate'])
+          ? DateTime.fromMillisecondsSinceEpoch(
+              json['PeriodEndDate'],
+              isUtc: true,
+            )
           : null,
 
       type: json['Type'] ?? '',
@@ -8324,19 +8463,19 @@ class Feature {
   });
 
   factory Feature.fromJson(Map<String, dynamic> json) {
-    var childrenList = json['children'] as List;
+    var childrenList = (json['children'] as List?) ?? [];
     List<Feature> children = childrenList
-        .map((i) => Feature.fromJson(i))
+        .map((i) => Feature.fromJson(i as Map<String, dynamic>))
         .toList();
 
     return Feature(
-      id: json['Id'],
-      name: json['Name'],
-      description: json['Description'],
-      parentId: json['ParentId'],
+      id: json['Id'] as String? ?? '',
+      name: json['Name'] as String? ?? '',
+      description: json['Description'] as String? ?? '',
+      parentId: json['ParentId'] as String?,
       dependentIds: List<String>.from(json['DependentIds'] ?? []),
-      isSystemLock: json['IsSystemLock'],
-      isEnable: json['IsEnable'],
+      isSystemLock: json['IsSystemLock'] as bool? ?? false,
+      isEnable: json['IsEnable'] as bool? ?? true,
       children: children,
     );
   }

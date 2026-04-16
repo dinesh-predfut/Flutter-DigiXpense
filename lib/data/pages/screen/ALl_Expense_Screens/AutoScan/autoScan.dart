@@ -284,7 +284,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
   void _initializeFormFromApiResponse() {
     final receiptTimestamp = widget.apiResponse?['ReceiptDate'];
     final date = (receiptTimestamp != null && receiptTimestamp != 0)
-        ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp)
+        ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp,isUtc: true)
         : DateTime.now();
 
     receiptDateController.text = DateFormat('dd-MM-yyyy').format(date);

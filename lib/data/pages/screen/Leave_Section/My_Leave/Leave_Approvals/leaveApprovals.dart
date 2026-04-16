@@ -82,7 +82,7 @@ class _PendingApprovalsLeaveDashboardState
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -98,7 +98,7 @@ class _PendingApprovalsLeaveDashboardState
       controller.searchQuery.value = '';
       controller.searchControllerApprovalDashBoard.clear();
       controller.selectedLeaveIds.clear();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       _loadProfileImage();
       controller.getPersonalDetails(context);
       _initializeCalendarEvents();
@@ -156,7 +156,7 @@ class _PendingApprovalsLeaveDashboardState
     // Initialize events from controller's leave data
     for (var leave in controller.approvalsfilteredLeaves) {
       if (leave.applicationDate != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate);
+        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate,isUtc: true);
         final dateOnly = DateTime(date.year, date.month, date.day);
 
         if (_events[dateOnly] == null) {
@@ -920,14 +920,22 @@ class _PendingApprovalsLeaveDashboardState
                           const SizedBox(height: 24),
 
                           _buildDatePickerField(context),
-                          const SizedBox(height: 16),
+                          // const SizedBox(height: 16),
 
                           _buildViewTypeDropdown(context, controller),
-                          const SizedBox(height: 16),
+                          // const SizedBox(height: 16),
 
-                          Obx(
+                        Obx(
                             () => controller.showEmployeeField.value
-                                ? _buildEmployeeMultiSelect(context, controller)
+                                ? Column(
+                                    children: [
+                                      const SizedBox(height: 16),
+                                      _buildEmployeeMultiSelect(
+                                        context,
+                                        controller,
+                                      ),
+                                    ],
+                                  )
                                 : const SizedBox(),
                           ),
 
@@ -1034,7 +1042,7 @@ class _PendingApprovalsLeaveDashboardState
   }
 
   String _formatDate(int milliseconds) {
-    final date = DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    final date = DateTime.fromMillisecondsSinceEpoch(milliseconds,isUtc: true);
     return '${date.day}/${date.month}/${date.year}';
   }
 
@@ -1413,7 +1421,7 @@ class _PendingApprovalsLeaveDashboardState
                   children: [
                     Text(
                       DateFormat('MMM d').format(
-                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
+                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate,isUtc: true),
                       ),
                       style: const TextStyle(
                         fontSize: 13,
@@ -1421,7 +1429,7 @@ class _PendingApprovalsLeaveDashboardState
                       ),
                     ),
                     Text(
-                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
+                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate,isUtc: true))}',
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                   ],
@@ -2264,6 +2272,6 @@ class _PendingApprovalsLeaveDashboardState
   String _isoDate(int epoch) {
     return DateFormat(
       'dd-MM-yyyy',
-    ).format(DateTime.fromMillisecondsSinceEpoch(epoch));
+    ).format(DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true));
   }
 }

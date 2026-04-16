@@ -335,8 +335,8 @@ bool get isDayView => true;
       final leave = ev; // Now safe to cast
       
       // Convert int timestamps to DateTime
-      final fromDate = DateTime.fromMillisecondsSinceEpoch(leave.fromDate);
-      final toDate = DateTime.fromMillisecondsSinceEpoch(leave.toDate);
+      final fromDate = DateTime.fromMillisecondsSinceEpoch(leave.fromDate,isUtc: true);
+      final toDate = DateTime.fromMillisecondsSinceEpoch(leave.toDate,isUtc: true);
       
       return GestureDetector(
         onTap: () => _openDetail(leave),
@@ -425,7 +425,7 @@ class LeaveDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fromDate = DateTime.fromMillisecondsSinceEpoch(transaction.fromDate);
+    final fromDate = DateTime.fromMillisecondsSinceEpoch(transaction.fromDate,isUtc: true);
 DateFormat('yMMMd').format(fromDate);
     return Scaffold(
       appBar: AppBar(title: const Text('Leave Details')),

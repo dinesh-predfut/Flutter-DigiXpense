@@ -71,7 +71,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
       //  RxBool isEnable = false.obs;
 
       final expense = widget.mileageId!;
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate);
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate,isUtc: true);
       final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;

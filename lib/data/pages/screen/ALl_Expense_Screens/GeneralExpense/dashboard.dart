@@ -68,7 +68,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     controller.selectedStatus = "Un Reported";
     // Load data
     // controller.loadProfilePictureFromStorage();
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
     controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty && mounted) {
         _animationController = AnimationController(
@@ -90,7 +90,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.getPersonalDetails(context);
       // controller.fetchMileageRates();
- await controller.loadSequenceModules();
+      await controller.loadSequenceModules();
       controller.fetchGetallGExpense().then((_) {
         controller.isLoadingGE1.value = false;
       });
@@ -167,17 +167,17 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
         "permission": "Expense Registration",
       },
       {
-        'label': loc.addCashAdvanceReturn,
-        'icon': Icons.attach_money,
-        'route': AppRoutes.cashAdvanceReturnForms,
-        'featureId': 'EnableCashAdvanceRequisition',
-        "permission": "Expense Registration",
-      },
-      {
         'label': loc.addMileage,
         'icon': Icons.directions_car,
         'route': AppRoutes.mileageExpensefirst,
         'featureId': 'EnableMileage',
+        "permission": "Expense Registration",
+      },
+      {
+        'label': loc.addCashAdvanceReturn,
+        'icon': Icons.attach_money,
+        'route': AppRoutes.cashAdvanceReturnForms,
+        'featureId': 'EnableCashAdvanceRequisition',
         "permission": "Expense Registration",
       },
     ];
@@ -1119,7 +1119,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!.toUtc())
+                        ? DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(item.receiptDate!.toUtc())
                         : 'No date',
                     style: const TextStyle(
                       fontSize: 12,

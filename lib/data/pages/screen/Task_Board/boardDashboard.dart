@@ -50,7 +50,7 @@ class _BoardDashboardState extends State<BoardDashboard>
       controller.searchQuery.value = '';
       controller.fetchBoards().then((_) {
         controller.getPersonalDetails(context);
-        controller.fetchNotifications();
+        controller.fetchUnreadNotifications();
         controller.isLoadingGE1.value = false;
         _loadProfileImage();
       });

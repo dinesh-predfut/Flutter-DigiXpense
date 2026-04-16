@@ -36,6 +36,8 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   String? expenseIdError;
   String? noOfDaysError;
   String? perDiemError;
+  String? employeeError;
+
   late Future<List<ExpenseHistory>> historyFuture;
 
   @override
@@ -47,6 +49,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeDataCashAdvance();
       _loadSettings();
+      controller.fetchEmployeesID();
       await controller.loadSequenceModules();
       controller.loadAllCustomFieldValues();
       controller.fetchLocation();
@@ -156,7 +159,12 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       } else {
         _showProjectError = false;
       }
-
+      if (controller.employeeDropDownController.text.trim().isEmpty) {
+        setState(() {
+          employeeError = AppLocalizations.of(context)!.fieldRequired;
+        });
+        isValid = false;
+      }
       // Validate Location
       final locationMandatory = isFieldMandatory('Location');
       if (controller.selectedLocation == null && locationMandatory) {
@@ -287,19 +295,19 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       }
       // Safe date handling
       if (item.fromDate != null) {
-        controller.fromDateController.text = DateFormat(
-          'dd-MM-yyyy',
-        ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate!));
+        controller.fromDateController.text = DateFormat('dd-MM-yyyy').format(
+          DateTime.fromMillisecondsSinceEpoch(item.fromDate, isUtc: true),
+        );
       }
 
       if (item.toDate != null) {
         controller.toDateController.text = DateFormat(
           'dd-MM-yyyy',
-        ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate!));
+        ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate, isUtc: true));
       }
 
       controller.expenseIdController.text = item.expenseId ?? '';
-      controller.employeeIdController.text = item.employeeId ?? '';
+      controller.employeeDropDownController.text = item.employeeId ?? '';
       controller.employeeName.text =
           item.employeeName ?? ''; // ✅ Safe null handling
       controller.daysController.text = (item.noOfDays ?? 0).toString();
@@ -555,7 +563,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                         if (widget.item != null)
                           buildTextField(
                             "${loc.employeeId} *",
-                            controller.employeeIdController,
+                            controller.employeeDropDownController,
                             null,
                             readOnly: false,
                           ),
@@ -566,6 +574,111 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             null,
                             readOnly: false,
                           ),
+                        if (widget.item == null) const SizedBox(height: 16),
+                        if (widget.item == null && PermissionHelper.canRead("User Delegates") == true)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                             
+                              SearchableMultiColumnDropdownField<EmployeeId>(
+                                labelText: '${loc.employeeId} *',
+                                columnHeaders: [
+                                  loc.employeeName,
+                                  loc.employeeId,
+                                ],
+                                items: controller.employeesID,
+                                controller:
+                                    controller.employeeDropDownController,
+                                selectedValue:
+                                    controller.selectedEmployeeID.value,
+                                searchValue: (emp) =>
+                                    '${emp.employeeName} ${emp.employeeId}',
+                                displayText: (emp) => emp.employeeId,
+                                validator: (emp) =>
+                                    controller
+                                        .employeeDropDownController
+                                        .text
+                                        .isEmpty
+                                    ? loc.fieldRequired
+                                    : null,
+                                onChanged: (emp) {
+                                  if (emp == null) {
+                                    controller.fetchEmployees();
+                                  }
+                                  setState(() {
+                                    controller.selectedEmployeeID.value = emp;
+                                    controller.employeeDropDownController.text =
+                                        emp!.employeeId;
+                                    controller.employeeName.text = emp.employeeName;
+                                  });
+                                },
+                                rowBuilder: (emp, searchQuery) {
+                                  bool isMatch = false;
+                                  if (searchQuery.isNotEmpty) {
+                                    final searchableText =
+                                        '${emp.employeeName} ${emp.employeeId}'
+                                            .toLowerCase();
+                                    isMatch = searchableText.contains(
+                                      searchQuery.toLowerCase(),
+                                    );
+                                  }
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 0,
+                                      horizontal: 0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: Text(
+                                              emp.employeeName,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: Text(
+                                              emp.employeeId,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 8),
+
+                              if (employeeError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    employeeError!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        if (employeeError != null && widget.item == null)
+                          const SizedBox(height: 8),
                         ...controller.configList
                             .where(
                               (field) =>
@@ -814,7 +927,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                               readOnly: false,
                             ),
                             buildTextField(
-                              '${loc.totalAmountIN} ${controller.organizationCurrency}',
+                              '${loc.totalAmountIN} ${controller.exchangeCurrencyCode.text}',
                               controller.exchangeamountInController,
                               null,
                               readOnly: false,
@@ -838,6 +951,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                 ),
                               ),
                             ),
+
                             // Obx(() {
                             //   return Column(
                             //     children: controller.customFields.map((field) {
@@ -934,7 +1048,6 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                             //     }).toList(),
                             //   );
                             // }),
-
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -2774,7 +2887,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: loc.effectiveFrom,
                   value: _formatDate(
-                    DateTime.fromMillisecondsSinceEpoch(data.effectiveFrom),
+                    DateTime.fromMillisecondsSinceEpoch(
+                      data.effectiveFrom,
+                      isUtc: true,
+                    ),
                   ),
                 ),
               ),
@@ -2794,7 +2910,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                 child: _buildReadonlyField(
                   label: loc.effectiveTo,
                   value: _formatDate(
-                    DateTime.fromMillisecondsSinceEpoch(data.effectiveTo),
+                    DateTime.fromMillisecondsSinceEpoch(
+                      data.effectiveTo,
+                      isUtc: true,
+                    ),
                   ),
                 ),
               ),

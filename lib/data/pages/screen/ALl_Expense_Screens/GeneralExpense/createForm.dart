@@ -5,8 +5,10 @@ import 'dart:async';
 import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/constant/Parames/params.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:diginexa/main.dart';
@@ -66,6 +68,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   String? _paidTo;
   bool? isThereReferenceID = false;
   String? paidToError;
+  String? employeeError;
   String? expenseIdError;
   final RxnString paidwithError = RxnString();
   String? selectDate;
@@ -91,10 +94,14 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     _loadSettings();
     _featureFuture = controller.getAllFeatureStates();
     itemizeControllers.add(Controller());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _initializeUnits();
+      await controller.fetchEmployeesID();
+      // controller.employeeDropDownController.text = Params.employeeId;
+
       controller.loadSequenceModules();
       controller.configuration();
+
       controller.clearFormFields();
       // Safe to update observables here
       controller.fetchPaidto();
@@ -280,6 +287,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         controller.manualPaidToController.text.trim().isEmpty) {
       setState(() {
         paidToError = loc.pleaseEnterMerchantName;
+      });
+      isValid = false;
+    } else if (controller.employeeDropDownController.text.trim().isEmpty) {
+      setState(() {
+        employeeError = loc.fieldRequired;
       });
       isValid = false;
     } else {
@@ -525,6 +537,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
   bool validateExpenseForm() {
     bool isValid = true;
+    final controller = itemizeControllers[_selectedItemizeIndex];
 
     setState(() {
       // Reset all error states
@@ -1825,18 +1838,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 controllerItems.descriptionController.text =
                                     controller.descriptionController.text;
 
-                                if (controller.itemisationMandatory.value) {
-                                  Fluttertoast.showToast(
-                                    msg: "Itemize is required",
-                                    toastLength: Toast.LENGTH_SHORT,
-                                    gravity: ToastGravity.BOTTOM,
-                                    backgroundColor: Colors.red,
-                                    textColor: Colors.white,
-                                    fontSize: 16.0,
-                                  );
-                                  return;
-                                }
-
                                 controllerItems.finalItems = itemizeControllers
                                     .map((c) => c.toExpenseItemModel())
                                     .toList();
@@ -1976,6 +1977,18 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   );
                                 }
 
+                                if (controller.itemisationMandatory.value &&
+                                    !showItemizeDetails) {
+                                  Fluttertoast.showToast(
+                                    msg: "Itemize is required",
+                                    toastLength: Toast.LENGTH_SHORT,
+                                    gravity: ToastGravity.BOTTOM,
+                                    backgroundColor: Colors.red,
+                                    textColor: Colors.white,
+                                    fontSize: 16.0,
+                                  );
+                                  return;
+                                }
                                 print('isValid$isValid');
                                 print('isValid${itemizeControllers.length}');
                                 if (isValid) {
@@ -2124,7 +2137,10 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         controllers.selectedCategoryId = item.categoryId;
         controller.selectedCategoryId = item.categoryId;
         controller.categoryController.text = item.categoryId;
-        controller.itemisationMandatory.value = item.itemisationMandatory;
+
+        if (item.itemisationMandatory && showItemizeDetails == false) {
+          _addItemize();
+        }
         controllers.itemisationMandatory.value = item.itemisationMandatory;
         controller.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
             .toDouble();
@@ -2306,7 +2322,98 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         ),
 
                         const SizedBox(height: 16),
+                        if (PermissionHelper.canRead(
+                              "User Delegates",
+                            ) ==
+                            true)
+                          SearchableMultiColumnDropdownField<EmployeeId>(
+                            labelText: '${loc.employeeId} *',
+                            columnHeaders: [loc.employeeName, loc.employeeId],
+                            items: controller.employeesID,
+                            controller: controller.employeeDropDownController,
+                            selectedValue: controller.selectedEmployeeID.value,
+                            searchValue: (emp) =>
+                                '${emp.employeeName} ${emp.employeeId}',
+                            displayText: (emp) => emp.employeeId,
+                            validator: (emp) =>
+                                controller
+                                    .employeeDropDownController
+                                    .text
+                                    .isEmpty
+                                ? loc.fieldRequired
+                                : null,
+                            onChanged: (emp) {
+                              if (emp == null) {
+                                controller.fetchEmployees();
+                              }
+                              setState(() {
+                                controller.selectedEmployeeID.value = emp;
+                                controller.employeeName.text =
+                                    emp?.employeeName ?? '';
+                                controller.employeeDropDownController.text =
+                                    emp!.employeeId;
+                              });
+                            },
+                            rowBuilder: (emp, searchQuery) {
+                              bool isMatch = false;
+                              if (searchQuery.isNotEmpty) {
+                                final searchableText =
+                                    '${emp.employeeName} ${emp.employeeId}'
+                                        .toLowerCase();
+                                isMatch = searchableText.contains(
+                                  searchQuery.toLowerCase(),
+                                );
+                              }
 
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 0,
+                                  horizontal: 0,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Text(
+                                          emp.employeeName,
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Text(
+                                          emp.employeeId,
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        const SizedBox(height: 8),
+
+                        if (employeeError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 8.0,
+                              bottom: 8,
+                            ),
+                            child: Text(
+                              employeeError!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
                         // Paid To Dropdown
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3019,7 +3126,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-         allowedExtensions: controller.allowedExtensions,
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -3872,10 +3979,18 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         }
                                       },
                                 style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(24),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
                                   ),
-                                  backgroundColor: AppColors.gradientEnd,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    26,
+                                    2,
+                                    110,
+                                  ),
                                 ),
                                 child: isSubmitLoading
                                     ? const SizedBox(

@@ -157,7 +157,7 @@ class _ApprovalViewEditExpensePageState
     );
     controller.unitRate.text = widget.items!.exchRate.toStringAsFixed(2);
     controller.cashAdvReqIds = widget.items!.cashAdvReqId;
-    controller.employeeIdController.text = widget.items!.employeeName!;
+    controller.employeeDropDownController.text = widget.items!.employeeName!;
     controller.employeeName.text = widget.items!.employeeId!;
     controller.justificationnotes.text = widget.items!.justificateNotes!;
     controller.approvalamountINR.text = widget.items!.totalAmountReporting
@@ -232,7 +232,7 @@ class _ApprovalViewEditExpensePageState
       controller.cashAdvReqIds = widget.items!.cashAdvReqId;
       controller.justificationnotes.text = widget.items!.justificateNotes!;
       controller.employeeName.text = widget.items!.employeeName!;
-      controller.employeeIdController.text = widget.items!.employeeId!;
+      controller.employeeDropDownController.text = widget.items!.employeeId!;
       controller.isBillableCreate = widget.items!.isBillable;
       controller.expenseID = widget.items!.expenseId;
       controller.recID = widget.items!.recId;
@@ -318,7 +318,7 @@ class _ApprovalViewEditExpensePageState
     }
 
     if (_validateRequiredField(
-          controller.employeeIdController.text,
+          controller.employeeDropDownController.text,
           AppLocalizations.of(context)!.employeeId,
           true,
         ) !=
@@ -1187,7 +1187,7 @@ class _ApprovalViewEditExpensePageState
                         _buildTextField(
                           label:
                               "${AppLocalizations.of(context)!.employeeId} *",
-                          controller: controller.employeeIdController,
+                          controller: controller.employeeDropDownController,
                           isReadOnly: false,
                           validator: (value) => _validateRequiredField(
                             value!,

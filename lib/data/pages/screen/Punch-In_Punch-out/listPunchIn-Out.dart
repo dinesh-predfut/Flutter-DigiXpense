@@ -41,7 +41,7 @@ class _MyAttendanceList extends State<MyAttendanceList>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -57,7 +57,7 @@ class _MyAttendanceList extends State<MyAttendanceList>
       _loadProfileImage();
     });
 
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.getPersonalDetails(context);
@@ -669,13 +669,13 @@ class _MyAttendanceList extends State<MyAttendanceList>
 
   String epochToIsoClean(int? epoch) {
     if (epoch == null) return '-';
-    final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
+    final dt = DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true).toLocal();
     return DateFormat('dd MM yyyy').format(dt);
   }
 
 String epochToIso(int? epoch) {
   if (epoch == null) return '-';
-  final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
+  final dt = DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true).toLocal();
   return DateFormat('dd-MM-yyyy HH:mm:ss').format(dt);
 }
 }
@@ -702,6 +702,7 @@ class AttendanceViewDialog extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
+            const SizedBox(height: 15,),
             customTextField(
               label: AppLocalizations.of(context)!.transactionId,
               value: item.transAttendanceId,

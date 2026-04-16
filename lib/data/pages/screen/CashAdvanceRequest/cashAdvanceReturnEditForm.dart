@@ -120,7 +120,10 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       });
 
       final timestamp = widget.items!.requestDate;
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(
+        timestamp,
+        isUtc: true,
+      );
       final formatted = DateFormat('dd-MM-yyyy').format(dateTime);
       requestDateController.text = formatted;
 
@@ -129,7 +132,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
         controller.paymentMethodID = widget.items!.prefferedPaymentMethod
             .toString();
       }
-
+      controller.employeeName.text = widget.items!.employeeName!;
+      controller.employeeDropDownController.text = widget.items!.employeeId!;
       expenseIdController.text = widget.items!.requisitionId.toString();
       controller.justificationController.text =
           widget.items!.businessJustification;
@@ -866,7 +870,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-         allowedExtensions: controller.allowedExtensions,
+        allowedExtensions: controller.allowedExtensions,
       );
 
       if (result == null) return;
@@ -1364,7 +1368,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                           }),
 
                         const SizedBox(height: 20),
-
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeId} *",
+                          controller: controller.employeeDropDownController,
+                          isReadOnly: false,
+                        ),
+                        // const SizedBox(height: 6),
+                        _buildTextField(
+                          label:
+                              "${AppLocalizations.of(context)!.employeeName} *",
+                          controller: controller.employeeName,
+                          isReadOnly: false,
+                        ),
                         _buildTextField(
                           label:
                               "${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *",
@@ -1376,6 +1392,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                             true,
                           ),
                         ),
+
                         const SizedBox(height: 6),
                         buildDateField(
                           AppLocalizations.of(context)!.requestDate,

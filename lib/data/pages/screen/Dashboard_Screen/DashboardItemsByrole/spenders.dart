@@ -247,7 +247,7 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
     // Initialize events from controller's leave data
     for (var leave in controller.approvalsfilteredLeaves) {
       if (leave.applicationDate != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate);
+        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate,isUtc: true);
         final dateOnly = DateTime(date.year, date.month, date.day);
 
         if (_events[dateOnly] == null) {
@@ -1636,7 +1636,8 @@ class PendingApprovalTableWidget extends StatelessWidget {
                         Text(
                           DateFormat('dd-MM-yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.receiptDate,
+                              item.receiptDate,isUtc: true
+                              
                             ),
                           ),
                           style: _cellStyle(),
@@ -2132,7 +2133,7 @@ class PendingApprovalTableWidgetLeave extends StatelessWidget {
                         Text(
                           DateFormat('dd-MM-yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.cancellationDate,
+                              item.cancellationDate,isUtc: true
                             ),
                           ),
                           style: _cellStyle(),

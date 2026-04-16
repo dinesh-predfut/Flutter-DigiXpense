@@ -121,7 +121,7 @@ class _MyDrawerState extends State<MyDrawer>
     final loc = AppLocalizations.of(context)!;
 
     isExpenseExpanded = [
-     loc.myExpenses,
+      loc.myExpenses,
       loc.myTeamExpenses,
       loc.pendingApprovals,
       loc.unProcessed,
@@ -142,7 +142,7 @@ class _MyDrawerState extends State<MyDrawer>
       'CashAdvance MIS Reports',
     ].contains(selectedMenu);
     isLeave = [
-       loc.myLeave,
+      loc.myLeave,
       loc.myTeamLeave,
       'Leave Pending Approvals',
       'Leave Cancellation',
@@ -375,42 +375,42 @@ class _MyDrawerState extends State<MyDrawer>
 
   // ========================= Logout Dialog ========================= //
 
- Future<void> _showLogoutConfirmation(
-  BuildContext context,
-  VoidCallback onLogout,
-) async {
-  return showDialog(
-    context: context,
-    builder: (_) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: Colors.white,
-        title: Text(
-          AppLocalizations.of(context)!.confirmLogout,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          AppLocalizations.of(context)!.logoutConfirmationMessage,
-        ),
-        actions: [
-          TextButton(
-            child: Text(AppLocalizations.of(context)!.cancel),
-            onPressed: () => Navigator.pop(context),
+  Future<void> _showLogoutConfirmation(
+    BuildContext context,
+    VoidCallback onLogout,
+  ) async {
+    return showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onLogout();
-            },
-            child: Text(AppLocalizations.of(context)!.logout),
+          backgroundColor: Colors.white,
+          title: Text(
+            AppLocalizations.of(context)!.confirmLogout,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-        ],
-      );
-    },
-  );
-}
+          content: Text(
+            AppLocalizations.of(context)!.logoutConfirmationMessage,
+          ),
+          actions: [
+            TextButton(
+              child: Text(AppLocalizations.of(context)!.cancel),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onLogout();
+              },
+              child: Text(AppLocalizations.of(context)!.logout),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   // ========================= Build Drawer ========================= //
 
@@ -436,6 +436,14 @@ class _MyDrawerState extends State<MyDrawer>
             menuKey: "Dashboard",
             onTap: () => Navigator.pushNamed(context, AppRoutes.dashboard_Main),
           ),
+          if (PermissionHelper.canRead("AI Analytics"))
+            _buildBoldDrawerItem(
+              title: loc.aiAnalytics,
+              icon: Icons.smart_toy,
+              menuKey: "AiAnalytics",
+              onTap: () =>
+                  Navigator.pushNamed(context, AppRoutes.aIAnalyticsPage),
+            ),
 
           // -------------------- EXPENSE -------------------- //
           if (showExpense == true &&
@@ -671,6 +679,51 @@ class _MyDrawerState extends State<MyDrawer>
                 ],
               ),
             ),
+          if (punchInOut == true &&
+              PermissionHelper.canRead("Attendance Requisition") == true)
+            Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent, // ✅ removes line
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isPunchInOut,
+                leading: Icon(Icons.fingerprint),
+                title: Text(
+                  loc.punchInOut,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                children: [
+                  _buildDrawerItem(
+                    title: loc.punchInOut,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.punchInOut,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.punchScreen),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.punchInOutList,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.punchInOutList,
+                    onTap: () => {
+                      Navigator.pushNamed(context, AppRoutes.myAttendanceList),
+                    },
+                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
+                  ),
+                  _buildDrawerItem(
+                    title: loc.myTeamAttendance,
+                    icon: Icons.arrow_right,
+                    menuKey: loc.myTeamAttendance,
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.myTeamPunchInOutList,
+                      ),
+                    },
+                  ),
+                ],
+              ),
+            ),
           if (showTimesheet == true &&
                   PermissionHelper.canRead("Timesheet Reports") ||
               PermissionHelper.canRead("Timesheet Requisition"))
@@ -841,51 +894,6 @@ class _MyDrawerState extends State<MyDrawer>
           //     ],
           //   ),
           // ),
-          if (punchInOut == true &&
-              PermissionHelper.canRead("Attendance Requisition") == true)
-            Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.transparent, // ✅ removes line
-              ),
-              child: ExpansionTile(
-                initiallyExpanded: isPunchInOut,
-                leading: Icon(Icons.fingerprint),
-                title: Text(
-                  loc.punchInOut,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                children: [
-                  _buildDrawerItem(
-                    title: loc.punchInOut,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.punchInOut,
-                    onTap: () => {
-                      Navigator.pushNamed(context, AppRoutes.punchScreen),
-                    },
-                  ),
-                  _buildDrawerItem(
-                    title: loc.punchInOutList,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.punchInOutList,
-                    onTap: () => {
-                      Navigator.pushNamed(context, AppRoutes.myAttendanceList),
-                    },
-                    // Navigator.pushNamed(context, AppRoutes.reportsDashboard),
-                  ),
-                  _buildDrawerItem(
-                    title: loc.myTeamAttendance,
-                    icon: Icons.arrow_right,
-                    menuKey: loc.myTeamAttendance,
-                    onTap: () => {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.myTeamPunchInOutList,
-                      ),
-                    },
-                  ),
-                ],
-              ),
-            ),
 
           // -------------------- SETTINGS -------------------- //
           // Padding(
@@ -895,7 +903,6 @@ class _MyDrawerState extends State<MyDrawer>
           //     style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
           //   ),
           // ),
-
           _buildBoldDrawerItem(
             title: loc.settings,
             icon: Icons.settings_outlined,
@@ -940,7 +947,7 @@ class _MyDrawerState extends State<MyDrawer>
 
                           final prefs = await SharedPreferences.getInstance();
 
-                          await prefs.remove('token');
+                          await prefs.remove('access_token');
                           await prefs.remove('employeeId');
                           await prefs.remove('userId');
                           await prefs.remove('refresh_token');
@@ -955,7 +962,7 @@ class _MyDrawerState extends State<MyDrawer>
                           );
 
                           await themeNotifier.clearTheme();
-
+                          Get.deleteAll(force: true);
                           Navigator.pushNamedAndRemoveUntil(
                             context,
                             AppRoutes.signin,

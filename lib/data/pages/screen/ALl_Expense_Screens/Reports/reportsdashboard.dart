@@ -42,7 +42,7 @@ class _MyReportsDashboardState extends State<MyReportsDashboard>
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
       loadProfileImage();
-      controller.fetchNotifications();
+     controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
     });
     // / Use existing controller

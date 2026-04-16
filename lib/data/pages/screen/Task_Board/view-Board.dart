@@ -5,6 +5,7 @@ import 'package:diginexa/data/models.dart'
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart' show Controller;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
@@ -43,12 +44,11 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
     super.initState();
     loadEmployee();
     controller.fetchEmployeeGroups();
-     controller.fetchTemplates();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchTemplates();
+    });
     if (widget.isEditMode && widget.existingBoard != null) {
-      
       WidgetsBinding.instance.addPostFrameCallback((_) {
-       
-
         controller.loadExistingBoard(widget.existingBoard!);
       });
     }
@@ -345,28 +345,60 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
         children: [
           TextFormField(
             controller: controller.boardNameController,
+            inputFormatters: [
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                // ❌ Block leading space
+                if (newValue.text.startsWith(' ')) {
+                  return oldValue;
+                }
+                return newValue;
+              }),
+            ],
             decoration: InputDecoration(
               labelText: '${AppLocalizations.of(context)!.boardName} *',
               hintText: AppLocalizations.of(context)!.enterBoardName,
               border: const OutlineInputBorder(),
-
               errorText: controller.showBoardNameError.value
-                  ? AppLocalizations.of(context)!.boardNameIsRequired
+                  ? controller.boardNameErrorMsg.value
                   : null,
             ),
-
             onChanged: (value) {
-              /// ✅ remove error instantly while typing
+              // Remove leading spaces automatically
+              if (value.startsWith(' ')) {
+                controller.boardNameController.text = value.trimLeft();
+                controller.boardNameController.selection =
+                    TextSelection.fromPosition(
+                      TextPosition(
+                        offset: controller.boardNameController.text.length,
+                      ),
+                    );
+              }
+
               if (value.trim().isNotEmpty) {
                 controller.showBoardNameError.value = false;
               }
             },
-
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 controller.showBoardNameError.value = true;
-                return '';
+                return AppLocalizations.of(context)!.boardNameIsRequired;
               }
+
+              // ❌ Leading space
+              if (value.startsWith(' ')) {
+                return "Board name should not start with space";
+              }
+
+              // ❌ Trailing space
+              if (value.endsWith(' ')) {
+                return "Board name should not end with space";
+              }
+
+              // ❌ Only spaces between (like "   ")
+              if (!RegExp(r'[a-zA-Z0-9]').hasMatch(value)) {
+                return "Enter valid board name";
+              }
+
               return null;
             },
           ),
@@ -574,17 +606,17 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
           );
         }),
 
-        if (controller.showTemplateError.value)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              AppLocalizations.of(context)!.templateIsRequired,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-                fontSize: 12,
-              ),
-            ),
-          ),
+        // if (controller.showTemplateError.value)
+        //   Padding(
+        //     padding: const EdgeInsets.only(top: 4),
+        //     child: Text(
+        //       AppLocalizations.of(context)!.templateIsRequired,
+        //       style: TextStyle(
+        //         color: Theme.of(context).colorScheme.error,
+        //         fontSize: 12,
+        //       ),
+        //     ),
+        //   ),
       ],
     );
   }
@@ -830,7 +862,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
 
             searchValue: (group) => '${group.name} ${group.description ?? ""}',
 
-            displayText: (group) => group.name,
+            displayText: (group) => group.id,
 
             onMultiChanged: (groups) {
               controller.selectedGroups.assignAll(groups);
@@ -889,7 +921,7 @@ class _CreateEditBoardPageState extends State<CreateEditBoardPage> {
               runSpacing: 8,
               children: controller.selectedGroups.map((group) {
                 return Chip(
-                  label: Text(group.name),
+                  label: Text(group.id),
                   onDeleted: () {
                     controller.selectedGroups.remove(group);
 

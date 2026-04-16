@@ -89,6 +89,8 @@ final Map<String, Color> themeColorMap = {
   "DARK_ORANGE_THEME": const Color(0xFFE65100),
 };
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class AppInitializer {
   static Future<AppInitData> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -143,23 +145,52 @@ class AppInitializer {
     );
   }
 
-  static Future<String> _getInitialRoute(String? refreshToken) async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastRoute = prefs.getString(
-      'last_route',
-    ); // Changed from refresh_token
-    print("lastRoute$lastRoute");
-    print("refreshToken$refreshToken");
-    if (lastRoute == "Login") {
-      return AppRoutes.signin;
-    } else if (refreshToken == null ||
-        refreshToken.isEmpty ||
-        refreshToken == "null") {
-      return AppRoutes.entryScreen;
-    } else {
-      return AppRoutes.dashboard_Main;
+static Future<String> _getInitialRoute(String? refreshToken) async {
+  final prefs = await SharedPreferences.getInstance();
+  final lastRoute = prefs.getString('last_route');
+
+  print("lastRoute $lastRoute");
+  print("refreshToken $refreshToken");
+
+  // ✅ SHOW ALERT HERE
+  Future.delayed(Duration.zero, () {
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Debug Info"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("lastRoute: $lastRoute"),
+                const SizedBox(height: 8),
+                Text("refreshToken: $refreshToken"),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
     }
+  });
+
+  if (lastRoute == "Login") {
+    return AppRoutes.signin;
+  } else if (refreshToken == null ||
+      refreshToken.isEmpty ||
+      refreshToken == "null") {
+    return AppRoutes.entryScreen;
+  } else {
+    return AppRoutes.dashboard_Main;
   }
+}
 }
 
 class AppInitData {

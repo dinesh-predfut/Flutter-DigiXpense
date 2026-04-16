@@ -279,7 +279,14 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         null) {
       isValid = false;
     }
-
+    if (_validateRequiredField(
+          controller.cashAdvanceIds.text,
+          AppLocalizations.of(context)!.cashAdvanceRequest,
+          true,
+        ) !=
+        null) {
+      isValid = false;
+    }
     if (_validateNumericField(
           controller.paidAmount.text,
           AppLocalizations.of(context)!.paidAmount,
@@ -843,13 +850,14 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
           ),
           actions: [
             if (widget.isReadOnly &&
-                widget.items != null &&
-                widget.items!.approvalStatus != "Approved" &&
-                widget.items!.approvalStatus != "Cancelled" &&
-                widget.items!.approvalStatus != "Pending" ||
+                    widget.items != null &&
+                    widget.items!.approvalStatus != "Approved" &&
+                    widget.items!.approvalStatus != "Cancelled" &&
+                    widget.items!.approvalStatus != "Pending" ||
                 widget.items!.stepType != null &&
-                (widget.items!.approvalStatus == "Pending" ||
-                    widget.items!.approvalStatus == "Created") && PermissionHelper.canUpdate("Expense Registration"))
+                    (widget.items!.approvalStatus == "Pending" ||
+                        widget.items!.approvalStatus == "Created") &&
+                    PermissionHelper.canUpdate("Expense Registration"))
               IconButton(
                 icon: Icon(
                   widget.items!.stepType == "Approval"
@@ -1289,7 +1297,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
 
   Widget _buildCashAdvanceDropdown() {
     return MultiSelectMultiColumnDropdownField<CashAdvanceDropDownModel>(
-      labelText: AppLocalizations.of(context)!.cashAdvanceRequest,
+      labelText: '${AppLocalizations.of(context)!.cashAdvanceRequest} *',
       items: controller.cashAdvanceListDropDown,
       isMultiSelect: allowMultSelect ?? false,
       selectedValue: controller.singleSelectedItem,
@@ -1298,9 +1306,11 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       enabled: controller.isEnable.value,
       searchValue: (proj) => proj.cashAdvanceReqId,
       displayText: (proj) => proj.cashAdvanceReqId,
-      validator: (value) => value == null
-          ? AppLocalizations.of(context)!.pleaseSelectCashAdvanceField
-          : null,
+      validator: (value) => _validateRequiredField(
+        controller.cashAdvanceIds.text,
+        AppLocalizations.of(context)!.cashAdvanceRequest,
+        true,
+      ),
       onChanged: (item) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           controller.singleSelectedItem = item;
@@ -1526,7 +1536,8 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       controller: controller.amountINR,
       enabled: false,
       decoration: InputDecoration(
-        labelText: '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+        labelText:
+            '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
         filled: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -1673,24 +1684,25 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                                         )
                                       : null,
                                   onChanged: (p) {
-                                    WidgetsBinding.instance.addPostFrameCallback(
-                                      (_) {
-                                        if (mounted) {
-                                          setState(() {
-                                            controller.selectedProject = p;
-                                            itemController.selectedProject = p;
-                                            controller
-                                                    .projectDropDowncontroller
-                                                    .text =
-                                                p!.code;
-                                            widget.items!.expenseTrans[index] =
-                                                itemController
-                                                    .toExpenseItemUpdateModel();
-                                          });
-                                          controller.fetchCashAdvanceExpenseCategory();
-                                        }
-                                      },
-                                    );
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      if (mounted) {
+                                        setState(() {
+                                          controller.selectedProject = p;
+                                          itemController.selectedProject = p;
+                                          controller
+                                                  .projectDropDowncontroller
+                                                  .text =
+                                              p!.code;
+                                          widget.items!.expenseTrans[index] =
+                                              itemController
+                                                  .toExpenseItemUpdateModel();
+                                        });
+                                        controller
+                                            .fetchCashAdvanceExpenseCategory();
+                                      }
+                                    });
                                   },
                                   controller:
                                       itemController.projectDropDowncontroller,
@@ -1995,9 +2007,9 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
         await Future.delayed(Duration.zero);
         await controller.fetchExchangeRate();
         // await calculateAmounts(controller.unitRate.text.toString());
-       
+
         _updateAllLineItems();
-         WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
               final total = _calculateTotalLineAmount(itemController);
@@ -2007,12 +2019,11 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             });
           }
         });
-              WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
               final total = _calculateTotalLineAmount(itemController);
               controller.paidAmount.text = total.toStringAsFixed(2);
-             
             });
           }
         });
@@ -2025,8 +2036,8 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
             });
           }
         });
-        
-         await calculateAmounts(controller.unitRate.text.toString());
+
+        await calculateAmounts(controller.unitRate.text.toString());
       },
     );
   }
@@ -2112,7 +2123,8 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
       ],
-      label: '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
+      label:
+          '${AppLocalizations.of(context)!.lineAmountInInr} ${controller.organizationCurrency}',
       controller: itemController.lineAmountINR,
       isReadOnly: false,
       validator: (value) => _validateNumericField(
@@ -2647,130 +2659,126 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
   }
 
   Widget _buildReviewButtons() {
-  return Row(
-    children: [
-      Expanded(
-        child: Obx(() {
-          final isLoadingAccept =
-              controller.buttonLoaders['update_accept'] ?? false;
+    return Row(
+      children: [
+        Expanded(
+          child: Obx(() {
+            final isLoadingAccept =
+                controller.buttonLoaders['update_accept'] ?? false;
 
-          final isAnyLoading =
-              controller.buttonLoaders.values.any((v) => v == true);
+            final isAnyLoading = controller.buttonLoaders.values.any(
+              (v) => v == true,
+            );
 
-          return ElevatedButton(
-            onPressed: (isLoadingAccept || isAnyLoading)
-                ? null
-                : () async {
-                    if (_formKey.currentState!.validate() &&
-                        _validateForm()) {
+            return ElevatedButton(
+              onPressed: (isLoadingAccept || isAnyLoading)
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate() &&
+                          _validateForm()) {
+                        controller.setButtonLoading('update_accept', true);
 
-                      controller.setButtonLoading('update_accept', true);
+                        controller.toExpenseItemUpdateModel();
+                        controller.addToFinalItems(widget.items!);
 
-                      controller.toExpenseItemUpdateModel();
-                      controller.addToFinalItems(widget.items!);
-
-                      try {
-                        await controller.cashadvanceregistrations(
-                          context,
-                          true,
-                          widget.items!.recId!,
-                          widget.items!.expenseId,
-                          workitemrecid,
-                        );
-                      } finally {
-                        controller.setButtonLoading('update_accept', false);
+                        try {
+                          await controller.cashadvanceregistrations(
+                            context,
+                            true,
+                            widget.items!.recId!,
+                            widget.items!.expenseId,
+                            workitemrecid,
+                          );
+                        } finally {
+                          controller.setButtonLoading('update_accept', false);
+                        }
                       }
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  const Color.fromARGB(255, 3, 20, 117),
-            ),
-            child: SizedBox(
-              height: 20,
-              child: isLoadingAccept
-                  ? const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    )
-                  : Center(
-                      child: Text(
-                        AppLocalizations.of(context)!
-                            .updateAndAccept,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+              ),
+              child: SizedBox(
+                height: 20,
+                child: isLoadingAccept
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
+                    : Center(
+                        child: Text(
+                          AppLocalizations.of(context)!.updateAndAccept,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-            ),
-          );
-        }),
-      ),
+              ),
+            );
+          }),
+        ),
 
-      const SizedBox(width: 12),
+        const SizedBox(width: 12),
 
-      Expanded(
-        child: Obx(() {
-          final isLoadingUpdate =
-              controller.buttonLoaders['update_review'] ?? false;
+        Expanded(
+          child: Obx(() {
+            final isLoadingUpdate =
+                controller.buttonLoaders['update_review'] ?? false;
 
-          final isAnyLoading =
-              controller.buttonLoaders.values.any((v) => v == true);
+            final isAnyLoading = controller.buttonLoaders.values.any(
+              (v) => v == true,
+            );
 
-          return ElevatedButton(
-            onPressed: (isLoadingUpdate || isAnyLoading)
-                ? null
-                : () async {
-                    if (_formKey.currentState!.validate() &&
-                        _validateForm()) {
+            return ElevatedButton(
+              onPressed: (isLoadingUpdate || isAnyLoading)
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate() &&
+                          _validateForm()) {
+                        controller.setButtonLoading('update_review', true);
 
-                      controller.setButtonLoading('update_review', true);
+                        controller.toExpenseItemUpdateModel();
+                        controller.addToFinalItems(widget.items!);
 
-                      controller.toExpenseItemUpdateModel();
-                      controller.addToFinalItems(widget.items!);
-
-                      try {
-                        await controller.cashadvanceregistrations(
-                          context,
-                          false,
-                          widget.items!.recId!,
-                          widget.items!.expenseId,
-                          workitemrecid,
-                        );
-                      } finally {
-                        controller.setButtonLoading('update_review', false);
+                        try {
+                          await controller.cashadvanceregistrations(
+                            context,
+                            false,
+                            widget.items!.recId!,
+                            widget.items!.expenseId,
+                            workitemrecid,
+                          );
+                        } finally {
+                          controller.setButtonLoading('update_review', false);
+                        }
                       }
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  const Color.fromARGB(255, 3, 20, 117),
-            ),
-            child: SizedBox(
-              height: 20,
-              child: isLoadingUpdate
-                  ? const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    )
-                  : Center(
-                      child: Text(
-                        AppLocalizations.of(context)!.update,
-                        style: const TextStyle(
-                          color: Colors.white,
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+              ),
+              child: SizedBox(
+                height: 20,
+                child: isLoadingUpdate
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
+                    : Center(
+                        child: Text(
+                          AppLocalizations.of(context)!.update,
+                          style: const TextStyle(color: Colors.white),
                         ),
                       ),
-                    ),
-            ),
-          );
-        }),
-      ),
-    ],
-  );
-}
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRejectCloseButtons() {
     return Row(
       children: [
@@ -3297,12 +3305,12 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
                     controllers.text = DateFormat('dd-MM-yyyy').format(picked);
-                setState(() {
+                    setState(() {
                       controller.selectedDate = picked;
 
                       controller.selectedProject = null;
@@ -3316,7 +3324,6 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                     controller.fetchCashAdvanceExpenseCategory();
                     controller.fetchProjectName();
                     controller.selectedDate = picked;
-                
                   }
                 },
         ),

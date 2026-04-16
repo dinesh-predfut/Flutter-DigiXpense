@@ -44,7 +44,7 @@ class _MyExpenseReportsDashboardState extends State<MyExpenseReportsDashboard>
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
       loadProfileImage();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchAndAppendReports("ExpenseRequisition").then((_) {
         controller.isLoadingGE1.value = false;

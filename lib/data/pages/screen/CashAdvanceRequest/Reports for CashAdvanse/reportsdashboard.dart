@@ -45,7 +45,7 @@ class _CashAdvanceMyReportsDashboardState
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
       loadProfileImage();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchAndAppendReports("CashAdvanceRequisition").then((_) {
         controller.isLoadingGE1.value = false;

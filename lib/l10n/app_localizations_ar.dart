@@ -56,12 +56,22 @@ class AppLocalizationsAr extends AppLocalizations {
   String get defaultLanguage => 'اللغة الافتراضية';
   @override
   String get selectDateFormat => 'اللغة تنسيق التاريخ';
-  @override String get example => 'مثال';
-@override String get onlyLettersAndNumbers => 'يسمح فقط بالأحرف والأرقام';
-@override String get zipMustIncludeNumber => 'يجب أن يحتوي الرمز البريدي على رقم واحد على الأقل';
-@override String get noMatchingStates => 'لا توجد ولايات مطابقة';
-@override String get invalidPhoneNumber => 'رقم الهاتف غير صالح';
-@override String get emailsForReceiptForwarding => 'البريد الإلكتروني لإعادة توجيه الإيصالات';
+  @override
+  String get example => 'مثال';
+  @override
+  String get add => 'إضافة';
+  @override
+  String get onlyLettersAndNumbers => 'يسمح فقط بالأحرف والأرقام';
+  @override
+  String get zipMustIncludeNumber =>
+      'يجب أن يحتوي الرمز البريدي على رقم واحد على الأقل';
+  @override
+  String get noMatchingStates => 'لا توجد ولايات مطابقة';
+  @override
+  String get invalidPhoneNumber => 'رقم الهاتف غير صالح';
+  @override
+  String get emailsForReceiptForwarding =>
+      'البريد الإلكتروني لإعادة توجيه الإيصالات';
   @override
   String get cancel => 'إلغاء';
   @override
@@ -80,7 +90,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get save => 'حفظ';
   @override
   String get approvedExpensesTotal => 'المصروفات المعتمدة (الإجمالي)';
-
+@override String get reason => 'السبب';
   @override
   String get expensesInProgressTotal => 'المصروفات قيد المعالجة (الإجمالي)';
 

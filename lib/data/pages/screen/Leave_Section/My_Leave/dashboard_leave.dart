@@ -88,7 +88,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -125,7 +125,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
         fromDate: range['from']!,
         toDate: range['to']!,
       );
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
 
       controller.fetchLeaveRequisitions().then((_) {
@@ -155,7 +155,8 @@ class _LeaveDashboardState extends State<LeaveDashboard>
     for (var leave in controller.filteredLeaves) {
       if (leave.applicationDate != null) {
         final date = DateTime.fromMillisecondsSinceEpoch(
-          leave.applicationDate!,
+          leave.applicationDate,
+          isUtc: true,
         );
         final dateOnly = DateTime(date.year, date.month, date.day);
 
@@ -1111,14 +1112,22 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                           const SizedBox(height: 24),
 
                           _buildDatePickerField(context),
-                          const SizedBox(height: 16),
 
+                          // const SizedBox(height: 16),
                           _buildViewTypeDropdown(context, controller),
-                          const SizedBox(height: 16),
 
+                          
                           Obx(
                             () => controller.showEmployeeField.value
-                                ? _buildEmployeeMultiSelect(context, controller)
+                                ? Column(
+                                    children: [
+                                      const SizedBox(height: 16),
+                                      _buildEmployeeMultiSelect(
+                                        context,
+                                        controller,
+                                      ),
+                                    ],
+                                  )
                                 : const SizedBox(),
                           ),
 
@@ -1257,7 +1266,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
   }
 
   String _formatDate(int milliseconds) {
-    final date = DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    final date = DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
     return '${date.day}/${date.month}/${date.year}';
   }
 
@@ -1636,7 +1645,10 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                   children: [
                     Text(
                       DateFormat('MMM d').format(
-                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
+                        DateTime.fromMillisecondsSinceEpoch(
+                          ev.fromDate,
+                          isUtc: true,
+                        ),
                       ),
                       style: const TextStyle(
                         fontSize: 13,
@@ -1644,7 +1656,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                       ),
                     ),
                     Text(
-                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
+                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate, isUtc: true))}',
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                   ],

@@ -1304,7 +1304,8 @@ class _ApprovalHubViewEditLeavePageState
                                     child: Text(
                                       DateFormat('dd-MM-yyyy').format(
                                         DateTime.fromMillisecondsSinceEpoch(
-                                          leaveDay.transDate,
+                                          leaveDay.transDate,isUtc: true
+                                          
                                         ),
                                       ),
                                     ),

@@ -114,6 +114,8 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get cancel => 'Annuler';
   @override String get example => 'Exemple';
+  @override String get add => 'Ajouter';
+@override String get reason => 'Raison';
 @override String get onlyLettersAndNumbers => 'Seules les lettres et les chiffres sont autorisés';
 @override String get zipMustIncludeNumber => 'Le code postal doit contenir au moins un chiffre';
 @override String get noMatchingStates => 'Aucun état correspondant';

@@ -32,6 +32,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   String selectedProject = '';
   String? projectError;
   String? expenseIdError;
+  String? employeeError;
   String? vehicleError;
   String expenseId = '';
   String employeeId = '';
@@ -50,7 +51,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       await controller.fetchProjectName();
       await controller.loadSequenceModules();
       await controller.configuration();
-
+      controller.fetchEmployeesID();
       _loadSettings();
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
@@ -75,10 +76,13 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       //  RxBool isEnable = false.obs;
 
       final expense = widget.mileageId!;
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate);
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(
+        expense.receiptDate,
+        isUtc: true,
+      );
       final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
-      controller.employeeIdController.text = expense.employeeId;
+      controller.employeeDropDownController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
       controller.accountingDistributions =
           expense.accountingDistributions ?? [];
@@ -239,6 +243,12 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     //   });
     //   isValid = false;
     // }
+    if (controller.employeeDropDownController.text.trim().isEmpty) {
+      setState(() {
+        employeeError = AppLocalizations.of(context)!.fieldRequired;
+      });
+      isValid = false;
+    }
     final projectMandatory = isFieldMandatory('Project Id');
     if (controller.projectIdController.text.isEmpty && projectMandatory) {
       _showProjectError = true;
@@ -248,9 +258,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     }
     if (controller.mileageVehicleID.text.isEmpty) {
       setState(() {
-        vehicleError = AppLocalizations.of(
-                                    context,
-                                  )!.fieldRequired;
+        vehicleError = AppLocalizations.of(context)!.fieldRequired;
       });
       isValid = false;
     }
@@ -259,7 +267,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       // Call your submit logic
       // controller.submitMileage();
       debugPrint("✅ mileageId received: ${widget.isReadOnly}");
-
+      employeeError = null;
       Navigator.pushNamed(
         context,
         AppRoutes.mileageExpense,
@@ -523,7 +531,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                               if (widget.mileageId != null)
                                 buildTextField(
                                   "${AppLocalizations.of(context)!.employeeId} *",
-                                  controller.employeeIdController,
+                                  controller.employeeDropDownController,
                                   false,
                                 ),
                               if (widget.mileageId != null)
@@ -536,6 +544,128 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                 "${AppLocalizations.of(context)!.mileageDate} *",
                                 controller.mileagDateController,
                               ),
+                              if (widget.mileageId == null)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SearchableMultiColumnDropdownField<
+                                      EmployeeId
+                                    >(
+                                      labelText:
+                                          '${AppLocalizations.of(context)!.employeeId} *',
+                                      columnHeaders: [
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.employeeName,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.employeeId,
+                                      ],
+                                      items: controller.employeesID,
+                                      controller:
+                                          controller.employeeDropDownController,
+                                      selectedValue:
+                                          controller.selectedEmployeeID.value,
+                                      searchValue: (emp) =>
+                                          '${emp.employeeName} ${emp.employeeId}',
+                                      displayText: (emp) => emp.employeeId,
+                                      validator: (emp) =>
+                                          controller
+                                              .employeeDropDownController
+                                              .text
+                                              .isEmpty
+                                          ? AppLocalizations.of(
+                                              context,
+                                            )!.fieldRequired
+                                          : null,
+                                      onChanged: (emp) {
+                                        if (emp == null) {
+                                          controller.fetchEmployees();
+                                        }
+                                        setState(() {
+                                          controller.selectedEmployeeID.value =
+                                              emp;
+                                          controller
+                                                  .employeeDropDownController
+                                                  .text =
+                                              emp!.employeeId;
+                                          controller.employeeName.text =
+                                              emp.employeeName;
+                                        });
+                                      },
+                                      rowBuilder: (emp, searchQuery) {
+                                        bool isMatch = false;
+                                        if (searchQuery.isNotEmpty) {
+                                          final searchableText =
+                                              '${emp.employeeName} ${emp.employeeId}'
+                                                  .toLowerCase();
+                                          isMatch = searchableText.contains(
+                                            searchQuery.toLowerCase(),
+                                          );
+                                        }
+
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 0,
+                                            horizontal: 0,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              SizedBox(width: 10),
+                                              Expanded(
+                                                child: SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: Text(
+                                                    emp.employeeName,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  child: Text(
+                                                    emp.employeeId,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    if (employeeError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          employeeError!,
+                                          style: const TextStyle(
+                                            color: Colors.red,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              // if (employeeError != null &&
+                              //     widget.mileageId == null)
+                              const SizedBox(height: 8),
                               // Project Dropdown
 
                               // SearchableMultiColumnDropdownField<Project>(
@@ -805,9 +935,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                               const SizedBox(height: 18),
                               // if (widget.mileageId != null)
                               buildTextField(
-                               AppLocalizations.of(
-                                    context,
-                                  )!.vehicle,
+                                AppLocalizations.of(context)!.vehicle,
                                 controller.mileageVehicleName,
                                 false,
                               ),

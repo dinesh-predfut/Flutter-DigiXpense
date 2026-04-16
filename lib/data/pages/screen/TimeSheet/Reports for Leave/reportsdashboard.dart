@@ -43,7 +43,7 @@ class _TimeSheetDashboardReportState extends State<TimeSheetDashboardReport>
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
       loadProfileImage();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
        controller.fetchAndAppendReports("TimesheetRequisition").then((_) {
       controller.isLoadingGE1.value = false;

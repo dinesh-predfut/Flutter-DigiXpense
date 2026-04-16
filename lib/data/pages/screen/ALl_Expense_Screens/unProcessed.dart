@@ -25,7 +25,7 @@ class _UnProcessState extends State<UnProcess> {
   late final Controller controller;
   bool isLoading = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
-Rxn<File> profileImage = Rxn<File>();
+  Rxn<File> profileImage = Rxn<File>();
   @override
   void initState() {
     super.initState();
@@ -33,12 +33,13 @@ Rxn<File> profileImage = Rxn<File>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.searchControllerUnProcess.clear();
-       controller.fetchUnprocessExpense();
+      controller.fetchUnprocessExpense();
     });
-   
+
     _loadProfileImage();
   }
-    void _loadProfileImage() async {
+
+  void _loadProfileImage() async {
     // controller.isImageLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
@@ -49,9 +50,11 @@ Rxn<File> profileImage = Rxn<File>();
       // await controller.getProfilePicture();
     }
   }
+
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
   }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -62,21 +65,19 @@ Rxn<File> profileImage = Rxn<File>();
         Navigator.pushReplacementNamed(context, AppRoutes.dashboard_Main);
         return false;
       },
-       child: Scaffold(
+      child: Scaffold(
         // backgroundColor: const Color(0xFFF7F7F7),
         key: _scaffoldKey,
         resizeToAvoidBottomInset: true,
         drawer: const MyDrawer(),
-        body: 
-
-        LayoutBuilder(
+        body: LayoutBuilder(
           builder: (context, constraints) {
             final isSmallScreen = constraints.maxWidth < 600;
             final theme = Theme.of(context);
             final primaryColor = theme.primaryColor;
             return Column(
               children: [
-              if (primaryColor != const Color(0xFF1e4db7))
+                if (primaryColor != const Color(0xFF1e4db7))
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -98,9 +99,7 @@ Rxn<File> profileImage = Rxn<File>();
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             children: [
                               IconButton(
                                 onPressed: _openMenu,
@@ -136,30 +135,31 @@ Rxn<File> profileImage = Rxn<File>();
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
@@ -178,14 +178,12 @@ Rxn<File> profileImage = Rxn<File>();
                       ),
                     ),
                     padding: const EdgeInsets.fromLTRB(0, 40, 0, 16),
-                    child:Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Flexible(
                           flex: 4,
-                          child:
-                          
-                           Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               IconButton(
@@ -222,193 +220,188 @@ Rxn<File> profileImage = Rxn<File>();
                         Flexible(
                           flex: 9,
                           child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              const LanguageDropdown(),
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                const LanguageDropdown(),
 
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.fingerprint,
-                                  color: Colors.white,
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.fingerprint,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.punchScreen,
+                                    );
+                                  },
                                 ),
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.punchScreen,
-                                  );
-                                },
-                              ),
 
-                              _buildNotificationBadge(),
-                              _buildProfileAvatar(),
-                            ],
+                                _buildNotificationBadge(),
+                                _buildProfileAvatar(),
+                              ],
+                            ),
                           ),
-                        )),
+                        ),
                       ],
                     ),
                   ),
                 const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 16.0),
-                            child: Text(
-                              AppLocalizations.of(context)!.unProcessedExpense,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Roboto',
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: Text(
+                      AppLocalizations.of(context)!.unProcessedExpense,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Roboto',
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: TextField(
+                      controller: controller.searchControllerUnProcess,
+                      onChanged: (value) {
+                        controller.searchQuery.value = value.toLowerCase();
+                      },
+                      decoration: InputDecoration(
+                        hintText: AppLocalizations.of(context)!.searchExpenses,
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.grey,
                         ),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: TextField(
-                              controller: controller.searchControllerUnProcess,
-                              onChanged: (value) {
-                                controller.searchQuery.value =
-                                    value.toLowerCase();
-                              },
-                              decoration: InputDecoration(
-                                hintText: AppLocalizations.of(context)!
-                                    .searchExpenses,
-                                prefixIcon: const Icon(Icons.search,
-                                    color: Colors.grey),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                          ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(height: 12),
-                        
-                        Expanded(
-                          child: Obx(() {
-                            final expenses = controller.getAllListGExpense;
-                            final filteredExpenses = expenses.where((item) {
-                              final query = controller.searchQuery.value;
-                              if (query.isEmpty) return true;
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-                              // ✅ Safe filter check (null-safe)
-                              return item.expenseType
-                                      .toLowerCase()
-                                      .contains(query) ||
-                                  (item.expenseId
-                                          ?.toLowerCase()
-                                          .contains(query) ??
-                                      false);
-                            }).toList();
+                Expanded(
+                  child: Obx(() {
+                    final expenses = controller.getAllListGExpense;
+                    final filteredExpenses = expenses.where((item) {
+                      final query = controller.searchQuery.value;
+                      if (query.isEmpty) return true;
 
-                            if (filteredExpenses.isEmpty) {
-                              return const CommonNoDataWidget();
-                            }
+                      // ✅ Safe filter check (null-safe)
+                      return item.expenseType.toLowerCase().contains(query) ||
+                          (item.expenseId?.toLowerCase().contains(query) ??
+                              false);
+                    }).toList();
 
-                             return controller.isLoadingunprocess.value
+                    if (filteredExpenses.isEmpty) {
+                      return const CommonNoDataWidget();
+                    }
+
+                    return controller.isLoadingunprocess.value
                         ? const SkeletonLoaderPage()
                         : controller.filteredExpenses.isEmpty
                         ? const CommonNoDataWidget()
                         : ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: filteredExpenses.length,
-                              itemBuilder: (ctx, idx) {
-                                final item = filteredExpenses[idx];
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: filteredExpenses.length,
+                            itemBuilder: (ctx, idx) {
+                              final item = filteredExpenses[idx];
 
-                                return Dismissible(
-                                  // ✅ Stable key (avoid flickering)
-                                  key: ValueKey(item.expenseId),
-                                  background: _buildSwipeActionLeft(isLoading),
-                                  secondaryBackground: _buildSwipeActionRight(),
-                                  onDismissed: (direction) async {
-                                    final success = await controller
-                                        .deleteExpenseUnprocess(item.recId);
+                              return Dismissible(
+                                // ✅ Stable key (avoid flickering)
+                                key: ValueKey(item.expenseId),
+                                background: _buildSwipeActionLeft(isLoading),
+                                secondaryBackground: _buildSwipeActionRight(),
+                                onDismissed: (direction) async {
+                                  final success = await controller
+                                      .deleteExpenseUnprocess(item.recId);
 
-                                    if (success) {
-                                      controller.getAllListGExpense.removeWhere(
-                                          (e) => e.expenseId == item.expenseId);
+                                  if (success) {
+                                    controller.getAllListGExpense.removeWhere(
+                                      (e) => e.expenseId == item.expenseId,
+                                    );
 
-                                      controller.getAllListGExpense.refresh();
-                                    }
-                                  },
-                                  confirmDismiss: (direction) async {
-                                    if (direction ==
-                                        DismissDirection.startToEnd) {
-                                      setState(() => isLoading = true);
+                                    controller.getAllListGExpense.refresh();
+                                  }
+                                },
+                                confirmDismiss: (direction) async {
+                                  if (direction ==
+                                      DismissDirection.startToEnd) {
+                                    setState(() => isLoading = true);
 
-                                      if (item.expenseType == "PerDiem") {
-                                        await controller
-                                            .fetchSecificPerDiemItem(
-                                                context, item.recId, false);
-                                      } else if (item.expenseType ==
-                                          "General Expenses") {
-                                        await controller
-                                            .fetchSecificExpenseItem(
-                                                context, item.recId, true);
-                                        controller
-                                            .fetchExpenseHistory(item.recId);
-                                      } else if (item.expenseType ==
-                                          "Mileage") {
-                                        Navigator.pushNamed(context,
-                                            AppRoutes.mileageDetailsPage);
-                                      }
-
-                                      setState(() => isLoading = false);
-                                      return false; // don't dismiss on view
-                                    } else {
-                                      final shouldDelete =
-                                          await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: Text(
-                                              '${AppLocalizations.of(context)!.delete} ${AppLocalizations.of(context)!.expense}?'),
-                                          content: Text(
-                                              '${AppLocalizations.of(context)!.deleteConfirmation}"${item.expenseId}"? ${AppLocalizations.of(context)!.deleteWarning}'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(false),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            ElevatedButton(
-                                              onPressed: () =>
-                                                  Navigator.of(ctx).pop(true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                              ),
-                                              child: const Text('Delete'),
-                                            ),
-                                          ],
-                                        ),
+                                    final navigator = Navigator.of(context);
+                                    final result = await controller
+                                        .unprocessSpecificEnter(item.recId);
+                                    // if (!mounted) return;
+                                    if (result.isNotEmpty) {
+                                      navigator.pushNamed(
+                                        AppRoutes.unProcessExpense,
+                                        arguments: {
+                                          'item': result[0],
+                                          'readOnly': true,
+                                        },
                                       );
-
-                                      return shouldDelete == true;
                                     }
-                                  },
-                                  child: _buildStyledCard(item, context),
-                                );
-                              },
-                            );
-                          }),
-                        ),
-                      ],
-                    );
-                  },
-                )));
-        }
-     
-  
+                                    setState(() => isLoading = false);
+                                    return false; // don't dismiss on view
+                                  } else {
+                                    final shouldDelete = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: Text(
+                                          '${AppLocalizations.of(context)!.delete} ${AppLocalizations.of(context)!.expense}?',
+                                        ),
+                                        content: Text(
+                                          '${AppLocalizations.of(context)!.deleteConfirmation}"${item.expenseId}"? ${AppLocalizations.of(context)!.deleteWarning}',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.of(ctx).pop(true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.red,
+                                            ),
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    return shouldDelete == true;
+                                  }
+                                },
+                                child: _buildStyledCard(item, context),
+                              );
+                            },
+                          );
+                  }),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   Widget _buildNotificationBadge() {
     return Stack(
@@ -433,9 +426,10 @@ Rxn<File> profileImage = Rxn<File>();
               child: Text(
                 count > 99 ? '99+' : '$count',
                 style: const TextStyle(
-                    fontSize: 8,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
+                  fontSize: 8,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -445,7 +439,7 @@ Rxn<File> profileImage = Rxn<File>();
     );
   }
 
- Widget _buildProfileAvatar() {
+  Widget _buildProfileAvatar() {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(context, AppRoutes.personalInfo);
@@ -527,7 +521,6 @@ Rxn<File> profileImage = Rxn<File>();
     );
   }
 
-
   Widget _buildSwipeActionLeft(bool isLoading) {
     return Container(
       alignment: Alignment.centerLeft,
@@ -566,12 +559,16 @@ Rxn<File> profileImage = Rxn<File>();
       alignment: Alignment.centerRight,
       color: const Color.fromARGB(255, 115, 142, 229),
       padding: const EdgeInsets.only(right: 20),
-      child:  Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(AppLocalizations.of(context)!.delete,
-              style:
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(
+            AppLocalizations.of(context)!.delete,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(width: 8),
           const Icon(Icons.delete, color: Colors.white),
         ],
@@ -644,18 +641,17 @@ Rxn<File> profileImage = Rxn<File>();
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color.fromARGB(255, 0, 110, 255),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       item.approvalStatus,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
                   Text(

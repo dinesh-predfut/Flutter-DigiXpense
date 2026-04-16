@@ -719,7 +719,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -1536,7 +1536,7 @@ class _ShelfColumn extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-
+          color: hexToColor(shelf.colorPallete), // ✅ move her
           // ✅ Add border here
           border: Border.all(
             color: isDarkBoard
@@ -1796,17 +1796,18 @@ Future<void> _confirmDelete(context, int recIds, String boardId) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (_) => AlertDialog(
-      title: const Text('Delete Shelf'),
-      content: const Text('Are you sure you want to delete this task?'),
+      title: Text('${AppLocalizations.of(context)!.delete} ?'),
+      // ignore: unnecessary_string_interpolations
+      content: Text('${AppLocalizations.of(context)!.deleteConfirmation}'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context)!.cancel),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Delete'),
+          child: Text(AppLocalizations.of(context)!.delete),
         ),
       ],
     ),
@@ -2060,6 +2061,7 @@ Future<void> showAddShelfBottomSheet(
                                           "SortOrder": nextSortOrder,
                                           "base64Data": base64Image ?? "",
                                           "WIPLimit": 0,
+                                          "RecId": recId,
                                         };
 
                                         try {
@@ -2821,7 +2823,9 @@ Future<void> showAddTaskBottomSheet(
                             decoration: InputDecoration(
                               labelText:
                                   "${AppLocalizations.of(context)!.taskName}*",
-                              border: OutlineInputBorder(),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -3805,6 +3809,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         enableTimeTracking.value = settings.timeTrackingEnabled;
         ownerName.value = settings.boardOwnerName;
         controller.recID = settings.recId;
+        imageUrlCtrl.text = settings.backgroundImageUrl ?? '';
         final user = controller.boardMembers.firstWhereOrNull(
           (u) => u.userId.trim() == ownerName.value.trim(),
         );
@@ -3842,9 +3847,11 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     setState(() {});
 
     try {
-      fetchBoardSettings(widget.boardId);
       await loadMembers();
       await boardAllemployeeMembers();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fetchBoardSettings(widget.boardId);
+      });
     } catch (e) {
       debugPrint('Checklist error: $e');
     }
@@ -3905,6 +3912,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
     /// 🔥 FINAL FORMAT REQUIRED BY BACKEND
     final String base64WithHeader =
         'data:$mimeType;base64,${base64Encode(bytes)}';
+    setState(() => {});
 
     /// 🔥 SET VALUE
     imageUrlCtrl.text = base64WithHeader;
@@ -3922,7 +3930,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _text(
-                  AppLocalizations.of(context)!.boardName,
+                  '${AppLocalizations.of(context)!.boardName} *',
                   boardNameCtrl,
                   PermissionHelper.canUpdate("Board Management"),
                 ),
@@ -3938,7 +3946,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 /// BOARD TYPE
                 SearchableMultiColumnDropdownField<String>(
                   labelText:
-                      '${AppLocalizations.of(context)!.board}${AppLocalizations.of(context)!.type}',
+                      '${AppLocalizations.of(context)!.board}${AppLocalizations.of(context)!.type} *',
                   items: [
                     AppLocalizations.of(context)!.public,
                     AppLocalizations.of(context)!.private,
@@ -3963,7 +3971,8 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                 /// BOARD OWNER
                 MultiSelectMultiColumnDropdownField<BoardMember>(
                   enabled: PermissionHelper.canUpdate("Board Management"),
-                  labelText: AppLocalizations.of(context)!.boardOwnerName,
+                  labelText:
+                      '${AppLocalizations.of(context)!.boardOwnerName} *',
                   items: controller.boardMembers,
                   controller: ownerNameController,
 
@@ -3988,7 +3997,9 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                       ],
                     ),
                   ),
-                  onChanged: (_) {},
+                  onChanged: (emp) {
+                    ownerName.value = emp!.userId;
+                  },
                 ),
 
                 const SizedBox(height: 15),
@@ -4118,13 +4129,13 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                           TextButton(
                             onPressed: canUpdate
                                 ? () => showUrlUpload.value = true
-                                : null, // 🔒 disable
+                                : null,
                             child: Text(AppLocalizations.of(context)!.url),
                           ),
                           TextButton(
                             onPressed: canUpdate
                                 ? () => showUrlUpload.value = false
-                                : null, // 🔒 disable
+                                : null,
                             child: Text(
                               AppLocalizations.of(context)!.fileUpload,
                             ),
@@ -4136,36 +4147,59 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                           ? _text(
                               AppLocalizations.of(context)!.imageUrl,
                               imageUrlCtrl,
-                              canUpdate, // 🔒 pass editable flag
+                              canUpdate,
                             )
-                          : InkWell(
-                              onTap: canUpdate
-                                  ? pickImage
-                                  : null, // 🔒 disable tap
-                              child: Container(
-                                height: 80,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.upload_file, size: 36),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      imageUrlCtrl.text.isEmpty
-                                          ? AppLocalizations.of(
-                                              context,
-                                            )!.uploadImage
-                                          : imageUrlCtrl.text,
-                                      style: const TextStyle(fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
+                          : Column(
+                              children: [
+                                InkWell(
+                                  onTap: canUpdate ? pickImage : null,
+                                  child: Container(
+                                    height: 80,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                  ],
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.upload_file, size: 36),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          imageUrlCtrl.text.isEmpty
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.uploadImage
+                                              : imageUrlCtrl.text,
+                                          style: const TextStyle(fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (imageUrlCtrl.text.isNotEmpty && canUpdate)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: TextButton.icon(
+                                      onPressed: () {
+                                        imageUrlCtrl.clear();
+                                        setState(() => {});
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        AppLocalizations.of(context)!.delete,
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                     ],
                   );
@@ -4183,7 +4217,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                         Navigator.pushNamed(
                           context,
                           AppRoutes.kanbanBoardPage,
-                          arguments: {"boardId":boardId},
+                          arguments: {"boardId": boardId},
                         );
                       },
                       child: Text(AppLocalizations.of(context)!.cancel),
@@ -4450,7 +4484,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
                                         color: Colors.white,
                                       ),
                                     )
-                                  : Text(AppLocalizations.of(context)!.save),
+                                  : Text(AppLocalizations.of(context)!.add),
                             ),
                           );
                         }),
@@ -4479,7 +4513,7 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
 
           return MultiSelectMultiColumnDropdownField<BoardMember>(
             enabled: true,
-            labelText: AppLocalizations.of(context)!.selectUser,
+            labelText: AppLocalizations.of(context)!.employees,
             items: controller.boardAllemployeeMembers,
             selectedValues: controller.selectedMembers,
             isMultiSelect: true,
@@ -4493,7 +4527,6 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
             columnHeaders: [
               AppLocalizations.of(context)!.employeeId,
               AppLocalizations.of(context)!.employeeName,
-              AppLocalizations.of(context)!.department,
             ],
             rowBuilder: (emp, searchQuery) {
               return Padding(
@@ -4642,12 +4675,12 @@ class _BoardSettingsWidgetState extends State<BoardSettingsWidget>
         // Remove Obx wrapper since there are no observable variables inside
         MultiSelectMultiColumnDropdownField<EmployeeGroup>(
           enabled: true,
-          labelText: AppLocalizations.of(context)!.selectGroups,
+          labelText: AppLocalizations.of(context)!.employeeGroups,
           items: controller.employeeGroups,
           selectedValues: controller.selectedGroups,
           isMultiSelect: true,
           searchValue: (group) => '${group.name} ${group.description ?? ""}',
-          displayText: (group) => group.name,
+          displayText: (group) => group.id,
           dropdownMaxHeight: 250,
           onMultiChanged: (groups) {
             controller.selectedGroups.assignAll(groups);

@@ -137,7 +137,7 @@ class _DashboardPageState extends State<DashboardPage>
               // controller.fetchExpensesByStatus(),
               // controller.fetchExpensesByProjects(),
               // controller.fetchAndReplaceValue(),
-              controller.fetchNotifications(),
+              controller.fetchUnreadNotifications(),
               controller.currencyDropDown(),
               controller.configuration(),
               controller.getAllFeatureStates(),
@@ -163,7 +163,7 @@ class _DashboardPageState extends State<DashboardPage>
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
     final currency = prefs.getString('organizationCurrency');
-    
+
     if (currency != null) {
       controller.organizationCurrency = currency;
     }
@@ -294,6 +294,9 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Future<void> _loadDashboards() async {
+    controller.selectedDashboard.value = null;
+   controller.availableRoles.clear();
+   controller.currentRole.value = '';
     setState(() => loadingDashboards = true);
     try {
       dashboards = await controller.fetchDashboardWidgets();
@@ -322,7 +325,7 @@ class _DashboardPageState extends State<DashboardPage>
     final platform = controller.getPlatform();
     final deviceId = await controller.getDeviceId();
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('selectedMenu','Dashboard');
+    prefs.setString('selectedMenu', 'Dashboard');
     prefs.remove('last_route');
     final details = {
       "DeviceToken": token ?? "N/A",
@@ -789,7 +792,10 @@ class _DashboardPageState extends State<DashboardPage>
 
                                     final wizards = controller
                                         .getWizardsForCurrentRole();
-                                    if (wizards.isEmpty) {
+                                    print('wizardsss$wizards');
+                                    if (wizards.isEmpty &&
+                                        controller.selectedDashboard.value ==
+                                            null) {
                                       return const Padding(
                                         padding: EdgeInsets.all(20.0),
                                         child: Center(
@@ -1252,7 +1258,10 @@ class _DashboardPageState extends State<DashboardPage>
                   children: [
                     Text(
                       DateFormat('MMM d').format(
-                        DateTime.fromMillisecondsSinceEpoch(ev.fromDate),
+                        DateTime.fromMillisecondsSinceEpoch(
+                          ev.fromDate,
+                          isUtc: true,
+                        ),
                       ),
                       style: const TextStyle(
                         fontSize: 13,
@@ -1260,7 +1269,7 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                     ),
                     Text(
-                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate))}',
+                      'to ${DateFormat('MMM d').format(DateTime.fromMillisecondsSinceEpoch(ev.toDate, isUtc: true))}',
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                   ],
@@ -3364,9 +3373,12 @@ class _SmallApprovalRow extends StatelessWidget {
             _cell(item.expenseId, 110, bold: true),
 
             _cell(
-              DateFormat(
-                'dd-MM-yyyy',
-              ).format(DateTime.fromMillisecondsSinceEpoch(item.receiptDate)),
+              DateFormat('dd-MM-yyyy').format(
+                DateTime.fromMillisecondsSinceEpoch(
+                  item.receiptDate,
+                  isUtc: true,
+                ),
+              ),
               110,
             ),
 

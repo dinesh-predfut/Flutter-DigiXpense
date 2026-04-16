@@ -692,78 +692,75 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 // _dateField("Date of Birth", controller.dobController),
                                 // const SizedBox(height: 20),
                                 // Obx(() {
-                                //   return 
-                                  SizedBox(
-                                    child: IntlPhoneField(
-                                      key: ValueKey(
-                                        controller.countryCodeController.text,
-                                      ), // 🔥 forces rebuild
-                                      controller: controller.phoneController,
-                                      keyboardType: TextInputType.phone,
+                                //   return
+                                SizedBox(
+                                  child: IntlPhoneField(
+                                    key: ValueKey(
+                                      controller.countryCodeController.text,
+                                    ), // 🔥 forces rebuild
+                                    controller: controller.phoneController,
+                                    keyboardType: TextInputType.phone,
 
-                                      decoration: InputDecoration(
-                                        labelText: loc.phoneNumber,
-                                        labelStyle: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        counterText: "",
+                                    decoration: InputDecoration(
+                                      labelText: loc.phoneNumber,
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
-
-                                      // ✅ Dynamic country code from API
-                                      initialCountryCode:
-                                          getIsoCodeFromDialCode(
-                                            controller
-                                                    .countryCodeController
-                                                    .text
-                                                    .isNotEmpty
-                                                ? controller
-                                                      .countryCodeController
-                                                      .text
-                                                : '+91', // fallback
-                                          ),
-
-                                      onChanged: (phone) {
-                                        controller.countryCodeController.text =
-                                            phone.countryCode;
-                                        controller.phoneController.text =
-                                            phone.number; // keep synced
-                                      },
-
-                                      onCountryChanged: (country) {
-                                        controller.countryCodeController.text =
-                                            "+${country.dialCode}";
-                                      },
-
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-
-                                      validator: (phone) async {
-                                        if (phone == null ||
-                                            phone.number.trim().isEmpty) {
-                                          return loc.enterPhoneNumber;
-                                        }
-
-                                        isButtonDisabled.value = true;
-
-                                        // ✅ Better validation
-                                        if (phone.number.length < 6) {
-                                          isButtonDisabled.value = false;
-                                          return '${loc.invalidPhoneNumber} ${phone.countryCode}';
-                                        }
-
-                                        return null;
-                                      },
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      counterText: "",
                                     ),
+
+                                    // ✅ Dynamic country code from API
+                                    initialCountryCode: getIsoCodeFromDialCode(
+                                      controller
+                                              .countryCodeController
+                                              .text
+                                              .isNotEmpty
+                                          ? controller
+                                                .countryCodeController
+                                                .text
+                                          : '+91', // fallback
+                                    ),
+
+                                    onChanged: (phone) {
+                                      controller.countryCodeController.text =
+                                          phone.countryCode;
+                                      controller.phoneController.text =
+                                          phone.number; // keep synced
+                                    },
+
+                                    onCountryChanged: (country) {
+                                      controller.countryCodeController.text =
+                                          "+${country.dialCode}";
+                                    },
+
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+
+                                    validator: (phone) async {
+                                      if (phone == null ||
+                                          phone.number.trim().isEmpty) {
+                                        return loc.enterPhoneNumber;
+                                      }
+
+                                      isButtonDisabled.value = true;
+
+                                      // ✅ Better validation
+                                      if (phone.number.length < 6) {
+                                        isButtonDisabled.value = false;
+                                        return '${loc.invalidPhoneNumber} ${phone.countryCode}';
+                                      }
+
+                                      return null;
+                                    },
                                   ),
-                              
+                                ),
+
                                 const SizedBox(height: 8),
                                 _textField(
                                   loc.gender,
@@ -3409,7 +3406,7 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                           );
 
                                       await themeNotifier.clearTheme();
-
+                                      Get.deleteAll(force: true);
                                       Navigator.pushNamedAndRemoveUntil(
                                         context,
                                         AppRoutes.signin,

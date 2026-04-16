@@ -148,9 +148,10 @@ class Controller extends GetxController {
   String? lastAmount1;
   ExchangeRateResponse? cachedExchange1;
   RxString leaveSearchQuery = "".obs;
-
+  RxString boardNameErrorMsg = "".obs;
   String? lastCurrency2;
   String? lastAmount2;
+
   ExchangeRateResponse? cachedExchange2;
   ExchangeRateResponse? cachedExchangeResponse;
   // final TextEditingController country = TextEditingController();
@@ -540,11 +541,34 @@ class Controller extends GetxController {
   bool validateBoardForm() {
     bool isValid = true;
 
-    if (boardNameController.text.trim().isEmpty) {
+    final value = boardNameController.text;
+
+    // ❌ Empty or only spaces
+    if (value.trim().isEmpty) {
       showBoardNameError.value = true;
-      isValid = false;
-    } else {
-      showBoardNameError.value = false;
+      boardNameErrorMsg.value = "Board name is required";
+      return false;
+    }
+
+    // ❌ Leading space
+    if (value.startsWith(' ')) {
+      showBoardNameError.value = true;
+      boardNameErrorMsg.value = "Should not start with space";
+      return false;
+    }
+
+    // ❌ Trailing space
+    if (value.endsWith(' ')) {
+      showBoardNameError.value = true;
+      boardNameErrorMsg.value = "Should not end with space";
+      return false;
+    }
+
+    // ❌ Only spaces / no valid characters
+    if (!RegExp(r'[a-zA-Z0-9]').hasMatch(value)) {
+      showBoardNameError.value = true;
+      boardNameErrorMsg.value = "Enter valid board name";
+      return false;
     }
 
     return isValid;
@@ -1067,10 +1091,12 @@ class Controller extends GetxController {
       // set startDate and endDate using millisecondsSinceEpoch
       startDate.value = DateTime.fromMillisecondsSinceEpoch(
         today.millisecondsSinceEpoch,
+        isUtc: true,
       );
 
       endDate.value = DateTime.fromMillisecondsSinceEpoch(
         today.millisecondsSinceEpoch,
+        isUtc: true,
       );
     }
   }
@@ -1785,9 +1811,12 @@ class Controller extends GetxController {
     }
 
     /// ---------------- Applied Date ----------------
-    appliedDateController.text = DateFormat(
-      'dd-MM-yyyy',
-    ).format(DateTime.fromMillisecondsSinceEpoch(leaveRequest.applicationDate));
+    appliedDateController.text = DateFormat('dd-MM-yyyy').format(
+      DateTime.fromMillisecondsSinceEpoch(
+        leaveRequest.applicationDate,
+        isUtc: true,
+      ),
+    );
 
     /// ---------------- Other Fields ----------------
     leavephoneController.text = leaveRequest.emergencyContactNumber ?? '';
@@ -1993,6 +2022,8 @@ class Controller extends GetxController {
   var phoneNumber = ''.obs;
   List<GESpeficExpense> getSpecificListGExpense = [];
   RxList<GESpeficExpense> specificExpenseList = <GESpeficExpense>[].obs;
+  RxList<UnprocessExpenseModels> specificExpenseListUnprocess =
+      <UnprocessExpenseModels>[].obs;
   RxList<UnprocessExpenseModels> unProcessModelList =
       <UnprocessExpenseModels>[].obs;
   RxList<CashAdvanceRequestHeader> specificCashAdvanceList =
@@ -2569,6 +2600,43 @@ class Controller extends GetxController {
     }
   }
 
+  // Controller
+  final RxList<EmployeeId> employeesID = <EmployeeId>[].obs;
+  final Rx<EmployeeId?> selectedEmployeeID = Rx<EmployeeId?>(null);
+  final TextEditingController employeeDropDownController =
+      TextEditingController();
+
+  Future<void> fetchEmployeesID() async {
+    isLoadingGE1.value = true;
+    final int transactionDate = DateTime.now().millisecondsSinceEpoch;
+    final url = Uri.parse(
+      '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/employeeid'
+      '?TrackingContext=ExpenseRequisition'
+      '&TransactionDate=$transactionDate',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        employeesID.value = data.map((e) => EmployeeId.fromJson(e)).toList();
+        selectedEmployeeID.value = employeesID.firstWhereOrNull(
+          (emp) => emp.employeeId == Params.employeeId,
+        );
+        employeeDropDownController.text =
+            selectedEmployeeID.value?.employeeId ?? '';
+        employeeName.text = selectedEmployeeID.value?.employeeName ?? '';
+      } else {
+        // handle error
+      }
+    } catch (e) {
+      // handle exception
+    } finally {
+      isLoadingGE1.value = false;
+    }
+  }
+
   TextEditingController typeController = TextEditingController();
   Future<KanbanBoard?> fetchKanbanBoardAndNavigate(
     BuildContext context,
@@ -2707,13 +2775,19 @@ class Controller extends GetxController {
       final boardData = {
         'BoardType': isPublic.value ? 'Public' : 'Private',
         'BoardName': boardNameController.text.trim(),
-        'Area': selectedTemplateId.value,
-        'Description': descriptionController.text.trim(),
+        'Area': selectedTemplateId.value.isEmpty
+            ? null
+            : selectedTemplateId.value,
+        'Description': descriptionController.text.trim().isEmpty
+            ? null
+            : descriptionController.text.trim(),
         'ReferenceType': selectedReferenceType.value.isEmpty
             ? null
             : getReferenceType(selectedReferenceType.value),
 
-        'ReferenceId': referenceIdController.text.trim(),
+        'ReferenceId': referenceIdController.text.trim().isEmpty
+            ? null
+            : referenceIdController.text.trim(),
 
         'template': selectedTemplate.value?.areaName,
         'templateId': selectedTemplate.value?.recId,
@@ -2764,7 +2838,7 @@ class Controller extends GetxController {
 
   // Reset form
   void resetFormBoard() {
-    isPublic.value = false;
+    isPublic.value = true;
     boardNameController.clear();
     descriptionController.clear();
     selectedReferenceType.value = '';
@@ -2972,8 +3046,8 @@ class Controller extends GetxController {
 
   ExpenseItemUpdate toExpenseItemUpdateModel() {
     return ExpenseItemUpdate(
-      recId: recId,
-      expenseId: expenseId.toString(),
+      recId: recIDItem,
+      expenseId: expenseId?.toString(),
       expenseCategoryId: categoryController.text,
       quantity: double.tryParse(quantity.text) ?? 1.0,
       uomId: uomId.text,
@@ -3458,8 +3532,8 @@ class Controller extends GetxController {
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
     dateRange = DateTimeRange(
-      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate'].toUtc()),
-      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate'].toUtc()),
+      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate'], isUtc: true),
+      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate'], isUtc: true),
     );
 
     // Set status and step type from API data
@@ -3482,7 +3556,7 @@ class Controller extends GetxController {
           isNotEmpty: false,
         ),
         board: BoardModel(
-          recId: 0,
+          recId: line['RecId'],
           boardId: line['BoardId'] ?? '',
           boardName: '',
           boardType: '',
@@ -3497,6 +3571,7 @@ class Controller extends GetxController {
           taskName: line['TaskName'] ?? '',
           boardId: '',
         ),
+        recId: line['RecId'],
       );
       final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
 
@@ -3535,10 +3610,12 @@ class Controller extends GetxController {
         if (entryDate == null) continue;
 
         dailyMap[entryDate] = TimeEntryModel(
+          recId: daily['RecId'],
           entryDate: entryDate,
           timeFrom: daily['TimeFrom'] ?? 0,
           timeTo: daily['TimeTo'] ?? 0,
           totalHours: (daily['TotalHours'] ?? 0).toString(),
+          comment: daily['InternalComment'] ?? '',
         );
       }
 
@@ -3590,8 +3667,7 @@ class Controller extends GetxController {
     } else {
       isLoadingLeaves.value = false;
       final Map<String, dynamic> responseData = jsonDecode(response.body);
-      final String message =
-          responseData['detail']?['message'] ?? 'No message found';
+      final String message = responseData['detail'];
 
       Fluttertoast.showToast(
         msg: message,
@@ -5764,6 +5840,69 @@ class Controller extends GetxController {
     }
   }
 
+  Future<List<GESpeficExpense>> fetchSecificExpenseItemUnProcess(
+    context,
+    int recId, [
+    bool? bool,
+  ]) async {
+    isLoadingGE1.value = true;
+
+    final url = Uri.parse(
+      '${Urls.getSpecificGeneralExpense}/expenseregistration?RecId=$recId&lock_id=$recId&screen_name=MyExpense',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        specificExpenseListUnprocess.value = (data as List)
+            .map((item) => UnprocessExpenseModels.fromJson(item))
+            .toList();
+
+        for (var expense in specificExpenseListUnprocess) {
+          expenseIdController.text = expense.expenseId;
+          receiptDateController.text = DateFormat(
+            'dd-MM-yyyy',
+          ).format(expense.receiptDate);
+        }
+
+        //  // print("Expense ID: ${expenseIdController.text}");
+        isLoadingGE1.value = false;
+
+        Navigator.pushNamed(
+          context,
+          AppRoutes.getSpecificExpense,
+          arguments: {'item': specificExpenseList[0], 'readOnly': bool},
+        );
+
+        return specificExpenseList;
+      } else {
+        isLoadingGE1.value = false;
+        //  // print(
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String message =
+            responseData['detail']?['message'] ?? 'No message found';
+
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[100],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+        return [];
+      }
+    } catch (e, stack) {
+      isLoadingGE1.value = false;
+      //  // print('Error fetching specific expense: $e');
+      //  // print(stack);
+      return [];
+    }
+  }
+
   Future<List<GESpeficExpense>> fetchSecificCashAdvanceReturn(
     context,
     int recId,
@@ -6583,8 +6722,12 @@ class Controller extends GetxController {
       "workitemrecid": workitemrecid,
       "TotalAmountTrans": calculatedAmountINR,
       "TotalAmountReporting": calculatedAmountINR,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
       "Source": "Web",
       "ExchRate": 1,
@@ -6930,8 +7073,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseID,
       "RecId": recID,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : paidToController.text ?? '',
@@ -7559,54 +7706,63 @@ class Controller extends GetxController {
   }
 
   void addToFinalItemsUnProcess(UnprocessExpenseModels expense) {
-    // Clear any previously stored items
-    finalItemsSpecific.clear();
-
-    if (expense.expenseTrans.isEmpty) {
-      //  //  // print(
-      //   "⚠️ No expense transactions found for Expense ID: ${expense.expenseId}",
-      // );
-      return;
-    }
+    finalItemsSpecific.clear(); // Clear previous items first
 
     for (var trans in expense.expenseTrans) {
-      final int? originalRecId = trans.recId ?? expense.recId;
+      final int? originalRecId = trans.recId;
+      print("""
+      --- Expense Transaction ---
+      recId: ${originalRecId}
+      expenseId: ${trans.expenseId}
+      expenseCategoryId: ${trans.expenseCategoryId}
+      uomId: ${trans.uomId}
+      quantity: ${trans.quantity}
+      unitPriceTrans: ${trans.unitPriceTrans}
+      taxAmount: ${trans.taxAmount}
+      taxGroup: ${trans.taxGroup}
+      lineAmountTranss: ${trans.lineAmountTrans}
+      lineAmountReporting: ${trans.lineAmountReporting}
+      projectId: ${trans.projectId}
+      description: ${trans.description}
+      isReimbursable: ${trans.isReimbursable}
+      isBillable: ${trans.isBillable}
+      accountingDistributions: ${trans.accountingDistributions.map((d) => d.toJson()).toList()}
+      ----------------------------
+      """);
+
+      // Preserve the original recId from the transaction
 
       final taxGroupValue =
-          (trans.taxGroup != null && trans.taxGroup!.trim().isNotEmpty)
+          (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
           ? trans.taxGroup
           : null;
 
-      // Map and preserve AccountingDistribution recIds safely
+      // Map accounting distributions while preserving their recIds
       final mappedDistributions =
-          trans.accountingDistributions
-              ?.map(
-                (dist) => AccountingDistribution(
-                  transAmount: dist.transAmount,
-                  reportAmount: dist.reportAmount,
-                  dimensionValueId: dist.dimensionValueId,
-                  allocationFactor: dist.allocationFactor,
-                  recId: dist.recId,
-                ),
-              )
-              .toList() ??
+          trans.accountingDistributions?.map((dist) {
+            //  //  // print("Distribution recId: ${dist.recId}");
+            return AccountingDistribution(
+              transAmount: dist.transAmount,
+              reportAmount: dist.reportAmount,
+              dimensionValueId: dist.dimensionValueId,
+              allocationFactor: dist.allocationFactor,
+              recId: dist.recId, // Preserve the distribution recId
+            );
+          }).toList() ??
           [];
 
-      // ✅ Create ExpenseItemUpdate object
+      // Create the expense item update model with preserved recId
       final item = ExpenseItemUpdate(
         recId: originalRecId,
-        expenseId: expense.expenseId,
-        // expenseId: int.tryParse(
-        //   expense.expenseId.replaceAll(RegExp(r'[^0-9]'), ''),
-        // ), // safer parse
+        expenseId: trans.expenseId,
         expenseCategoryId: trans.expenseCategoryId,
         uomId: trans.uomId,
-        quantity: trans.quantity ?? 0,
-        unitPriceTrans: trans.unitPriceTrans ?? 0,
-        taxAmount: trans.taxAmount ?? 0,
+        quantity: trans.quantity,
+        unitPriceTrans: trans.unitPriceTrans,
+        taxAmount: trans.taxAmount,
         taxGroup: taxGroupValue,
-        lineAmountTrans: trans.lineAmountTrans ?? 0,
-        lineAmountReporting: trans.lineAmountReporting ?? 0,
+        lineAmountTrans: trans.lineAmountTrans,
+        lineAmountReporting: trans.lineAmountReporting,
         projectId: trans.projectId,
         description: trans.description ?? '',
         isReimbursable: trans.isReimbursable,
@@ -7614,21 +7770,33 @@ class Controller extends GetxController {
         accountingDistributions: mappedDistributions,
       );
 
+      //  //  // print("Final item recId: ${item.recId}");
       finalItemsSpecific.add(item);
-
-      // 🔍 Optional concise debug log
-      //        //  //  // print("""
-      // ---------------------------
-      // Expense Item Added:
-      //   ExpenseId: ${expense.expenseId}
-      //   Transaction RecId: ${trans.recId}
-      //   Final RecId Used: ${item.recId}
-      //   TaxGroup: ${item.taxGroup}
-      //   LineAmountTrans: ${item.lineAmountTrans}
-      //   Accounting Dist Count: ${mappedDistributions.length}
-      // ---------------------------
-      // """);
+      print(
+        "ExpenseTrans recIds: ${finalItemsSpecific.map((e) => e.recId).toList()}",
+      );
     }
+
+    //  //  // print("Total items in finalItemsSpecific: ${finalItemsSpecific.length}");
+    //  //  // print(
+    //   "Items with recId ${finalItemsSpecific.where((item) => item.recId != null).length}",
+    // );
+    //  //  // print(
+    //   "Items without recId: ${finalItemsSpecific.where((item) => item.recId == null).length}",
+    // );
+
+    // 🔍 Optional concise debug log
+    //        //  //  // print("""
+    // ---------------------------
+    // Expense Item Added:
+    //   ExpenseId: ${expense.expenseId}
+    //   Transaction RecId: ${trans.recId}
+    //   Final RecId Used: ${item.recId}
+    //   TaxGroup: ${item.taxGroup}
+    //   LineAmountTrans: ${item.lineAmountTrans}
+    //   Accounting Dist Count: ${mappedDistributions.length}
+    // ---------------------------
+    // """);
 
     // ✅ Final Summary
     //  //  // print("✅ Total Items Added: ${finalItemsSpecific.length}");
@@ -7700,8 +7868,12 @@ class Controller extends GetxController {
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
       "ExpenseId": hideField ? null : expenseIdController.text,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -7783,6 +7955,19 @@ class Controller extends GetxController {
           textColor: Colors.green[800],
           fontSize: 16.0,
         );
+      } else if (response.statusCode == 440) {
+        final data = jsonDecode(response.body);
+        clearFormFields();
+        final message = data['detail']['message'];
+        Fluttertoast.showToast(
+          msg: message,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: const Color.fromARGB(255, 250, 1, 1),
+          textColor: const Color.fromARGB(255, 212, 210, 241),
+          fontSize: 16.0,
+        );
+        Navigator.pushNamed(context, AppRoutes.generalExpense);
       } else if (response.statusCode == 430) {
         if (!bool) {
           isUploading.value = false;
@@ -8106,8 +8291,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -8115,7 +8304,9 @@ class Controller extends GetxController {
       "CashAdvReqId": cashAdvanceIds.text,
       "Location": "", // or locationController.text.trim()
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWithCashAdvance.value,
+      "PaymentMethod": paidWithCashAdvance.value!.isEmpty
+          ? null
+          : paidWithCashAdvance.value,
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
@@ -8319,8 +8510,12 @@ class Controller extends GetxController {
       // Construct request body
       final Map<String, dynamic> requestBody = {
         "RequestDate": requestDate,
-        "EmployeeId": Params.employeeId,
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
@@ -8532,8 +8727,12 @@ class Controller extends GetxController {
         "RequisitionId": reqID ?? "",
         "RecId": recId ?? "",
         "RequestDate": requestDate,
-        "EmployeeId": Params.employeeId,
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
@@ -8747,8 +8946,12 @@ class Controller extends GetxController {
         "RecId": recId ?? "",
         "workitemrecid": reqID ?? '',
         "RequestDate": requestDate,
-        "EmployeeId": Params.employeeId,
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
             ? double.tryParse(requestamountINR.text) ?? 0
             : 0,
@@ -8945,8 +9148,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseID,
       "RecId": recID,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : paidToController.text ?? '',
@@ -9178,7 +9385,7 @@ class Controller extends GetxController {
     context,
     bool bool,
     bool? reSubmit,
-    int recId,
+    int recIds,
   ) async {
     isLoadingGE1.value = true;
     final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
@@ -9201,7 +9408,7 @@ class Controller extends GetxController {
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseID,
-      "UnprocessedRecId": recID,
+      "UnprocessedRecId": recIds,
       "EmployeeId": Params.employeeId,
       "EmployeeName": userName.value,
       "MerchantName": isManualEntryMerchant
@@ -9216,8 +9423,7 @@ class Controller extends GetxController {
       "TotalAmountReporting": (double.tryParse(amountINR.text) ?? 0).toInt(),
 
       if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
-      "Currency":
-          selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
+      "Currency": currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
@@ -9250,7 +9456,7 @@ class Controller extends GetxController {
     try {
       final response = await ApiService.post(
         Uri.parse(
-          '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=$reSubmit&screen_name=MyExpense&unprocessed_recId=$recId',
+          '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=$reSubmit&screen_name=MyExpense&unprocessed_recId=$recIds',
         ),
 
         body: jsonEncode(requestBody),
@@ -9268,7 +9474,7 @@ class Controller extends GetxController {
         final recId = data['detail']['RecId'];
         clearFormFields();
         isLoadingGE1.value = false;
-        Navigator.pushNamed(context, AppRoutes.generalExpense);
+        Navigator.pushNamed(context, AppRoutes.unProcessed);
         Fluttertoast.showToast(
           msg: "$message ",
           backgroundColor: Colors.green[100],
@@ -9441,8 +9647,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -9547,6 +9757,58 @@ class Controller extends GetxController {
     }
   }
 
+  static DateTime startOfDayUTC(DateTime date) {
+    return DateTime.utc(date.year, date.month, date.day);
+  }
+
+  /// End of day in UTC
+  static DateTime endOfDayUTC(DateTime date) {
+    return DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
+  }
+
+  static int toMillisUTC(DateTime date) {
+    return date.toUtc().millisecondsSinceEpoch;
+  }
+
+  /// Week range (Monday → Sunday) in UTC
+   Map<String, int> getWeekRangeUTC(DateTime date) {
+    final start = date.subtract(Duration(days: date.weekday - 1));
+    final end = start.add(const Duration(days: 6));
+
+    final startUtc = startOfDayUTC(start);
+    final endUtc = endOfDayUTC(end);
+
+    return {
+      "fromDate": startUtc.millisecondsSinceEpoch,
+      "toDate": endUtc.millisecondsSinceEpoch,
+    };
+  }
+
+   Future<RuleConfigSettings?> getRuleConfig({
+    required String employeeId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    print("Fetching rule config for Employee ID: $employeeId, From: $fromDate, To: $toDate");
+    try {
+      final response = await ApiService.get(
+        Uri.parse(
+          '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/ruleconfigsettings?employeeid=$employeeId&fromdate=${fromDate.millisecondsSinceEpoch.toString()}&todate=${toDate.millisecondsSinceEpoch.toString()}',
+        ),
+      );
+
+      if (response.body.isNotEmpty) {
+      // Parse the response body as JSON
+      final Map<String, dynamic> jsonData = jsonDecode(response.body);
+      return RuleConfigSettings.fromJson(jsonData);
+    }
+    } catch (e) {
+      print("RuleConfig API Error: $e");
+    }
+
+    return null;
+  }
+
   Future<void> cashadvanceregistrations(
     context,
     bool bool,
@@ -9573,8 +9835,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -10911,7 +11177,7 @@ class Controller extends GetxController {
   }
 
   String formattedDate(int millis) {
-    DateTime date = DateTime.fromMillisecondsSinceEpoch(millis);
+    DateTime date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return DateFormat('dd-MM-yyyy').format(date.toUtc());
   }
 
@@ -11463,8 +11729,12 @@ class Controller extends GetxController {
         "TotalAmountReporting": amountInController.text.isNotEmpty
             ? double.parse(amountInController.text).round()
             : 0,
-        "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "ReceiptDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
@@ -11665,8 +11935,12 @@ class Controller extends GetxController {
         "TotalAmountReporting": amountInController.text.isNotEmpty
             ? double.parse(amountInController.text)
             : 0.0,
-        "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
@@ -11866,8 +12140,12 @@ class Controller extends GetxController {
         "TotalAmountReporting": amountInController.text.isNotEmpty
             ? amountInController.text
             : '0',
-        "EmployeeId": Params.employeeId ?? '',
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
@@ -12059,11 +12337,12 @@ class Controller extends GetxController {
     }
   }
 
+  RxBool isLoadingAll = false.obs;
+  RxBool isLoadingUnread = false.obs;
   Future<void> fetchNotifications() async {
     try {
-      isLoading.value = true;
+      isLoadingAll.value = true; // ✅ correct flag
 
-      // Make API call
       final response = await ApiService.get(
         Uri.parse('${Urls.getNotifications}${Params.userId}'),
       );
@@ -12071,24 +12350,42 @@ class Controller extends GetxController {
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as List<dynamic>;
 
-        // Map JSON to NotificationModel
+        // ✅ Store ALL notifications — do NOT filter here
         notifications.value = data
             .map((e) => NotificationModel.fromJson(e))
             .toList();
-
-        // Filter unread notifications
-        unreadNotifications.value = notifications
-            .where((n) => !n.read)
-            .toList();
-        unreadCount.value = unreadNotifications.length;
-        //  //  // print("unreadNotifications.value${unreadCount.value}");
       } else {
         throw Exception('Failed to load notifications');
       }
     } catch (e) {
-      //  //  // print('❌ Error fetching notifications: $e');
+      print('❌ Error fetching notifications: $e');
     } finally {
-      isLoading.value = false;
+      isLoadingAll.value = false; // ✅ correct flag
+    }
+  }
+
+  Future<void> fetchUnreadNotifications() async {
+    try {
+      isLoadingUnread.value = true; // ✅ correct flag
+
+      final response = await ApiService.get(
+        Uri.parse('${Urls.getUnreadedNotifications}${Params.userId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List<dynamic>;
+
+        unreadNotifications.value = data
+            .map((e) => NotificationModel.fromJson(e))
+            .toList();
+
+        // ✅ Update count from unread list
+        unreadCount.value = unreadNotifications.length;
+      }
+    } catch (e) {
+      print('❌ Error fetching unread notifications: $e');
+    } finally {
+      isLoadingUnread.value = false; // ✅ correct flag
     }
   }
 
@@ -12625,8 +12922,12 @@ class Controller extends GetxController {
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
         "TotalAmountReporting": calculatedAmountINR,
-        "EmployeeId": Params.employeeId,
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
         "Source": "Web",
         "ExchRate": 1,
@@ -12856,8 +13157,12 @@ class Controller extends GetxController {
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
         "TotalAmountReporting": calculatedAmountINR,
-        "EmployeeId": Params.employeeId,
-        "EmployeeName": userName.value,
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
         "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
         "Source": "Web",
         "ExchRate": 1,
@@ -13561,6 +13866,7 @@ class Controller extends GetxController {
   }
 
   Future<void> fetchManageExpensesCards() async {
+    manageExpensesCards.clear();
     //  //  // print("Calling fetchManageExpensesCards...");
     try {
       isUploadingCards.value = true;
@@ -14086,9 +14392,7 @@ class Controller extends GetxController {
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? 
-                  formatDate(cashAdvance.requestDate)
-                
+              ? formatDate(cashAdvance.requestDate)
               : '';
           // Add more controllers if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
@@ -14157,9 +14461,7 @@ class Controller extends GetxController {
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? 
-                  formatDate(cashAdvance.requestDate)
-                
+              ? formatDate(cashAdvance.requestDate)
               : '';
           // Add more  if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
@@ -14450,8 +14752,12 @@ class Controller extends GetxController {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseID,
       "RecId": recID,
-      "EmployeeId": Params.employeeId,
-      "EmployeeName": userName.value,
+      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+          ? null
+          : employeeDropDownController.text.trim(),
+      "EmployeeName": employeeName.text.trim().isEmpty
+          ? null
+          : employeeName.text.trim(),
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
@@ -15524,6 +15830,8 @@ class Controller extends GetxController {
   }
 
   Future<List<BoardMember>> fetchBoardMembers(String boardId) async {
+    selectedMembers.clear();
+
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/kanban/boards/boardmembers/boardmemberslist'
       '?screen_name=KANBoardMembers&BoardId=$boardId',
@@ -15684,8 +15992,12 @@ class Controller extends GetxController {
 
   // bool isLoading = false;
   Future<void> loadDashboards() async {
+    selectedDashboard.value = null;
+    availableRoles.clear();
+    currentRole.value = '';
     try {
       final list = await fetchDashboardWidgets(); // your existing API function
+      print('listlist$list');
       dashboards.assignAll(list);
       if (dashboards.isNotEmpty) {
         // Pick first dashboard by default
@@ -15701,9 +16013,20 @@ class Controller extends GetxController {
   //  final Map<String, WidgetDataResponse> widgetDataCache = {};
   // --- Called when user picks a dashboard from the dropdown ---
   Future<void> onDashboardChanged(Dashboard dashboard) async {
+    availableRoles.clear();
+    currentRole.value = '';
     selectedDashboard.value = dashboard;
 
-    // extract roles from dashboardData items
+    // 👉 Handle null or empty dashboardData
+    if (dashboard.dashboardData == null || dashboard.dashboardData.isEmpty) {
+      availableRoles.clear();
+      currentRole.value = '';
+
+      // No data → stop here (UI will show empty message)
+      return;
+    }
+
+    // extract roles
     final extracted = dashboard.dashboardData
         .map((d) => d.currentRole?.trim() ?? '')
         .where((r) => r.isNotEmpty)
@@ -15713,14 +16036,12 @@ class Controller extends GetxController {
     availableRoles.assignAll(extracted);
 
     // default role
-    if (availableRoles.isNotEmpty) {
-      currentRole.value = availableRoles.first;
-    } else {
-      currentRole.value = '';
-    }
+    currentRole.value = availableRoles.isNotEmpty ? availableRoles.first : '';
 
-    // fetch widgets for the default role
-    await changeRole(currentRole.value, dashboardToUse: dashboard);
+    // 👉 Only call API if role exists
+    if (currentRole.value.isNotEmpty) {
+      await changeRole(currentRole.value, dashboardToUse: dashboard);
+    }
   }
 
   // --- Change role (and optionally use dashboard to filter) ---
@@ -15778,19 +16099,11 @@ class Controller extends GetxController {
   // --- Use Dashboard.dashboardData items as your "wizard" configs ---
   List<DashboardDataItem> getWizardsForCurrentRole() {
     final dash = selectedDashboard.value;
+    print('dashdash$dash');
+    // 👉 If null, return empty list
     if (dash == null) return [];
-    for (var item in dash.dashboardData) {
-      //        //  //  // print("""
-      // ID: ${item.filterProps?.widgetName}
-      // Title: ${item.filterProps?.roleId}
-      // currentRole: ${item.currentRole}
-      // -------------------------------
-      // """);
-    }
-    final role = currentRole.value.toLowerCase();
-    //  //  // print("rolerole${currentRole.value.toLowerCase()}");
-    // Use dashboardData (the list of widgets), not dashBoardType
-    return dash.dashboardData;
+
+    return dash.dashboardData ?? [];
   }
 
   // --- Fetch each widget's data (keeps your existing implementation, but uses dashboardData items) ---
@@ -16914,8 +17227,14 @@ class Controller extends GetxController {
     // events.clear();
 
     for (final leave in leaves) {
-      final start = DateTime.fromMillisecondsSinceEpoch(leave.fromDate);
-      final end = DateTime.fromMillisecondsSinceEpoch(leave.toDate);
+      final start = DateTime.fromMillisecondsSinceEpoch(
+        leave.fromDate,
+        isUtc: true,
+      );
+      final end = DateTime.fromMillisecondsSinceEpoch(
+        leave.toDate,
+        isUtc: true,
+      );
 
       DateTime day = start;
 
@@ -18324,7 +18643,7 @@ class Controller extends GetxController {
         "InternalComment": "",
         "ExternalComment": "",
         "IsConverted": false,
-        "RecId": null,
+        "RecId": line.recId,
         "DailyEntry": dailyEntries,
         "TaskName": line.task?.taskName ?? "",
       });
@@ -19219,11 +19538,42 @@ class Controller extends GetxController {
     return File(image.path);
   }
 
+  Future<bool> isLocationEnabled() async {
+    // Check if location service is ON (GPS)
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      Fluttertoast.showToast(msg: "Please turn ON location");
+      return false;
+    }
+
+    // Check permission
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        Fluttertoast.showToast(msg: "Location permission denied");
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      Fluttertoast.showToast(
+        msg: "Location permission permanently denied. Enable from settings",
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   /// BUTTON TAP
   Future<void> onPunchTap() async {
     isLoading.value = true;
 
     try {
+      final isLocationOk = await isLocationEnabled();
+      if (!isLocationOk) return;
       if (punchStatus.value == PunchStatus.outDuty) {
         // 👉 PUNCH IN
         final file = await captureSelfie();
@@ -19300,7 +19650,7 @@ class Controller extends GetxController {
         punchStatus.value = PunchStatus.outDuty;
         statusText.value = 'Not in';
         isLoading.value = false;
-
+        fetchLastPunch();
         Fluttertoast.showToast(
           msg: message,
           backgroundColor: Colors.red[100],

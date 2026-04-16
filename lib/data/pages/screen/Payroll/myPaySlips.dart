@@ -46,7 +46,7 @@ class _MyPayslip_DashboardState extends State<MyPayslip_Dashboard>
     super.initState();
 
     _loadProfileImage();
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.getPersonalDetails(context);
       loadPayrolls();

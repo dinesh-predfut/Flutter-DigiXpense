@@ -1,3 +1,4 @@
+
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
@@ -20,12 +21,13 @@ class _NotificationPageState extends State<NotificationPage>
   @override
   void initState() {
     super.initState();
-
-    // Initialize TabController with Unread first
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // ✅ Rebuild when tab changes
+    });
 
-    // Fetch notifications after widget builds
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchUnreadNotifications();
       controller.fetchNotifications();
     });
   }
@@ -38,45 +40,28 @@ class _NotificationPageState extends State<NotificationPage>
 
   @override
   Widget build(BuildContext context) {
-       final theme = Theme.of(context);
-
     return Scaffold(
-      // backgroundColor: const Color(0xFFEFEFF1),
       body: Column(
         children: [
           _buildHeader(),
           _buildTabBar(),
-          Expanded(
-            child: Obx(() {
-              // Reactive data based on selected tab
-              final notifications = _tabController.index == 0
-                  ? controller.unreadNotifications
-                  : controller.notifications;
-
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (notifications.isEmpty) {
-                return const Center(child: Text('No notifications found.'));
-              }
-
-              return _buildNotificationList(notifications);
-            }),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
+  // ================= HEADER =================
   Widget _buildHeader() {
-       final theme = Theme.of(context);
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
+      padding:
+          const EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 16),
       height: 140,
-      decoration:  BoxDecoration(
-       color: theme.primaryColor,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: theme.primaryColor,
+        borderRadius:
+            const BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Row(
         children: [
@@ -85,140 +70,363 @@ class _NotificationPageState extends State<NotificationPage>
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 8),
-           Text(
+          Text(
             AppLocalizations.of(context)!.notifications,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          // ✅ Mark all as read button
+          Obx(() {
+            if (controller.unreadCount.value == 0) return const SizedBox();
+            return TextButton.icon(
+              onPressed: _markAllAsRead,
+              icon: const Icon(Icons.done_all, color: Colors.white, size: 18),
+              label: const Text(
+                'Mark all read',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ================= TAB BAR =================
+  Widget _buildTabBar() {
+    return Obx(() {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        height: 50,
+        child: TabBar(
+          controller: _tabController,
+          onTap: (_) => setState(() {}),
+          indicatorColor: Theme.of(context).colorScheme.secondary,
+          labelColor: Theme.of(context).colorScheme.secondary,
+          unselectedLabelColor: Colors.grey,
+          tabs: [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(AppLocalizations.of(context)!.unread),
+                  const SizedBox(width: 6),
+                 
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(AppLocalizations.of(context)!.allNotifications),
+                  const SizedBox(width: 6),
+                  if (controller.notifications.isNotEmpty)
+                    CircleAvatar(
+                      radius: 10,
+                      backgroundColor: Colors.grey.shade400,
+                      child: Text(
+                        controller.notifications.length > 99
+                            ? '99+'
+                            : controller.notifications.length.toString(),
+                        style: const TextStyle(
+                            fontSize: 9, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  // ================= BODY =================
+  Widget _buildBody() {
+    return Obx(() {
+      final isUnreadTab = _tabController.index == 0;
+
+      final list = isUnreadTab
+          ? controller.unreadNotifications
+          : controller.notifications;
+
+      final isLoading = isUnreadTab
+          ? controller.isLoadingUnread.value   // ✅ correct flag
+          : controller.isLoadingAll.value;     // ✅ correct flag
+
+      if (isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (list.isEmpty) {
+        return _buildEmptyState(isUnreadTab);
+      }
+
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (isUnreadTab) {
+            await controller.fetchUnreadNotifications();
+          } else {
+            await controller.fetchUnreadNotifications();
+          }
+        },
+        child: _buildNotificationList(list, isUnreadTab),
+      );
+    });
+  }
+
+  // ================= EMPTY STATE =================
+  Widget _buildEmptyState(bool isUnread) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isUnread ? Icons.mark_email_read : Icons.notifications_off,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isUnread
+                ? "You're all caught up!"
+                : "No notifications found",
             style: TextStyle(
-                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              color: Colors.grey[600],
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isUnread
+                ? "No unread notifications"
+                : "Pull down to refresh",
+            style: TextStyle(color: Colors.grey[400], fontSize: 13),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 50,
-      child: TabBar(
-        controller: _tabController,
-        onTap: (_) {
-          setState(() {}); // Refresh UI on tab change
-        },
-        indicatorColor: Theme.of(context).colorScheme.secondary,
-        labelColor: Theme.of(context).colorScheme.secondary,
-        unselectedLabelColor: Colors.grey,
-        tabs:  [
-          Tab(text: AppLocalizations.of(context)!.unread,), // Swapped tab labels
-          Tab(text: AppLocalizations.of(context)!.allNotifications),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationList(List<NotificationModel> items) {
+  // ================= LIST =================
+  Widget _buildNotificationList(
+      List<NotificationModel> items, bool isUnreadTab) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: items.length,
       itemBuilder: (_, index) {
         final item = items[index];
-        return GestureDetector(
-          onTap: () {
-            if (!item.read) {
-              _showMessageDialog(
-                  item.notificationName, item.notificationMessage);
-              controller.markAsRead(item);
-            } else {
-              _showMessageDialog(
-                  item.notificationName, item.notificationMessage);
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: item.read
-                  ? const Color.fromARGB(255, 177, 174, 174)
-                  : const Color.fromARGB(185, 195, 224, 238),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.notificationName,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.notificationMessage,
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  DateFormat('dd/MMM/yyyy, HH:mm:ss')
-                      .format(item.createdDatetime),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    // fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        return _buildNotificationCard(item, isUnreadTab);
       },
     );
   }
 
-  String formattedDate(int millis) {
-    final date = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
-    return DateFormat('dd/MMM/yyyy, HH:mm:ss').format(date);
+  Widget _buildNotificationCard(NotificationModel item, bool isUnreadTab) {
+    return Dismissible(
+      key: ValueKey('${item.recId}_${item.read}'),
+      // ✅ Only allow swipe on unread tab unread items
+      direction: (!item.read && isUnreadTab)
+          ? DismissDirection.endToStart
+          : DismissDirection.none,
+      confirmDismiss: (direction) async {
+        controller.markAsRead(item);
+        setState(() {
+          
+        });
+        return false; // ✅ Don't remove from list — let controller handle it
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Mark read',
+              style: TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(width: 8),
+            Icon(Icons.check, color: Colors.white),
+          ],
+        ),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          _showMessageDialog(
+              item.notificationName, item.notificationMessage);
+          if (!item.read) {
+            controller.markAsRead(item);
+             setState(() {
+          
+        });
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: item.read
+                ? Colors.grey.shade100
+                : Theme.of(context).primaryColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: item.read
+                  ? Colors.grey.shade300
+                  : Theme.of(context).primaryColor.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ✅ Avatar with read/unread state
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: item.read
+                        ? Colors.grey.shade400
+                        : Theme.of(context).primaryColor,
+                    child: const Icon(Icons.notifications,
+                        color: Colors.white),
+                  ),
+                  if (!item.read)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // ✅ Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.notificationName,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: item.read
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        // ✅ Time on right
+                        Text(
+                          _formatTime(item.createdDatetime),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.notificationMessage,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: item.read
+                            ? Colors.grey[600]
+                            : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      DateFormat('dd MMM yyyy, hh:mm a')
+                          .format(item.createdDatetime),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  /// Format timestamp or ISO date string from response
-  String formatDateTime(dynamic timestamp) {
-    try {
-      if (timestamp == null) return '';
+  // ✅ Smart time formatter
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return DateFormat('dd MMM').format(dt);
+  }
 
-      // Debug: see what type/value backend gives
-      debugPrint("📥 Raw timestamp: $timestamp (${timestamp.runtimeType})");
-
-      DateTime date;
-
-      if (timestamp is int) {
-        date = DateTime.fromMillisecondsSinceEpoch(timestamp).toLocal();
-      } else if (timestamp is String) {
-        date =
-            DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp)).toLocal();
-      } else if (timestamp is double) {
-        date = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt()).toLocal();
-      } else {
-        return '';
+  // ✅ Mark all as read
+  Future<void> _markAllAsRead() async {
+    final unread = List<NotificationModel>.from(
+        controller.unreadNotifications);
+    for (final item in unread) {
+      if (!item.read) {
+        controller.markAsRead(item);
+         setState(() {
+          
+        });
       }
-
-      return DateFormat("dd/MMM/yyyy, HH:mm:ss").format(date);
-    } catch (e) {
-      debugPrint("❌ Error parsing date: $e");
-      return '';
     }
   }
 
-  /// Show popup dialog for notification message
+  // ================= DIALOG =================
   void _showMessageDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.notifications,
+                color: Theme.of(context).primaryColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(title,
+                  style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Text(message, style: const TextStyle(fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () {
-                            controller.closeField();
-                            Navigator.pop(context);
-                          },
-            child:  Text(AppLocalizations.of(context)!.close),
-          )
+              controller.closeField();
+              Navigator.pop(context);
+            },
+            child: Text(AppLocalizations.of(context)!.close),
+          ),
         ],
       ),
     );

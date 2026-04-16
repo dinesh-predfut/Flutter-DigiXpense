@@ -333,6 +333,8 @@ String get timesheet;
   String get taxAmount;
   String get cropImage;
   String get referenceId;
+    String get add;
+     String get reason;
   String get pleaseSelectMerchant;
   String get pleaseEnterMerchantName;
   String get createPerDiem;

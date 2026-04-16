@@ -162,7 +162,7 @@ class _CashAdvanceRequestDashboardState
       controller.selectedStatusDropDown.value = "Un Reported";
       controller.selectedExpenseType.value = "All Expenses";
       controller.searchControllerCashAdvance.clear();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
     });
     // controller.loadProfilePictureFromStorage();
@@ -770,7 +770,8 @@ class _CashAdvanceRequestDashboardState
                     item.requestDate != null
                         ? DateFormat('dd-MM-yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.requestDate,
+                              item.requestDate,isUtc: true
+                              
                             ),
                           )
                         : 'No date',

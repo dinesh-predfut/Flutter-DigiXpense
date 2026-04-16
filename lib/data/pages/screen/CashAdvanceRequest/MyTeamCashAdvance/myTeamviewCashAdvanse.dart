@@ -82,7 +82,7 @@ class _ViewMyteamCashAdvanceExpensePageState
     });
 
     final timestamp = widget.items!.requestDate; // assuming this is int
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp,isUtc: true);
     final formatted = DateFormat('dd-MM-yyyy').format(dateTime);
     requestDateController.text = formatted;
 

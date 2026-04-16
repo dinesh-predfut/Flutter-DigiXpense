@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
     show PermissionHelper;
+import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
@@ -147,10 +148,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   Map<String, dynamic> _prepareRequestBody() {
     // Get current employee info (you might need to get this from your auth system)
     final employeeId = Params.employeeId; // Replace with actual employee ID
-    final employeeName =
-        Params.employeeName; // Replace with actual employee name
+    final employeeName = Params.employeeName;
     print("REDID${controller.recId}");
-    // Prepare TimesheetLines
+
     List<Map<String, dynamic>> timesheetLines = [];
 
     for (int i = 0; i < controller.lineItems.length; i++) {
@@ -167,7 +167,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           "TimeTo": entry.timeTo,
           "TotalHours": double.tryParse(entry.totalHours) ?? 0.0,
           "OTHours": null,
-          "TimerRunning": false, // Add this field as per your API
+          "TimerRunning": false,
+          "InternalComment": entry.comment,
+          "RecId": entry.recId,
         });
       });
 
@@ -186,7 +188,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         "InternalComment": "",
         "ExternalComment": "",
         "IsConverted": false,
-        "RecId": null,
+        "RecId": line.recId,
         "DailyEntry": dailyEntries,
         "TaskName": line.task?.taskName ?? "",
       });
@@ -386,7 +388,20 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   @override
   void initState() {
     super.initState();
+    DateTime now = DateTime.now();
+    final range = controller.getWeekRangeUTC(DateTime.now());
 
+    final config = controller.getRuleConfig(
+      employeeId: "EMP001",
+      fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
+      toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
+    );
+    int diff = now.weekday - DateTime.monday;
+
+    DateTime start = DateTime(now.year, now.month, now.day - diff);
+    DateTime end = start.add(const Duration(days: 6));
+
+    controller.dateRange = DateTimeRange(start: start, end: end);
     if (widget.status) {
       timeSheetHistoryFuture = controller.fetchTimeSheetHistory(
         controller.recId,
@@ -425,10 +440,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         // final endDate = DateTime(now.year, now.month, 7);
 
         // controller.dateRange = DateTimeRange(start: startDate, end: endDate);
-        controller.dateRange = DateTimeRange(
-          start: DateTime.now(),
-          end: DateTime.now().add(const Duration(days: 7)),
-        );
       }
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
@@ -1020,7 +1031,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }
 
   String _formatDate(int millis) {
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return DateFormat('dd-MM-yyyy, hh:mm a').format(date);
   }
 
@@ -1455,7 +1466,10 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           // Assuming timestamp in milliseconds
           final timestamp = int.tryParse(value.toString());
           if (timestamp != null) {
-            final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+            final date = DateTime.fromMillisecondsSinceEpoch(
+              timestamp,
+              isUtc: true,
+            );
             return DateFormat('dd-MM-yyyy').format(date);
           }
         } catch (e) {
@@ -1468,7 +1482,10 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         try {
           final timestamp = int.tryParse(value.toString());
           if (timestamp != null) {
-            final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+            final date = DateTime.fromMillisecondsSinceEpoch(
+              timestamp,
+              isUtc: true,
+            );
             return DateFormat('dd-MM-yyyy HH:mm').format(date);
           }
         } catch (e) {
@@ -2888,37 +2905,70 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   /// =======================
   /// DATE PICKER
   /// =======================
-  Future<void> _pickDateRange() async {
-    final today = DateTime.now();
+  DateTime _onlyDate(DateTime d) => DateTime(d.year, d.month, d.day);
 
-    /// ✅ Default range = Today
-    final defaultRange = DateTimeRange(
-      start: DateTime(today.year, today.month, today.day),
-      end: DateTime(today.year, today.month, today.day),
+  Future<void> _pickDateRange() async {
+    DateTime today = DateTime.now();
+    DateTime lastDate = DateTime(today.year, today.month, today.day);
+
+    /// ✅ STEP 1: Set default ONLY if null (last 7 days)
+    controller.dateRange ??= DateTimeRange(
+      start: lastDate.subtract(const Duration(days: 6)),
+      end: lastDate,
     );
 
+    /// ✅ STEP 2: Normalize stored range
+    DateTime start = _onlyDate(controller.dateRange!.start);
+    DateTime end = _onlyDate(controller.dateRange!.end);
+
+    if (end.isAfter(lastDate)) {
+      final difference = end.difference(start);
+
+      end = lastDate;
+      start = end.subtract(difference);
+    }
+
+    /// ✅ STEP 4: Fix invalid range
+    if (start.isAfter(end)) {
+      start = end.subtract(const Duration(days: 6));
+    }
+
+    /// ✅ FINAL SAFE RANGE (used for highlight)
+    DateTimeRange safeRange = DateTimeRange(start: start, end: end);
+
+    /// 🔍 DEBUG LOGS
+    print("CONTROLLER RANGE: ${controller.dateRange}");
+    print("SAFE RANGE: $safeRange");
+
+    /// ✅ DATE PICKER
     final result = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2024),
-      lastDate: DateTime(today.year, today.month, today.day),
-      initialDateRange: controller.dateRange ?? defaultRange,
+      lastDate: lastDate,
+      initialDateRange: safeRange,
     );
 
+    /// ✅ AFTER SELECTION
     if (result != null) {
+      /// Normalize again before saving
+      DateTime newStart = _onlyDate(result.start);
+      DateTime newEnd = _onlyDate(result.end);
+
       setState(() {
-        controller.dateRange = result;
+        controller.dateRange = DateTimeRange(start: newStart, end: newEnd);
       });
 
-      /// ✅ Task API
+      print("NEW RANGE: ${controller.dateRange}");
+
+      /// ✅ API CALLS
       controller.fetchTasksTimeSheet(
-        fromDate: controller.getStartOfDayMillis(result.start),
-        toDate: controller.getEndOfDayMillis(result.end),
+        fromDate: controller.getStartOfDayMillis(newStart),
+        toDate: controller.getEndOfDayMillis(newEnd),
       );
 
-      /// ✅ Timesheet API
       controller.loadTimeSheetRange(
-        fromDate: controller.getStartOfDayMillis(result.start),
-        toDate: controller.getEndOfDayMillis(result.end),
+        fromDate: controller.getStartOfDayMillis(newStart),
+        toDate: controller.getEndOfDayMillis(newEnd),
       );
     }
   }
@@ -2936,29 +2986,36 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         break;
 
       case 'Weekly':
-        startDate = DateTime(now.year, now.month, now.day);
+
+        /// ✅ Monday as start of week
+        int diff = now.weekday - DateTime.monday;
+
+        startDate = DateTime(now.year, now.month, now.day - diff);
         endDate = startDate.add(const Duration(days: 6));
         break;
 
       case 'BiWeekly':
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = startDate.add(const Duration(days: 13));
+        final range = getBiWeeklyRange();
+        startDate = range.start;
+        endDate = range.end;
         break;
 
       case 'Semimonthly':
 
-        /// ✅ Always from 1st
-        startDate = DateTime(now.year, now.month, 1);
-        endDate = DateTime(now.year, now.month, 15);
+        /// Step 1: Go to last month
+        DateTime lastMonth = DateTime(now.year, now.month - 1, 1);
+
+        /// Step 2: 1st to 15th of last month
+        startDate = DateTime(lastMonth.year, lastMonth.month, 1);
+        endDate = DateTime(lastMonth.year, lastMonth.month, 15);
         break;
 
       case 'Monthly':
+        DateTime lastMonth = DateTime(now.year, now.month - 1, 1);
 
-        /// ✅ Always from 1st
-        startDate = DateTime(now.year, now.month, 1);
+        startDate = DateTime(lastMonth.year, lastMonth.month, 1);
 
-        /// Last day of current month
-        endDate = DateTime(now.year, now.month + 1, 0);
+        endDate = DateTime(lastMonth.year, lastMonth.month + 1, 0);
         break;
 
       default:
@@ -2968,6 +3025,30 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
     print("Start: $startDate");
     print("End: $endDate");
+
+    return DateTimeRange(start: startDate, end: endDate);
+  }
+
+  DateTimeRange getBiWeeklyRange() {
+    final now = DateTime.now();
+
+    /// Normalize today (remove time)
+    final today = DateTime(now.year, now.month, now.day);
+
+    /// Step 1: Find this week's Monday
+    int diff = today.weekday - DateTime.monday;
+    DateTime thisWeekMonday = today.subtract(Duration(days: diff));
+
+    /// Step 2: Last week's Sunday (end of last completed week)
+    DateTime lastWeekSunday = thisWeekMonday.subtract(const Duration(days: 1));
+
+    /// Step 3: Start = 13 days before that (2 weeks total)
+    DateTime startDate = lastWeekSunday.subtract(const Duration(days: 13));
+
+    DateTime endDate = lastWeekSunday;
+
+    print("BiWeekly Start: $startDate");
+    print("BiWeekly End: $endDate");
 
     return DateTimeRange(start: startDate, end: endDate);
   }
@@ -3163,7 +3244,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
 
         value = DateFormat(
           'dd-MM-yyyy',
-        ).format(DateTime.fromMillisecondsSinceEpoch(millis));
+        ).format(DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true));
       } catch (e) {
         print("Invalid date millis");
       }
@@ -3346,7 +3427,16 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
 
     final key = widget.entryDate.millisecondsSinceEpoch;
     final existing = controller.timeEntries[widget.lineIndex]?[key];
-
+    if (existing != null) {
+      // print("RecId: ${existing.recId}");
+      print("EntryDate: ${existing.entryDate}");
+      print("From: ${existing.timeFrom}");
+      print("To: ${existing.timeTo}");
+      print("Hours: ${existing.totalHours}");
+      print("comment: ${existing.comment}");
+    } else {
+      print("No entry found");
+    }
     if (existing != null) {
       totalHoursCtrl.text = existing.totalHours;
       commentCtrl.text = existing.comment ?? '';
@@ -3356,13 +3446,13 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
 
       if (timeFromMillis != null) {
         timeFromCtrl.text = timeFormat.format(
-          DateTime.fromMillisecondsSinceEpoch(timeFromMillis!),
+          DateTime.fromMillisecondsSinceEpoch(timeFromMillis!, isUtc: true),
         );
       }
 
       if (timeToMillis != null) {
         timeToCtrl.text = timeFormat.format(
-          DateTime.fromMillisecondsSinceEpoch(timeToMillis!),
+          DateTime.fromMillisecondsSinceEpoch(timeToMillis!, isUtc: true),
         );
       }
     }
@@ -3378,6 +3468,7 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
     if (existingMillis != null) {
       final existingDateTime = DateTime.fromMillisecondsSinceEpoch(
         existingMillis,
+        isUtc: true,
       );
 
       initialTime = TimeOfDay(
@@ -3447,9 +3538,10 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
 
   void _calculateTotalHours() {
     if (timeFromMillis != null && timeToMillis != null) {
-      final diff = DateTime.fromMillisecondsSinceEpoch(
-        timeToMillis!,
-      ).difference(DateTime.fromMillisecondsSinceEpoch(timeFromMillis!));
+      final diff = DateTime.fromMillisecondsSinceEpoch(timeToMillis!)
+          .difference(
+            DateTime.fromMillisecondsSinceEpoch(timeFromMillis!, isUtc: true),
+          );
 
       final hours = diff.inMinutes / 60;
       totalHoursCtrl.text = hours.toStringAsFixed(2);
@@ -3532,6 +3624,8 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
           /// Total Hours
           TextField(
             controller: totalHoursCtrl,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            keyboardType: TextInputType.number,
             // readOnly: true,
             enabled: controller.sheetEnable.value,
             decoration: InputDecoration(
@@ -3582,6 +3676,9 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                               timeTo: timeToMillis,
                               totalHours: totalHoursCtrl.text,
                               comment: commentCtrl.text,
+                              recId: controller
+                                  .timeEntries[widget.lineIndex]?[key]
+                                  ?.recId,
                             ),
                           );
 

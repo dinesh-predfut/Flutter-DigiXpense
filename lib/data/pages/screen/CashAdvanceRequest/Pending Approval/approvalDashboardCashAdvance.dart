@@ -1198,7 +1198,7 @@ class _PendingApprovalDashboardforPendingState
                       ),
                       Text(
                         DateFormat('dd-MM-yyyy').format(
-                          DateTime.fromMillisecondsSinceEpoch(item.requestDate),
+                          DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
                         ),
                         style: const TextStyle(fontSize: 12),
                       ),

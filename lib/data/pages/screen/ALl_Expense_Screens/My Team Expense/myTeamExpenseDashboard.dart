@@ -65,7 +65,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
       controller.searchControllerMyteamsExpense.clear();
       controller.selectedExpenseType.value = "All Expenses";
       controller.searchControllerMyteamsExpense.clear();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       _loadProfileImage();
     });

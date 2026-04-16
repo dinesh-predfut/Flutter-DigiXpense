@@ -48,7 +48,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
 
     // Load data
 
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
     controller.getPersonalDetails(context);
     // controller.fetchMileageRates();
     controller.fetchAndCombineData().then((_) {
@@ -834,7 +834,7 @@ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
                 Text(
                   item.requestDate != null
                       ? DateFormat('dd-MM-yyyy').format(
-                          DateTime.fromMillisecondsSinceEpoch(item.requestDate),
+                          DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
                         )
                       : 'No date',
                   style: const TextStyle(fontSize: 12),

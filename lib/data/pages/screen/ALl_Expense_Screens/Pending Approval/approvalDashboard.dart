@@ -147,7 +147,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
       controller.selectedExpenseIds.clear();
       controller.selectedExpenseType.value = "All Expenses";
     });
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
     controller.fetchAndCombineData().then((_) {
       if (controller.manageExpensesCards.isNotEmpty) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -1331,7 +1331,7 @@ Widget _buildCard(ExpenseModel item, BuildContext context) {
                         Text(
                           DateFormat('dd-MM-yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.receiptDate,
+                              item.receiptDate,isUtc: true
                             ),
                           ),
                           style: const TextStyle(fontSize: 12),

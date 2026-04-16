@@ -57,7 +57,7 @@ class _MyTeamPunchInOutList extends State<MyTeamPunchInOutList>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -72,7 +72,7 @@ class _MyTeamPunchInOutList extends State<MyTeamPunchInOutList>
       controller.searchQuery.value = '';
     });
 
-    controller.fetchNotifications();
+    controller.fetchUnreadNotifications();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.getPersonalDetails(context);
@@ -661,13 +661,13 @@ class _MyTeamPunchInOutList extends State<MyTeamPunchInOutList>
 
   String epochToIsoClean(int? epoch) {
     if (epoch == null) return '-';
-    final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
+    final dt = DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true).toLocal();
     return DateFormat('dd MM yyyy').format(dt);
   }
 
 String epochToIso(int? epoch) {
   if (epoch == null) return '-';
-  final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
+  final dt = DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true).toLocal();
   return DateFormat('dd-MM-yyyy HH:mm:ss').format(dt);
 }
 }
@@ -819,7 +819,7 @@ String epochToIso(int? epoch) {
 
     String epochToDateTime(int? epoch) {
       if (epoch == null) return '-';
-      final dt = DateTime.fromMillisecondsSinceEpoch(epoch).toLocal();
+      final dt = DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true).toLocal();
       return DateFormat('dd-MM-yyyy, hh:mm a').format(dt);
     }
   }

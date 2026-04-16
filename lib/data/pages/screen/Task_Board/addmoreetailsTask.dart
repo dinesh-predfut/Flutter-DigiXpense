@@ -260,7 +260,9 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
       if (_taskDetails == null) return;
 
       _taskNameController.text = _taskDetails!.taskName;
-      _notesController.text = parseHtmlString(_taskDetails!.notes!);
+      _notesController.text = _taskDetails!.notes != null
+          ? parseHtmlString(_taskDetails!.notes!)
+          : '';
       _priority = _taskDetails!.priority;
       _status = _taskDetails!.status;
       taskId.text = _taskDetails!.taskId;
@@ -280,13 +282,16 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         controller.selectedCardType.value = controller.cardType
             .firstWhereOrNull((c) => c.boardCardId.trim() == cardId);
       }
-
+      _selectedStatus = _statusList.firstWhere(
+        (s) => s.id == _taskDetails!.status, // match by id or name
+        orElse: () => _statusList.first, // fallback to first item
+      );
       controller.selectedMembers.clear();
       for (final assigned in _taskDetails!.assignedTo) {
         final user = controller.boardMembers.firstWhereOrNull(
           (u) => u.userName == assigned.employeeName,
         );
-
+        print("useruser$user");
         if (user != null) {
           controller.selectedMembers.add(user);
         }
@@ -398,61 +403,61 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [if(_createdName != null)
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 👇 Avatar
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.blue.shade100,
-                          child: Text(
-                            (_createdName != null)
-                                ? _createdName![0].toUpperCase()
-                                : "?",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
+              children: [
+                if (_createdName != null)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 👇 Avatar
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Colors.blue.shade100,
+                            child: Text(
+                              (_createdName != null)
+                                  ? _createdName![0].toUpperCase()
+                                  : "?",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
                             ),
                           ),
-                        ),
 
-                        const SizedBox(width: 10),
+                          const SizedBox(width: 10),
 
-                        // 👇 Text content
-                        Flexible(
-                          child: Text(
-                            "Created By: $_createdName | $_createdUserId",
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                          // 👇 Text content
+                          Flexible(
+                            child: Text(
+                              "Created By: $_createdName | $_createdUserId",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
                 /// TASK NAME
-                _section('${AppLocalizations.of(context)!.taskName} *'),
+                // _section('${AppLocalizations.of(context)!.taskName} *'),
                 TextFormField(
                   controller: _taskNameController,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
-                  decoration: _inputDecoration(
-                    AppLocalizations.of(context)!.taskName,
+                  decoration: _inputDecoration('${AppLocalizations.of(context)!.taskName} *'
                   ),
                 ),
 
@@ -477,7 +482,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         key: ValueKey(controller.tagDropdownRefresh.value),
                         showSelectedText: false,
                         enabled: true,
-                        labelText: AppLocalizations.of(context)!.selectTags,
+                        labelText: AppLocalizations.of(context)!.tags,
 
                         /// ✅ FILTERED LIST
                         items: availableTags,
@@ -611,7 +616,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                         key: ValueKey(controller.memberDropdownRefresh.value),
 
                         enabled: true,
-                        labelText: AppLocalizations.of(context)!.selectUsers,
+                        labelText: '${AppLocalizations.of(context)!.assignUsers} *',
                         items: controller.boardMembers,
                         selectedValues: controller.selectedMembers,
                         isMultiSelect: true,
@@ -715,7 +720,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                   ],
                 ),
                 if (controller.selectedMembers.isNotEmpty)
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                 _datePicker(
                   AppLocalizations.of(context)!.plannedStartDate,
                   plannedStartDate,
@@ -1374,6 +1379,31 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                  Row(
+  children: [
+    Text(
+      AppLocalizations.of(context)!.comment,
+      style: TextStyle(fontWeight: FontWeight.w600),
+    ),
+    SizedBox(width: 8),
+    Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor, // or any color
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '${controller.commentKanba.length}',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  ],
+),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _commentController,
                       maxLines: 3,
@@ -1491,6 +1521,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
                                 DateFormat('dd-MM-yyyy, hh:mm a').format(
                                   DateTime.fromMillisecondsSinceEpoch(
                                     c.createdDatetime,
+                                    isUtc: true,
                                   ),
                                 ),
                                 style: const TextStyle(

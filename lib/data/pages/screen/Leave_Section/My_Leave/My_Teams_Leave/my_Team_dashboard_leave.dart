@@ -99,7 +99,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
       _loadProfileImage();
       _initializeCalendarEvents();
       controller.loadMyTeamLeaveAnalytics();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.selectedAvailability.value = "All";
       controller.availabilityController.text = "All";
@@ -921,16 +921,24 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
                       const SizedBox(height: 24),
 
                       _buildDatePickerField(context),
-                      const SizedBox(height: 16),
+                      // const SizedBox(height: 16),
 
                       _buildViewTypeDropdown(context, controller),
-                      const SizedBox(height: 16),
+                      // const SizedBox(height: 16),
 
-                      Obx(
-                        () => controller.showEmployeeField.value
-                            ? _buildEmployeeMultiSelect(context, controller)
-                            : const SizedBox(),
-                      ),
+                   Obx(
+                            () => controller.showEmployeeField.value
+                                ? Column(
+                                    children: [
+                                      const SizedBox(height: 16),
+                                      _buildEmployeeMultiSelect(
+                                        context,
+                                        controller,
+                                      ),
+                                    ],
+                                  )
+                                : const SizedBox(),
+                          ),
 
                       const SizedBox(height: 16),
 

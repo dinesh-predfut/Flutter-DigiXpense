@@ -58,7 +58,7 @@ final controller = Get.find<Controller>();
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -71,12 +71,13 @@ final controller = Get.find<Controller>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.searchQuery.value = '';
       controller.selectedTimesheetIds.clear();
+      controller.searchControllerApprovalDashBoard.clear();
     });
 
     
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchPendingApprovalsTimeSHeet().then((_) {
         controller.isLoadingLeaves.value = false;

@@ -4,6 +4,7 @@ import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
+import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/data/models.dart';
@@ -72,6 +73,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   bool? isThereReferenceID = false;
   String? paidToError;
   String? cashAdvanceError;
+  String? employeeError;
   final RxnString paidwithError = RxnString();
   String? selectDate;
   String? selectReferenceIDError;
@@ -113,6 +115,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     //  controller.loadSequenceModules();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.isLoadingCAForm.value = true;
+      controller.fetchEmployeesID();
       loadSequenceAndUpdateUI();
       controller.configuration();
       controller.fetchPaidto();
@@ -3120,7 +3123,110 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                         },
                       ),
 
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
+                      if (PermissionHelper.canRead("User Delegates") == true)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SearchableMultiColumnDropdownField<EmployeeId>(
+                              labelText:
+                                  '${AppLocalizations.of(context)!.employeeId} *',
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.employeeName,
+                                AppLocalizations.of(context)!.employeeId,
+                              ],
+                              items: controller.employeesID,
+                              controller: controller.employeeDropDownController,
+                              selectedValue:
+                                  controller.selectedEmployeeID.value,
+                              searchValue: (emp) =>
+                                  '${emp.employeeName} ${emp.employeeId}',
+                              displayText: (emp) => emp.employeeId,
+                              validator: (emp) =>
+                                  controller
+                                      .employeeDropDownController
+                                      .text
+                                      .isEmpty
+                                  ? AppLocalizations.of(context)!.fieldRequired
+                                  : null,
+                              onChanged: (emp) {
+                                if (emp == null) {
+                                  controller.fetchEmployees();
+                                }
+                                setState(() {
+                                  controller.selectedEmployeeID.value = emp;
+                                  controller.employeeDropDownController.text =
+                                      emp!.employeeId;
+                                  controller.employeeName.text =
+                                      emp?.employeeName ?? '';
+                                });
+                              },
+                              rowBuilder: (emp, searchQuery) {
+                                bool isMatch = false;
+                                if (searchQuery.isNotEmpty) {
+                                  final searchableText =
+                                      '${emp.employeeName} ${emp.employeeId}'
+                                          .toLowerCase();
+                                  isMatch = searchableText.contains(
+                                    searchQuery.toLowerCase(),
+                                  );
+                                }
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 0,
+                                    horizontal: 0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            emp.employeeName,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            emp.employeeId,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 8),
+
+                            if (employeeError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  employeeError!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      if (employeeError != null) const SizedBox(height: 8),
                       Obx(() {
                         return Column(
                           children: controller.configListAdvance

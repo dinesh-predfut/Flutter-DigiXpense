@@ -43,7 +43,7 @@ class _LeaveReportDashbardState extends State<LeaveReportDashbard>
       controller.searchQuery.value = '';
       controller.searchControllerReports.clear();
       loadProfileImage();
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchAndAppendReports("LeaveRequisition").then((_) {
         controller.isLoadingGE1.value = false;

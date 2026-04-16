@@ -86,7 +86,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -104,7 +104,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     controller.fetchCustomFieldsTimeSheet();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.fetchNotifications();
+      controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchTimeSheetData().then((_) {
         controller.isLoadingLeaves.value = false;

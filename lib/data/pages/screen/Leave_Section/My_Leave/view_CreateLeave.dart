@@ -354,6 +354,15 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                       "${AppLocalizations.of(context)!.leaveRequisitionId} *",
                                   controller: controller.leaveIdcontroller,
                                   isReadOnly: true,
+                                  validator: (value) {
+                                    if (controller
+                                        .leaveIdcontroller
+                                        .text
+                                        .isEmpty) {
+                                      return '${AppLocalizations.of(context)!.leaveRequisitionId} ${AppLocalizations.of(context)!.fieldRequired}';
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 // const SizedBox(height: 16),
                               ],
@@ -462,8 +471,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             );
                           },
                         ),
-                        SizedBox(height: 16),
 
+                        // SizedBox(height: 16),
                         _buildConfigurableField(
                           fieldName: 'Delegated authority/Reliever',
                           builder: (isEnabled, isMandatory) {
@@ -593,7 +602,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           },
                         ),
 
-                        // const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
                         // Dates * (Always required)
                         TextFormField(
@@ -744,51 +753,56 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                         _buildConfigurableField(
                           fieldName: 'Contact number',
                           builder: (isEnabled, isMandatory) {
-                            return SizedBox(
-                              child: IntlPhoneField(
-                                controller: controller.leavephoneController,
-                                enabled: controller.leaveField.value,
-                                keyboardType: TextInputType.phone,
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  child: IntlPhoneField(
+                                    controller: controller.leavephoneController,
+                                    enabled: controller.leaveField.value,
+                                    keyboardType: TextInputType.phone,
 
-                                decoration: InputDecoration(
-                                  labelText:
-                                      "${AppLocalizations.of(context)!.contactNumber} ${isMandatory ? "*" : ""}",
-                                  labelStyle: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          "${AppLocalizations.of(context)!.contactNumber} ${isMandatory ? "*" : ""}",
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      counterText: "",
+                                    ),
+                                    initialCountryCode: 'IN',
+                                    onChanged: (phone) {
+                                      controller.leavephoneController.text =
+                                          phone.number;
+                                      controller.countryCodeController.text =
+                                          phone.countryCode;
+                                    },
+                                    onCountryChanged: (country) {
+                                      controller.countryCodeController.text =
+                                          "+${country.dialCode}";
+                                    },
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    validator: isMandatory
+                                        ? (value) {
+                                            if (controller
+                                                .leavephoneController
+                                                .text
+                                                .isEmpty) {
+                                              return '${AppLocalizations.of(context)!.contactNumber} ${AppLocalizations.of(context)!.fieldRequired}';
+                                            }
+                                            return null;
+                                          }
+                                        : null,
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  counterText: "",
                                 ),
-                                initialCountryCode: 'IN',
-                                onChanged: (phone) {
-                                  controller.leavephoneController.text =
-                                      phone.number;
-                                  controller.countryCodeController.text =
-                                      phone.countryCode;
-                                },
-                                onCountryChanged: (country) {
-                                  controller.countryCodeController.text =
-                                      "+${country.dialCode}";
-                                },
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                validator: isMandatory
-                                    ? (value) {
-                                        if (controller
-                                            .leavephoneController
-                                            .text
-                                            .isEmpty) {
-                                          return '${AppLocalizations.of(context)!.contactNumber} ${AppLocalizations.of(context)!.fieldRequired}';
-                                        }
-                                        return null;
-                                      }
-                                    : null,
-                              ),
+                                const SizedBox(height: 16),
+                              ],
                             );
                           },
                         ),
@@ -803,7 +817,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             labelText:
-                                '${AppLocalizations.of(context)!.enterNotes} *',
+                                '${AppLocalizations.of(context)!.reason} *',
                             border: const OutlineInputBorder(),
                             alignLabelWithHint: true,
                           ),
@@ -820,7 +834,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               : null,
                         ),
 
-                        const SizedBox(height: 16),
+                  
                         _buildConfigurableField(
                           fieldName: 'Availability during leave',
                           builder: (isEnabled, isMandatory) {
@@ -886,14 +900,14 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
                         // const SizedBox(height: 16),
                         _buildConfigurableField(
-                          fieldName: 'OutOfOfficeMessage',
+                          fieldName: 'Out  of Office Message',
                           builder: (isEnabled, isMandatory) {
                             return SizedBox(height: 16);
                           },
                         ),
                         // Out of Office Message
                         _buildConfigurableField(
-                          fieldName: 'OutOfOfficeMessage',
+                          fieldName: 'Out  of Office Message',
                           builder: (isEnabled, isMandatory) {
                             return TextFormField(
                               controller:
@@ -1518,6 +1532,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                       DateFormat('dd-MM-yyyy').format(
                                         DateTime.fromMillisecondsSinceEpoch(
                                           leaveDay.transDate,
+                                          isUtc: true,
                                         ),
                                       ),
                                     ),
@@ -1616,8 +1631,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               );
                               return;
                             }
-
-                           
 
                             await controller.submitPartialCancellation(
                               context,
@@ -2421,7 +2434,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
               PermissionHelper.canUpdate("Leave Requisition") &&
               widget.leaveRequest!.approvalStatus == "Approved" &&
               (widget.leaveRequest!.leaveStatus == "Approved" ||
-                  widget.leaveRequest!.leaveStatus != "PartiallyCancelled" &&  widget.leaveRequest!.leaveStatus != "Cancelled" ||
+                  widget.leaveRequest!.leaveStatus != "PartiallyCancelled" &&
+                      widget.leaveRequest!.leaveStatus != "Cancelled" ||
                   widget.leaveRequest!.leaveStatus == "Created") &&
               widget.leaveRequest?.leaveCancelId == null)
             Row(
@@ -2867,7 +2881,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     .whenComplete(() {
                       controller.setButtonLoading('cancel', false);
                     });
-             
+
                 // controller
                 //     .cancelExpense(
                 //       context,

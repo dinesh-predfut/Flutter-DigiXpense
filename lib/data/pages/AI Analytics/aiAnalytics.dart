@@ -1,9 +1,16 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/constant/Parames/params.dart';
 import '../../../core/constant/url.dart';
 import '../../../l10n/app_localizations.dart';
@@ -40,6 +47,10 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
   List<ChatMessage> _chatMessages = [];
   final controller = Get.find<Controller>();
 
+  // Keys for repaint boundary (screenshot per chart)
+  final Map<int, GlobalKey> _chartKeys = {};
+  final Map<int, GlobalKey> _tableKeys = {};
+
   final List<String> exampleQuestions = [
     "Expenses by Employees in the last 30 days?",
     "Which month had the most expenses submitted this year?",
@@ -50,7 +61,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
   @override
   void initState() {
     super.initState();
-
     _chatMessages.add(
       ChatMessage(
         text:
@@ -58,7 +68,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
         isUser: false,
       ),
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
       controller.checkAiHealth();
@@ -107,8 +116,9 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
         setState(() {
           _chatMessages.add(ChatMessage(text: answer, isUser: false));
-
           if (tableData.isNotEmpty) {
+            final tableIndex = _chatMessages.length;
+            _tableKeys[tableIndex] = GlobalKey();
             _chatMessages.add(
               ChatMessage(
                 text: 'Here is the breakdown:',
@@ -117,7 +127,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 tableData: tableData,
               ),
             );
-
+            final chartIndex = _chatMessages.length;
+            _chartKeys[chartIndex] = GlobalKey();
             _chatMessages.add(
               ChatMessage(
                 text: 'Expense Chart',
@@ -132,7 +143,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
         setState(() {
           _chatMessages.add(
             ChatMessage(
-              text: "Sorry, I couldn't process your request. Please try again.",
+              text:
+                  "Sorry, I couldn't process your request. Please try again.",
               isUser: false,
             ),
           );
@@ -150,8 +162,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     } finally {
       setState(() {
         _isProcessing = false;
-        _scrollToBottom();
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
   }
 
@@ -165,20 +177,16 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     return "Here's the information you requested:";
   }
 
-  /// ✅ Generic extractor: works with any dataset
   List<Map<String, String>> _extractTableData(dynamic json) {
     List<Map<String, String>> result = [];
-
     if (json is! Map<String, dynamic>) return result;
     if (!json.containsKey("data") || json["data"] is! Map<String, dynamic>) {
       return result;
     }
-
     final data = json["data"] as Map<String, dynamic>;
     final columnNames = data.keys.toList();
-
-    final rowCount = (data[columnNames.first] as Map<String, dynamic>).length;
-
+    final rowCount =
+        (data[columnNames.first] as Map<String, dynamic>).length;
     for (int i = 0; i < rowCount; i++) {
       Map<String, String> row = {};
       for (var col in columnNames) {
@@ -187,7 +195,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
       }
       result.add(row);
     }
-
     return result;
   }
 
@@ -203,6 +210,121 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     _controller.clear();
   }
 
+  // ✅ Download chart as image to gallery
+ Future<void> _downloadChart(GlobalKey key, String fileName) async {
+  try {
+    if (!mounted) return;
+
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    final ctx = key.currentContext;
+    if (ctx == null) {
+      print("Chart not ready");
+      return;
+    }
+
+    final boundary =
+        ctx.findRenderObject() as RenderRepaintBoundary?;
+
+    if (boundary == null) {
+      print("Boundary not found");
+      return;
+    }
+
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) return;
+
+    final pngBytes = byteData.buffer.asUint8List();
+
+    // ✅ Save temporarily inside app
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/$fileName.png';
+
+    final file = File(filePath);
+    await file.writeAsBytes(pngBytes);
+
+    // ✅ Share (user can save anywhere)
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: 'Expense Chart',
+    );
+
+  } catch (e) {
+    print("Error: $e");
+  }
+}
+
+  // ✅ Download table as CSV
+  Future<void> _downloadTableAsCSV(
+      List<Map<String, String>> data, String fileName) async {
+    try {
+     
+      if (data.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.noDataFound),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final columns = data.first.keys.toList();
+      final StringBuffer csv = StringBuffer();
+
+      // Header row
+      csv.writeln(columns.join(','));
+
+      // Data rows
+      for (final row in data) {
+        csv.writeln(columns.map((col) => '"${row[col] ?? ""}"').join(','));
+      }
+
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      final String filePath =
+          '${directory!.path}/${fileName}_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final File file = File(filePath);
+      await file.writeAsString(csv.toString());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('CSV saved to $filePath'),
+            backgroundColor: const Color(0xFF4A148C),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('CSV download failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<Controller>();
@@ -212,8 +334,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
         controller.resetFieldsMileage();
         controller.clearFormFieldsPerdiem();
         Navigator.pushNamed(context, AppRoutes.dashboard_Main);
-
-        return true; // allow back navigation
+        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -221,7 +342,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
             '${AppLocalizations.of(context)!.aiAnalytics} ',
             style: const TextStyle(color: Colors.white),
           ),
-          // backgroundColor: const Color(0xFF4A148C),
           iconTheme: const IconThemeData(color: Colors.white),
           actions: [
             Obx(() {
@@ -229,9 +349,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 padding: const EdgeInsets.only(right: 8.0),
                 child: TextButton(
                   onPressed: controller.isAiActive.value
-                      ? () {
-                          // AI Action
-                        }
+                      ? () {}
                       : null,
                   style: TextButton.styleFrom(
                     foregroundColor: controller.isAiActive.value
@@ -249,7 +367,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                         )
                       : Text(
                           controller.isAiActive.value ? "Active" : "In Active",
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -259,7 +377,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
             }),
           ],
         ),
-
         body: Column(
           children: [
             Container(
@@ -287,7 +404,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: _chatMessages.length,
                 itemBuilder: (context, index) {
-                  return _buildChatBubble(_chatMessages[index]);
+                  return _buildChatBubble(_chatMessages[index], index);
                 },
               ),
             ),
@@ -302,7 +419,6 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        // color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Column(
@@ -310,7 +426,7 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
         children: [
           Text(
             AppLocalizations.of(context)!.tryAsking,
-            style: TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -326,8 +442,10 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                       exampleQuestions[index],
                       style: const TextStyle(fontSize: 12),
                     ),
-                    onPressed: () => _onExamplePressed(exampleQuestions[index]),
-                    backgroundColor: const Color(0xFF4A148C).withAlpha(30),
+                    onPressed: () =>
+                        _onExamplePressed(exampleQuestions[index]),
+                    backgroundColor:
+                        const Color(0xFF4A148C).withAlpha(30),
                   ),
                 );
               },
@@ -340,7 +458,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 child: TextField(
                   controller: _controller,
                   decoration: InputDecoration(
-                    hintText: AppLocalizations.of(context)!.askQuestionPrompt,
+                    hintText:
+                        AppLocalizations.of(context)!.askQuestionPrompt,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -348,15 +467,14 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    // filled: true,
-                    // fillColor: Colors.white,
                     suffixIcon: _isProcessing
                         ? const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
                             ),
                           )
                         : null,
@@ -373,7 +491,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                  icon: const Icon(Icons.send,
+                      color: Colors.white, size: 20),
                   onPressed: _isProcessing ? null : _onSubmit,
                 ),
               ),
@@ -384,16 +503,15 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
     );
   }
 
-  Widget _buildChatBubble(ChatMessage message) {
+  Widget _buildChatBubble(ChatMessage message, int index) {
     final isUser = message.isUser;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isUser)
             Container(
@@ -403,7 +521,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 color: const Color(0xFF4A148C),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.analytics, color: Colors.white, size: 18),
+              child: const Icon(Icons.analytics,
+                  color: Colors.white, size: 18),
             ),
           if (!isUser) const SizedBox(width: 8),
           Expanded(
@@ -435,9 +554,11 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                     ),
                   ),
                 if (message.isTable && message.tableData != null)
-                  _buildTable(message.tableData!),
+                  _buildTableWithDownload(
+                      message.tableData!, index),
                 if (message.isPlot && message.tableData != null)
-                  _buildChart(message.tableData!),
+                  _buildChartWithDownload(
+                      message.tableData!, index),
               ],
             ),
           ),
@@ -450,22 +571,103 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
+              child: const Icon(Icons.person,
+                  color: Colors.white, size: 18),
             ),
         ],
       ),
     );
   }
 
-  /// ✅ Dynamic table builder
+  // ✅ Table with download CSV button
+  Widget _buildTableWithDownload(
+      List<Map<String, String>> data, int index) {
+    final tableKey = _tableKeys[index] ?? GlobalKey();
+    _tableKeys[index] = tableKey;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RepaintBoundary(
+          key: tableKey,
+          child: _buildTable(data),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () =>
+                _downloadTableAsCSV(data, 'expense_table'),
+            icon: const Icon(Icons.download,
+                size: 16, color: Color(0xFF4A148C)),
+            label: const Text(
+              'Download CSV',
+              style: TextStyle(
+                  color: Color(0xFF4A148C), fontSize: 12),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              side: const BorderSide(
+                  color: Color(0xFF4A148C), width: 0.8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ Chart with download PNG button
+  Widget _buildChartWithDownload(
+      List<Map<String, String>> data, int index) {
+    final chartKey = _chartKeys[index] ?? GlobalKey();
+    _chartKeys[index] = chartKey;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RepaintBoundary(
+          key: chartKey,
+          child: _buildChart(data),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () =>
+                _downloadChart(chartKey, 'expense_chart'),
+            icon: const Icon(Icons.download,
+                size: 16, color: Color(0xFF4A148C)),
+            label: const Text(
+              'Download Chart',
+              style: TextStyle(
+                  color: Color(0xFF4A148C), fontSize: 12),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              side: const BorderSide(
+                  color: Color(0xFF4A148C), width: 0.8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ Dynamic table builder
   Widget _buildTable(List<Map<String, String>> data) {
     if (data.isEmpty) return const SizedBox.shrink();
-
     final columns = data.first.keys.toList();
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -481,7 +683,8 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
                 (col) => DataColumn(
                   label: Text(
                     col,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
               )
@@ -491,10 +694,11 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
               cells: columns.map((col) {
                 return DataCell(
                   SizedBox(
-                    width: 120,
+                    width: 130,
                     child: Text(
                       _formatValue(row[col]),
                       overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 );
@@ -508,59 +712,107 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
 
   String _formatValue(String? value) {
     if (value == null || value.isEmpty) return "";
-
     final numVal = double.tryParse(value);
-    if (numVal != null) {
-      return numVal.toStringAsFixed(2);
+    if (numVal != null) return numVal.toStringAsFixed(2);
+    // ✅ Format ISO date strings
+    if (value.contains('T') && value.contains('-')) {
+      try {
+        final dt = DateTime.parse(value);
+        return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      } catch (_) {}
     }
-
     return value;
   }
 
-  /// ✅ Always bar chart
+  // ✅ Bar chart with proper X and Y axes
   Widget _buildChart(List<Map<String, String>> data) {
     if (data.isEmpty) {
-      return Center(child: Text(AppLocalizations.of(context)!.noDataFound));
+      return Center(
+          child: Text(AppLocalizations.of(context)!.noDataFound));
     }
 
     final columns = data.first.keys.toList();
 
-    // First string column = labels (X axis)
-    String? labelCol = columns.firstWhere(
+    String labelCol = columns.firstWhere(
       (col) => data.any((row) => double.tryParse(row[col] ?? '') == null),
       orElse: () => columns.first,
     );
 
-    // First numeric column = values (Y axis)
-    String? valueCol = columns.firstWhere(
-      (col) => data.any((row) => double.tryParse(row[col] ?? '') != null),
+    String valueCol = columns.firstWhere(
+      (col) =>
+          col != labelCol &&
+          data.any((row) => double.tryParse(row[col] ?? '') != null),
       orElse: () => columns.last,
     );
 
-    final labels = data.map((row) => row[labelCol!] ?? "").toList();
+    // ✅ Format labels (shorten ISO dates)
+    final labels = data.map((row) {
+      final raw = row[labelCol] ?? "";
+      if (raw.contains('T') && raw.contains('-')) {
+        try {
+          final dt = DateTime.parse(raw);
+          return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+        } catch (_) {}
+      }
+      // Shorten long strings
+      return raw.length > 12 ? '${raw.substring(0, 10)}…' : raw;
+    }).toList();
+
     final values = data
-        .map((row) => double.tryParse(row[valueCol!] ?? "0") ?? 0)
+        .map((row) => double.tryParse(row[valueCol] ?? "0") ?? 0)
         .toList();
 
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+
     return Container(
-      height: 280,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Last ${values.length} Expense Transactions",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          // ✅ Chart title
+          Center(
+            child: Text(
+              '${valueCol} Overview',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Color(0xFF4A148C),
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
+          const SizedBox(height: 12),
+          // ✅ Chart with axes
+          SizedBox(
+            height: 260,
             child: CustomPaint(
-              size: const Size(double.infinity, 220),
-              painter: BarChartPainter(values, labels),
+              size: const Size(double.infinity, 260),
+              painter: AxisBarChartPainter(
+                values: values,
+                labels: labels,
+                maxValue: maxValue,
+                barColor: const Color(0xFF4A148C),
+                axisColor: Colors.grey.shade600,
+                gridColor: Colors.grey.shade200,
+                labelColor: const Color(0xFF4A148C),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // ✅ X-axis column label
+          Center(
+            child: Text(
+              labelCol,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ),
         ],
@@ -569,49 +821,182 @@ class _AIAnalyticsPageState extends State<AIAnalyticsPage> {
   }
 }
 
-/// ✅ Custom painter for bar chart
-class BarChartPainter extends CustomPainter {
+// ✅ Fully rewritten bar chart painter with X and Y axes
+class AxisBarChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> labels;
+  final double maxValue;
+  final Color barColor;
+  final Color axisColor;
+  final Color gridColor;
+  final Color labelColor;
 
-  BarChartPainter(this.values, this.labels);
+  AxisBarChartPainter({
+    required this.values,
+    required this.labels,
+    required this.maxValue,
+    required this.barColor,
+    required this.axisColor,
+    required this.gridColor,
+    required this.labelColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (values.isEmpty) return;
 
-    final paint = Paint()
-      ..color = const Color(0xFF4A148C)
+    // ✅ Layout margins
+    const double leftMargin = 52.0;   // Y-axis label space
+    const double bottomMargin = 48.0; // X-axis label space
+    const double topMargin = 8.0;
+    const double rightMargin = 8.0;
+
+    final chartWidth = size.width - leftMargin - rightMargin;
+    final chartHeight = size.height - bottomMargin - topMargin;
+
+    final axisPaint = Paint()
+      ..color = axisColor
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
+
+    final barPaint = Paint()
+      ..color = barColor
       ..style = PaintingStyle.fill;
 
-    final maxVal = values.reduce((a, b) => a > b ? a : b);
-    final barWidth = size.width / (values.length * 1.5);
+    // ✅ Draw Y-axis grid lines and labels (5 steps)
+    const int ySteps = 5;
+    final textPainterY = TextPainter(
+      textAlign: TextAlign.right,
+      textDirection: TextDirection.ltr,
+    );
 
-    final textStyle = TextStyle(color: Colors.cyanAccent[700], fontSize: 5);
-    final textPainter = TextPainter(
+    for (int i = 0; i <= ySteps; i++) {
+      final double yValue = maxValue * i / ySteps;
+      final double y =
+          topMargin + chartHeight - (chartHeight * i / ySteps);
+
+      // Grid line
+      canvas.drawLine(
+        Offset(leftMargin, y),
+        Offset(leftMargin + chartWidth, y),
+        i == 0 ? axisPaint : gridPaint,
+      );
+
+      // Y label
+      final label = yValue >= 1000
+          ? '${(yValue / 1000).toStringAsFixed(1)}k'
+          : yValue.toStringAsFixed(0);
+
+      textPainterY.text = TextSpan(
+        text: label,
+        style: TextStyle(
+          color: axisColor,
+          fontSize: 9,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+      textPainterY.layout(maxWidth: leftMargin - 4);
+      textPainterY.paint(
+        canvas,
+        Offset(leftMargin - textPainterY.width - 4, y - 6),
+      );
+    }
+
+    // ✅ Draw X-axis line
+    canvas.drawLine(
+      Offset(leftMargin, topMargin + chartHeight),
+      Offset(leftMargin + chartWidth, topMargin + chartHeight),
+      axisPaint,
+    );
+
+    // ✅ Draw Y-axis line
+    canvas.drawLine(
+      Offset(leftMargin, topMargin),
+      Offset(leftMargin, topMargin + chartHeight),
+      axisPaint,
+    );
+
+    // ✅ Draw bars and X labels
+    final int count = values.length;
+    final double groupWidth = chartWidth / count;
+    final double barWidth = groupWidth * 0.55;
+
+    final textPainterX = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    for (int i = 0; i < values.length; i++) {
-      final x = i * (barWidth * 1.5) + barWidth / 2;
-      final barHeight = (values[i] / maxVal) * size.height;
+    for (int i = 0; i < count; i++) {
+      final double x = leftMargin + i * groupWidth + (groupWidth - barWidth) / 2;
+      final double barHeight = maxValue > 0
+          ? (values[i] / maxValue) * chartHeight
+          : 0;
+      final double top = topMargin + chartHeight - barHeight;
 
-      final rect = Rect.fromLTWH(
-        x,
-        size.height - barHeight,
-        barWidth,
-        barHeight,
+      // ✅ Bar
+      final barRect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, top, barWidth, barHeight),
+        topLeft: const Radius.circular(3),
+        topRight: const Radius.circular(3),
       );
-      canvas.drawRect(rect, paint);
+      canvas.drawRRect(barRect, barPaint);
 
-      // Draw label under bar
-      textPainter.text = TextSpan(text: labels[i], style: textStyle);
-      textPainter.layout(maxWidth: barWidth * 2);
-      textPainter.paint(canvas, Offset(x - barWidth / 2, size.height + 2));
+      // ✅ Value label on top of bar
+      final valLabel = values[i] >= 1000
+          ? '${(values[i] / 1000).toStringAsFixed(1)}k'
+          : values[i].toStringAsFixed(0);
+
+      textPainterX.text = TextSpan(
+        text: valLabel,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+      textPainterX.layout(maxWidth: groupWidth);
+      textPainterX.paint(
+        canvas,
+        Offset(
+          x + barWidth / 2 - textPainterX.width / 2,
+          top - textPainterX.height - 2,
+        ),
+      );
+
+      // ✅ X-axis label (rotated for long text)
+      final xLabel = labels[i];
+      textPainterX.text = TextSpan(
+        text: xLabel,
+        style: TextStyle(
+          color: axisColor,
+          fontSize: 9,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+      textPainterX.layout(maxWidth: groupWidth * 1.8);
+
+      canvas.save();
+      // Rotate label -30° for readability
+      final double labelX =
+          x + barWidth / 2;
+      final double labelY =
+          topMargin + chartHeight + 6;
+      canvas.translate(labelX, labelY);
+      canvas.rotate(-0.5); // ~28 degrees
+      textPainterX.paint(
+        canvas,
+        Offset(-textPainterX.width / 2, 0),
+      );
+      canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant AxisBarChartPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.labels != labels;
 }
