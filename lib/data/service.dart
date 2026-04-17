@@ -117,6 +117,7 @@ class Controller extends GetxController {
   final TextEditingController locale = TextEditingController();
   final TextEditingController justificationnotes = TextEditingController();
   RxBool isPublic = true.obs;
+  RxBool enableTimerButton = false.obs;
   RxInt employeeDropdownRefresh = 0.obs;
   TextEditingController boardNameController = TextEditingController();
   TextEditingController taskNameController = TextEditingController();
@@ -151,6 +152,7 @@ class Controller extends GetxController {
   RxString boardNameErrorMsg = "".obs;
   String? lastCurrency2;
   String? lastAmount2;
+  int? limitpostdate;
 
   ExchangeRateResponse? cachedExchange2;
   ExchangeRateResponse? cachedExchangeResponse;
@@ -2249,30 +2251,30 @@ class Controller extends GetxController {
   }
 
   Map<String, String> dateFormatMap = {
-    'MM/dd/yyyy': '01/20/2023',
-    'dd/MM/yyyy': '20/01/2023',
-    'yyyy/MM/dd': '2023/01/20',
+  'MM/dd/yyyy': '01/20/2023',
+  'dd/MM/yyyy': '20/01/2023',
+  'yyyy/MM/dd': '2023/01/20',
 
-    'MM-dd-yyyy': '01-20-2023',
-    'dd-MM-yyyy': '20-01-2023',
-    'yyyy-MM-dd': '2023-01-20',
+  'MM-dd-yyyy': '01-20-2023',
+  'dd-MM-yyyy': '20-01-2023',
+  'yyyy-MM-dd': '2023-01-20',
 
-    'MM.dd.yyyy': '01.20.2023',
-    'dd.MM.yyyy': '20.01.2023',
-    'yyyy.MM.dd': '2023.01.20',
+  'MM.dd.yyyy': '01.20.2023',
+  'dd.MM.yyyy': '20.01.2023',
+  'yyyy.MM.dd': '2023.01.20',
 
-    'MMM/dd/yyyy': 'Jan/20/2023',
-    'dd/MMM/yyyy': '20/Jan/2023',
-    'yyyy/MMM/dd': '2023/Jan/20',
+  'mm/dd/yyyy': '01/20/2023',
+  'dd/mm/yyyy': '20/01/2023',
+  'yyyy/mm/dd': '2023/01/20',
 
-    'MMM-dd-yyyy': 'Jan-20-2023',
-    'dd-MMM-yyyy': '20-Jan-2023',
-    'yyyy-MMM-dd': '2023-Jan-20',
+  'mm-dd-yyyy': '01-20-2023',
+  'dd-mm-yyyy': '20-01-2023',
+  'yyyy-mm-dd': '2023-01-20',
 
-    'MMM.dd.yyyy': 'Jan.20.2023',
-    'dd.MMM.yyyy': '20.Jan.2023',
-    'yyyy.MMM.dd': '2023.Jan.20',
-  };
+  'mm.dd.yyyy': '01.20.2023',
+  'dd.mm.yyyy': '20.01.2023',
+  'yyyy.mm.dd': '2023.01.20',
+};
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ThemeColor');
@@ -3347,7 +3349,7 @@ class Controller extends GetxController {
     sheetEnable.value = false;
     durationSeconds.value = 0;
     taskList.clear();
-    periodType = 'Weekly';
+    periodType.value = '';
 
     /// Line items
     lineItems.clear();
@@ -3385,6 +3387,7 @@ class Controller extends GetxController {
     OpenFilex.open(file.path);
   }
 
+  RuleConfigSettings? ruleConfig;
   void openFile(BuildContext context, File file, int index) {
     if (!isEnable.value) {
       OpenFilex.open(file.path);
@@ -3514,7 +3517,8 @@ class Controller extends GetxController {
     }
   }
 
-  String periodType = 'Weekly';
+  RxString periodType = ''.obs;
+
   String stepValue = '';
   final TextEditingController timeSheetID = TextEditingController();
   DateTimeRange? dateRange;
@@ -3528,7 +3532,7 @@ class Controller extends GetxController {
     /// HEADER
     projectDropDowncontroller.text = data["ProjectId"] ?? '';
     stepValue = data['StepType'] ?? '';
-    periodType = getPeriodTypeForUI(data['Frequency'] ?? '');
+    periodType.value = getPeriodTypeForUI(data['Frequency'] ?? '');
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
     dateRange = DateTimeRange(
@@ -9771,7 +9775,7 @@ class Controller extends GetxController {
   }
 
   /// Week range (Monday → Sunday) in UTC
-   Map<String, int> getWeekRangeUTC(DateTime date) {
+  Map<String, int> getWeekRangeUTC(DateTime date) {
     final start = date.subtract(Duration(days: date.weekday - 1));
     final end = start.add(const Duration(days: 6));
 
@@ -9784,12 +9788,14 @@ class Controller extends GetxController {
     };
   }
 
-   Future<RuleConfigSettings?> getRuleConfig({
+  Future<RuleConfigSettings?> getRuleConfig({
     required String employeeId,
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
-    print("Fetching rule config for Employee ID: $employeeId, From: $fromDate, To: $toDate");
+    print(
+      "Fetching rule config for Employee ID: $employeeId, From: $fromDate, To: $toDate",
+    );
     try {
       final response = await ApiService.get(
         Uri.parse(
@@ -9798,10 +9804,10 @@ class Controller extends GetxController {
       );
 
       if (response.body.isNotEmpty) {
-      // Parse the response body as JSON
-      final Map<String, dynamic> jsonData = jsonDecode(response.body);
-      return RuleConfigSettings.fromJson(jsonData);
-    }
+        // Parse the response body as JSON
+        final Map<String, dynamic> jsonData = jsonDecode(response.body);
+        return RuleConfigSettings.fromJson(jsonData);
+      }
     } catch (e) {
       print("RuleConfig API Error: $e");
     }
@@ -18435,7 +18441,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/runs?page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/runs?filter_query=TSRTimeRun.CreatedBy__eq%3D${Params.userId}%26TSRTimeRun.IsActive__eq%3DTrue&page=1&sort_order=asc',
       ),
     );
 
@@ -18476,7 +18482,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/segments?page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/segments?filter_query=TSRTimeRunSegment.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunSegment.IsActive__eq%3DTrue&page=1&sort_order=asc',
       ),
     );
 
@@ -18498,7 +18504,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/events?page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/events?filter_query=TSRTimeRunEvent.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunEvent.IsActive__eq%3DTrue&page=1&sort_order=asc',
       ),
     );
 
@@ -18563,8 +18569,10 @@ class Controller extends GetxController {
           fontSize: 16.0,
         );
       } else {
+          final Map<String, dynamic> responseData = jsonDecode(res.body);
+        final message = responseData['detail']['message'];
         Fluttertoast.showToast(
-          msg: "Timesheet Submit Error",
+          msg: message,
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red,
@@ -18663,7 +18671,7 @@ class Controller extends GetxController {
       "EmployeeName": Params.employeeName ?? userName.value,
       "TimesheetLocation": null,
       "ReferenceId": null,
-      "Frequency": getFrequency(periodType),
+      "Frequency": getFrequency(periodType.value),
       "ProjectId": projectDropDowncontroller.text.isEmpty
           ? null
           : projectDropDowncontroller.text,
@@ -18710,7 +18718,7 @@ class Controller extends GetxController {
           response.statusCode == 280) {
         clearTimeSheetForm();
 
-        periodType = 'Weekly';
+        periodType.value = '';
         dateRange = null;
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final message = responseData['detail']['message'];

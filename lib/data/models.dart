@@ -6750,35 +6750,37 @@ class RuleConfigSettings {
   final bool breakTimeDeductionRequired;
   final bool remarksMandatoryForOTDays;
   final bool isOverTimeAllowed;
-  final String dayWeekStarts;
-  final String dayMonthStarts;
+  final String? dayWeekStarts;
+  final String? dayMonthStarts;
   final bool attachmentsRequired;
-  final String frequency;
+  final String? frequency;
   final bool requiredApproval;
-  final dynamic defaultWorkFlow;
+  final Map<String, dynamic>? defaultWorkFlow;
   final bool editableAfterApproval;
-  final bool sycWithOverTimeModule;
-  final String integrationSource;
+  final bool syncWithOverTimeModule;
+  final String? integrationSource;
   final bool auditTrailEnabled;
-  final String captureMethod;
-  final String entryFrequency;
+  final String? captureMethod;
+  final String? entryFrequency;
+  final double limitForPastDate;
 
   RuleConfigSettings({
     required this.breakTimeDeductionRequired,
     required this.remarksMandatoryForOTDays,
     required this.isOverTimeAllowed,
-    required this.dayWeekStarts,
-    required this.dayMonthStarts,
+    this.dayWeekStarts,
+    this.dayMonthStarts,
     required this.attachmentsRequired,
-    required this.frequency,
+    this.frequency,
     required this.requiredApproval,
     this.defaultWorkFlow,
     required this.editableAfterApproval,
-    required this.sycWithOverTimeModule,
-    required this.integrationSource,
+    required this.syncWithOverTimeModule,
+    this.integrationSource,
     required this.auditTrailEnabled,
-    required this.captureMethod,
-    required this.entryFrequency,
+    this.captureMethod,
+    this.entryFrequency,
+    required this.limitForPastDate,
   });
 
   factory RuleConfigSettings.fromJson(Map<String, dynamic> json) {
@@ -6786,19 +6788,43 @@ class RuleConfigSettings {
       breakTimeDeductionRequired: json['BreakTimeDeductionRequired'] ?? false,
       remarksMandatoryForOTDays: json['RemarksMandatoryForOTDays'] ?? false,
       isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
-      dayWeekStarts: json['DayWeekStarts'] ?? '',
-      dayMonthStarts: json['DayMonthStarts'] ?? '',
+      dayWeekStarts: json['DayWeekStarts'],
+      dayMonthStarts: json['DayMonthStarts'],
       attachmentsRequired: json['AttachmentsRequired'] ?? false,
-      frequency: json['Frequency'] ?? '',
+      frequency: json['Frequency'],
       requiredApproval: json['RequiredApproval'] ?? false,
-      defaultWorkFlow: json['DefaultWorkFlow'],
+      defaultWorkFlow: json['DefaultWorkFlow'] != null
+          ? Map<String, dynamic>.from(json['DefaultWorkFlow'])
+          : null,
       editableAfterApproval: json['EditableAfterApproval'] ?? false,
-      sycWithOverTimeModule: json['SycWithOverTimeModule'] ?? false,
-      integrationSource: json['IntegrationSource'] ?? '',
+      syncWithOverTimeModule: json['SycWithOverTimeModule'] ?? false,
+      integrationSource: json['IntegrationSource'],
       auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
-      captureMethod: json['CaptureMethod'] ?? '',
-      entryFrequency: json['EntryFrequency'] ?? '',
+      captureMethod: json['CaptureMethod'],
+      entryFrequency: json['EntryFrequency'],
+      limitForPastDate: json['LimitForPastDate'] ,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'BreakTimeDeductionRequired': breakTimeDeductionRequired,
+      'RemarksMandatoryForOTDays': remarksMandatoryForOTDays,
+      'IsOverTimeAllowed': isOverTimeAllowed,
+      'DayWeekStarts': dayWeekStarts,
+      'DayMonthStarts': dayMonthStarts,
+      'AttachmentsRequired': attachmentsRequired,
+      'Frequency': frequency,
+      'RequiredApproval': requiredApproval,
+      'DefaultWorkFlow': defaultWorkFlow,
+      'EditableAfterApproval': editableAfterApproval,
+      'SycWithOverTimeModule': syncWithOverTimeModule,
+      'IntegrationSource': integrationSource,
+      'AuditTrailEnabled': auditTrailEnabled,
+      'CaptureMethod': captureMethod,
+      'EntryFrequency': entryFrequency,
+      'LimitForPastDate': limitForPastDate,
+    };
   }
 }
 class TimeEntryModel {

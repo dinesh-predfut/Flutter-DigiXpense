@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:diginexa/core/comman/widgets/customTimesheetDatePicker.dart';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
     show PermissionHelper;
@@ -210,7 +211,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       "EmployeeName": Params.employeeName ?? controller.userName.value,
       "TimesheetLocation": null,
       "ReferenceId": null,
-      "Frequency": getFrequency(controller.periodType),
+      "Frequency": getFrequency(controller.periodType.value),
       // Convert "Weekly" to "Week"
       "ProjectId": controller.projectDropDowncontroller.text.isEmpty
           ? null
@@ -249,7 +250,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         controller.clearTimeSheetForm();
 
         setState(() {
-          controller.periodType = 'Weekly';
+          controller.periodType.value = '';
           controller.dateRange = null;
         });
         Navigator.pushNamed(context, AppRoutes.timeSheetDashboard);
@@ -314,7 +315,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         controller.clearTimeSheetForm();
 
         setState(() {
-          controller.periodType = 'Weekly';
+          controller.periodType.value = '';
           controller.dateRange = null;
         });
         Navigator.pushNamed(context, AppRoutes.timeSheetDashboard);
@@ -388,20 +389,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   @override
   void initState() {
     super.initState();
-    DateTime now = DateTime.now();
-    final range = controller.getWeekRangeUTC(DateTime.now());
 
-    final config = controller.getRuleConfig(
-      employeeId: "EMP001",
-      fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
-      toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
-    );
-    int diff = now.weekday - DateTime.monday;
-
-    DateTime start = DateTime(now.year, now.month, now.day - diff);
-    DateTime end = start.add(const Duration(days: 6));
-
-    controller.dateRange = DateTimeRange(start: start, end: end);
     if (widget.status) {
       timeSheetHistoryFuture = controller.fetchTimeSheetHistory(
         controller.recId,
@@ -412,6 +400,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
     // Initialize status from widget data if exists
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.isLoading.value = true;
+      await init();
       controller.loadSequenceModules();
 
       controller.Sheetconfiguration();
@@ -468,7 +458,138 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           999,
         ).millisecondsSinceEpoch,
       );
+      controller.isLoading.value = false;
     });
+  }
+
+  // In your controller's initialization
+  Future<void> init() async {
+    DateTime now = DateTime.now();
+    final range = controller.getWeekRangeUTC(DateTime.now());
+    final config = await controller.getRuleConfig(
+      employeeId: Params.employeeId,
+      fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
+      toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
+    );
+    controller.ruleConfig = config;
+    if (config != null) {
+      controller.periodType.value = controller.getPeriodTypeForUI(
+        config.entryFrequency ?? '',
+      );
+    }
+    print(controller.periodType.value);
+    final frequency = config?.entryFrequency ?? "";
+
+    controller.dateRange = _getDateRangeByPeriod(
+      frequency,
+      now,
+      weekStart: config?.dayWeekStarts ?? "Monday",
+      monthStart: config?.dayMonthStarts ?? "1st",
+    );
+    // Use frequency value
+  }
+
+  DateTimeRange getRangeFromConfig(
+    String type,
+    DateTime date, {
+    String weekStart = "Monday",
+    String monthStart = "1st",
+  }) {
+    date = DateTime(date.year, date.month, date.day);
+
+    int getWeekdayIndex(String day) {
+      const map = {
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6,
+        'Sunday': 7,
+      };
+      return map[day] ?? 1;
+    }
+
+    int weekStartIndex = getWeekdayIndex(weekStart);
+
+    // ================= WEEK =================
+    if (type == "Weekly") {
+      int diff = (date.weekday - weekStartIndex + 7) % 7;
+      DateTime start = date.subtract(Duration(days: diff));
+      DateTime end = start.add(const Duration(days: 6));
+
+      return DateTimeRange(start: start, end: end);
+    }
+
+    // ================= BIWEEKLY =================
+    if (type == "BiWeekly") {
+      int diff = (date.weekday - weekStartIndex + 7) % 7;
+      DateTime currentWeekStart = date.subtract(Duration(days: diff));
+
+      // Align to previous even week cycle
+      int weekNumber = int.parse(
+        "${currentWeekStart.year}${currentWeekStart.month}${currentWeekStart.day}",
+      );
+
+      bool isEven = currentWeekStart.day % 14 < 7;
+
+      DateTime start = isEven
+          ? currentWeekStart.subtract(const Duration(days: 7))
+          : currentWeekStart;
+
+      DateTime end = start.add(const Duration(days: 13));
+
+      return DateTimeRange(start: start, end: end);
+    }
+
+    // ================= MONTH =================
+    if (type == "Monthly") {
+      DateTime start = DateTime(date.year, date.month, 1);
+      DateTime end = DateTime(date.year, date.month + 1, 0);
+
+      return DateTimeRange(start: start, end: end);
+    }
+
+    // ================= SEMI-MONTH =================
+    if (type == "Semimonthly") {
+      int day = date.day;
+
+      if (day <= 15) {
+        DateTime start = DateTime(date.year, date.month, 1);
+        DateTime end = DateTime(date.year, date.month, 15);
+
+        return DateTimeRange(start: start, end: end);
+      } else {
+        DateTime start = DateTime(date.year, date.month, 16);
+        DateTime end = DateTime(date.year, date.month + 1, 0);
+
+        return DateTimeRange(start: start, end: end);
+      }
+    }
+
+    // fallback
+    return DateTimeRange(start: date, end: date);
+  }
+
+  int getWeekdayFromString(String day) {
+    switch (day) {
+      case "Monday":
+        return DateTime.monday;
+      case "Tuesday":
+        return DateTime.tuesday;
+      case "Wednesday":
+        return DateTime.wednesday;
+      case "Thursday":
+        return DateTime.thursday;
+      case "Friday":
+        return DateTime.friday;
+      case "Saturday":
+        return DateTime.saturday;
+      case "Sunday":
+        return DateTime.sunday;
+      default:
+        return DateTime.monday; // fallback
+    }
   }
 
   @override
@@ -542,6 +663,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         ),
 
         body: Obx(() {
+          if (controller.isLoading.value) {
+            return Center(child: SkeletonLoaderPage());
+          }
           return Form(
             key: _formKey,
             child: Column(
@@ -689,133 +813,135 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   /// TOP FORM
   /// =======================
   Widget _topForm() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Obx(() {
-              final hideField = controller.hasModule("TimeSheetManagement");
-              if (controller.isSequenceLoading.value) {
-                return const SizedBox(); // or loader
-              }
-              if (controller.timeSheetID.text.isEmpty) {
-                if (hideField) {
-                  return const SizedBox.shrink(); // ✅ hide
+    return Obx(() {
+      return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Obx(() {
+                final hideField = controller.hasModule("TimeSheetManagement");
+                if (controller.isSequenceLoading.value) {
+                  return const SizedBox(); // or loader
                 }
-              }
+                if (controller.timeSheetID.text.isEmpty) {
+                  if (hideField) {
+                    return const SizedBox.shrink(); // ✅ hide
+                  }
+                }
 
-              return Column(
-                children: [
-                  TextFormField(
-                    enabled: !hideField,
-                    controller: controller.timeSheetID,
-                    decoration: InputDecoration(
-                      labelText:
-                          '${AppLocalizations.of(context)!.timesheetRequisitionId} *',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              );
-            }),
-            Row(
-              children: [
-                controller.buildConfigurableField(
-                  fieldName: 'Project Id',
-                  builder: (isEnabled, isMandatory) {
-                    return Expanded(
-                      child: SearchableMultiColumnDropdownField<Project>(
+                return Column(
+                  children: [
+                    TextFormField(
+                      enabled: !hideField,
+                      controller: controller.timeSheetID,
+                      decoration: InputDecoration(
                         labelText:
-                            '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
-                        enabled: controller.sheetEnable.value,
-                        columnHeaders: [
-                          AppLocalizations.of(context)!.projectName,
-                          AppLocalizations.of(context)!.projectId,
-                        ],
-                        items: controller.project,
-                        // dropdownWidth: 300,
-                        controller: controller.projectDropDowncontroller,
-                        selectedValue: controller.selectedProject,
-                        validator: (value) {
-                          if (controller
-                                  .projectDropDowncontroller
-                                  .text
-                                  .isEmpty &&
-                              isMandatory) {
-                            return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
-                          }
-                          return null;
-                        },
-                        searchValue: (proj) => '${proj.name} ${proj.code}',
-                        displayText: (proj) => proj.code,
-                        onChanged: (proj) {
-                          controller.projectDropDowncontroller.text =
-                              proj!.code;
-                          setState(() {
-                            controller.selectedProject = proj;
-                            controller.showProjectError.value = false;
-                          });
-                        },
-                        rowBuilder: (proj, searchQuery) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12,
-                              horizontal: 16,
-                            ),
-                            child: Row(
-                              children: [
-                                SizedBox(width: 10),
-                                Expanded(child: Text(proj.name)),
-                                Expanded(child: Text(proj.code)),
-                              ],
-                            ),
-                          );
-                        },
+                            '${AppLocalizations.of(context)!.timesheetRequisitionId} *',
                       ),
-                    );
-                  },
-                ),
-                controller.buildConfigurableField(
-                  fieldName: 'Project Id',
-                  builder: (isEnabled, isMandatory) {
-                    return const SizedBox(width: 12);
-                  },
-                ),
-                Expanded(child: _periodDropdown()),
-              ],
-            ),
-            const SizedBox(height: 20),
-            InkWell(
-              onTap: !controller.sheetEnable.value ? null : _pickDateRange,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: '${AppLocalizations.of(context)!.dateRange} *',
-                  enabled: controller.sheetEnable.value,
-
-                  border: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              }),
+              Row(
+                children: [
+                  controller.buildConfigurableField(
+                    fieldName: 'Project Id',
+                    builder: (isEnabled, isMandatory) {
+                      return Expanded(
+                        child: SearchableMultiColumnDropdownField<Project>(
+                          labelText:
+                              '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
+                          enabled: controller.sheetEnable.value,
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.projectName,
+                            AppLocalizations.of(context)!.projectId,
+                          ],
+                          items: controller.project,
+                          // dropdownWidth: 300,
+                          controller: controller.projectDropDowncontroller,
+                          selectedValue: controller.selectedProject,
+                          validator: (value) {
+                            if (controller
+                                    .projectDropDowncontroller
+                                    .text
+                                    .isEmpty &&
+                                isMandatory) {
+                              return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
+                            }
+                            return null;
+                          },
+                          searchValue: (proj) => '${proj.name} ${proj.code}',
+                          displayText: (proj) => proj.code,
+                          onChanged: (proj) {
+                            controller.projectDropDowncontroller.text =
+                                proj!.code;
+                            setState(() {
+                              controller.selectedProject = proj;
+                              controller.showProjectError.value = false;
+                            });
+                          },
+                          rowBuilder: (proj, searchQuery) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  SizedBox(width: 10),
+                                  Expanded(child: Text(proj.name)),
+                                  Expanded(child: Text(proj.code)),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
-                  suffixIcon: const Icon(Icons.calendar_today),
-                  errorText: controller.dateRange == null
-                      ? 'This field is required'
-                      : null,
-                ),
-                child: Text(
-                  controller.dateRange == null
-                      ? 'Select'
-                      : '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.start)} - '
-                            '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.end)}',
+                  controller.buildConfigurableField(
+                    fieldName: 'Project Id',
+                    builder: (isEnabled, isMandatory) {
+                      return const SizedBox(width: 12);
+                    },
+                  ),
+                  Expanded(child: _periodDropdown()),
+                ],
+              ),
+              const SizedBox(height: 20),
+              InkWell(
+                onTap: !controller.sheetEnable.value ? null : _pickDateRange,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: '${AppLocalizations.of(context)!.dateRange} *',
+                    enabled: controller.sheetEnable.value,
+
+                    border: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                    suffixIcon: const Icon(Icons.calendar_today),
+                    errorText: controller.dateRange == null
+                        ? 'This field is required'
+                        : null,
+                  ),
+                  child: Text(
+                    controller.dateRange == null
+                        ? 'Select'
+                        : '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.start)} - '
+                              '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.end)}',
+                  ),
                 ),
               ),
-            ),
-            Obx(() => _buildHeaderCustomFields()),
-          ],
+              Obx(() => _buildHeaderCustomFields()),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildHeaderCustomFields() {
@@ -1036,38 +1162,51 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }
 
   Widget _periodDropdown() {
-    return SearchableMultiColumnDropdownField<String>(
-      labelText: "${AppLocalizations.of(context)!.periodType} *",
-      columnHeaders: ["Type"],
-      enabled: controller.sheetEnable.value,
+    return Obx(() {
+      return SearchableMultiColumnDropdownField<String>(
+        labelText: "${AppLocalizations.of(context)!.periodType} *",
+        columnHeaders: ["Type"],
+        enabled: controller.sheetEnable.value,
 
-      items: periodTypes,
-      selectedValue: controller.periodType,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return AppLocalizations.of(context)!.periodTypeIsRequired;
-        }
-        return null;
-      },
-      searchValue: (type) => type,
-      displayText: (type) => type,
-      onChanged: (type) {
-        setState(() {
-          controller.periodType = type!;
-          controller.dateRange = _getDateRangeByPeriod(type);
-        });
-        controller.loadTimeSheetRange(
-          fromDate: controller.getStartOfDayMillis(controller.dateRange!.start),
-          toDate: controller.getEndOfDayMillis(controller.dateRange!.end),
-        );
-      },
-      rowBuilder: (type, searchQuery) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Row(children: [Expanded(child: Text(type))]),
-        );
-      },
-    );
+        items: periodTypes,
+        selectedValue: controller.periodType.value,
+
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return AppLocalizations.of(context)!.periodTypeIsRequired;
+          }
+          return null;
+        },
+
+        searchValue: (type) => type,
+        displayText: (type) => type,
+
+        onChanged: (type) {
+          controller.periodType.value = type!;
+
+          controller.dateRange = _getDateRangeByPeriod(
+            type,
+            DateTime.now(),
+            weekStart: controller.ruleConfig?.dayWeekStarts ?? "",
+            monthStart: controller.ruleConfig?.dayMonthStarts ?? "",
+          );
+
+          controller.loadTimeSheetRange(
+            fromDate: controller.getStartOfDayMillis(
+              controller.dateRange!.start,
+            ),
+            toDate: controller.getEndOfDayMillis(controller.dateRange!.end),
+          );
+        },
+
+        rowBuilder: (type, searchQuery) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(children: [Expanded(child: Text(type))]),
+          );
+        },
+      );
+    });
   }
 
   /// =======================
@@ -1119,7 +1258,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           ),
           onPressed: () {
             final line = controller.lineItems[controller.lineItems.length - 1];
-            if (controller.sheetEnable.value && !line.timerRunning.value) {
+            if (controller.sheetEnable.value &&
+                !line.timerRunning.value &&
+                controller.enableTimerButton.value) {
               setState(() {
                 controller.lineItems.add(LineItemModel());
               });
@@ -2911,123 +3052,216 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     DateTime today = DateTime.now();
     DateTime lastDate = DateTime(today.year, today.month, today.day);
 
-    /// ✅ STEP 1: Set default ONLY if null (last 7 days)
+    final weekStart = controller.ruleConfig?.dayWeekStarts ?? "";
+    final monthStart = controller.ruleConfig?.dayMonthStarts ?? "";
+    final frequency = controller.ruleConfig?.entryFrequency ?? "";
+
+    /// ✅ Default fallback
     controller.dateRange ??= DateTimeRange(
       start: lastDate.subtract(const Duration(days: 6)),
       end: lastDate,
     );
 
-    /// ✅ STEP 2: Normalize stored range
     DateTime start = _onlyDate(controller.dateRange!.start);
-    DateTime end = _onlyDate(controller.dateRange!.end);
+    DateTime now = DateTime.now();
 
-    if (end.isAfter(lastDate)) {
-      final difference = end.difference(start);
-
-      end = lastDate;
-      start = end.subtract(difference);
-    }
-
-    /// ✅ STEP 4: Fix invalid range
-    if (start.isAfter(end)) {
-      start = end.subtract(const Duration(days: 6));
-    }
-
-    /// ✅ FINAL SAFE RANGE (used for highlight)
-    DateTimeRange safeRange = DateTimeRange(start: start, end: end);
-
-    /// 🔍 DEBUG LOGS
-    print("CONTROLLER RANGE: ${controller.dateRange}");
-    print("SAFE RANGE: $safeRange");
-
-    /// ✅ DATE PICKER
-    final result = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: lastDate,
-      initialDateRange: safeRange,
+    /// 🔥 ALIGN BEFORE PICKER (MAIN FIX)
+    final alignedRange = _getDateRangeByPeriod(
+      frequency,
+      now,
+      weekStart: weekStart,
+      monthStart: monthStart,
     );
 
-    /// ✅ AFTER SELECTION
+    DateTime safeStart = alignedRange.start;
+    DateTime safeEnd = alignedRange.end;
+
+    /// ❗ FIX: Prevent future crash
+    if (safeEnd.isAfter(lastDate)) {
+      safeEnd = lastDate;
+    }
+
+    /// ❗ EXTRA SAFETY
+    if (safeStart.isAfter(safeEnd)) {
+      safeStart = safeEnd;
+    }
+
+    DateTimeRange safeRange = DateTimeRange(
+      start: _onlyDate(safeStart),
+      end: _onlyDate(safeEnd),
+    );
+
+    /// 📅 OPEN PICKER — replaces showDateRangePicker
+    final result = await showPeriodPicker(
+      context: context,
+      periodType: controller
+          .periodType
+          .value, // "Week" / "Biweekly" / "Month" / "SemiMonth"
+      weekStart: weekStart,
+      monthStart: monthStart,
+      initialDate: controller.dateRange!.start,
+      firstDate: DateTime(2024),
+      lastDate: lastDate,
+      getRangeFromConfig: _getDateRangeByPeriod,
+    );
+
     if (result != null) {
-      /// Normalize again before saving
-      DateTime newStart = _onlyDate(result.start);
-      DateTime newEnd = _onlyDate(result.end);
-
+      // result is already a fully aligned DateTimeRange — no need to re-align
       setState(() {
-        controller.dateRange = DateTimeRange(start: newStart, end: newEnd);
+        controller.dateRange = result;
       });
-
-      print("NEW RANGE: ${controller.dateRange}");
-
-      /// ✅ API CALLS
       controller.fetchTasksTimeSheet(
-        fromDate: controller.getStartOfDayMillis(newStart),
-        toDate: controller.getEndOfDayMillis(newEnd),
+        fromDate: controller.getStartOfDayMillis(result.start),
+        toDate: controller.getEndOfDayMillis(result.end),
       );
-
       controller.loadTimeSheetRange(
-        fromDate: controller.getStartOfDayMillis(newStart),
-        toDate: controller.getEndOfDayMillis(newEnd),
+        fromDate: controller.getStartOfDayMillis(result.start),
+        toDate: controller.getEndOfDayMillis(result.end),
       );
     }
   }
 
-  DateTimeRange _getDateRangeByPeriod(String type) {
-    final now = DateTime.now();
+  DateTime getStartOfWeek(DateTime date, String weekStart) {
+    final startWeekday = getWeekdayFromString(weekStart);
+    print("Start Weekday: $startWeekday");
+    int diff = date.weekday - startWeekday;
+    if (diff < 0) diff += 7;
 
-    DateTime startDate;
-    DateTime endDate;
-
-    switch (type) {
-      case 'Day':
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = startDate;
-        break;
-
-      case 'Weekly':
-
-        /// ✅ Monday as start of week
-        int diff = now.weekday - DateTime.monday;
-
-        startDate = DateTime(now.year, now.month, now.day - diff);
-        endDate = startDate.add(const Duration(days: 6));
-        break;
-
-      case 'BiWeekly':
-        final range = getBiWeeklyRange();
-        startDate = range.start;
-        endDate = range.end;
-        break;
-
-      case 'Semimonthly':
-
-        /// Step 1: Go to last month
-        DateTime lastMonth = DateTime(now.year, now.month - 1, 1);
-
-        /// Step 2: 1st to 15th of last month
-        startDate = DateTime(lastMonth.year, lastMonth.month, 1);
-        endDate = DateTime(lastMonth.year, lastMonth.month, 15);
-        break;
-
-      case 'Monthly':
-        DateTime lastMonth = DateTime(now.year, now.month - 1, 1);
-
-        startDate = DateTime(lastMonth.year, lastMonth.month, 1);
-
-        endDate = DateTime(lastMonth.year, lastMonth.month + 1, 0);
-        break;
-
-      default:
-        startDate = DateTime(now.year, now.month, now.day);
-        endDate = startDate;
-    }
-
-    print("Start: $startDate");
-    print("End: $endDate");
-
-    return DateTimeRange(start: startDate, end: endDate);
+    return DateTime(date.year, date.month, date.day - diff);
   }
+
+  DateTime getEndOfWeek(DateTime start) {
+    return DateTime(start.year, start.month, start.day + 6);
+  }
+
+  DateTimeRange _getDateRangeByPeriod(
+  String type,
+  DateTime date, {
+  String weekStart = "",
+  String monthStart = "",
+}) {
+  date = DateTime(date.year, date.month, date.day);
+  type = type.replaceAll("-", "").toLowerCase();
+
+  print("type: $type, weekStart: $weekStart, monthStart: $monthStart");
+
+  int getWeekdayFromString(String day) {
+    const map = {
+      'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
+      'friday': 5, 'saturday': 6, 'sunday': 7,
+    };
+    return map[day.toLowerCase()] ?? 1;
+  }
+
+  int extractDay(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
+    return int.tryParse(digits) ?? 0;
+  }
+
+  int getSafeDay(int year, int month, int day) {
+    int lastDay = DateTime(year, month + 1, 0).day;
+    return day.clamp(1, lastDay);
+  }
+
+  DateTime startDate;
+  DateTime endDate;
+
+  // ================= WEEK =================
+  if (type == "week" || type == "weekly") {
+    if (weekStart.trim().isEmpty) {
+      /// ✅ No config: tapped date IS the start
+      startDate = date;
+    } else {
+      int startWeekday = getWeekdayFromString(weekStart);
+      int diff = date.weekday - startWeekday;
+      if (diff < 0) diff += 7;
+      startDate = date.subtract(Duration(days: diff));
+    }
+    endDate = startDate.add(const Duration(days: 6));
+  }
+
+  // ================= BIWEEKLY =================
+  else if (type == "biweekly") {
+    if (weekStart.trim().isEmpty) {
+      /// ✅ No config: tapped date IS the start
+      startDate = date;
+    } else {
+      int startWeekday = getWeekdayFromString(weekStart);
+      int diff = date.weekday - startWeekday;
+      if (diff < 0) diff += 7;
+      DateTime currentWeekStart = date.subtract(Duration(days: diff));
+      startDate = currentWeekStart.subtract(const Duration(days: 7));
+    }
+    endDate = startDate.add(const Duration(days: 13));
+  }
+
+  // ================= MONTHLY =================
+  else if (type == "monthly") {
+    if (monthStart.trim().isEmpty) {
+      /// ✅ No config: tapped date IS the start, end = same day next month - 1
+      startDate = date;
+      endDate = DateTime(
+        date.year,
+        date.month + 1,
+        getSafeDay(date.year, date.month + 1, date.day - 1),
+      );
+    } else {
+      int startDay = extractDay(monthStart);
+
+      if (startDay <= 0) {
+        /// ✅ Fallback if extractDay fails
+        startDate = date;
+        endDate = DateTime(
+          date.year,
+          date.month + 1,
+          getSafeDay(date.year, date.month + 1, date.day - 1),
+        );
+      } else if (date.day >= startDay) {
+        startDate = DateTime(
+          date.year,
+          date.month,
+          getSafeDay(date.year, date.month, startDay),
+        );
+        endDate = DateTime(
+          date.year,
+          date.month + 1,
+          getSafeDay(date.year, date.month + 1, startDay - 1),
+        );
+      } else {
+        startDate = DateTime(
+          date.year,
+          date.month - 1,
+          getSafeDay(date.year, date.month - 1, startDay),
+        );
+        endDate = DateTime(
+          date.year,
+          date.month,
+          getSafeDay(date.year, date.month, startDay - 1),
+        );
+      }
+    }
+  }
+
+  // ================= SEMI-MONTHLY =================
+  else if (type == "semimonth" || type == "semimonthly") {
+    if (date.day <= 15) {
+      startDate = DateTime(date.year, date.month, 1);
+      endDate = DateTime(date.year, date.month, 15);
+    } else {
+      startDate = DateTime(date.year, date.month, 16);
+      endDate = DateTime(date.year, date.month + 1, 0);
+    }
+    // ℹ️ SemiMonth has fixed halves — weekStart/monthStart don't apply
+  }
+
+  // ================= DEFAULT =================
+  else {
+    startDate = date;
+    endDate = date;
+  }
+
+  return DateTimeRange(start: startDate, end: endDate);
+}
 
   DateTimeRange getBiWeeklyRange() {
     final now = DateTime.now();
@@ -3069,118 +3303,133 @@ class _HourItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(Controller());
+
     final entryKey = item.entryDate.millisecondsSinceEpoch;
 
+    /// 📅 Today
     final today = DateTime.now();
-
     final todayOnly = DateTime(today.year, today.month, today.day);
+
+    /// 📅 Item date
     final itemDate = DateTime(
       item.entryDate.year,
       item.entryDate.month,
       item.entryDate.day,
     );
 
-    final isToday = itemDate == todayOnly;
+    /// 📊 Data
+    final line = controller.lineItems[lineIndex];
+    final entry = controller.timeEntries[lineIndex]?[entryKey];
 
-    final isYesterday = itemDate == todayOnly.subtract(const Duration(days: 1));
+    final isRunning = line.timerRunning.value;
+    final seconds = line.elapsedSeconds.value;
 
-    final isPast = itemDate.isBefore(
-      todayOnly.subtract(const Duration(days: 1)),
-    );
+    /// 🔥 LIMIT (null or 0 = unlimited)
+    final int? limit = controller.limitpostdate;
+    final bool noLimit = limit == null || limit == 0;
 
-    final isFuture = itemDate.isAfter(todayOnly);
+    /// 📊 DATE DIFFERENCE
+    final difference = todayOnly.difference(itemDate).inDays;
 
-    return Obx(() {
-      final line = controller.lineItems[lineIndex];
+    final isFuture = difference < 0;
+    final isToday = difference == 0;
 
-      final entry = controller.timeEntries[lineIndex]?[entryKey];
-      final isRunning = line.timerRunning.value;
-      final seconds = line.elapsedSeconds.value;
-      final isCurrentLineRunning = line.timerRunning.value;
+    /// 🔥 PAST RULE (ONLY past dates)
+    final isAllowedPastDay = noLimit
+        ? difference > 0
+        : (difference > 0 && difference <= limit!);
 
-      final isDisabled =
-          !isToday &&
-          !isYesterday &&
-          !isPast &&
-          (item.weekend ||
-              item.holiday ||
-              isFuture ||
-              isCurrentLineRunning ||
-              controller.sheetEnable.value);
+    /// 🔥 TODAY RULE (always enabled unless blocked by holiday/weekend)
+    final isTodayAllowed = true;
 
-      // ▶️ Timer button allowed ONLY today & ONLY once
-      final showTimerButton = isToday && !line.timerCompleted.value;
+    /// ❌ FINAL DISABLE LOGIC
+    final isDisabled =
+        item.weekend ||
+        item.holiday ||
+        isFuture ||
+        (!isTodayAllowed && isToday) ||
+        (!isToday && !isAllowedPastDay);
 
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: isDisabled ? null : () => _openTimePopup(context),
-        child: Container(
-          width: 90,
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: isDisabled
-                ? Colors.grey.shade100
-                : Theme.of(context).colorScheme.surface,
-            border: Border.all(color: isDisabled ? Colors.grey : Colors.blue),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                DateFormat('EEE').format(item.entryDate),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              Text(
-                DateFormat('dd MMM').format(item.entryDate),
-                style: const TextStyle(fontSize: 12),
-              ),
+    /// ▶️ TIMER BUTTON
+    final showTimerButton = isToday && controller.sheetEnable.value;
 
-              const SizedBox(height: 6),
+    /// 🔍 DEBUG
+    print("""
+Date: ${item.entryDate}
+difference: $difference
+limit: $limit
+noLimit: $noLimit
+isFuture: $isFuture
+isToday: $isToday
+isAllowedPastDay: $isAllowedPastDay
+isDisabled: $isDisabled
+""");
 
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isToday && isRunning)
-                    Text(
-                      _format(seconds),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isDisabled ? null : () => _openTimePopup(context),
+      child: Container(
+        width: 90,
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isDisabled
+              ? Colors.grey.shade100
+              : Theme.of(context).colorScheme.surface,
+          border: Border.all(color: isDisabled ? Colors.grey : Colors.blue),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            /// 📅 Day
+            Text(
+              DateFormat('EEE').format(item.entryDate),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
 
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+            /// 📅 Date
+            Text(
+              DateFormat('dd MMM').format(item.entryDate),
+              style: const TextStyle(fontSize: 12),
+            ),
+
+            const SizedBox(height: 6),
+
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                /// ⏱ Hours
+                Text(
+                  entry?.totalHours ?? '0',
+                  style: const TextStyle(fontSize: 10),
+                ),
+
+                /// ▶️ Timer Button
+                if (showTimerButton)
+                  GestureDetector(
+                    onTap: () {
+                      if (isRunning) {
+                        controller.stopTimer(lineIndex, item.entryDate);
+                      } else {
+                        controller.startTimer(lineIndex, item.entryDate);
+                      }
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.play_arrow,
+                        size: 12,
                         color: Colors.orange,
                       ),
-                    )
-                  else
-                    Text(
-                      entry?.totalHours ?? '0',
-                      style: const TextStyle(fontSize: 10),
                     ),
-
-                  if (showTimerButton)
-                    GestureDetector(
-                      onTap: () {
-                        isRunning
-                            ? controller.stopTimer(lineIndex, item.entryDate)
-                            : controller.startTimer(lineIndex, item.entryDate);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Icon(
-                          isRunning ? Icons.pause : null,
-                          size: 12,
-                          color: Colors.orange,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
+                  ),
+              ],
+            ),
+          ],
         ),
-      );
-    });
+      ),
+    );
   }
 
   String _format(int seconds) {
@@ -5567,4 +5816,34 @@ class _SegmentEditBottomSheetState extends State<SegmentEditBottomSheet> {
       ),
     );
   }
+}
+
+Future<DateTimeRange?> showPeriodPicker({
+  required BuildContext context,
+  required String periodType,
+  required String weekStart,
+  required String monthStart,
+  required DateTime initialDate,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  required DateTimeRange Function(
+    String,
+    DateTime, {
+    String weekStart,
+    String monthStart,
+  })
+  getRangeFromConfig,
+}) {
+  return showDialog<DateTimeRange>(
+    context: context,
+    builder: (_) => PeriodPickerDialog(
+      periodType: periodType,
+      weekStart: weekStart,
+      monthStart: monthStart,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      getRangeFromConfig: getRangeFromConfig,
+    ),
+  );
 }

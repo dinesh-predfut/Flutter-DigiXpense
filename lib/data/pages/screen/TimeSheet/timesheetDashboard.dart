@@ -86,7 +86,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
   String formatDateFromMillis(int? millis) {
     if (millis == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(millis,isUtc: true);
+    final date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.year}';
@@ -103,13 +103,221 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
 
     controller.fetchCustomFieldsTimeSheet();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await init();
       controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchTimeSheetData().then((_) {
         controller.isLoadingLeaves.value = false;
       });
     });
+  }
+
+  Future<void> init() async {
+    DateTime now = DateTime.now();
+    final range = controller.getWeekRangeUTC(DateTime.now());
+    final config = await controller.getRuleConfig(
+      employeeId: Params.employeeId,
+      fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
+      toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
+    );
+    controller.ruleConfig = config;
+    if (config != null) {
+      controller.periodType.value = controller.getPeriodTypeForUI(
+        config.entryFrequency ?? "",
+      );
+      controller.limitpostdate = config.limitForPastDate.toInt();
+      print(  "Limit for past date from config: ${controller.limitpostdate}");
+    }
+    print(controller.periodType.value);
+    final frequency = config?.entryFrequency ?? "";
+    if (config?.captureMethod == "TimeTracker") {
+      setState(() {
+        _selectedTabIndex = 1; // Force Card View for Manual entry
+      });
+    }
+    controller.dateRange = getRangeFromConfig(
+      frequency,
+      now,
+      weekStart: config?.dayWeekStarts ?? "Monday",
+      monthStart: config?.dayMonthStarts ?? "1st",
+    );
+    // Use frequency value
+  }
+
+  DateTimeRange getRangeFromConfig(
+    String frequency,
+    DateTime now, {
+    String weekStart = "Monday",
+    String monthStart = "1st",
+  }) {
+    /// 🔹 Convert week start
+    int startWeekday = getWeekdayFromString(weekStart);
+
+    /// 🔹 Extract numeric day (20th → 20)
+    int extractDay(String value) {
+      return int.parse(value.replaceAll(RegExp(r'[^0-9]'), ''));
+    }
+
+    /// 🔹 Handle month overflow (30/31 safe)
+    int safeDay(int year, int month, int day) {
+      int lastDay = DateTime(year, month + 1, 0).day;
+      return day > lastDay ? lastDay : day;
+    }
+
+    switch (frequency) {
+      /// ✅ WEEK
+      case "Week":
+        int diff = now.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+
+        final start = DateTime(now.year, now.month, now.day - diff);
+        final end = DateTime(
+          start.year,
+          start.month,
+          start.day + 6,
+          23,
+          59,
+          59,
+        );
+
+        return DateTimeRange(start: start, end: end);
+
+      /// ✅ BI-WEEKLY
+      case "Biweekly":
+        int diff = now.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+
+        final start = DateTime(now.year, now.month, now.day - diff - 7);
+        final end = DateTime(
+          start.year,
+          start.month,
+          start.day + 13,
+          23,
+          59,
+          59,
+        );
+
+        return DateTimeRange(start: start, end: end);
+
+      /// ✅ MONTH (custom cycle like 20th → 19th)
+      case "Month":
+        int startDay = extractDay(monthStart);
+
+        if (now.day >= startDay) {
+          final start = DateTime(
+            now.year,
+            now.month,
+            safeDay(now.year, now.month, startDay),
+          );
+
+          final end = DateTime(
+            now.year,
+            now.month + 1,
+            safeDay(now.year, now.month + 1, startDay - 1),
+            23,
+            59,
+            59,
+          );
+
+          return DateTimeRange(start: start, end: end);
+        } else {
+          final start = DateTime(
+            now.year,
+            now.month - 1,
+            safeDay(now.year, now.month - 1, startDay),
+          );
+
+          final end = DateTime(
+            now.year,
+            now.month,
+            safeDay(now.year, now.month, startDay - 1),
+            23,
+            59,
+            59,
+          );
+
+          return DateTimeRange(start: start, end: end);
+        }
+
+      /// ✅ SEMI-MONTH (same as cycle split)
+      case "SemiMonth":
+        int startDay = extractDay(monthStart);
+
+        if (now.day >= startDay) {
+          final start = DateTime(
+            now.year,
+            now.month,
+            safeDay(now.year, now.month, startDay),
+          );
+
+          final end = DateTime(
+            now.year,
+            now.month + 1,
+            safeDay(now.year, now.month + 1, startDay - 1),
+            23,
+            59,
+            59,
+          );
+
+          return DateTimeRange(start: start, end: end);
+        } else {
+          final start = DateTime(
+            now.year,
+            now.month - 1,
+            safeDay(now.year, now.month - 1, startDay),
+          );
+
+          final end = DateTime(
+            now.year,
+            now.month,
+            safeDay(now.year, now.month, startDay - 1),
+            23,
+            59,
+            59,
+          );
+
+          return DateTimeRange(start: start, end: end);
+        }
+
+      /// ✅ DEFAULT
+      default:
+        int diff = now.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+
+        final start = DateTime(now.year, now.month, now.day - diff);
+        final end = DateTime(
+          start.year,
+          start.month,
+          start.day + 6,
+          23,
+          59,
+          59,
+        );
+
+        return DateTimeRange(start: start, end: end);
+    }
+  }
+
+  int getWeekdayFromString(String day) {
+    switch (day) {
+      case "Monday":
+        return DateTime.monday;
+      case "Tuesday":
+        return DateTime.tuesday;
+      case "Wednesday":
+        return DateTime.wednesday;
+      case "Thursday":
+        return DateTime.thursday;
+      case "Friday":
+        return DateTime.friday;
+      case "Saturday":
+        return DateTime.saturday;
+      case "Sunday":
+        return DateTime.sunday;
+      default:
+        return DateTime.monday; // fallback
+    }
   }
 
   void _loadProfileImage() async {
@@ -608,7 +816,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
               if (direction == DismissDirection.endToStart) {
                 final canDelete = PermissionHelper.canDelete(
                   "Timesheet Requisition",
-                ); 
+                );
 
                 final isDeletable = item.approvalStatus == "Created";
 

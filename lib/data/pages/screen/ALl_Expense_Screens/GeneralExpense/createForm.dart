@@ -2304,7 +2304,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                         Text(
                                           controller.selectedDate == null
                                               ? loc.selectDate
-                                              : DateFormat('dd-MM-yyyy').format(
+                                              : DateFormat(
+                                                  controller
+                                                          .selectedFormat
+                                                          ?.key ?? 'dd-MM-yyyy',
+                                                ).format(
                                                   controller.selectedDate!,
                                                 ),
                                         ),
@@ -2322,10 +2326,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         ),
 
                         const SizedBox(height: 16),
-                        if (PermissionHelper.canRead(
-                              "User Delegates",
-                            ) ==
-                            true)
+                        if (PermissionHelper.canRead("User Delegates") == true)
                           SearchableMultiColumnDropdownField<EmployeeId>(
                             labelText: '${loc.employeeId} *',
                             columnHeaders: [loc.employeeName, loc.employeeId],
