@@ -177,10 +177,10 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
       controller.exchangeamountInController.text = item.totalAmountReporting
           .toString();
       controller.fromDateController.text = DateFormat(
-        'dd-MM-yyyy',
+       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(DateTime.fromMillisecondsSinceEpoch(item.fromDate,isUtc: true));
       controller.toDateController.text = DateFormat(
-        'dd-MM-yyyy',
+       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate,isUtc: true));
       controller.expenseIdController.text = item.expenseId;
       controller.employeeIdController.text = item.employeeId!;
@@ -198,7 +198,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
   }
 
   String formatDate(DateTime date) {
-    return DateFormat('dd-MM-yyyy').format(date);
+    return DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
   }
 
   @override
@@ -1154,7 +1154,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                 if (controllers.text.trim().isNotEmpty) {
                   try {
                     initialDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controllers.text.trim());
                   } catch (_) {}
                 }
@@ -1166,7 +1166,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                     controller.fromDateController.text.isNotEmpty) {
                   try {
                     firstDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                   } catch (_) {}
                 }
@@ -1182,7 +1182,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                   if (!isFromDate &&
                       controller.fromDateController.text.isNotEmpty) {
                     final fromDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                     if (picked.isBefore(fromDate)) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1482,7 +1482,7 @@ class _HubCreatePerDiemPageState extends State<HubCreatePerDiemPage>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

@@ -680,7 +680,7 @@ class _BasicFiltrationScreenState extends State<BasicFiltrationScreen> {
 
                 if (reportModel.fromDateCtrl.text.isNotEmpty) {
                   DateTime fromDate = DateFormat(
-                    'dd-MM-yyyy',
+                   'dd-MM-yyyy',
                   ).parse(reportModel.fromDateCtrl.text);
 
                   DateTime toDate = DateFormat('dd-MM-yyyy').parse(value);

@@ -773,6 +773,7 @@ class Controller extends GetxController {
   final TextEditingController selectedCountryCode = TextEditingController();
   final TextEditingController perDiemController = TextEditingController();
   final TextEditingController exchangeCurrencyCode = TextEditingController();
+
   final TextEditingController amountInController = TextEditingController();
   final TextEditingController exchangeamountInController =
       TextEditingController();
@@ -805,7 +806,7 @@ class Controller extends GetxController {
   final Map<String, GlobalKey> widgetRenderKeys = {};
 
   RxString currentRole = "".obs;
-
+  RxString perDiemexchangeCurrencyCode = "".obs;
   RxBool isLoadingWidgets = false.obs;
   RxBool isExporting = false.obs;
   RxList<WidgetDataResponse> currentDashboardWidgets =
@@ -847,6 +848,7 @@ class Controller extends GetxController {
   var selectedDashboardIndex = 0.obs;
   RxBool showPaidForError = false.obs;
   RxBool showProjectError = false.obs;
+  RxBool showperiodTypeError = false.obs;
   RxBool enableNextBtn = true.obs;
   RxBool setQuality = true.obs;
   RxBool leaveField = false.obs;
@@ -1081,24 +1083,28 @@ class Controller extends GetxController {
     final today = DateTime.now();
 
     if (startDate.value != null && endDate.value != null) {
-      final start = DateFormat('dd-MM-yyyy').format(startDate.value!);
-      final end = DateFormat('dd-MM-yyyy').format(endDate.value!);
+      final start = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(startDate.value!);
+      final end = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(endDate.value!);
       datesController.text = '$start - $end';
     } else {
-      final start = DateFormat('dd-MM-yyyy').format(today);
-      final end = DateFormat('dd-MM-yyyy').format(today);
+      final start = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(today);
+      final end = DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(today);
 
       datesController.text = '$start - $end';
 
       // set startDate and endDate using millisecondsSinceEpoch
       startDate.value = DateTime.fromMillisecondsSinceEpoch(
-        today.millisecondsSinceEpoch,
-        isUtc: true,
+          toMillisecondsWithTimezone(today),
       );
 
       endDate.value = DateTime.fromMillisecondsSinceEpoch(
-        today.millisecondsSinceEpoch,
-        isUtc: true,
+        toMillisecondsWithTimezone(today),
       );
     }
   }
@@ -1813,12 +1819,13 @@ class Controller extends GetxController {
     }
 
     /// ---------------- Applied Date ----------------
-    appliedDateController.text = DateFormat('dd-MM-yyyy').format(
-      DateTime.fromMillisecondsSinceEpoch(
-        leaveRequest.applicationDate,
-        isUtc: true,
-      ),
-    );
+    appliedDateController.text = DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy')
+        .format(
+          DateTime.fromMillisecondsSinceEpoch(
+            leaveRequest.applicationDate,
+            isUtc: true,
+          ),
+        );
 
     /// ---------------- Other Fields ----------------
     leavephoneController.text = leaveRequest.emergencyContactNumber ?? '';
@@ -2022,6 +2029,7 @@ class Controller extends GetxController {
   final selectedStatusDropDownmyteamCashAdvance = "In Process".obs;
   var countryCode = ''.obs;
   var phoneNumber = ''.obs;
+  var selectedCurrencyMileage = ''.obs;
   List<GESpeficExpense> getSpecificListGExpense = [];
   RxList<GESpeficExpense> specificExpenseList = <GESpeficExpense>[].obs;
   RxList<UnprocessExpenseModels> specificExpenseListUnprocess =
@@ -2052,6 +2060,7 @@ class Controller extends GetxController {
   RxList<ExpenseModel> pendingApprovals = <ExpenseModel>[].obs;
   String maritalStatus = 'Single';
   var selectedCurrency = Rxn<Currency>();
+  // var selectedCurrencyMileage = Rxn<Currency>();
   var selectedCurrencyCA1 = Rxn<Currency>();
   var selectedCurrencyCA2 = Rxn<Currency>();
   var manageExpensesSummary = <ManageExpensesSummary>[].obs;
@@ -2251,30 +2260,30 @@ class Controller extends GetxController {
   }
 
   Map<String, String> dateFormatMap = {
-  'MM/dd/yyyy': '01/20/2023',
-  'dd/MM/yyyy': '20/01/2023',
-  'yyyy/MM/dd': '2023/01/20',
+    'MM/dd/yyyy': '01/20/2023',
+    'dd/MM/yyyy': '20/01/2023',
+    'yyyy/MM/dd': '2023/01/20',
 
-  'MM-dd-yyyy': '01-20-2023',
-  'dd-MM-yyyy': '20-01-2023',
-  'yyyy-MM-dd': '2023-01-20',
+    'MM-dd-yyyy': '01-20-2023',
+    'dd-MM-yyyy': '20-01-2023',
+    'yyyy-MM-dd': '2023-01-20',
 
-  'MM.dd.yyyy': '01.20.2023',
-  'dd.MM.yyyy': '20.01.2023',
-  'yyyy.MM.dd': '2023.01.20',
+    'MM.dd.yyyy': '01.20.2023',
+    'dd.MM.yyyy': '20.01.2023',
+    'yyyy.MM.dd': '2023.01.20',
 
-  'mm/dd/yyyy': '01/20/2023',
-  'dd/mm/yyyy': '20/01/2023',
-  'yyyy/mm/dd': '2023/01/20',
+    'mm/dd/yyyy': '01/20/2023',
+    'dd/mm/yyyy': '20/01/2023',
+    'yyyy/mm/dd': '2023/01/20',
 
-  'mm-dd-yyyy': '01-20-2023',
-  'dd-mm-yyyy': '20-01-2023',
-  'yyyy-mm-dd': '2023-01-20',
+    'mm-dd-yyyy': '01-20-2023',
+    'dd-mm-yyyy': '20-01-2023',
+    'yyyy-mm-dd': '2023-01-20',
 
-  'mm.dd.yyyy': '01.20.2023',
-  'dd.mm.yyyy': '20.01.2023',
-  'yyyy.mm.dd': '2023.01.20',
-};
+    'mm.dd.yyyy': '01.20.2023',
+    'dd.mm.yyyy': '20.01.2023',
+    'yyyy.mm.dd': '2023.01.20',
+  };
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ThemeColor');
@@ -2412,6 +2421,26 @@ class Controller extends GetxController {
       );
       //  //  // print("An error occurred: $e");
     }
+  }
+
+  int toMillisecondsWithTimezone(DateTime localDt) {
+    final int offsetMs = int.tryParse(selectedTimezonevalue!) ?? 0;
+
+    /// Create pure UTC midnight for the selected date
+    final DateTime utcMidnight = DateTime.utc(
+      localDt.year,
+      localDt.month,
+      localDt.day,
+      0,
+      0,
+      0,
+    );
+
+    print("localDt: $localDt");
+    print("utcMidnight: $utcMidnight");
+    print("utcMs: ${utcMidnight.millisecondsSinceEpoch}");
+
+    return utcMidnight.millisecondsSinceEpoch - offsetMs; // ✅ 1778011200000
   }
 
   void validatePercentage(String value, String text, Controller controller) {
@@ -3339,6 +3368,7 @@ class Controller extends GetxController {
     ///
     ///
     projectDropDowncontroller.clear();
+    uploadedImages.clear();
     boardNameController.clear();
     taskIdController.clear();
     selectedProject = null;
@@ -3529,26 +3559,30 @@ class Controller extends GetxController {
     BuildContext context,
     String page,
   ) {
+    periodType.value = '';
+
     /// HEADER
     projectDropDowncontroller.text = data["ProjectId"] ?? '';
     stepValue = data['StepType'] ?? '';
     periodType.value = getPeriodTypeForUI(data['Frequency'] ?? '');
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
+
     dateRange = DateTimeRange(
-      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate'], isUtc: true),
-      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate'], isUtc: true),
+      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate']),
+      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate']),
     );
 
-    // Set status and step type from API data
     statusApproval = data['ApprovalStatus'] ?? 'Created';
     stepType = data['StepType'] ?? '';
-    // setTimeSheetStatus(status, stepType);
     workitemrecid = data['workitemrecid'] ?? 0;
+
+    fetchExpenseDocImage(data['RecId']);
 
     /// CLEAR OLD DATA
     lineItems.clear();
     timeEntries.clear();
+
     int index = 0;
 
     /// LINES
@@ -3577,6 +3611,8 @@ class Controller extends GetxController {
         ),
         recId: line['RecId'],
       );
+
+      /// Custom Fields
       final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
 
       lineCustomFields[index] = customFields.map((field) {
@@ -3585,61 +3621,89 @@ class Controller extends GetxController {
           "FieldName": field["FieldName"],
           "FieldValue": field["FieldValue"] ?? "",
           "CustomFieldEntity": field["CustomFieldEntity"],
-          "FieldType": field["FieldType"] ?? "text", // if exists
+          "FieldType": field["FieldType"] ?? "text",
           "IsMandatory": field["IsMandatory"] ?? false,
           "Options":
               (field["Options"] as List?)?.map((e) => e.toString()).toList() ??
               <String>[],
         };
       }).toList();
-      // /// ✅ APPEND LINE CUSTOM FIELDS HERE
-      // final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
-
-      // lineItem.lineCustomFields = customFields.map((field) {
-      //   return {
-      //     "FieldId": field["FieldId"],
-      //     "FieldName": field["FieldName"],
-      //     "FieldValue": field["FieldValue"] ?? "",
-      //     "CustomFieldEntity": field["CustomFieldEntity"],
-      //   };
-      // }).toList();
 
       lineItems.add(lineItem);
 
+      /// ✅ FIX: use String key instead of int
       final Map<int, TimeEntryModel> dailyMap = {};
 
       for (final daily in line['DailyEntry']) {
         final int? entryDate = daily['EntryDate'];
-
         if (entryDate == null) continue;
 
-        dailyMap[entryDate] = TimeEntryModel(
+        /// 🔥 Normalize (remove time)
+        final d = DateTime.fromMillisecondsSinceEpoch(entryDate);
+        final normalized = DateTime(
+          d.year,
+          d.month,
+          d.day,
+        ).millisecondsSinceEpoch;
+
+        dailyMap[normalized] = TimeEntryModel(
           recId: daily['RecId'],
-          entryDate: entryDate,
+          entryDate: normalized, // ✅ store normalized
           timeFrom: daily['TimeFrom'] ?? 0,
           timeTo: daily['TimeTo'] ?? 0,
           totalHours: (daily['TotalHours'] ?? 0).toString(),
           comment: daily['InternalComment'] ?? '',
+          accountingDistributions: daily['AccountingDistributions'] != null
+              ? (daily['AccountingDistributions'] as List)
+                    .map(
+                      (dist) => AccountingDistribution(
+                        recId: dist['RecId'],
+                        transAmount:
+                            double.tryParse(dist['TransAmount'].toString()) ??
+                            0.0,
+                        reportAmount:
+                            double.tryParse(dist['ReportAmount'].toString()) ??
+                            0.0,
+                        allocationFactor:
+                            (dist['AllocationFactor'] as num?)?.toDouble() ??
+                            0.0,
+                        dimensionValueId:
+                            dist['DimensionValueId'] ?? 'Branch001',
+                      ),
+                    )
+                    .toList()
+              : [],
         );
       }
 
       timeEntries[index] = dailyMap;
+      print("========= timeEntries DEBUG =========");
+      print("Index: $index");
+
+      final map = timeEntries[index];
+
+      if (map == null || map.isEmpty) {
+        print("❌ Map is EMPTY or NULL");
+      } else {
+        map.forEach((key, value) {
+          print(
+            "Key: ${value.timeFrom} ${value.timeFrom} | Date: ${DateTime.fromMillisecondsSinceEpoch(key)} | Hours: ${value.totalHours}",
+          );
+        });
+      }
+
+      print("=====================================");
       index++;
     }
-    print("pagesss$page");
+
+    /// NAVIGATION (unchanged)
     if (page == "Team") {
       Navigator.pushNamed(
         context,
         AppRoutes.timeSheetRequestPage,
         arguments: {'status': true, "team": true},
       );
-    } else if (page == "Edit") {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.timeSheetRequestPage,
-        arguments: {'status': true, "team": false},
-      );
-    } else if (page == "Approvals") {
+    } else if (page == "Edit" || page == "Approvals") {
       Navigator.pushNamed(
         context,
         AppRoutes.timeSheetRequestPage,
@@ -4185,7 +4249,9 @@ class Controller extends GetxController {
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     //  // print("fetchExpenseCategory$fromDate");
     try {
@@ -4230,7 +4296,9 @@ class Controller extends GetxController {
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     //  // print("fetchExpenseCategory$fromDate");
     try {
@@ -5243,7 +5311,9 @@ class Controller extends GetxController {
     //  // print("fetchPaidto$selectedDate");
     isLoading.value = true;
     //  // print("fromDate$dateToUse");
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     //  // print("formatted$formatted");
     final fromDate = parseDateToEpoch(formatted);
     //  // print("fromDate$fromDate");
@@ -5318,7 +5388,9 @@ class Controller extends GetxController {
   Future<List<Project>> fetchProjectName() async {
     final dateToUse = selectedDate ?? DateTime.now();
 
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     final employeeId = Params.employeeId;
     isLoadingGE1.value = true;
@@ -5508,7 +5580,9 @@ class Controller extends GetxController {
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     // print("fetchExpenseCategory$fromDate");
     double? parsedAmount = double.tryParse(paidAmount.text);
@@ -5581,7 +5655,7 @@ class Controller extends GetxController {
 
     final clean = DateTime(dt.year, dt.month, dt.day);
 
-    return DateFormat('dd-MM-yyyy').format(clean);
+    return DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(clean);
   }
 
   Future<List<PaymentMethodModel>> fetchPaidwith() async {
@@ -5685,7 +5759,7 @@ class Controller extends GetxController {
   //       for (var expense in specificExpenseList) {
   //         expenseIdController.text = expense.expenseId;
   //         receiptDateController.text =
-  //             DateFormat('dd-MM-yyyy').format(expense.receiptDate);
+  //             DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(expense.receiptDate);
   //       }
 
   //        //  // print("Expense ID: ${expenseIdController.text}");
@@ -5742,7 +5816,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -5805,7 +5879,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -5868,7 +5942,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseListUnprocess) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -5931,7 +6005,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
 
@@ -5992,7 +6066,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
         //  // print("Expense ID: ${expenseIdController.text}");
@@ -6676,7 +6750,7 @@ class Controller extends GetxController {
         for (var expense in specificExpenseList) {
           expenseIdController.text = expense.expenseId;
           receiptDateController.text = DateFormat(
-            'dd-MM-yyyy',
+            selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(expense.receiptDate);
         }
         print("Expense ID: ${expenseIdController.text}");
@@ -7061,8 +7135,12 @@ class Controller extends GetxController {
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -7312,8 +7390,12 @@ class Controller extends GetxController {
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -7854,8 +7936,12 @@ class Controller extends GetxController {
   }
 
   Future<void> saveGeneralExpense(context, bool bool, bool? reSubmit) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     final hideField = hasModule("Expense");
     //  //  // print("receiptDate$receiptDate");
@@ -8277,8 +8363,12 @@ class Controller extends GetxController {
     int recId,
     String? expenseId,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -8416,7 +8506,7 @@ class Controller extends GetxController {
 
     return CashAdvanceRequestItemizeFornew(
       expenseCategoryId: selectedCategoryId?.isNotEmpty == true
-          ? selectedCategoryId!
+          ? selectedCategoryId
           : '',
       quantity: (double.tryParse(quantity.text) ?? 0.0).toInt(),
       uomId: selectedunit?.code ?? "Uom-004",
@@ -8496,9 +8586,11 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd-MM-yyyy',
+        selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
+      final parsedDate = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
       //  //  // print("cashAdvTransPayload2");
@@ -8712,9 +8804,11 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd-MM-yyyy',
+        selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
+      final parsedDate = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
@@ -8930,9 +9024,11 @@ class Controller extends GetxController {
       //  //  // print("cashAdvTransPayload");
       // Format the request date
       final formattedDate = DateFormat(
-        'dd-MM-yyyy',
+        selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(selectedDate ?? DateTime.now());
-      final parsedDate = DateFormat('dd-MM-yyyy').parse(formattedDate);
+      final parsedDate = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).parse(formattedDate);
       final requestDate = parsedDate.millisecondsSinceEpoch;
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
@@ -9131,8 +9227,12 @@ class Controller extends GetxController {
     int recId,
   ) async {
     isLoadingGE1.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9392,8 +9492,12 @@ class Controller extends GetxController {
     int recIds,
   ) async {
     isLoadingGE1.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9632,8 +9736,12 @@ class Controller extends GetxController {
     int recId,
     String expenseId,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9822,8 +9930,12 @@ class Controller extends GetxController {
     String expenseId,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9958,8 +10070,12 @@ class Controller extends GetxController {
     String expenseId,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -10086,7 +10202,7 @@ class Controller extends GetxController {
   //   final digiSessionIdNew = const Uuid().v4();
 
   //   final dateString = receiptDateController.text.trim();
-  //   final parsedDate = DateFormat('dd-MM-yyyy').parse(dateString);
+  //   final parsedDate = DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').parse(dateString);
   //   final receiptDate = parsedDate.millisecondsSinceEpoch;
   //   final attachmentPayload = await buildDocumentAttachment(imageFiles);
   //   if (!bool) {
@@ -11175,7 +11291,9 @@ class Controller extends GetxController {
 
   int? parseDateToEpoch(String formattedDate) {
     try {
-      final date = DateFormat('dd-MM-yyyy').parse(formattedDate.trim());
+      final date = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).parse(formattedDate.trim());
       return date.millisecondsSinceEpoch;
     } catch (e) {
       return null;
@@ -11184,7 +11302,7 @@ class Controller extends GetxController {
 
   String formattedDate(int millis) {
     DateTime date = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
-    return DateFormat('dd-MM-yyyy').format(date.toUtc());
+    return DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(date.toUtc());
   }
 
   Future<ExchangeRateResponse?> fetchExchangeRatePerdiem() async {
@@ -11195,7 +11313,7 @@ class Controller extends GetxController {
 
     final toDate = parseDateToEpoch(toDateController.text);
     final url = Uri.parse(
-      '${Urls.exchangeRate}/${exchangeamountInController.text}/${exchangeCurrencyCode.text}/$toDate',
+      '${Urls.exchangeRate}/${exchangeamountInController.text}/${perDiemexchangeCurrencyCode.value}/$toDate',
     );
 
     try {
@@ -11226,7 +11344,7 @@ class Controller extends GetxController {
           lineAmount.text = totalAmount.toStringAsFixed(2);
           lineAmountINR.text = totalINR.toStringAsFixed(2);
           quantity.text = rate.toStringAsFixed(2);
-          exchangeCurrencyCode.text = data['Currencycode'];
+          perDiemexchangeCurrencyCode.value = data['Currencycode'];
         }
 
         return ExchangeRateResponse.fromJson(data);
@@ -11269,7 +11387,7 @@ class Controller extends GetxController {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final parsedResponse = PerDiemResponseModel.fromJson(body);
-        exchangeCurrencyCode.text = parsedResponse.currencyCode;
+        perDiemexchangeCurrencyCode.value = parsedResponse.currencyCode;
         perdiemResponse.value = parsedResponse;
         perDiem.value = true;
         allocationLines = parsedResponse.allocationLines ?? [];
@@ -11744,7 +11862,7 @@ class Controller extends GetxController {
         "ReceiptDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "Currency": currencyDropDowncontroller.text,
+        "Currency": perDiemexchangeCurrencyCode.value ?? '',
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -11950,7 +12068,7 @@ class Controller extends GetxController {
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
-        "Currency": currencyDropDowncontroller.text,
+        "Currency": perDiemexchangeCurrencyCode.value,
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -12139,7 +12257,7 @@ class Controller extends GetxController {
       return {
         "ExpenseId": expenseID ?? '',
         "RecId": recId,
-        "ProjectId": selectedProject != null ? selectedProject?.code : null,
+        "ProjectId": selectedProject?.code,
         "TotalAmountTrans": amountInController.text.isNotEmpty
             ? amountInController.text
             : '0',
@@ -12155,7 +12273,7 @@ class Controller extends GetxController {
         "ReceiptDate": fromDateController.text.isNotEmpty
             ? parseDateToEpoch(fromDateController.text)
             : null,
-        "Currency": currencyDropDowncontroller.text,
+        "Currency": perDiemexchangeCurrencyCode.value,
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
@@ -12249,7 +12367,7 @@ class Controller extends GetxController {
         // for (var expense in specificPerdiemList) {
         //   expenseIdController.text = expense.expenseId;
         //   receiptDateController.text =
-        //       DateFormat('dd-MM-yyyy').format(expense.receiptDate);
+        //       DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(expense.receiptDate);
         // }
         //  //  //  // print("Perdiem ID: ${expenseIdController.text}");
         isLoadingGE2.value = false;
@@ -12309,7 +12427,7 @@ class Controller extends GetxController {
         // for (var expense in specificPerdiemList) {
         //   expenseIdController.text = expense.expenseId;
         //   receiptDateController.text =
-        //       DateFormat('dd-MM-yyyy').format(expense.receiptDate);
+        //       DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(expense.receiptDate);
         // }
         //  //  //  // print("Perdiem ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
@@ -12748,7 +12866,9 @@ class Controller extends GetxController {
     //  //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  //  // print("fetchExpenseCategory$selectedDateMileage");
     isLoading.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     try {
       final response = await ApiService.get(
@@ -12765,7 +12885,10 @@ class Controller extends GetxController {
         vehicleTypes = (data as List)
             .map((item) => VehicleType.fromJson(item))
             .toList();
-
+        if (vehicleTypes.isNotEmpty) {
+          // selectedVehicleType!.value = vehicleTypes.first;
+          selectedCurrencyMileage.value = vehicleTypes.first.currency;
+        }
         // selectedVehicleType = vehicleTypes.first;
 
         //  // debugPrint(
@@ -12792,7 +12915,7 @@ class Controller extends GetxController {
     }
   }
 
-  void calculateAmount() {
+  Future<void> calculateAmount() async {
     double ratePerKm = 0;
 
     for (var rate in selectedVehicleType!.mileageRateLines) {
@@ -12807,8 +12930,12 @@ class Controller extends GetxController {
     }
 
     calculatedAmountINR = totalDistanceKm * ratePerKm;
-    calculatedAmountUSD = calculatedAmountINR / 80; // Approx USD conversion
+    final res = await fetchExchangeRateMileage(
+      selectedCurrencyMileage.value,
+      calculatedAmountINR.toString(),
+    );
 
+    calculatedAmountUSD = res?.totalAmount ?? 0.0;
     // debugPrint("Selected Vehicle: ${selectedVehicleType!.name}");
     // debugPrint("Rate per KM: $ratePerKm");
     // debugPrint("Total Distance: $totalDistanceKm");
@@ -12899,6 +13026,8 @@ class Controller extends GetxController {
     projectIdController.clear();
     mileageVehicleID.clear();
     selectedVehicleType = null;
+    calculatedAmountUSD = 0;
+    selectedCurrencyMileage.value = '';
     // isRoundTrip = false;
     mileagDateController.clear();
     vehicleTypes.clear();
@@ -12940,7 +13069,7 @@ class Controller extends GetxController {
         "ExpenseId": expenseId ?? "",
         "ExpenseType": "Mileage",
         "RecId": recId,
-        "Currency": currencyDropDowncontroller.text,
+        "Currency": selectedCurrencyMileage.value,
         "MileageRateId": mileageVehicleID.text,
         "VehicleType": selectedVehicleType?.name ?? "",
         "FromLocation": tripControllers.first.text,
@@ -13248,8 +13377,12 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final DateTime dateToFormat = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToFormat);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToFormat);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final url = Uri.parse(
@@ -13792,7 +13925,9 @@ class Controller extends GetxController {
     final dateToUse = selectedDate ?? DateTime.now();
 
     isUploadingCards.value = true;
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     String url =
         "${Urls.cashAdvanceList}"
@@ -14195,7 +14330,58 @@ class Controller extends GetxController {
     String? amount,
   ) async {
     final dateToUse = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
+    final fromDate = parseDateToEpoch(formatted);
+    String? currencyCodes = currencyCode;
+    final currencyValue = currencyCodes ?? "INR";
+
+    double? parsedAmount = double.tryParse(amount!);
+    final String amounts = parsedAmount != null
+        ? parsedAmount.toInt().toStringAsFixed(2)
+        : '0';
+
+    final url = Uri.parse(
+      '${Urls.exchangeRate}/$amounts/$currencyValue/$fromDate',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
+          return ExchangeRateResponse.fromJson(data);
+        }
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+      }
+    } catch (e) {
+      //  //  // print('Error fetching exchange rate: $e');
+    }
+    return null;
+  }
+
+  Future<ExchangeRateResponse?> fetchExchangeRateMileage(
+    String? currencyCode,
+    String? amount,
+  ) async {
+    final dateToUse = selectedDate ?? DateTime.now();
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
     String? currencyCodes = currencyCode;
     final currencyValue = currencyCodes ?? "INR";
@@ -14240,7 +14426,9 @@ class Controller extends GetxController {
   Map<String, double> exchangeRateCache = {};
   Future<double?> fetchExchangeRatecalculated(String currencyCode) async {
     final dateToUse = selectedDate ?? DateTime.now();
-    final formatted = DateFormat('dd-MM-yyyy').format(dateToUse);
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
     final fromDate = parseDateToEpoch(formatted);
 
     final cacheKey = "$currencyCode-$fromDate";
@@ -14742,8 +14930,12 @@ class Controller extends GetxController {
     bool action,
     int workitemrecid,
   ) async {
-    final formatted = DateFormat('dd-MM-yyyy').format(selectedDate!);
-    final parsedDate = DateFormat('dd-MM-yyyy').parse(formatted.toString());
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(selectedDate!);
+    final parsedDate = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).parse(formatted.toString());
     final receiptDate = parsedDate.millisecondsSinceEpoch;
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -17739,7 +17931,7 @@ class Controller extends GetxController {
 
               if (p.paymentDate != null)
                 pw.Text(
-                  "Payment Date: ${DateFormat('dd-MM-yyyy').format(p.paymentDate!)}",
+                  "Payment Date: ${DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(p.paymentDate!)}",
                   style: pw.TextStyle(fontSize: 14),
                 ),
 
@@ -17938,7 +18130,7 @@ class Controller extends GetxController {
 
       if (p.paymentDate != null) {
         g.drawString(
-          'Payment Date: ${DateFormat('dd-MM-yyyy').format(p.paymentDate!)}',
+          'Payment Date: ${DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(p.paymentDate!)}',
           bodyFont,
           bounds: Rect.fromLTWH(0, y, page.getClientSize().width, 20),
         );
@@ -18472,7 +18664,7 @@ class Controller extends GetxController {
         isUtc: true,
       ).toLocal();
 
-      return DateFormat('dd-MM-yyyy').format(date);
+      return DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
     } catch (_) {
       return '--';
     }
@@ -18569,7 +18761,7 @@ class Controller extends GetxController {
           fontSize: 16.0,
         );
       } else {
-          final Map<String, dynamic> responseData = jsonDecode(res.body);
+        final Map<String, dynamic> responseData = jsonDecode(res.body);
         final message = responseData['detail']['message'];
         Fluttertoast.showToast(
           msg: message,
@@ -18751,10 +18943,11 @@ class Controller extends GetxController {
   }
 
   String getPeriodTypeForUI(String frequency) {
+    print("frequency$frequency");
     switch (frequency) {
       case 'Week':
         return 'Weekly';
-      case 'BiWeek':
+      case 'Biweekly':
         return 'BiWeekly';
       case 'Month':
         return 'Monthly';

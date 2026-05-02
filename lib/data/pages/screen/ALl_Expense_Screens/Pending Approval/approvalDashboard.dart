@@ -1329,7 +1329,7 @@ Widget _buildCard(ExpenseModel item, BuildContext context) {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          DateFormat('dd-MM-yyyy').format(
+                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               item.receiptDate,isUtc: true
                             ),

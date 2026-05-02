@@ -768,7 +768,7 @@ class _CashAdvanceRequestDashboardState
                   ),
                   Text(
                     item.requestDate != null
-                        ? DateFormat('dd-MM-yyyy').format(
+                        ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               item.requestDate,isUtc: true
                               

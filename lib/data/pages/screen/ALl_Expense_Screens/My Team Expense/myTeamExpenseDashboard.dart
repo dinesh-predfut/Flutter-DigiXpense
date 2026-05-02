@@ -1257,7 +1257,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                        ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.receiptDate!)
                         : 'No date',
                     style: const TextStyle(
                       fontSize: 12,

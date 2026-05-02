@@ -36,7 +36,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
   void initState() {
     super.initState();
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
-    final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
+    final formattedDate = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateTime);
     controller.mileagDateController.text = formattedDate;
     _loadSettings();  
     // Delay your logic safely
@@ -72,7 +72,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
 
       final expense = widget.mileageId!;
       final dateTime = DateTime.fromMillisecondsSinceEpoch(expense.receiptDate,isUtc: true);
-      final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
+      final formattedDate = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeIdController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
@@ -671,7 +671,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -755,7 +755,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
           if (controllers.text.isNotEmpty) {
             try {
               initialDate =
-                  DateFormat('dd-MM-yyyy') // <-- Match your text format
+                  DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // <-- Match your text format
                       .parseStrict(controllers.text.trim());
             } catch (e) {
               print("Invalid date in controllers.text: ${controllers.text}");
@@ -772,7 +772,7 @@ class _HubMileageFirstFromState extends State<HubMileageFirstFrom>
 
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+            controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();

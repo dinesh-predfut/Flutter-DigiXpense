@@ -29,6 +29,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   String? statusApproval;
   bool _showProjectError = false;
   bool allowMultSelect = false;
+  bool allowCashAd = false;
   String selectedProject = '';
   String? projectError;
   String? expenseIdError;
@@ -42,7 +43,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     super.initState();
     print("mileageId${widget.mileageId}");
     final dateTime = controller.selectedDateMileage ??= DateTime.now();
-    final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
+    final formattedDate = DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateTime);
     controller.mileagDateController.text = formattedDate;
 
     // Delay your logic safely
@@ -80,7 +83,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
         expense.receiptDate,
         isUtc: true,
       );
-      final formattedDate = DateFormat('dd-MM-yyyy').format(dateTime);
+      final formattedDate = DateFormat(
+        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(dateTime);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeDropDownController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
@@ -197,6 +202,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     if (settings != null) {
       setState(() {
         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+        allowCashAd = settings.allowCashAdvAgainstExpenseReg;
         print("allowDocAttachments$allowMultSelect");
       });
     } else {
@@ -820,67 +826,70 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  MultiSelectMultiColumnDropdownField<
-                                    CashAdvanceDropDownModel
-                                  >(
-                                    labelText: AppLocalizations.of(
-                                      context,
-                                    )!.cashAdvanceRequest,
-                                    items: controller.cashAdvanceListDropDown,
-                                    isMultiSelect: allowMultSelect ?? false,
-                                    selectedValue:
-                                        controller.singleSelectedItem,
-                                    selectedValues:
-                                        controller.multiSelectedItems,
-                                    enabled: controller.isEnable.value,
-                                    searchValue: (proj) =>
-                                        proj.cashAdvanceReqId,
-                                    displayText: (proj) =>
-                                        proj.cashAdvanceReqId,
-                                    validator: (proj) => proj == null
-                                        ? AppLocalizations.of(
-                                            context,
-                                          )!.pleaseSelectCashAdvanceField
-                                        : null,
-                                    onChanged: (item) {
-                                      controller.singleSelectedItem =
-                                          item; // ✅ update selected item
-                                    },
-                                    onMultiChanged: (items) {
-                                      controller.multiSelectedItems.assignAll(
-                                        items,
-                                      ); // ✅ update list
-                                    },
-                                    columnHeaders: [
-                                      AppLocalizations.of(context)!.requestId,
-                                      AppLocalizations.of(context)!.requestDate,
-                                    ],
-                                    rowBuilder: (proj, searchQuery) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                          horizontal: 16,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                proj.cashAdvanceReqId,
+                                  if (allowCashAd)
+                                    MultiSelectMultiColumnDropdownField<
+                                      CashAdvanceDropDownModel
+                                    >(
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      )!.cashAdvanceRequest,
+                                      items: controller.cashAdvanceListDropDown,
+                                      isMultiSelect: allowMultSelect ?? false,
+                                      selectedValue:
+                                          controller.singleSelectedItem,
+                                      selectedValues:
+                                          controller.multiSelectedItems,
+                                      enabled: controller.isEnable.value,
+                                      searchValue: (proj) =>
+                                          proj.cashAdvanceReqId,
+                                      displayText: (proj) =>
+                                          proj.cashAdvanceReqId,
+                                      validator: (proj) => proj == null
+                                          ? AppLocalizations.of(
+                                              context,
+                                            )!.pleaseSelectCashAdvanceField
+                                          : null,
+                                      onChanged: (item) {
+                                        controller.singleSelectedItem =
+                                            item; // ✅ update selected item
+                                      },
+                                      onMultiChanged: (items) {
+                                        controller.multiSelectedItems.assignAll(
+                                          items,
+                                        ); // ✅ update list
+                                      },
+                                      columnHeaders: [
+                                        AppLocalizations.of(context)!.requestId,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.requestDate,
+                                      ],
+                                      rowBuilder: (proj, searchQuery) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                            horizontal: 16,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  proj.cashAdvanceReqId,
+                                                ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Text(
-                                                proj.requestDate.toString(),
+                                              Expanded(
+                                                child: Text(
+                                                  proj.requestDate.toString(),
+                                                ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                                 ],
                               ),
-                              const SizedBox(height: 18),
+                              if (allowCashAd) const SizedBox(height: 18),
                               // Vehicle Type Dropdown
                               SearchableMultiColumnDropdownField<VehicleType>(
                                 labelText:
@@ -900,8 +909,11 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                     controller.mileageVehicleID.text =
                                         vehicle.id;
                                     vehicleError = null; // Clear error
+                                    controller.selectedCurrencyMileage.value =
+                                        vehicle.currency;
                                   });
                                   controller.calculateAmount();
+                                  
                                 },
                                 controller: controller.mileageVehicleID,
                                 rowBuilder: (vehicle, searchQuery) {
@@ -1060,7 +1072,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -1152,7 +1164,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           if (controllers.text.isNotEmpty) {
             try {
               initialDate =
-                  DateFormat('dd-MM-yyyy') // <-- Match your text format
+                  DateFormat(
+                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                      ) // <-- Match your text format
                       .parseStrict(controllers.text.trim());
             } catch (e) {
               print("Invalid date in controllers.text: ${controllers.text}");
@@ -1169,7 +1183,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
           if (picked != null) {
             controller.selectedDateMileage = picked;
-            controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+            controllers.text = DateFormat(
+              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+            ).format(picked);
             controller.fetchMileageRates();
             controller.selectedDate = picked;
             controller.fetchProjectName();

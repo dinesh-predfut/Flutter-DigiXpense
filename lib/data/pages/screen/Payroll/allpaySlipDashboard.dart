@@ -570,7 +570,7 @@ class _Payslip_DashboardState extends State<Payslip_Dashboard>
                         Text(
                           item.paymentDate != null
                               ? DateFormat(
-                                  'dd-MM-yyyy',
+                                 controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                                 ).format(item.paymentDate!)
                               : '',
                           style: const TextStyle(fontSize: 12),

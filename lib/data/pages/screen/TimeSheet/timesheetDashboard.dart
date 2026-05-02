@@ -127,13 +127,12 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
         config.entryFrequency ?? "",
       );
       controller.limitpostdate = config.limitForPastDate.toInt();
-      print(  "Limit for past date from config: ${controller.limitpostdate}");
     }
     print(controller.periodType.value);
     final frequency = config?.entryFrequency ?? "";
     if (config?.captureMethod == "TimeTracker") {
       setState(() {
-        _selectedTabIndex = 1; // Force Card View for Manual entry
+        _selectedTabIndex = 1; 
       });
     }
     controller.dateRange = getRangeFromConfig(
@@ -751,6 +750,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                                 Navigator.pushNamed(
                                   context,
                                   AppRoutes.timeSheetRequestPage,
+                                   arguments: {'status': false, "team": false},
                                   // arguments: {
                                   //   'item': null,
                                   //   'readOnly': false,

@@ -721,6 +721,8 @@ class Project {
           json['ProjectId'].toString().isNotEmpty),
     );
   }
+
+  void operator [](int other) {}
 }
 
 class ExchangeRateResponse {
@@ -4115,19 +4117,25 @@ class UnprocessExpenseModels {
 class VehicleType {
   final String name;
   final String id;
+  final String currency; // ✅ add this
+  final String unit;     // optional (KM / Miles)
   final List<MileageRateLine> mileageRateLines;
 
   VehicleType({
     required this.name,
-    required this.mileageRateLines,
     required this.id,
+    required this.currency,
+    required this.unit,
+    required this.mileageRateLines,
   });
 
   factory VehicleType.fromJson(Map<String, dynamic> json) {
     return VehicleType(
-      name: json['VehicleType'],
-      id: json['MileageRate'],
-      mileageRateLines: (json['MileageRateLines'] as List)
+      name: json['VehicleType'] ?? '',
+      id: json['MileageRate'] ?? '',
+      currency: json['Currency'] ?? '', // ✅ map currency
+      unit: json['MileageUnit'] ?? '',
+      mileageRateLines: (json['MileageRateLines'] as List? ?? [])
           .map((e) => MileageRateLine.fromJson(e))
           .toList(),
     );
@@ -6509,6 +6517,9 @@ class LineItemModel {
   final RxBool timerRunning;
   final RxInt elapsedSeconds;
   RxBool timerCompleted = false.obs;
+  RxBool lineBoardname = false.obs;
+  RxBool linetaskName = false.obs;
+  RxBool lineProject = false.obs;
   Timer? timer;
   int? timerStartMillis;
 
@@ -6746,7 +6757,13 @@ class TimeSheetRangeModel {
     );
   }
 }
+
 class RuleConfigSettings {
+  final int? lockOldRecordsAfter;
+  final int? minWorkingHours;
+  final int? maxWorkingHours;
+  final int? maxWeeklyHours;
+
   final bool breakTimeDeductionRequired;
   final bool remarksMandatoryForOTDays;
   final bool isOverTimeAllowed;
@@ -6765,6 +6782,10 @@ class RuleConfigSettings {
   final double limitForPastDate;
 
   RuleConfigSettings({
+    this.lockOldRecordsAfter,
+    this.minWorkingHours,
+    this.maxWorkingHours,
+    this.maxWeeklyHours,
     required this.breakTimeDeductionRequired,
     required this.remarksMandatoryForOTDays,
     required this.isOverTimeAllowed,
@@ -6784,30 +6805,45 @@ class RuleConfigSettings {
   });
 
   factory RuleConfigSettings.fromJson(Map<String, dynamic> json) {
-    return RuleConfigSettings(
-      breakTimeDeductionRequired: json['BreakTimeDeductionRequired'] ?? false,
-      remarksMandatoryForOTDays: json['RemarksMandatoryForOTDays'] ?? false,
-      isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
-      dayWeekStarts: json['DayWeekStarts'],
-      dayMonthStarts: json['DayMonthStarts'],
-      attachmentsRequired: json['AttachmentsRequired'] ?? false,
-      frequency: json['Frequency'],
-      requiredApproval: json['RequiredApproval'] ?? false,
-      defaultWorkFlow: json['DefaultWorkFlow'] != null
-          ? Map<String, dynamic>.from(json['DefaultWorkFlow'])
-          : null,
-      editableAfterApproval: json['EditableAfterApproval'] ?? false,
-      syncWithOverTimeModule: json['SycWithOverTimeModule'] ?? false,
-      integrationSource: json['IntegrationSource'],
-      auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
-      captureMethod: json['CaptureMethod'],
-      entryFrequency: json['EntryFrequency'],
-      limitForPastDate: json['LimitForPastDate'] ,
-    );
-  }
+  return RuleConfigSettings(
+    lockOldRecordsAfter: (json['LockOldRecordsAfter'] as num?)?.toInt(),
+    minWorkingHours: (json['MinWorkingHours'] as num?)?.toInt(),
+    maxWorkingHours: (json['MaxWorkingHours'] as num?)?.toInt(),
+    maxWeeklyHours: (json['MaxWeeklyHours'] as num?)?.toInt(),
+
+    breakTimeDeductionRequired:
+        json['BreakTimeDeductionRequired'] ?? false,
+    remarksMandatoryForOTDays:
+        json['RemarksMandatoryForOTDays'] ?? false,
+    isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
+    dayWeekStarts: json['DayWeekStarts'],
+    dayMonthStarts: json['DayMonthStarts'],
+    attachmentsRequired: json['AttachmentsRequired'] ?? false,
+    frequency: json['Frequency'],
+    requiredApproval: json['RequiredApproval'] ?? false,
+    defaultWorkFlow: json['DefaultWorkFlow'] != null
+        ? Map<String, dynamic>.from(json['DefaultWorkFlow'])
+        : null,
+    editableAfterApproval: json['EditableAfterApproval'] ?? false,
+    syncWithOverTimeModule:
+        json['SycWithOverTimeModule'] ?? false,
+    integrationSource: json['IntegrationSource'],
+    auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
+    captureMethod: json['CaptureMethod'],
+    entryFrequency: json['EntryFrequency'],
+
+    limitForPastDate:
+        (json['LimitForPastDate'] as num?)?.toDouble() ?? 0.0,
+  );
+}
 
   Map<String, dynamic> toJson() {
     return {
+      'LockOldRecordsAfter': lockOldRecordsAfter,
+      'MinWorkingHours': minWorkingHours,
+      'MaxWorkingHours': maxWorkingHours,
+      'MaxWeeklyHours': maxWeeklyHours,
+
       'BreakTimeDeductionRequired': breakTimeDeductionRequired,
       'RemarksMandatoryForOTDays': remarksMandatoryForOTDays,
       'IsOverTimeAllowed': isOverTimeAllowed,
@@ -6827,6 +6863,7 @@ class RuleConfigSettings {
     };
   }
 }
+
 class TimeEntryModel {
   final int entryDate;
   final int? timeFrom;
@@ -6836,12 +6873,14 @@ class TimeEntryModel {
   final String? comment;
   final String? otHours;
   int? recId;
+  List<AccountingDistribution>? accountingDistributions;
 
   TimeEntryModel({
+    this.accountingDistributions,
     required this.entryDate,
     this.timeFrom,
     this.timeTo,
-       this.recId,
+    this.recId,
     required this.totalHours,
     this.timerRunning = false,
     this.comment,
@@ -6857,6 +6896,7 @@ class TimeEntryModel {
     String? comment,
     String? otHours,
     int? recId,
+    List<AccountingDistribution>? accountingDistributions,
   }) {
     return TimeEntryModel(
       entryDate: entryDate ?? this.entryDate,
@@ -6866,8 +6906,12 @@ class TimeEntryModel {
       timerRunning: timerRunning ?? this.timerRunning,
       comment: comment ?? this.comment,
       otHours: otHours ?? this.otHours,
+        recId: recId ?? this.recId,
+            accountingDistributions:
+        accountingDistributions ?? this.accountingDistributions,
+  );
 
-    );
+    
   }
 
   Map<String, dynamic> toJson() => {
@@ -6879,6 +6923,8 @@ class TimeEntryModel {
     "OTHours": otHours,
     "InternalComment": comment,
     "RecId": recId,
+    "AccountingDistributions":
+        accountingDistributions?.map((e) => e.toJson()).toList() ?? [],
   };
 
   void operator []=(int other, TimeEntryModel value) {}

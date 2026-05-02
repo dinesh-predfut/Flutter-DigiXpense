@@ -833,7 +833,7 @@ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
                 ),
                 Text(
                   item.requestDate != null
-                      ? DateFormat('dd-MM-yyyy').format(
+                      ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                           DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
                         )
                       : 'No date',

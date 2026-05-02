@@ -1963,7 +1963,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                       Text(
                                         controller.selectedDate == null
                                             ? '${loc.selectDate} '
-                                            : DateFormat('dd-MM-yyyy').format(
+                                            : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                                                 controller.selectedDate!,
                                               ),
                                         style: TextStyle(

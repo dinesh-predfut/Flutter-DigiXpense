@@ -295,8 +295,8 @@ class _DashboardPageState extends State<DashboardPage>
 
   Future<void> _loadDashboards() async {
     controller.selectedDashboard.value = null;
-   controller.availableRoles.clear();
-   controller.currentRole.value = '';
+    controller.availableRoles.clear();
+    controller.currentRole.value = '';
     setState(() => loadingDashboards = true);
     try {
       dashboards = await controller.fetchDashboardWidgets();
@@ -548,19 +548,22 @@ class _DashboardPageState extends State<DashboardPage>
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         const LanguageDropdown(),
-
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.fingerprint,
-                                            color: Colors.white,
+                                        if (PermissionHelper.canRead(
+                                              "Attendance Requisition",
+                                            ) ==
+                                            true)
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.fingerprint,
+                                              color: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.punchScreen,
+                                              );
+                                            },
                                           ),
-                                          onPressed: () {
-                                            Navigator.pushNamed(
-                                              context,
-                                              AppRoutes.punchScreen,
-                                            );
-                                          },
-                                        ),
 
                                         _buildNotificationBadge(),
                                         _buildProfileAvatar(),
@@ -1153,7 +1156,7 @@ class _DashboardPageState extends State<DashboardPage>
               hintText: controller.selectedFilterDate.value == null
                   ? 'Select date'
                   : DateFormat(
-                      'dd-MM-yyyy',
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
               suffixIcon: const Icon(Icons.calendar_today, size: 18),
               border: const OutlineInputBorder(),

@@ -1704,7 +1704,7 @@ class _TaskDetailsPageState extends State<TaskDetailsPage> {
         child: Text(
           date == null
               ? 'Select date'
-              : DateFormat('dd-MM-yyyy').format(date.toLocal()),
+              : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date.toLocal()),
         ),
       ),
     );

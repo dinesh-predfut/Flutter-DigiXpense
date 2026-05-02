@@ -663,7 +663,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
 
   String formatDate(DateTime? date) {
     if (date == null) return 'No Due Date';
-    return DateFormat('dd-MM-yyyy').format(date);
+    return DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
   }
 
   Widget _buildSwipeActionLeft(bool isLoading) {
@@ -2298,7 +2298,7 @@ class _TaskCardState extends State<_TaskCard> {
                     Text(
                       widget.task.plannedEndDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedEndDate!)
                           : "No Date",
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -2344,7 +2344,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.plannedEndDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2368,7 +2368,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.plannedStartDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2392,7 +2392,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.actualStartDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.actualStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2416,7 +2416,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.actualEndDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.actualEndDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),
@@ -2441,7 +2441,7 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Text(
                       widget.task.plannedStartDate != null
                           ? DateFormat(
-                              'dd-MM-yyyy',
+                             controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                             ).format(widget.task.plannedStartDate!)
                           : '-',
                       style: const TextStyle(fontSize: 12),

@@ -1120,7 +1120,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   Text(
                     item.receiptDate != null
                         ? DateFormat(
-                            'dd-MM-yyyy',
+                           controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                           ).format(item.receiptDate!.toUtc())
                         : 'No date',
                     style: const TextStyle(

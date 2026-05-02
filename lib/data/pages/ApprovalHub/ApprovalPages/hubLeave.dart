@@ -1096,7 +1096,7 @@ class _ApprovalHubViewEditLeavePageState
                                       /// Date column
                                       Expanded(
                                         child: Text(
-                                          DateFormat('dd-MM-yyyy').format(date),
+                                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date),
                                           style: const TextStyle(fontSize: 14),
                                         ),
                                       ),
@@ -1302,7 +1302,7 @@ class _ApprovalHubViewEditLeavePageState
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat('dd-MM-yyyy').format(
+                                      DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                                         DateTime.fromMillisecondsSinceEpoch(
                                           leaveDay.transDate,isUtc: true
                                           

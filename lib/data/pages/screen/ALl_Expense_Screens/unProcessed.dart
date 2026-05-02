@@ -613,7 +613,7 @@ class _UnProcessState extends State<UnProcess> {
                   ),
                   Text(
                     item.receiptDate != null
-                        ? DateFormat('dd-MM-yyyy').format(item.receiptDate!)
+                        ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.receiptDate!)
                         : 'No date',
                     style: const TextStyle(
                       fontSize: 12,

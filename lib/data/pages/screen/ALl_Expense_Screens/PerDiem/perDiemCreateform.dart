@@ -33,6 +33,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   String? statusApproval;
   late int? workitemrecid;
   bool allowMultSelect = false;
+  bool allowCashAd = false;
   String? expenseIdError;
   String? noOfDaysError;
   String? perDiemError;
@@ -120,6 +121,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
     if (settings != null) {
       setState(() {
         allowMultSelect = settings.allowMultipleCashAdvancesPerExpenseReg;
+           allowCashAd = settings.allowCashAdvAgainstExpenseReg;
         print("allowDocAttachments$allowMultSelect");
       });
     }
@@ -295,14 +297,14 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       }
       // Safe date handling
       if (item.fromDate != null) {
-        controller.fromDateController.text = DateFormat('dd-MM-yyyy').format(
+        controller.fromDateController.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
           DateTime.fromMillisecondsSinceEpoch(item.fromDate, isUtc: true),
         );
       }
 
       if (item.toDate != null) {
         controller.toDateController.text = DateFormat(
-          'dd-MM-yyyy',
+          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
         ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate, isUtc: true));
       }
 
@@ -338,7 +340,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   }
 
   String formatDate(DateTime date) {
-    return DateFormat('dd-MM-yyyy').format(date);
+    return DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
   }
 
   Future<void> _initializeDataCashAdvance() async {
@@ -825,15 +827,17 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                                         ),
                                       ),
                                     ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 6),
                                 ],
                               );
                             })
                             .toList(),
-
+  // if (allowCashAd) const SizedBox(height: 14),
+                      
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                              if (allowCashAd)
                             MultiSelectMultiColumnDropdownField<
                               CashAdvanceDropDownModel
                             >(
@@ -927,7 +931,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                               readOnly: false,
                             ),
                             buildTextField(
-                              '${loc.totalAmountIN} ${controller.exchangeCurrencyCode.text}',
+                              '${loc.totalAmountIN} ${controller.perDiemexchangeCurrencyCode.value}',
                               controller.exchangeamountInController,
                               null,
                               readOnly: false,
@@ -2325,7 +2329,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                 if (controllers.text.trim().isNotEmpty) {
                   try {
                     initialDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controllers.text.trim());
                   } catch (_) {}
                 }
@@ -2337,7 +2341,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                     controller.fromDateController.text.isNotEmpty) {
                   try {
                     firstDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                   } catch (_) {}
                 }
@@ -2353,7 +2357,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   if (!isFromDate &&
                       controller.fromDateController.text.isNotEmpty) {
                     final fromDate = DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).parseStrict(controller.fromDateController.text.trim());
                     if (picked.isBefore(fromDate)) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -2654,7 +2658,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${loc.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${loc.submittedOn} ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

@@ -1225,7 +1225,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(

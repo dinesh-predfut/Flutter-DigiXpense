@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
+import 'package:diginexa/core/comman/widgets/accountingDistributionHours.dart';
 import 'package:diginexa/core/comman/widgets/customTimesheetDatePicker.dart';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
@@ -25,6 +28,7 @@ import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:dio/dio.dart';
+import 'package:photo_view/photo_view.dart';
 
 import '../../../../core/comman/widgets/pageLoaders.dart'; // Add this for API calls
 
@@ -114,7 +118,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     } else {
       controller.showProjectError.value = false;
     }
-
+    controller.periodType.value.isEmpty
+        ? controller.showperiodTypeError.value = true
+        : controller.showperiodTypeError.value = false;
     if (controller.dateRange == null) {
       isValid = false;
     }
@@ -128,14 +134,17 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       final line = controller.lineItems[i];
 
       if (line.project == null && config.isMandatory) {
+        line.lineProject.value = true;
         isValid = false;
       }
 
       if (line.board == null) {
+        line.lineBoardname.value = true;
         isValid = false;
       }
 
       if (line.task == null) {
+        line.linetaskName.value = true;
         isValid = false;
       }
     }
@@ -146,7 +155,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   /// =======================
   /// PREPARE API REQUEST BODY
   /// =======================
-  Map<String, dynamic> _prepareRequestBody() {
+  Future<Map<String, dynamic>> _prepareRequestBody() async {
     // Get current employee info (you might need to get this from your auth system)
     final employeeId = Params.employeeId; // Replace with actual employee ID
     final employeeName = Params.employeeName;
@@ -171,6 +180,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           "TimerRunning": false,
           "InternalComment": entry.comment,
           "RecId": entry.recId,
+          "AccountingDistributions": entry.accountingDistributions ?? [],
         });
       });
 
@@ -194,7 +204,22 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         "TaskName": line.task?.taskName ?? "",
       });
     }
+    controller.fileItems.clear();
+    for (int i = 0; i < controller.uploadedImages.length; i++) {
+      File image = controller.uploadedImages[i];
+      List<int> imageBytes = await image.readAsBytes();
+      String base64String = base64Encode(imageBytes);
 
+      controller.fileItems.add(
+        FileItem(
+          index: i,
+          name: image.path.split('/').last,
+          type: 'image/${image.path.split('.').last}',
+          base64Data: base64String,
+          hashMapKey: '',
+        ),
+      );
+    }
     List<Map<String, dynamic>> timesheetCustomFieldValues = controller
         .prepareHeaderCustomFieldsForAPI();
     return {
@@ -219,7 +244,20 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       "TimesheetCustomFieldValues": timesheetCustomFieldValues,
       "Timesheetlines": timesheetLines,
-      "DocumentAttachment": {"File": []},
+      "DocumentAttachment": {
+        "File": controller.fileItems
+            .map(
+              (file) => {
+                "index": file.index,
+                "name": file.name,
+                "type": file.type,
+                "base64Data": file.base64Data,
+                "hashMapKey": file.hashMapKey,
+              },
+            )
+            .toList(),
+      },
+
       "RecId": (controller.recId == null || controller.recId == 0)
           ? null
           : controller.recId,
@@ -233,7 +271,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   Future<void> _submitTimeSheet(BuildContext context, bool isResubmit) async {
     try {
       // Prepare request body
-      final requestBody = _prepareRequestBody();
+      final requestBody = await _prepareRequestBody(); // ✅
       print("requestBody$requestBody");
       // Call API
       final response = await ApiService.post(
@@ -298,7 +336,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   Future<void> _saveAsDraft(BuildContext context) async {
     try {
       // Prepare request body (same as submit but with Submit=false)
-      final requestBody = _prepareRequestBody();
+      final requestBody = await _prepareRequestBody();
 
       // Call API with Submit=false for draft
       final response = await ApiService.post(
@@ -401,7 +439,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     // Initialize status from widget data if exists
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.isLoading.value = true;
+
       await init();
+
       controller.loadSequenceModules();
 
       controller.Sheetconfiguration();
@@ -433,7 +473,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       }
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
-
       controller.fetchTasksTimeSheet(
         fromDate: controller.dateRange!.start.millisecondsSinceEpoch,
         toDate: controller.dateRange!.end.millisecondsSinceEpoch,
@@ -441,25 +480,76 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       final start = controller.dateRange!.start;
       final end = controller.dateRange!.end;
 
-      controller.loadTimeSheetRange(
-        fromDate: DateTime(
-          start.year,
-          start.month,
-          start.day,
-        ).millisecondsSinceEpoch,
+      print("start: $start");
+      print("start.isUtc: ${start.isUtc}");
+      print("start.toLocal(): ${start.toLocal()}");
+      print("start milliseconds: ${start.millisecondsSinceEpoch}");
 
-        toDate: DateTime(
-          end.year,
-          end.month,
-          end.day,
-          23,
-          59,
-          59,
-          999,
-        ).millisecondsSinceEpoch,
+      final local = start.toLocal();
+      print("local year/month/day: ${local.year}-${local.month}-${local.day}");
+      final startLocal = start.toLocal();
+      final endLocal = end.toLocal();
+
+      final safeStart = DateTime(
+        startLocal.year,
+        startLocal.month,
+        startLocal.day,
       );
+
+      final safeEnd = DateTime(
+        endLocal.year,
+        endLocal.month,
+        endLocal.day,
+        23,
+        59,
+        59,
+        999,
+      );
+
+      print("FIXED START: $safeStart");
+      print("FIXED START millis: ${safeStart.millisecondsSinceEpoch}");
+
+      controller.loadTimeSheetRange(
+        fromDate: safeStart.millisecondsSinceEpoch,
+        toDate: safeEnd.millisecondsSinceEpoch,
+      );
+      // print("fromDate: $fromDate");
+      // print("fromDate millis: ${fromDate.millisecondsSinceEpoch}");
+      print("Expected:          ${start.toLocal().millisecondsSinceEpoch}");
+      // controller.loadTimeSheetRange(
+      //   fromDate: fromDate.millisecondsSinceEpoch,
+      //   toDate: toDate.millisecondsSinceEpoch,
+      // );
+      print("LOCAL Start: $start");
+      print("UTC Start: ${toStartOfDayUTC(start)}");
+
+      // print("FROM millis: ${fromDate.millisecondsSinceEpoch}");
+      // print("TO millis: ${fromTo.millisecondsSinceEpoch}");
       controller.isLoading.value = false;
     });
+  }
+
+  DateTime toStartOfDayUTC(DateTime date) {
+    final local = date; // ensure we use local date fields
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  int toMSKStartOfDayMillis(DateTime date) {
+    // Step 1: treat given date as LOCAL (IST)
+    final local = DateTime(date.year, date.month, date.day);
+
+    // Step 2: remove IST offset → convert to UTC
+    final utc = local.subtract(const Duration(hours: 5, minutes: 30));
+
+    // Step 3: apply MSK offset (+3)
+    final msk = utc.add(const Duration(hours: 3));
+
+    return msk.millisecondsSinceEpoch;
+  }
+
+  DateTime toEndOfDayUTC(DateTime date) {
+    final local = date; // ensure we use local date fields
+    return DateTime(local.year, local.month, local.day, 23, 59, 59, 999);
   }
 
   // In your controller's initialization
@@ -472,20 +562,39 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
     );
     controller.ruleConfig = config;
-    if (config != null) {
+    if (config != null && !widget.status) {
+      // controller.periodType.value = controller.getPeriodTypeForUI(
+      //   config.entryFrequency ?? '',
+      // );
+      print('controller.periodType.value: ${controller.periodType.value}');
+    }
+    final frequency = config?.entryFrequency ?? "";
+    print("Limit for past date from config: ${now}");
+    if (!widget.status) {
+      setState(() {
+        controller.isEditMode = true;
+      });
       controller.periodType.value = controller.getPeriodTypeForUI(
-        config.entryFrequency ?? '',
+        config!.entryFrequency ?? '',
+      );
+      print("Widget status is false");
+      controller.dateRange = _getDateRangeByPeriod(
+        frequency,
+        now,
+        weekStart: config?.dayWeekStarts ?? "Monday",
+        monthStart: config?.dayMonthStarts ?? "1st",
+      );
+    } else {
+      setState(() {
+        controller.isEditMode = false;
+      });
+      print("Widget status is true ${config?.dayWeekStarts}");
+      controller.dateRange = _getDateRangeByPeriod(
+        controller.periodType.value,
+        controller.dateRange!.start,
       );
     }
-    print(controller.periodType.value);
-    final frequency = config?.entryFrequency ?? "";
 
-    controller.dateRange = _getDateRangeByPeriod(
-      frequency,
-      now,
-      weekStart: config?.dayWeekStarts ?? "Monday",
-      monthStart: config?.dayMonthStarts ?? "1st",
-    );
     // Use frequency value
   }
 
@@ -678,6 +787,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                         _topForm(),
                         const SizedBox(height: 16),
                         _actionButtons(),
+
+                        const SizedBox(height: 16),
+                        attachment(),
                         const SizedBox(height: 16),
                         ..._buildLineItems(),
                         if (widget.status)
@@ -853,8 +965,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                     builder: (isEnabled, isMandatory) {
                       return Expanded(
                         child: SearchableMultiColumnDropdownField<Project>(
-                          labelText:
-                              '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
+                          labelText: ' ',
                           enabled: controller.sheetEnable.value,
                           columnHeaders: [
                             AppLocalizations.of(context)!.projectName,
@@ -864,6 +975,15 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                           // dropdownWidth: 300,
                           controller: controller.projectDropDowncontroller,
                           selectedValue: controller.selectedProject,
+                          inputDecoration: InputDecoration(
+                            labelText:
+                                '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
+
+                            errorText: controller.showProjectError.value
+                                ? '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}'
+                                : null,
+                          ),
+
                           validator: (value) {
                             if (controller
                                     .projectDropDowncontroller
@@ -925,14 +1045,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                     ),
                     suffixIcon: const Icon(Icons.calendar_today),
                     errorText: controller.dateRange == null
-                        ? 'This field is required'
+                        ? '${AppLocalizations.of(context)!.dateRange} ${AppLocalizations.of(context)!.fieldRequired}'
                         : null,
                   ),
                   child: Text(
                     controller.dateRange == null
                         ? 'Select'
-                        : '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.start)} - '
-                              '${DateFormat('dd-MM-yyyy').format(controller.dateRange!.end)}',
+                        : '${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(controller.dateRange!.start)} - '
+                              '${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(controller.dateRange!.end)}',
                   ),
                 ),
               ),
@@ -1164,10 +1284,20 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   Widget _periodDropdown() {
     return Obx(() {
       return SearchableMultiColumnDropdownField<String>(
-        labelText: "${AppLocalizations.of(context)!.periodType} *",
+        labelText: "",
         columnHeaders: ["Type"],
         enabled: controller.sheetEnable.value,
+        inputDecoration: InputDecoration(
+          enabled: controller.sheetEnable.value,
 
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+          ),
+          labelText: "${AppLocalizations.of(context)!.periodType} *",
+          errorText: controller.showperiodTypeError.value
+              ? '${AppLocalizations.of(context)!.periodType} ${AppLocalizations.of(context)!.fieldRequired}'
+              : null,
+        ),
         items: periodTypes,
         selectedValue: controller.periodType.value,
 
@@ -1183,7 +1313,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
         onChanged: (type) {
           controller.periodType.value = type!;
-
+          controller.showperiodTypeError.value = false;
           controller.dateRange = _getDateRangeByPeriod(
             type,
             DateTime.now(),
@@ -1207,6 +1337,143 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         },
       );
     });
+  }
+
+  Widget attachment() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.uploadAttachments,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+
+        const SizedBox(height: 8),
+
+        Obx(() {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              /// Upload Box
+              InkWell(
+                onTap: !controller.sheetEnable.value
+                    ? null
+                    : controller.pickImages,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.grey.shade400,
+                      style: BorderStyle.solid,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Theme.of(context).colorScheme.surface,
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.cloud_upload, size: 40),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppLocalizations.of(context)!.uploadFileOrDragDrop,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (controller.uploadedImages.isNotEmpty)
+                SizedBox(
+                  height: 90,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: controller.uploadedImages.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final file = controller.uploadedImages[index];
+
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          /// 📷 Image
+                          InkWell(
+                            onTap: () {
+                              _openImagePreview(context, file);
+                            },
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                file,
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+
+                          /// ❌ Remove Button (TOP RIGHT FIXED)
+                          if (controller.leaveField.value)
+                            Positioned(
+                              top: -6,
+                              right: -6,
+                              child: GestureDetector(
+                                onTap: () {
+                                  controller.uploadedImages.removeAt(index);
+                                  controller.update(); // 🔥 if using GetBuilder
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  void _openImagePreview(BuildContext context, File image) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              PhotoView(
+                imageProvider: FileImage(image),
+                backgroundDecoration: const BoxDecoration(color: Colors.black),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   /// =======================
@@ -1318,15 +1585,20 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               fieldName: 'Project Id',
               builder: (isEnabled, isMandatory) {
                 return SearchableMultiColumnDropdownField<Project>(
-                  labelText:
-                      '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
+                  labelText: ' ',
                   enabled: controller.sheetEnable.value,
                   columnHeaders: [
                     AppLocalizations.of(context)!.projectName,
                     AppLocalizations.of(context)!.projectId,
                   ],
                   items: controller.project,
-
+                  inputDecoration: InputDecoration(
+                    labelText:
+                        '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
+                    errorText: controller.lineItems[index].lineProject.value
+                        ? AppLocalizations.of(context)!.fieldRequired
+                        : null,
+                  ),
                   selectedValue: controller.lineItems[index].project,
                   validator: (value) {
                     if (value == null && isMandatory) {
@@ -1339,6 +1611,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                   onChanged: (proj) {
                     setState(() {
                       controller.lineItems[index].project = proj;
+                      controller.lineItems[index].lineProject.value =
+                          proj == null;
                     });
                   },
                   rowBuilder: (proj, searchQuery) {
@@ -1403,14 +1677,25 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
             //   ),
             // ),
             SearchableMultiColumnDropdownField<BoardModel>(
-              labelText: '${AppLocalizations.of(context)!.boardName} *',
+              labelText: '',
               columnHeaders: [
                 AppLocalizations.of(context)!.id,
                 AppLocalizations.of(context)!.name,
               ],
               items: controller.boardList,
               enabled: controller.sheetEnable.value,
-
+              inputDecoration: InputDecoration(
+                labelText: '${AppLocalizations.of(context)!.boardName} *',
+                errorText: controller.lineItems[index].lineBoardname.value
+                    ? '${AppLocalizations.of(context)!.boardName} ${AppLocalizations.of(context)!.fieldRequired}'
+                    : null,
+              ),
+              validator: (value) {
+                if (value == null) {
+                  return '${AppLocalizations.of(context)!.boardName} ${AppLocalizations.of(context)!.fieldRequired}';
+                }
+                return null;
+              },
               selectedValue: controller.lineItems[index].board,
               // dropdownWidth: 300,
               // alignLeft: -150,
@@ -1426,7 +1711,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               onChanged: (b) {
                 setState(() {
                   controller.lineItems[index].board = b;
-
+                  controller.lineItems[index].lineBoardname.value = b == null;
                   controller.lineItems[index].task = null;
                 });
 
@@ -1443,14 +1728,19 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               children: [
                 Expanded(
                   child: SearchableMultiColumnDropdownField<TaskModelDropDown>(
-                    labelText: '${AppLocalizations.of(context)!.taskName} *',
+                    labelText: '',
                     columnHeaders: [
                       AppLocalizations.of(context)!.id,
                       AppLocalizations.of(context)!.name,
                     ],
                     items: controller.lineItems[index].filteredTasks,
                     enabled: controller.sheetEnable.value,
-
+                    inputDecoration: InputDecoration(
+                      labelText: '${AppLocalizations.of(context)!.taskName} *',
+                      errorText: controller.lineItems[index].linetaskName.value
+                          ? '${AppLocalizations.of(context)!.taskName} ${AppLocalizations.of(context)!.fieldRequired}'
+                          : null,
+                    ),
                     // dropdownWidth: 300,
                     selectedValue: controller.lineItems[index].task,
                     displayText: (t) => t.taskId,
@@ -1465,6 +1755,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                     onChanged: (t) {
                       setState(() {
                         controller.lineItems[index].task = t;
+                        controller.lineItems[index].linetaskName.value =
+                            t == null;
                       });
                     },
                   ),
@@ -1611,7 +1903,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               timestamp,
               isUtc: true,
             );
-            return DateFormat('dd-MM-yyyy').format(date);
+            return DateFormat(
+              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+            ).format(date);
           }
         } catch (e) {
           print('Error parsing date: $e');
@@ -3065,14 +3359,26 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     DateTime start = _onlyDate(controller.dateRange!.start);
     DateTime now = DateTime.now();
 
-    /// 🔥 ALIGN BEFORE PICKER (MAIN FIX)
-    final alignedRange = _getDateRangeByPeriod(
-      frequency,
-      now,
-      weekStart: weekStart,
-      monthStart: monthStart,
-    );
+    DateTimeRange alignedRange;
 
+    if (!widget.status) {
+      print("Widget status is false2");
+
+      alignedRange = _getDateRangeByPeriod(
+        frequency,
+        now,
+        weekStart: weekStart,
+        monthStart: monthStart,
+      );
+    } else {
+      print("Widget status is false22");
+      alignedRange = _getDateRangeByPeriod(
+        controller.periodType.value,
+        controller.dateRange!.start,
+        weekStart: "",
+        monthStart: "",
+      );
+    }
     DateTime safeStart = alignedRange.start;
     DateTime safeEnd = alignedRange.end;
 
@@ -3102,6 +3408,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       initialDate: controller.dateRange!.start,
       firstDate: DateTime(2024),
       lastDate: lastDate,
+      status: widget.status,
       getRangeFromConfig: _getDateRangeByPeriod,
     );
 
@@ -3135,133 +3442,134 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }
 
   DateTimeRange _getDateRangeByPeriod(
-  String type,
-  DateTime date, {
-  String weekStart = "",
-  String monthStart = "",
-}) {
-  date = DateTime(date.year, date.month, date.day);
-  type = type.replaceAll("-", "").toLowerCase();
+    String type,
+    DateTime date, {
+    String weekStart = "",
+    String monthStart = "",
+  }) {
+    date = DateTime(date.year, date.month, date.day);
+    type = type.replaceAll("-", "").toLowerCase();
 
-  print("type: $type, weekStart: $weekStart, monthStart: $monthStart");
+    print("type: $type, weekStart: $weekStart, monthStart: $monthStart");
 
-  int getWeekdayFromString(String day) {
-    const map = {
-      'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
-      'friday': 5, 'saturday': 6, 'sunday': 7,
-    };
-    return map[day.toLowerCase()] ?? 1;
-  }
-
-  int extractDay(String value) {
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
-    return int.tryParse(digits) ?? 0;
-  }
-
-  int getSafeDay(int year, int month, int day) {
-    int lastDay = DateTime(year, month + 1, 0).day;
-    return day.clamp(1, lastDay);
-  }
-
-  DateTime startDate;
-  DateTime endDate;
-
-  // ================= WEEK =================
-  if (type == "week" || type == "weekly") {
-    if (weekStart.trim().isEmpty) {
-      /// ✅ No config: tapped date IS the start
-      startDate = date;
-    } else {
-      int startWeekday = getWeekdayFromString(weekStart);
-      int diff = date.weekday - startWeekday;
-      if (diff < 0) diff += 7;
-      startDate = date.subtract(Duration(days: diff));
+    int getWeekdayFromString(String day) {
+      const map = {
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 7,
+      };
+      return map[day.toLowerCase()] ?? 1;
     }
-    endDate = startDate.add(const Duration(days: 6));
-  }
 
-  // ================= BIWEEKLY =================
-  else if (type == "biweekly") {
-    if (weekStart.trim().isEmpty) {
-      /// ✅ No config: tapped date IS the start
-      startDate = date;
-    } else {
-      int startWeekday = getWeekdayFromString(weekStart);
-      int diff = date.weekday - startWeekday;
-      if (diff < 0) diff += 7;
-      DateTime currentWeekStart = date.subtract(Duration(days: diff));
-      startDate = currentWeekStart.subtract(const Duration(days: 7));
+    int extractDay(String value) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
+      return int.tryParse(digits) ?? 0;
     }
-    endDate = startDate.add(const Duration(days: 13));
-  }
 
-  // ================= MONTHLY =================
-  else if (type == "monthly") {
-    if (monthStart.trim().isEmpty) {
-      /// ✅ No config: tapped date IS the start, end = same day next month - 1
-      startDate = date;
-      endDate = DateTime(
-        date.year,
-        date.month + 1,
-        getSafeDay(date.year, date.month + 1, date.day - 1),
-      );
-    } else {
-      int startDay = extractDay(monthStart);
+    int getSafeDay(int year, int month, int day) {
+      int lastDay = DateTime(year, month + 1, 0).day;
+      return day.clamp(1, lastDay);
+    }
 
-      if (startDay <= 0) {
-        /// ✅ Fallback if extractDay fails
+    DateTime startDate;
+    DateTime endDate;
+
+    // ================= WEEK =================
+    if (type == "week" || type == "weekly") {
+      if (weekStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start
+        startDate = date;
+      } else {
+        int startWeekday = getWeekdayFromString(weekStart);
+        int diff = date.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+        startDate = date.subtract(Duration(days: diff));
+      }
+      endDate = startDate.add(const Duration(days: 6));
+    }
+    // ================= BIWEEKLY =================
+    else if (type == "biweekly") {
+      if (weekStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start
+        startDate = date;
+      } else {
+        int startWeekday = getWeekdayFromString(weekStart);
+        int diff = date.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+        DateTime currentWeekStart = date.subtract(Duration(days: diff));
+        startDate = currentWeekStart.subtract(const Duration(days: 7));
+      }
+      endDate = startDate.add(const Duration(days: 13));
+    }
+    // ================= MONTHLY =================
+    else if (type == "monthly") {
+      if (monthStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start, end = same day next month - 1
         startDate = date;
         endDate = DateTime(
           date.year,
           date.month + 1,
           getSafeDay(date.year, date.month + 1, date.day - 1),
         );
-      } else if (date.day >= startDay) {
-        startDate = DateTime(
-          date.year,
-          date.month,
-          getSafeDay(date.year, date.month, startDay),
-        );
-        endDate = DateTime(
-          date.year,
-          date.month + 1,
-          getSafeDay(date.year, date.month + 1, startDay - 1),
-        );
       } else {
-        startDate = DateTime(
-          date.year,
-          date.month - 1,
-          getSafeDay(date.year, date.month - 1, startDay),
-        );
-        endDate = DateTime(
-          date.year,
-          date.month,
-          getSafeDay(date.year, date.month, startDay - 1),
-        );
+        int startDay = extractDay(monthStart);
+
+        if (startDay <= 0) {
+          /// ✅ Fallback if extractDay fails
+          startDate = date;
+          endDate = DateTime(
+            date.year,
+            date.month + 1,
+            getSafeDay(date.year, date.month + 1, date.day - 1),
+          );
+        } else if (date.day >= startDay) {
+          startDate = DateTime(
+            date.year,
+            date.month,
+            getSafeDay(date.year, date.month, startDay),
+          );
+          endDate = DateTime(
+            date.year,
+            date.month + 1,
+            getSafeDay(date.year, date.month + 1, startDay - 1),
+          );
+        } else {
+          startDate = DateTime(
+            date.year,
+            date.month - 1,
+            getSafeDay(date.year, date.month - 1, startDay),
+          );
+          endDate = DateTime(
+            date.year,
+            date.month,
+            getSafeDay(date.year, date.month, startDay - 1),
+          );
+        }
       }
     }
-  }
-
-  // ================= SEMI-MONTHLY =================
-  else if (type == "semimonth" || type == "semimonthly") {
-    if (date.day <= 15) {
-      startDate = DateTime(date.year, date.month, 1);
-      endDate = DateTime(date.year, date.month, 15);
-    } else {
-      startDate = DateTime(date.year, date.month, 16);
-      endDate = DateTime(date.year, date.month + 1, 0);
+    // ================= SEMI-MONTHLY =================
+    else if (type == "semimonth" || type == "semimonthly") {
+      if (date.day <= 15) {
+        startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month, 15);
+      } else {
+        startDate = DateTime(date.year, date.month, 16);
+        endDate = DateTime(date.year, date.month + 1, 0);
+      }
+      // ℹ️ SemiMonth has fixed halves — weekStart/monthStart don't apply
     }
-    // ℹ️ SemiMonth has fixed halves — weekStart/monthStart don't apply
-  }
+    // ================= DEFAULT =================
+    else {
+      startDate = date;
+      endDate = date;
+    }
 
-  // ================= DEFAULT =================
-  else {
-    startDate = date;
-    endDate = date;
+    return DateTimeRange(start: startDate, end: endDate);
   }
-
-  return DateTimeRange(start: startDate, end: endDate);
-}
 
   DateTimeRange getBiWeeklyRange() {
     final now = DateTime.now();
@@ -3304,66 +3612,90 @@ class _HourItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.put(Controller());
 
-    final entryKey = item.entryDate.millisecondsSinceEpoch;
-
-    /// 📅 Today
+    /// 📅 Normalize TODAY (remove time)
     final today = DateTime.now();
     final todayOnly = DateTime(today.year, today.month, today.day);
 
-    /// 📅 Item date
+    /// 📅 Normalize ITEM DATE
     final itemDate = DateTime(
       item.entryDate.year,
       item.entryDate.month,
       item.entryDate.day,
     );
 
+    /// 🔑 Use milliseconds as key (consistent with map type)
+    final entryKey = DateTime(
+      item.entryDate.year,
+      item.entryDate.month,
+      item.entryDate.day,
+    ).millisecondsSinceEpoch;
+
     /// 📊 Data
     final line = controller.lineItems[lineIndex];
     final entry = controller.timeEntries[lineIndex]?[entryKey];
-
+    final bool hasExistingEntry = entry == null;
+    final bool hasEntry = entry != null; // true = already exists
     final isRunning = line.timerRunning.value;
     final seconds = line.elapsedSeconds.value;
+
+    /// 📊 Rule Config
+    final int? lockAfter = controller.ruleConfig?.lockOldRecordsAfter;
+    final bool hasLock = lockAfter != null && lockAfter > 0;
+
+    /// 📊 Date Difference
+    final difference = todayOnly.difference(itemDate).inDays;
 
     /// 🔥 LIMIT (null or 0 = unlimited)
     final int? limit = controller.limitpostdate;
     final bool noLimit = limit == null || limit == 0;
 
-    /// 📊 DATE DIFFERENCE
-    final difference = todayOnly.difference(itemDate).inDays;
+    /// 🚫 FUTURE / TODAY
+    final bool isFuture = difference < 0;
+    final bool isToday = difference == 0;
+    final bool isCreateMode = !controller.isEditMode;
 
-    final isFuture = difference < 0;
-    final isToday = difference == 0;
+    /// 🔒 LOCK RULE (FIXED)
+    final bool isLockedByOldRecord =
+        hasLock && isCreateMode && difference > 0 && difference <= lockAfter!;
 
-    /// 🔥 PAST RULE (ONLY past dates)
-    final isAllowedPastDay = noLimit
+    /// 🔥 PAST RULE
+    final bool withinPastLimit = noLimit
         ? difference > 0
-        : (difference > 0 && difference <= limit!);
+        : (difference > 0 && difference <= limit);
 
-    /// 🔥 TODAY RULE (always enabled unless blocked by holiday/weekend)
-    final isTodayAllowed = true;
+    final bool isAllowedPastDay = withinPastLimit && !isLockedByOldRecord;
 
-    /// ❌ FINAL DISABLE LOGIC
-    final isDisabled =
+    /// 🚫 FINAL DISABLE CONDITION
+    final bool isDisabled =
         item.weekend ||
         item.holiday ||
         isFuture ||
-        (!isTodayAllowed && isToday) ||
         (!isToday && !isAllowedPastDay);
 
-    /// ▶️ TIMER BUTTON
-    final showTimerButton = isToday && controller.sheetEnable.value;
+    /// ▶️ TIMER BUTTON (ONLY TODAY)
+    final bool showTimerButton = isToday && controller.sheetEnable.value;
 
-    /// 🔍 DEBUG
-    print("""
-Date: ${item.entryDate}
-difference: $difference
-limit: $limit
-noLimit: $noLimit
-isFuture: $isFuture
-isToday: $isToday
-isAllowedPastDay: $isAllowedPastDay
-isDisabled: $isDisabled
-""");
+    /// 🔍 DEBUG LOGS
+    print("------------ DEBUG ------------");
+    print("Date: ${item.entryDate}");
+    print("Formatted Key: ${(!isToday && !isAllowedPastDay)}");
+    print("Available Keys: ${controller.timeEntries[lineIndex]?.keys}");
+    print(" item.weekend : ${item.weekend}");
+    print("item.holiday: ${item.holiday}");
+    print("Has Entry: $hasExistingEntry");
+    print("difference: $difference");
+    print("lockAfter: $lockAfter");
+    print("isLockedByOldRecord: $isLockedByOldRecord");
+
+    print("limit: $limit");
+    print("noLimit: $noLimit");
+    print("withinPastLimit: $withinPastLimit");
+
+    print("isFuture: $isFuture");
+    print("isToday: $isToday");
+    print("isAllowedPastDay: $isAllowedPastDay");
+    print("isDisabled: $isDisabled");
+    print("--------------------------------");
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -3400,10 +3732,16 @@ isDisabled: $isDisabled
               mainAxisSize: MainAxisSize.min,
               children: [
                 /// ⏱ Hours
-                Text(
-                  entry?.totalHours ?? '0',
-                  style: const TextStyle(fontSize: 10),
-                ),
+                Obx(() {
+                  final entry = controller.timeEntries[lineIndex]?[entryKey];
+                  print(
+                    "Rebuilding hours for key: ${entry?.totalHours}, found entry: ${entryKey}",
+                  );
+                  return Text(
+                    entry?.totalHours ?? '0',
+                    style: const TextStyle(fontSize: 10),
+                  );
+                }),
 
                 /// ▶️ Timer Button
                 if (showTimerButton)
@@ -3426,6 +3764,81 @@ isDisabled: $isDisabled
                   ),
               ],
             ),
+            if (entry?.totalHours != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isDisabled
+                        ? null
+                        : () {
+                            final double hours =
+                                double.tryParse(entry!.totalHours) ?? 0.0;
+
+                            // ✅ Existing logic
+                            if (controller.split.isEmpty &&
+                                controller.accountingDistributions.isNotEmpty) {
+                              controller.split.assignAll(
+                                controller.accountingDistributions.map((e) {
+                                  return AccountingSplit(
+                                    paidFor: e?.dimensionValueId ?? '',
+                                    percentage: e?.allocationFactor ?? 0.0,
+                                    amount: e?.transAmount ?? 0.0,
+                                  );
+                                }).toList(),
+                              );
+                            } else if (controller.split.isEmpty) {
+                              controller.split.add(
+                                AccountingSplit(percentage: 100.0),
+                              );
+                            }
+
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(16),
+                                ),
+                              ),
+                              builder: (context) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: MediaQuery.of(
+                                    context,
+                                  ).viewInsets.bottom,
+                                  left: 16,
+                                  right: 16,
+                                  top: 15,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: AccountingDistributionWidgetHours(
+                                    splits: controller.split,
+                                    lineAmount: hours, // ✅ use validated value
+                                    onChanged: (i, updatedSplit) {
+                                      controller.split[i] = updatedSplit;
+                                    },
+                                    onDistributionChanged: (newList) {
+                                      controller.accountingDistributions
+                                          .clear();
+                                      controller.accountingDistributions.addAll(
+                                        newList,
+                                      );
+
+                                      controller
+                                              .timeEntries[lineIndex]?[entryKey] =
+                                          entry!.copyWith(
+                                            accountingDistributions: newList,
+                                          );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                    child: Icon(Icons.call_split, size: 12),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -3492,7 +3905,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
         }
 
         value = DateFormat(
-          'dd-MM-yyyy',
+          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
         ).format(DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true));
       } catch (e) {
         print("Invalid date millis");
@@ -3508,7 +3921,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
         widget.field['FieldType']?.toString().toLowerCase() ?? 'text';
     final isMandatory = widget.field['IsMandatory'] ?? false;
     final label = '${widget.field['FieldName']}${isMandatory ? ' *' : ''}';
-    // final initialDate = DateFormat('dd-MM-yyyy').parse(_controller.text);
+    // final initialDate = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parse(_controller.text);
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -3561,7 +3974,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
                       if (_controller.text.isNotEmpty) {
                         try {
                           initialDate = DateFormat(
-                            'dd-MM-yyyy',
+                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                           ).parse(_controller.text);
                         } catch (_) {}
                       }
@@ -3611,7 +4024,7 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
                     if (fieldType == 'date' && finalValue.isNotEmpty) {
                       try {
                         final parsedDate = DateFormat(
-                          'dd-MM-yyyy',
+                          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                         ).parse(finalValue);
 
                         finalValue = parsedDate.millisecondsSinceEpoch
@@ -3673,8 +4086,12 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
   @override
   void initState() {
     super.initState();
+    final key = DateTime(
+      widget.entryDate.year,
+      widget.entryDate.month,
+      widget.entryDate.day,
+    ).millisecondsSinceEpoch;
 
-    final key = widget.entryDate.millisecondsSinceEpoch;
     final existing = controller.timeEntries[widget.lineIndex]?[key];
     if (existing != null) {
       // print("RecId: ${existing.recId}");
@@ -3710,16 +4127,13 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
   Future<void> _pickTime(TextEditingController ctrl, bool isFrom) async {
     if (isTimerBasedEntry) return;
 
-    int? existingMillis = isFrom ? timeFromMillis : timeToMillis;
+    final int? existingMillis = isFrom ? timeFromMillis : timeToMillis;
 
-    TimeOfDay initialTime;
-
+    final TimeOfDay initialTime;
     if (existingMillis != null) {
       final existingDateTime = DateTime.fromMillisecondsSinceEpoch(
         existingMillis,
-        isUtc: true,
       );
-
       initialTime = TimeOfDay(
         hour: existingDateTime.hour,
         minute: existingDateTime.minute,
@@ -3727,22 +4141,11 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
     } else {
       initialTime = TimeOfDay.now();
     }
-
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-          child: child!,
-        );
-      },
-    );
+    final picked = await _showCustomTimePicker(initialTime);
 
     if (picked == null) return;
 
     final date = widget.entryDate;
-
     final dateTime = DateTime(
       date.year,
       date.month,
@@ -3750,19 +4153,47 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
       picked.hour,
       picked.minute,
     );
-
     final selectedMillis = dateTime.millisecondsSinceEpoch;
 
-    /// Validation
-    if (!isFrom &&
-        timeFromMillis != null &&
-        selectedMillis <= timeFromMillis!) {
-      Fluttertoast.showToast(
-        msg: "Time To must be greater than Time From",
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-      );
-      return;
+    // Determine the effective from/to after picking
+    final int effectiveFrom = isFrom
+        ? selectedMillis
+        : (timeFromMillis ?? selectedMillis);
+    final int effectiveTo = isFrom
+        ? (timeToMillis ?? selectedMillis)
+        : selectedMillis;
+
+    // Validate only when both from and to are available
+    if (timeFromMillis != null || timeToMillis != null) {
+      final int? fromMillis = isFrom ? selectedMillis : timeFromMillis;
+      final int? toMillis = isFrom ? timeToMillis : selectedMillis;
+
+      if (fromMillis != null && toMillis != null) {
+        final differenceInMinutes = _differenceInMinutes(fromMillis, toMillis);
+
+        // Validate time order
+        if (differenceInMinutes <= 0) {
+          _showErrorToast(
+            "Invalid time range. Time To must be after Time From",
+          );
+          return;
+        }
+
+        // Validate min/max working hours
+        final workedHours = differenceInMinutes / 60.0;
+        final minHours = controller.ruleConfig?.minWorkingHours ?? 0;
+        final maxHours = controller.ruleConfig?.maxWorkingHours ?? 24;
+
+        if (workedHours < minHours) {
+          _showErrorToast("Minimum working hours is $minHours hrs");
+          return;
+        }
+
+        if (workedHours > maxHours) {
+          _showErrorToast("Maximum working hours is $maxHours hrs");
+          return;
+        }
+      }
     }
 
     if (!mounted) return;
@@ -3772,7 +4203,7 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
 
       if (isFrom) {
         timeFromMillis = selectedMillis;
-
+        // Clear timeTo if it's no longer valid
         if (timeToMillis != null && timeToMillis! <= timeFromMillis!) {
           timeToMillis = null;
           timeToCtrl.clear();
@@ -3785,16 +4216,42 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
     _calculateTotalHours();
   }
 
+  Future<TimeOfDay?> _showCustomTimePicker(TimeOfDay initialTime) async {
+    return await showModalBottomSheet<TimeOfDay>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _CustomTimePicker(initialTime: initialTime),
+    );
+  }
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  int _differenceInMinutes(int fromMillis, int toMillis) {
+    final from = DateTime.fromMillisecondsSinceEpoch(fromMillis);
+    final to = DateTime.fromMillisecondsSinceEpoch(toMillis);
+    return to.difference(from).inMinutes;
+  }
+
+  double _calculateWorkingHours(int fromMillis, int toMillis) {
+    return _differenceInMinutes(fromMillis, toMillis) / 60.0;
+  }
+
   void _calculateTotalHours() {
     if (timeFromMillis != null && timeToMillis != null) {
-      final diff = DateTime.fromMillisecondsSinceEpoch(timeToMillis!)
-          .difference(
-            DateTime.fromMillisecondsSinceEpoch(timeFromMillis!, isUtc: true),
-          );
-
-      final hours = diff.inMinutes / 60;
-      totalHoursCtrl.text = hours.toStringAsFixed(2);
+      final workedHours = _calculateWorkingHours(
+        timeFromMillis!,
+        timeToMillis!,
+      );
+      totalHoursCtrl.text = workedHours.toStringAsFixed(2);
     }
+  }
+
+  void _showErrorToast(String message) {
+    Fluttertoast.showToast(
+      msg: message,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+    );
   }
 
   @override
@@ -5833,6 +6290,7 @@ Future<DateTimeRange?> showPeriodPicker({
     String monthStart,
   })
   getRangeFromConfig,
+  required bool status,
 }) {
   return showDialog<DateTimeRange>(
     context: context,
@@ -5844,6 +6302,228 @@ Future<DateTimeRange?> showPeriodPicker({
       firstDate: firstDate,
       lastDate: lastDate,
       getRangeFromConfig: getRangeFromConfig,
+      status: status,
     ),
   );
+}
+
+class _CustomTimePicker extends StatefulWidget {
+  final TimeOfDay initialTime;
+  const _CustomTimePicker({required this.initialTime});
+
+  @override
+  State<_CustomTimePicker> createState() => _CustomTimePickerState();
+}
+
+class _CustomTimePickerState extends State<_CustomTimePicker> {
+  late int _selectedHour;
+  late int _selectedMinute;
+
+  late FixedExtentScrollController _hourController;
+  late FixedExtentScrollController _minuteController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedHour = widget.initialTime.hour;
+    _selectedMinute = widget.initialTime.minute;
+    _hourController = FixedExtentScrollController(initialItem: _selectedHour);
+    _minuteController = FixedExtentScrollController(
+      initialItem: _selectedMinute,
+    );
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Title
+          const Text(
+            "Select Time",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 24),
+
+          // Picker row
+          SizedBox(
+            height: 200,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Highlight bar
+                Container(
+                  height: 48,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Hour scroll
+                    _buildScrollWheel(
+                      controller: _hourController,
+                      itemCount: 24,
+                      label: (i) => i.toString().padLeft(2, '0'),
+                      onChanged: (i) => setState(() => _selectedHour = i),
+                    ),
+
+                    // Colon separator
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        ":",
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+
+                    // Minute scroll
+                    _buildScrollWheel(
+                      controller: _minuteController,
+                      itemCount: 60,
+                      label: (i) => i.toString().padLeft(2, '0'),
+                      onChanged: (i) => setState(() => _selectedMinute = i),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // HH : MM labels
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 80,
+                child: Center(
+                  child: Text(
+                    "HH",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 40),
+              SizedBox(
+                width: 80,
+                child: Center(
+                  child: Text(
+                    "MM",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          // Buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text("Cancel"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    TimeOfDay(hour: _selectedHour, minute: _selectedMinute),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text("Confirm"),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrollWheel({
+    required FixedExtentScrollController controller,
+    required int itemCount,
+    required String Function(int) label,
+    required ValueChanged<int> onChanged,
+  }) {
+    return SizedBox(
+      width: 80,
+      child: ListWheelScrollView.useDelegate(
+        controller: controller,
+        itemExtent: 48,
+        perspective: 0.003,
+        diameterRatio: 1.8,
+        physics: const FixedExtentScrollPhysics(),
+        onSelectedItemChanged: onChanged,
+        childDelegate: ListWheelChildBuilderDelegate(
+          childCount: itemCount,
+          builder: (context, index) {
+            final isSelected = (controller.selectedItem == index);
+            return Center(
+              child: Text(
+                label(index),
+                style: TextStyle(
+                  fontSize: isSelected ? 26 : 18,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey.shade400,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 }

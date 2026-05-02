@@ -89,7 +89,7 @@ class _ApprovalViewEditExpensePageState
     initializeCashAdvanceSelection();
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-      'dd-MM-yyyy',
+     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
@@ -2202,7 +2202,7 @@ class _ApprovalViewEditExpensePageState
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat('dd-MM-yyyy') // Adjust your format
+                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -2218,7 +2218,7 @@ class _ApprovalViewEditExpensePageState
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 
@@ -2391,7 +2391,7 @@ class _ApprovalViewEditExpensePageState
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

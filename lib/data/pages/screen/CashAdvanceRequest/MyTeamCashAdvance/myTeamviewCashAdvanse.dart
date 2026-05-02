@@ -83,7 +83,7 @@ class _ViewMyteamCashAdvanceExpensePageState
 
     final timestamp = widget.items!.requestDate; // assuming this is int
     final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp,isUtc: true);
-    final formatted = DateFormat('dd-MM-yyyy').format(dateTime);
+    final formatted = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateTime);
     requestDateController.text = formatted;
 
     if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
@@ -3029,7 +3029,7 @@ void _showFullImage(File file, int index) {
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat('dd-MM-yyyy') // Adjust your format
+                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -3045,7 +3045,7 @@ void _showFullImage(File file, int index) {
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
                     controller.selectedDateMileage = picked;
                     controller.fetchMileageRates();
                     controller.selectedDate = picked;
@@ -3084,7 +3084,7 @@ void _showFullImage(File file, int index) {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    'Submitted on ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    'Submitted on ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

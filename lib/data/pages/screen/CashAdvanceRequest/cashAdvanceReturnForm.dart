@@ -3106,7 +3106,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       Text(
                                         controller.selectedDate == null
                                             ? 'Select date'
-                                            : DateFormat('dd-MM-yyyy').format(
+                                            : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                                                 controller.selectedDate!,
                                               ),
                                       ),

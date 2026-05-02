@@ -150,8 +150,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       /// Call API to create leave transactions
       await controller.createLeaveTransactions(
         employeeId: Params.employeeId,
-        fromDate: picked.start.millisecondsSinceEpoch,
-        toDate: picked.end.millisecondsSinceEpoch,
+        fromDate: controller.toMillisecondsWithTimezone(picked.start),
+        toDate: controller.toMillisecondsWithTimezone(picked.end), 
         leaveCode: controller.leaveCodeController.text,
       );
 
@@ -1173,7 +1173,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                     /// Date column
                                     Expanded(
                                       child: Text(
-                                        DateFormat('dd-MM-yyyy').format(date),
+                                        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date),
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
@@ -1424,7 +1424,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -1529,7 +1529,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat('dd-MM-yyyy').format(
+                                      DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                                         DateTime.fromMillisecondsSinceEpoch(
                                           leaveDay.transDate,
                                           isUtc: true,

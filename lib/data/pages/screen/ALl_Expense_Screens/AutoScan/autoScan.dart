@@ -127,7 +127,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       });
     } else {
       receiptDateController.text = DateFormat(
-        'dd-MM-yyyy',
+       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(DateTime.now());
     }
 
@@ -287,7 +287,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
         ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp,isUtc: true)
         : DateTime.now();
 
-    receiptDateController.text = DateFormat('dd-MM-yyyy').format(date);
+    receiptDateController.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
 
     controller.selectedDate = date;
     controller.isManualEntryMerchant = true;
@@ -750,7 +750,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate = DateFormat(
-                        'dd-MM-yyyy',
+                       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       initialDate = DateTime.now();
@@ -765,7 +765,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
                     controller.selectedDate = picked;
                   }
                 },

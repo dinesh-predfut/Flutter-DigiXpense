@@ -1197,7 +1197,7 @@ class _PendingApprovalDashboardforPendingState
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        DateFormat('dd-MM-yyyy').format(
+                        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                           DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
                         ),
                         style: const TextStyle(fontSize: 12),

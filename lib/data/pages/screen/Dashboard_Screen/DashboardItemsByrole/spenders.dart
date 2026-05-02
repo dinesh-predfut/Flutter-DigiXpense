@@ -1634,7 +1634,7 @@ class PendingApprovalTableWidget extends StatelessWidget {
                       /// 📅 Receipt Date
                       DataCell(
                         Text(
-                          DateFormat('dd-MM-yyyy').format(
+                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               item.receiptDate,isUtc: true
                               
@@ -2131,7 +2131,7 @@ class PendingApprovalTableWidgetLeave extends StatelessWidget {
 
                       DataCell(
                         Text(
-                          DateFormat('dd-MM-yyyy').format(
+                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
                             DateTime.fromMillisecondsSinceEpoch(
                               item.cancellationDate,isUtc: true
                             ),

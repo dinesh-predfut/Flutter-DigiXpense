@@ -989,7 +989,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                 Expanded(
                                   child: _infoCardButton(
                                     title:
-                                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.selectedCurrencyMileage.value}',
                                     value: controller.calculatedAmountINR
                                         .toStringAsFixed(2),
                                     onTap: () {},
@@ -1000,7 +1000,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   child: _infoCardButton(
                                     title:
                                         '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
-                                    value: controller.calculatedAmountINR
+                                    value: controller.calculatedAmountUSD
                                         .toStringAsFixed(2),
                                     onTap: () {},
                                   ),

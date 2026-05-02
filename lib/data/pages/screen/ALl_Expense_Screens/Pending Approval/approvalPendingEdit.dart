@@ -115,7 +115,7 @@ class _ApprovalViewEditExpensePageState
     });
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-      'dd-MM-yyyy',
+     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     statusApproval = widget.items!.approvalStatus;
@@ -211,7 +211,7 @@ class _ApprovalViewEditExpensePageState
 
       // Now set the values
       final formatted = DateFormat(
-        'dd-MM-yyyy',
+       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(widget.items!.receiptDate);
       controller.selectedDate = widget.items!.receiptDate;
       receiptDateController.text = formatted;
@@ -288,7 +288,7 @@ class _ApprovalViewEditExpensePageState
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd-MM-yyyy').parseStrict(value);
+        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
       }
@@ -3472,7 +3472,7 @@ class _ApprovalViewEditExpensePageState
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate = DateFormat(
-                        'dd-MM-yyyy',
+                       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -3488,7 +3488,7 @@ class _ApprovalViewEditExpensePageState
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 
@@ -3639,7 +3639,7 @@ class _ApprovalViewEditExpensePageState
                   Text(item.notes),
                   const SizedBox(height: 6),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn}${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],

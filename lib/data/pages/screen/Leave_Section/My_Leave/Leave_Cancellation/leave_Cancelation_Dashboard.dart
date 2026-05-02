@@ -69,7 +69,7 @@ CalendarFormat _calendarFormat = CalendarFormat.month;
 
 
 String _isoDate(int epoch) {
-  return DateFormat('dd-MM-yyyy')
+  return DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy')
       .format(DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true));
 }
 
@@ -838,7 +838,7 @@ void _openFilterBottomSheet(BuildContext context) {
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(

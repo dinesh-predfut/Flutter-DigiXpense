@@ -122,7 +122,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
 
         if (widget.items!.receiptDate != null) {
           final formatted = DateFormat(
-            'dd-MM-yyyy',
+           controller.selectedFormat?.key ?? 'dd/MM/yyyy',
           ).format(widget.items!.receiptDate);
           controller.selectedDate = widget.items!.receiptDate;
           receiptDateController.text = formatted;
@@ -242,7 +242,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
     }
     if (value.isNotEmpty) {
       try {
-        DateFormat('dd-MM-yyyy').parseStrict(value);
+        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parseStrict(value);
       } catch (e) {
         return '$fieldName ${AppLocalizations.of(context)!.somethingWentWrong}';
       }
@@ -3293,7 +3293,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate = DateFormat(
-                        'dd-MM-yyyy',
+                       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -3309,7 +3309,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat('dd-MM-yyyy').format(picked);
+                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 
@@ -3393,7 +3393,7 @@ class _ViewCashAdvanseReturnFormsState extends State<ViewCashAdvanseReturnForms>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat('dd-MM-yyyy').format(item.createdDate)}',
+                    '${AppLocalizations.of(context)!.submittedOn} ${DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(item.createdDate)}',
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 13,

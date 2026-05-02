@@ -1001,7 +1001,7 @@ class _PendingApprovalsLeaveDashboardState
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -2271,7 +2271,7 @@ class _PendingApprovalsLeaveDashboardState
 
   String _isoDate(int epoch) {
     return DateFormat(
-      'dd-MM-yyyy',
+     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(DateTime.fromMillisecondsSinceEpoch(epoch,isUtc: true));
   }
 }

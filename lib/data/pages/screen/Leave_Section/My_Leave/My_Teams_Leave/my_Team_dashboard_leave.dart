@@ -1000,7 +1000,7 @@ class _MyTeamLeaveDashboardState extends State<MyTeamLeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                      'dd-MM-yyyy',
+                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
