@@ -738,14 +738,14 @@ class _BasicFiltrationScreenState extends State<BasicFiltrationScreen> {
               labelText: AppLocalizations.of(context)!.sortOrder,
               items: ['Ascending', 'Descending'],
               displayText: (e) => e ?? '',
-              selectedValue: reportModel.sortOrder == 'asc'
+              selectedValue: reportModel.sortOrder == 'desc'
                   ? 'Ascending'
                   : context.read<ReportModel>().sortOrder == 'desc'
                   ? 'Descending'
                   : null,
               onChanged: (value) {
                 if (value != null) {
-                  final sortVal = value == 'Ascending' ? 'asc' : 'desc';
+                  final sortVal = value == 'Ascending' ? '' : 'desc';
                   context.read<ReportModel>().setSortOrder(sortVal);
                   setState(() {});
                 }

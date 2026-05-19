@@ -1770,7 +1770,7 @@ Future<Map<String, dynamic>?> fetchShelfDetail(int recId) async {
   final uri = Uri.parse(
     "${Urls.baseURL}/api/v1/kanban/shelfs/shelfs/shelfs"
     "?filter_query=KANShelfs.RecId__eq=$recId"
-    "&page=1&sort_order=asc&screen_name=KANShelfs",
+    "&page=1&sort_by=ModifiedDatetime&sort_order=desc&screen_name=KANShelfs",
   );
 
   final res = await ApiService.get(uri);

@@ -30,7 +30,6 @@ class CashAdvanceRequestDashboard extends StatefulWidget {
 class _CashAdvanceRequestDashboardState
     extends State<CashAdvanceRequestDashboard>
     with TickerProviderStateMixin {
-  // final controllers = Get.put(Controller());
   bool isLoading = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   Rxn<File> profileImage = Rxn<File>();
@@ -944,7 +943,7 @@ class _CashAdvanceRequestDashboardState
           ),
           const SizedBox(height: 6),
           Text(
-            '₹${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,

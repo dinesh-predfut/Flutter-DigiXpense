@@ -849,11 +849,11 @@ class _HubMileageSecondFromState extends State<HubMileageSecondFrom> {
                         ),
                         _infoCard(
                           '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
-                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                          "${controller.organizationDefaultCurrencySymbol} ${controller.calculatedAmountINR.toStringAsFixed(2)}",
                         ),
                         _infoCard(
                           '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
-                          "₹${controller.calculatedAmountINR.toStringAsFixed(2)}",
+                          "${controller.organizationDefaultCurrencySymbol} ${controller.calculatedAmountINR.toStringAsFixed(2)}",
                         ),
                       ],
                     ),

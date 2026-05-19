@@ -28,7 +28,7 @@ class BoardDashboard extends StatefulWidget {
 
 class _BoardDashboardState extends State<BoardDashboard>
     with TickerProviderStateMixin {
-  final controller = Get.put(Controller());
+          final controller = Get.find<Controller>();
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
@@ -575,11 +575,11 @@ class _BoardDashboardState extends State<BoardDashboard>
     if (card.title.toLowerCase().contains('leave')) {
       return '${card.value.toInt()} Days';
     }
-    return '₹ ${card.value.toStringAsFixed(2)}';
+    return '${controller.organizationDefaultCurrencySymbol} ${card.value.toStringAsFixed(2)}';
   }
 
   String _formatSecondaryValue(PayslipAnalyticsCard card) {
-    return '₹ ${card.secondaryValue!.toStringAsFixed(2)}';
+    return '${controller.organizationDefaultCurrencySymbol} ${card.secondaryValue!.toStringAsFixed(2)}';
   }
 
   Widget _buildSwipeActionLeft(bool isLoading) {
@@ -634,7 +634,7 @@ class _BoardDashboardState extends State<BoardDashboard>
   }
 
   Widget buildBoardCard(BoardModel item, BuildContext context) {
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
 
     return Obx(() {
       final isSelected = controller.isSelected(item.boardId);

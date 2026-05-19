@@ -65,7 +65,15 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_charts/charts.dart'
-    show ColumnSeries, DataLabelSettings, CartesianSeries;
+    show
+        ColumnSeries,
+        DataLabelSettings,
+        CartesianSeries,
+        ChartDataLabelAlignment,
+        OverflowMode,
+        StackedColumnSeries,
+        ConnectorLineSettings,
+        ConnectorType;
 import 'package:table_calendar/table_calendar.dart'
     show CalendarFormat, isSameDay;
 import 'package:url_launcher/url_launcher.dart';
@@ -502,6 +510,8 @@ class Controller extends GetxController {
   // Validation
   RxBool showBoardNameError = false.obs;
   RxBool showTemplateError = false.obs;
+  final RxBool isTimerActionLoading = false.obs;
+  final RxString loadingAction = ''.obs;
   RxList<AttachmentModel> attachments = <AttachmentModel>[].obs;
   RxList<LocalAttachment> localAttachments = <LocalAttachment>[].obs;
   Rx<Employee?> selectedEmployee = Rx<Employee?>(null);
@@ -654,12 +664,12 @@ class Controller extends GetxController {
         "Priority": priority,
 
         // 🟢 Planned Dates (milliseconds)
-        "PlannedStartDate": plannedStartDate?.millisecondsSinceEpoch,
-        "PlannedEndDate": plannedEndDate?.millisecondsSinceEpoch,
+        "PlannedStartDate": toMillisecondsWithTimezone(plannedStartDate!),
+        "PlannedEndDate": toMillisecondsWithTimezone(plannedEndDate!),
 
         // 🟢 Actual Dates (milliseconds)
-        "ActualStartDate": startDate?.millisecondsSinceEpoch,
-        "ActualEndDate": dueDate?.millisecondsSinceEpoch,
+        "ActualStartDate": toMillisecondsWithTimezone(startDate!),
+        "ActualEndDate": toMillisecondsWithTimezone(dueDate!),
 
         "TagId": selectedTags.isNotEmpty
             ? selectedTags.map((t) => t.tagId).join(',')
@@ -924,6 +934,7 @@ class Controller extends GetxController {
     "Available For Urgent Matters",
     "Not Available",
   ].obs;
+  final RxBool isAllowedPastDates = true.obs;
   final RxList<LeaveAnalytics> leaveCodes = <LeaveAnalytics>[].obs;
   final RxList<LeaveAnalyticsFilter> leaveCodesFilter =
       <LeaveAnalyticsFilter>[].obs;
@@ -1061,13 +1072,64 @@ class Controller extends GetxController {
   void fetchCalendarData() {
     // your existing API logic
   }
+  Future<List<LeaveAnalytics>> fetchEmployeeLeaveCodes() async {
+    try {
+      final url =
+          'https://api.digixpense.com/api/v1/leaverequisition/'
+          'leavemanagement/fetchemployeeleavecodes'
+          '?employee_id=${Params.employeeId}'
+          '&date=${DateTime.now().millisecondsSinceEpoch}';
+
+      final response = await ApiService.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+
+        if (jsonData is List) {
+          return jsonData
+              .map<LeaveAnalytics>((e) => LeaveAnalytics.fromJson(e))
+              .toList();
+        }
+
+        if (jsonData['data'] != null) {
+          return (jsonData['data'] as List)
+              .map<LeaveAnalytics>((e) => LeaveAnalytics.fromJson(e))
+              .toList();
+        }
+      }
+
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching leave codes: $e');
+
+      return [];
+    }
+  }
+
   Future<void> pickImages() async {
     final picker = ImagePicker();
 
-    final images = await picker.pickMultiImage(imageQuality: 80);
+    final images = await picker.pickMultiImage(
+      imageQuality: 60, // reduce quality
+    );
 
     if (images.isNotEmpty) {
-      uploadedImages.addAll(images.map((e) => File(e.path)));
+      for (final image in images) {
+        File file = File(image.path);
+
+        // check file size
+        int fileSizeInBytes = await file.length();
+        double fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+
+        print("Image Size: ${fileSizeInMB.toStringAsFixed(2)} MB");
+
+        // allow only below 1 MB
+        if (fileSizeInMB <= 1) {
+          uploadedImages.add(file);
+        }
+      }
+
+      showAttachmentError.value = false;
     }
   }
 
@@ -1100,7 +1162,7 @@ class Controller extends GetxController {
 
       // set startDate and endDate using millisecondsSinceEpoch
       startDate.value = DateTime.fromMillisecondsSinceEpoch(
-          toMillisecondsWithTimezone(today),
+        toMillisecondsWithTimezone(today),
       );
 
       endDate.value = DateTime.fromMillisecondsSinceEpoch(
@@ -1171,7 +1233,7 @@ class Controller extends GetxController {
       Uri.parse(
         "${Urls.baseURL}/api/v1/kanban/status/status/status"
         "?filter_query=KANStatus.BoardId__eq%3D$bordeId%26KANStatus.IsActive__eq%3DTrue"
-        "&page=1&sort_order=asc",
+        "&page=1&sort_order=desc",
       ),
     );
 
@@ -1374,7 +1436,7 @@ class Controller extends GetxController {
       recId: recID,
       employeeId: Params.employeeId,
       employeeName: Params.employeeName ?? userName.value,
-      applicationDate: DateTime.now().millisecondsSinceEpoch,
+      applicationDate: toMillisecondsWithTimezone(DateTime.now()),
       calendarId: calendarId!,
       duration: totalRequestedDays.value.toInt(),
       leaveCode: selectedLeaveCode.value?.leaveCode,
@@ -1492,7 +1554,7 @@ class Controller extends GetxController {
       recId: recID,
       employeeId: Params.employeeId,
       employeeName: Params.employeeName ?? userName.value,
-      applicationDate: DateTime.now().millisecondsSinceEpoch,
+      applicationDate: toMillisecondsWithTimezone(DateTime.now()),
       calendarId: calendarId ?? '',
       duration: totalRequestedDays.value.toInt(),
       leaveCode: selectedLeaveCode.value?.leaveCode,
@@ -1715,7 +1777,7 @@ class Controller extends GetxController {
   Future<void> fetchLeaveCodes() async {
     final response = await ApiService.get(
       Uri.parse(
-        "${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/fetchleavecodes?page=1&sort_order=asc&choosen_fields=Description,LeaveCode",
+        "${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/fetchleavecodes?page=1&sort_by=ModifiedDatetime&sort_order=desc&choosen_fields=Description,LeaveCode",
       ),
     );
 
@@ -1819,13 +1881,9 @@ class Controller extends GetxController {
     }
 
     /// ---------------- Applied Date ----------------
-    appliedDateController.text = DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy')
-        .format(
-          DateTime.fromMillisecondsSinceEpoch(
-            leaveRequest.applicationDate,
-            isUtc: true,
-          ),
-        );
+    appliedDateController.text = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(DateTime.fromMillisecondsSinceEpoch(leaveRequest.applicationDate));
 
     /// ---------------- Other Fields ----------------
     leavephoneController.text = leaveRequest.emergencyContactNumber ?? '';
@@ -1906,7 +1964,7 @@ class Controller extends GetxController {
         // totalRequestedDays.value += leaveDay.calculatedDays;
       }
     }
-    calculateTotalDays();
+    // calculateTotalDays();
 
     /// ---------------- Paid / Unpaid ----------------
     isPaidLeave.value = !leaveRequest.isLeaveUnPaid;
@@ -2105,6 +2163,7 @@ class Controller extends GetxController {
   String? selectedTimezonevalue;
   String? stringCurrency;
   String? organizationCurrency;
+  String? organizationDefaultCurrencySymbol;
   String? paymentMethodeID;
   var paidWithCashAdvance = RxnString(); // nullable reactive string
   var paymentMethodeIDCashAdvance = RxnString();
@@ -2243,11 +2302,11 @@ class Controller extends GetxController {
   RxList<Map<String, dynamic>> configListAdvance = <Map<String, dynamic>>[].obs;
   RxList<File> imageFiles = <File>[].obs;
   // GeneralExpense
-  bool isReimbursite = false;
-  bool isReimbursable = false;
+  bool isReimbursite = true;
+  bool isReimbursable = true;
   // bool isBillable = false;
   bool isBillableCreate = false;
-  RxBool isReimbursiteCreate = false.obs;
+  RxBool isReimbursiteCreate = true.obs;
   RxBool isBillable = false.obs;
   RxBool isisBillablereate = false.obs;
   var checkboxValues = <String, bool>{}.obs;
@@ -2345,10 +2404,19 @@ class Controller extends GetxController {
         stringCurrency = settings["DefaultCurrency"] ?? '';
         paidWithCashAdvance.value = settings["DefaultPaymentMethodId"] ?? '';
         organizationCurrency = orgSettings["OrganizationDefaultCurrency"] ?? '';
+        organizationDefaultCurrencySymbol =
+            orgSettings["OrganizationDefaultCurrencySymbol"] ?? '';
+
         if (orgSettings["OrganizationDefaultCurrency"] != null) {
           await prefs.setString(
             'organizationCurrency',
             orgSettings["OrganizationDefaultCurrency"],
+          );
+        }
+        if (orgSettings["OrganizationDefaultCurrencySymbol"] != null) {
+          await prefs.setString(
+            'organizationDefaultCurrencySymbol',
+            orgSettings["OrganizationDefaultCurrencySymbol"],
           );
         }
         print("organizationCurrency$organizationCurrency");
@@ -2424,7 +2492,7 @@ class Controller extends GetxController {
   }
 
   int toMillisecondsWithTimezone(DateTime localDt) {
-    final int offsetMs = int.tryParse(selectedTimezonevalue!) ?? 0;
+    final int offsetMs = int.tryParse(selectedTimezonevalue ?? '0') ?? 0;
 
     /// Create pure UTC midnight for the selected date
     final DateTime utcMidnight = DateTime.utc(
@@ -2639,7 +2707,7 @@ class Controller extends GetxController {
 
   Future<void> fetchEmployeesID() async {
     isLoadingGE1.value = true;
-    final int transactionDate = DateTime.now().millisecondsSinceEpoch;
+    final int transactionDate = toMillisecondsWithTimezone(DateTime.now());
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/employeeid'
       '?TrackingContext=ExpenseRequisition'
@@ -2918,7 +2986,7 @@ class Controller extends GetxController {
       '${Urls.baseURL}/api/v1/masters/employeemgmt/employees/employees'
       '?filter_query=EMPEmployees.EmploymentEndDate__gte%3D1765823400000'
       '&page=1'
-      '&sort_order=asc'
+      '&sort_by=ModifiedDatetime&sort_order=desc'
       '&choosen_fields=FirstName,MiddleName,LastName,EmploymentStartDate,EmploymentEndDate,Id',
     );
 
@@ -3026,6 +3094,18 @@ class Controller extends GetxController {
     amountINR.clear();
     unitRate.clear();
     expenseIdController.clear();
+    for (final field in customFields) {
+      if (field['FieldType'] == 'List' ||
+          field['FieldType'] == 'CustomList' ||
+          field['FieldType'] == 'SystemList') {
+        field['SelectedValue'] = null;
+      } else if (field['FieldType'] == 'Checkbox') {
+        field['EnteredValue'] = false;
+      } else {
+        field['EnteredValue'] = null;
+      }
+      field['Error'] = null;
+    }
     isLoadingGE1.value = false;
     // paymentMethodID = null;
     descriptionController.clear();
@@ -3543,12 +3623,12 @@ class Controller extends GetxController {
       );
       isLoadingLeaves.value = false;
 
-      Fluttertoast.showToast(msg: "Failed to load timesheet");
+      // Fluttertoast.showToast(msg: "Failed to load timesheet");
     }
   }
 
   RxString periodType = ''.obs;
-
+  var showAttachmentError = false.obs;
   String stepValue = '';
   final TextEditingController timeSheetID = TextEditingController();
   DateTimeRange? dateRange;
@@ -3565,6 +3645,7 @@ class Controller extends GetxController {
     projectDropDowncontroller.text = data["ProjectId"] ?? '';
     stepValue = data['StepType'] ?? '';
     periodType.value = getPeriodTypeForUI(data['Frequency'] ?? '');
+    print("stepValue${periodType.value}");
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
 
@@ -3640,39 +3721,42 @@ class Controller extends GetxController {
 
         /// 🔥 Normalize (remove time)
         final d = DateTime.fromMillisecondsSinceEpoch(entryDate);
-        final normalized = DateTime(
-          d.year,
-          d.month,
-          d.day,
-        ).millisecondsSinceEpoch;
+        final normalized = toMillisecondsWithTimezone(
+          DateTime(d.year, d.month, d.day),
+        );
 
         dailyMap[normalized] = TimeEntryModel(
           recId: daily['RecId'],
           entryDate: normalized, // ✅ store normalized
-          timeFrom: daily['TimeFrom'] ?? 0,
-          timeTo: daily['TimeTo'] ?? 0,
+          timeFrom: daily['TimeFrom'] != null
+              ? (daily['TimeFrom'] as num).toInt()
+              : null, // ✅ handle null TimeFrom
+          timeTo: daily['TimeTo'] != null
+              ? (daily['TimeTo'] as num).toInt()
+              : null,
           totalHours: (daily['TotalHours'] ?? 0).toString(),
           comment: daily['InternalComment'] ?? '',
-          accountingDistributions: daily['AccountingDistributions'] != null
-              ? (daily['AccountingDistributions'] as List)
-                    .map(
-                      (dist) => AccountingDistribution(
-                        recId: dist['RecId'],
-                        transAmount:
-                            double.tryParse(dist['TransAmount'].toString()) ??
-                            0.0,
-                        reportAmount:
-                            double.tryParse(dist['ReportAmount'].toString()) ??
-                            0.0,
-                        allocationFactor:
-                            (dist['AllocationFactor'] as num?)?.toDouble() ??
-                            0.0,
-                        dimensionValueId:
-                            dist['DimensionValueId'] ?? 'Branch001',
-                      ),
-                    )
-                    .toList()
-              : [],
+          accountingDistributions: () {
+            final rawList = daily['AccountingDistributions'] as List? ?? [];
+            print("🔍 RAW AccountingDistributions: $rawList");
+
+            final parsed = rawList
+                .map(
+                  (dist) => AccountingDistribution.fromJson(
+                    dist as Map<String, dynamic>,
+                  ),
+                )
+                .toList();
+
+            print("✅ PARSED Count: ${parsed.length}");
+            for (final d in parsed) {
+              print(
+                "  → RecId: ${d.recId} | Trans: ${d.transAmount} | Report: ${d.reportAmount} | Factor: ${d.allocationFactor} | Dim: ${d.dimensionValueId}",
+              );
+            }
+
+            return parsed;
+          }(),
         );
       }
 
@@ -4156,7 +4240,7 @@ class Controller extends GetxController {
     isFetchingStates.value = true;
     final countryCode = selectedCountry.value!.code ?? "IND";
     final url = Uri.parse(
-      '${Urls.stateList}$countryCode&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId',
+      '${Urls.stateList}$countryCode&page=1&sort_by=StateName&sort_order=desc&choosen_fields=StateName%2CStateId',
     );
 
     try {
@@ -4189,7 +4273,7 @@ class Controller extends GetxController {
     //  // print("countryCode$selectedContectCountryCode");
     final countryCode = selectedContectCountryCode ?? "IND";
     final url = Uri.parse(
-      '${Urls.stateList}$countryCode&page=1&sort_by=StateName&sort_order=asc&choosen_fields=StateName%2CStateId',
+      '${Urls.stateList}$countryCode&page=1&sort_by=StateName&sort_order=desc&choosen_fields=StateName%2CStateId',
     );
 
     try {
@@ -4339,7 +4423,7 @@ class Controller extends GetxController {
 
   Future<List<PayrollsTeams>> fetchPayrollHeaders() async {
     const String url =
-        '${Urls.baseURL}/api/v1/payrollregistration/payroll/payrollheader?page=1&sort_order=asc';
+        '${Urls.baseURL}/api/v1/payrollregistration/payroll/payrollheader?page=1&sort_order=desc';
 
     try {
       final response = await ApiService.get(Uri.parse(url));
@@ -4372,7 +4456,7 @@ class Controller extends GetxController {
 
   Future<List<PayrollsTeams>> fetchmyPayrollHeaders() async {
     String url =
-        '${Urls.baseURL}/api/v1/payrollregistration/payroll/payrollheader?filter_query=STPPayRollHeader.EmployeeId__eq%3D${Params.employeeId}&page=1&sort_order=asc';
+        '${Urls.baseURL}/api/v1/payrollregistration/payroll/payrollheader?filter_query=STPPayRollHeader.EmployeeId__eq%3D${Params.employeeId}&page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     try {
       final response = await ApiService.get(Uri.parse(url));
@@ -4534,7 +4618,7 @@ class Controller extends GetxController {
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/timesheetcconfigfields?'
       'filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DTimesheetRequisition&'
-      'page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId',
+      'page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId',
     );
     try {
       final response = await ApiService.get(url);
@@ -4580,7 +4664,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final url = Uri.parse(
-      '${Urls.getuserPreferencesAPI}${Params.userId}&page=1&sort_order=asc',
+      '${Urls.getuserPreferencesAPI}${Params.userId}&page=1&sort_order=desc',
     );
 
     try {
@@ -5549,7 +5633,7 @@ class Controller extends GetxController {
 
       final response = await ApiService.get(
         Uri.parse(
-          "${Urls.baseURL}/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_by=ModifiedDatetime&sort_order=desc",
+          "${Urls.baseURL}/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_order=desc",
         ),
       );
 
@@ -5886,10 +5970,17 @@ class Controller extends GetxController {
         //  // print("Expense ID: ${expenseIdController.text}");
         isLoadingGE1.value = false;
 
+        final savedCustomFields =
+            specificExpenseList[0].expenseHeaderCustomFieldValues;
+        print("Saved Custom Fields: $savedCustomFields");
         Navigator.pushNamed(
           context,
           AppRoutes.getSpecificExpense,
-          arguments: {'item': specificExpenseList[0], 'readOnly': bool},
+          arguments: {
+            'item': specificExpenseList[0],
+            'readOnly': bool,
+            'savedCustomFieldValues': savedCustomFields, // ✅ added
+          },
         );
 
         return specificExpenseList;
@@ -6796,6 +6887,40 @@ class Controller extends GetxController {
     for (int i = 0; i < expenseTranArray.length; i++) {
       expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
     }
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     final payload = {
       "workitemrecid": workitemrecid,
       "TotalAmountTrans": calculatedAmountINR,
@@ -6806,8 +6931,8 @@ class Controller extends GetxController {
       "EmployeeName": employeeName.text.trim().isEmpty
           ? null
           : employeeName.text.trim(),
-      "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
-      "Source": "Web",
+      "ReceiptDate": toMillisecondsWithTimezone(selectedDate!),
+      "Source": "mobile",
       "ExchRate": 1,
       "ExpenseId": expenseID ?? "",
       "ExpenseType": "Mileage",
@@ -6819,7 +6944,7 @@ class Controller extends GetxController {
       "ToLocation": tripControllers.last.text,
       // "RecId": null,
       "CashAdvReqId": cashAdvanceIds.text,
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       "AccountingDistributions": accountingDistributions.isNotEmpty
           ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -6970,14 +7095,49 @@ class Controller extends GetxController {
     for (int i = 0; i < expenseTranArray.length; i++) {
       expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
     }
+
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     final payload = {
       "workitemrecid": workitemrecid,
       "TotalAmountTrans": calculatedAmountINR,
       "TotalAmountReporting": calculatedAmountINR,
       "EmployeeId": Params.employeeId,
       "EmployeeName": userName.value,
-      "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
-      "Source": "Web",
+      "ReceiptDate": toMillisecondsWithTimezone(selectedDate!),
+      "Source": "mobile",
       "ExchRate": 1,
       "ExpenseId": expenseID ?? "",
       "ExpenseType": "Mileage",
@@ -6989,7 +7149,7 @@ class Controller extends GetxController {
       "ToLocation": tripControllers.last.text,
       // "RecId": null,
       "CashAdvReqId": cashAdvanceIds.text,
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       "AccountingDistributions": accountingDistributions.isNotEmpty
           ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -7141,12 +7301,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  // print("receiptDate$attachmentPayload");
     //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
 
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
 
     //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
@@ -7187,10 +7380,10 @@ class Controller extends GetxController {
       "UserExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1.0
           : 1.0,
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
 
       "DocumentAttachment": {"File": attachmentPayload},
@@ -7396,12 +7589,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  // print("receiptDate$attachmentPayload");
     //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
 
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
 
     //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
@@ -7438,10 +7664,10 @@ class Controller extends GetxController {
       "UserExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1.0
           : 1.0,
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
 
       "DocumentAttachment": {"File": attachmentPayload},
@@ -7490,7 +7716,7 @@ class Controller extends GetxController {
   Future<List<ExpenseHistory>> fetchExpenseHistory(int? recId) async {
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=CreatedDatetime&sort_order=asc',
+        '${Urls.getTrackingDetails}RefRecId__eq%3D$recId&page=1&sort_by=CreatedDatetime&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -7505,7 +7731,7 @@ class Controller extends GetxController {
   Future<List<ExpenseHistory>> fetchLeaveHistory(int? recId) async {
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.getTrackingDetailsLeave}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_order=desc',
+        '${Urls.getTrackingDetailsLeave}RefRecId__eq%3D$recId&page=1&sort_by=ModifiedBy&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -7524,7 +7750,7 @@ class Controller extends GetxController {
         'RefRecId__eq%3D$refRecId'
         '&page=1'
         '&sort_by=CreatedDatetime'
-        '&sort_order=asc',
+        '&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -7541,7 +7767,7 @@ class Controller extends GetxController {
   Future<List<ExpenseHistory>> cashadvanceTracking(int? recId) async {
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_order=asc',
+        '${Urls.cashadvanceTracking}RefRecId__eq%3D$recId&page=1&page=1&sort_by=CreatedDatetime&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -7909,7 +8135,7 @@ class Controller extends GetxController {
     try {
       final response = await ApiService.get(
         Uri.parse(
-          "${Urls.baseURL}/api/v1/masters/organizationmgmt/organizations/orgdocumentfiletypes?filter_query=STPOrgDocumentFileTypes.IsActive__eq%3Dtrue&page=1&limit=10000000&sort_by=ModifiedDatetime&sort_order=desc",
+          "${Urls.baseURL}/api/v1/masters/organizationmgmt/organizations/orgdocumentfiletypes?filter_query=STPOrgDocumentFileTypes.IsActive__eq%3Dtrue&page=1&limit=10000000&sort_order=desc",
         ),
       );
 
@@ -7942,10 +8168,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     final hideField = hasModule("Expense");
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    // Build ExpenseHeaderCustomFieldValues from customFields
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     //  //  // print("receiptDate${unitAmount.text}");
     //  //  // print("finalItems${finalItems.length}");
     if (!bool) {
@@ -7994,11 +8255,11 @@ class Controller extends GetxController {
       "IsDuplicated": isDuplicated,
       "IsForged": false,
       "IsTobacco": isTobacco,
-      "Source": "Web",
+      "Source": "mobile",
       // if (!hasValidUnit) "ExpenseCategoryId": categoryController.text.trim(),
       "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       "ExpenseCategoryId": categoryController.text.trim(),
       // if (!hasValidUnit) "ExpenseCategoryId": selectedCategoryId,
@@ -8369,9 +8630,43 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     //  //  // print("cashAdvanceIds$cashAdvanceIds");
     //  //  // print("finalItems${finalItems.length}");
     if (!bool) {
@@ -8417,10 +8712,10 @@ class Controller extends GetxController {
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
 
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       if (!hasValidUnit) "ExpenseCategoryId": selectedCategoryId,
@@ -8497,12 +8792,13 @@ class Controller extends GetxController {
 
   CashAdvanceRequestItemizeFornew toCashAdvanceRequestItemize() {
     // Debug prints to verify values
-    //  //  // print("🔍 Debug - selectedCategoryId: $selectedCategoryId");
-    //  //  // print("🔍 Debug - quantity: ${quantity.text}");
-    //  //  // print("🔍 Debug - unitAmount: ${unitAmount.text}");
-    //  //  // print("🔍 Debug - paidAmountCA1: ${paidAmountCA1.text}");
-    //  //  // print("🔍 Debug - totalRequestedAmount: ${totalRequestedAmount.text}");
-    //  //  // print("🔍 Debug - requestedPercentage: ${requestedPercentage.text}");
+    print("🔍 Debug - selectedCategoryId: $selectedCategoryId");
+    print("🔍 Debug - quantity: ${quantity.text}");
+    print("🔍 Debug - unitAmount: ${unitAmount.text}");
+    print("🔍 Debug - paidAmountCA1: ${paidAmountCA1.text}");
+    print("🔍 Debug - totalRequestedAmount: ${totalRequestedAmount.text}");
+    print("🔍 Debug - requestedPercentage: ${requestedPercentage.text}");
+    print("🔍 Debug - requestedPercentage: ${selectedProject?.code}");
 
     return CashAdvanceRequestItemizeFornew(
       expenseCategoryId: selectedCategoryId?.isNotEmpty == true
@@ -8521,16 +8817,16 @@ class Controller extends GetxController {
       taxAmount: double.tryParse(taxAmount.text) ?? 0.0,
       taxGroup: selectedTax?.taxGroupId,
 
-      projectId: selectedProject?.code,
+      projectId: selectedProject?.code ?? '',
       location: selectedLocation?.city,
       description: descriptionController.text,
       isReimbursable: isReimbursite,
       isBillable: isBillableCreate,
 
       createdBy: Params.userId ?? '',
-      createdDatetime: DateTime.now().millisecondsSinceEpoch,
+      createdDatetime: toMillisecondsWithTimezone(DateTime.now()),
 
-      requestDate: DateTime.now().millisecondsSinceEpoch,
+      requestDate: toMillisecondsWithTimezone(DateTime.now()),
       employeeId: Params.employeeId ?? '',
       lineEstimatedCurrency: currencyDropDowncontrollerCA3.text,
       // Currency and exchange rates
@@ -8556,21 +8852,24 @@ class Controller extends GetxController {
       percentage: (double.tryParse(requestedPercentage.text) ?? 1).toInt(),
 
       // Accounting Distributions - FIXED null safety
-      accountingDistributions: accountingDistributions
-          .where((c) => c != null)
-          .map((controller) {
-            return AccountingDistribution(
-              transAmount:
-                  double.tryParse(controller!.transAmount.toStringAsFixed(2)) ??
-                  0.0,
-              reportAmount:
-                  double.tryParse(controller.reportAmount.toStringAsFixed(2)) ??
-                  0.0,
-              allocationFactor: controller.allocationFactor ?? 0.0,
-              dimensionValueId: controller.dimensionValueId ?? 'Branch001',
-            );
-          })
-          .toList(),
+      accountingDistributions: (accountingDistributions ?? []).map((
+        controller,
+      ) {
+        return AccountingDistribution(
+          transAmount:
+              double.tryParse(
+                controller?.transAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
+          reportAmount:
+              double.tryParse(
+                controller?.reportAmount.toStringAsFixed(2) ?? '',
+              ) ??
+              0.0,
+          allocationFactor: controller?.allocationFactor ?? 0.0,
+          dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
+        );
+      }).toList(),
     );
   }
 
@@ -8591,7 +8890,7 @@ class Controller extends GetxController {
       final parsedDate = DateFormat(
         selectedFormat?.key ?? 'dd/MM/yyyy',
       ).parse(formattedDate);
-      final requestDate = parsedDate.millisecondsSinceEpoch;
+      final requestDate = toMillisecondsWithTimezone(parsedDate);
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
@@ -8809,7 +9108,7 @@ class Controller extends GetxController {
       final parsedDate = DateFormat(
         selectedFormat?.key ?? 'dd/MM/yyyy',
       ).parse(formattedDate);
-      final requestDate = parsedDate.millisecondsSinceEpoch;
+      final requestDate = toMillisecondsWithTimezone(parsedDate);
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9029,7 +9328,7 @@ class Controller extends GetxController {
       final parsedDate = DateFormat(
         selectedFormat?.key ?? 'dd/MM/yyyy',
       ).parse(formattedDate);
-      final requestDate = parsedDate.millisecondsSinceEpoch;
+      final requestDate = toMillisecondsWithTimezone(parsedDate);
       //  //  // print("cashAdvTransPayload2");
       // Build attachments
       final attachmentPayload = await buildDocumentAttachment(imageFiles);
@@ -9233,11 +9532,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(selectedDate!);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     if (!bool) {
       isUploading.value = true;
       isLoadingGE1.value = true;
@@ -9279,14 +9612,14 @@ class Controller extends GetxController {
       "UserExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
-      "Source": "Web",
+      "Source": "mobile",
       "IsAlcohol": isAlcohol,
       "IsDuplicated": isDuplicated,
       "IsForged": false,
       "IsTobacco": isTobacco,
       "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
@@ -9498,11 +9831,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     if (!bool) {
       isUploading.value = true;
       isLoadingGE1.value = true;
@@ -9538,14 +9905,14 @@ class Controller extends GetxController {
       "UserExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
-      "Source": "Web",
+      "Source": "mobile",
       "IsAlcohol": isAlcohol,
       "IsDuplicated": isDuplicated,
       "IsForged": false,
       "IsTobacco": isTobacco,
       "IsBillable": isBillableCreate,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
@@ -9742,9 +10109,43 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
     if (!bool) {
@@ -9792,10 +10193,10 @@ class Controller extends GetxController {
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
 
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
@@ -9878,10 +10279,6 @@ class Controller extends GetxController {
     return DateTime.utc(date.year, date.month, date.day, 23, 59, 59);
   }
 
-  static int toMillisUTC(DateTime date) {
-    return date.toUtc().millisecondsSinceEpoch;
-  }
-
   /// Week range (Monday → Sunday) in UTC
   Map<String, int> getWeekRangeUTC(DateTime date) {
     final start = date.subtract(Duration(days: date.weekday - 1));
@@ -9891,8 +10288,8 @@ class Controller extends GetxController {
     final endUtc = endOfDayUTC(end);
 
     return {
-      "fromDate": startUtc.millisecondsSinceEpoch,
-      "toDate": endUtc.millisecondsSinceEpoch,
+      "fromDate": toMillisecondsWithTimezone(startUtc),
+      "toDate": toMillisecondsWithTimezone(endUtc),
     };
   }
 
@@ -9907,7 +10304,7 @@ class Controller extends GetxController {
     try {
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/ruleconfigsettings?employeeid=$employeeId&fromdate=${fromDate.millisecondsSinceEpoch.toString()}&todate=${toDate.millisecondsSinceEpoch.toString()}',
+          '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/ruleconfigsettings?employeeid=$employeeId&fromdate=${toMillisecondsWithTimezone(fromDate).toString()}&todate=${toMillisecondsWithTimezone(toDate).toString()}',
         ),
       );
 
@@ -9936,9 +10333,43 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
     if (!bool) {
@@ -9986,10 +10417,10 @@ class Controller extends GetxController {
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
       "workitemrecid": workitemrecid,
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
@@ -10076,11 +10507,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     if (!bool) {
       isUploading.value = true;
     } else {
@@ -10122,10 +10587,10 @@ class Controller extends GetxController {
           ? double.tryParse(unitRate.text) ?? 1
           : 1,
       "workitemrecid": workitemrecid,
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": isBillable.value,
       "ExpenseType": "CashAdvanceReturn",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
       // if (!hasValidUnit) "ExpenseCategoryId": "Bus",
@@ -10232,7 +10697,7 @@ class Controller extends GetxController {
   //     "Currency": selectedCurrency.value?.code ?? 'INR',
   //     "ExchRate": double.tryParse(unitRate.text) ?? 1.0,
   //     "UserExchRate": double.tryParse(unitRate.text) ?? 1.0,
-  //     "Source": "Web",
+  //     "Source": "mobile",
   //     "IsBillable": false,
   //     "ExpenseType": "General Expenses",
   //     "ExpenseHeaderCustomFieldValues": [],
@@ -10347,7 +10812,8 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     final String baseUrl = '${Urls.getallGeneralExpense}${Params.userId}';
-    const String commonParams = '&page=1&sort_order=asc';
+    const String commonParams =
+        '&page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     String? apiStatus;
     switch (selectedStatus) {
@@ -10432,7 +10898,7 @@ class Controller extends GetxController {
         '${apiStatus != null ? '%26LVRLeaveHeader.ApprovalStatus__eq%3D$apiStatus' : ''}';
 
     final url = Uri.parse(
-      '$baseUrl?filter_query=$filterQuery&page=1&sort_order=asc',
+      '$baseUrl?filter_query=$filterQuery&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -10490,7 +10956,7 @@ class Controller extends GetxController {
         '${apiStatus != null ? '%26TSRTimesheetHeader.ApprovalStatus__eq%3D$apiStatus' : ''}';
 
     final url = Uri.parse(
-      '$baseUrl?filter_query=$filterQuery&page=1&sort_order=asc',
+      '$baseUrl?filter_query=$filterQuery&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -10542,7 +11008,7 @@ class Controller extends GetxController {
         : '';
 
     final url = Uri.parse(
-      '$baseUrl?filter_query=$filterQuery&page=1&sort_order=asc',
+      '$baseUrl?filter_query=$filterQuery&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -10576,7 +11042,7 @@ class Controller extends GetxController {
     isLoadingLeaves.value = true;
     attendanceList.clear();
     const String baseUrl =
-        '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/myteamattendence?page=1&sort_order=asc';
+        '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/myteamattendence?page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     final url = Uri.parse(baseUrl);
 
@@ -10611,7 +11077,7 @@ class Controller extends GetxController {
     isLoadingLeaves.value = true;
     attendanceList.clear();
     final String baseUrl =
-        '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/punchinpunchouttrans?filter_query=PUNAttendanceTransaction.CreatedBy__eq%3D${Params.userId}%26PUNAttendanceTransaction.IsActive__eq%3DTrue&page=1&sort_order=asc';
+        '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/punchinpunchouttrans?filter_query=PUNAttendanceTransaction.CreatedBy__eq%3D${Params.userId}%26PUNAttendanceTransaction.IsActive__eq%3DTrue&page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     final url = Uri.parse(baseUrl);
 
@@ -10647,7 +11113,7 @@ class Controller extends GetxController {
     myTeamtimesheetList.clear();
     sheetsPendingApprovalsList.clear();
     const String baseUrl =
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/pendingtimesheetapprovals?filter_query=TSRTimesheetHeader.ApprovalStatus__eq%3DPending&page=1&sort_order=asc';
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/pendingtimesheetapprovals?filter_query=TSRTimesheetHeader.ApprovalStatus__eq%3DPending&page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     final url = Uri.parse(baseUrl);
 
@@ -10759,13 +11225,15 @@ class Controller extends GetxController {
   }
 
   int getStartOfDayMillis(DateTime date) {
-    return DateTime(date.year, date.month, date.day).millisecondsSinceEpoch;
+    return toMillisecondsWithTimezone(
+      DateTime(date.year, date.month, date.day),
+    );
   }
 
   int getEndOfDayMillis(DateTime date) {
     final end = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
 
-    return end.millisecondsSinceEpoch;
+    return toMillisecondsWithTimezone(end);
   }
 
   Future<List<TimeSheetRangeModel>> fetchTimeSheetRange({
@@ -10871,7 +11339,7 @@ class Controller extends GetxController {
         'filter_query=LVRLeaveHeader.ApprovalStatus__eq%3D$apiStatus';
 
     final url = Uri.parse(
-      '$baseUrl?${apiStatus != null ? filterQuery : ""}&page=1&sort_order=asc',
+      '$baseUrl?${apiStatus != null ? filterQuery : ""}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -10922,7 +11390,7 @@ class Controller extends GetxController {
         'LVRLeaveCancellationHeader.CreatedBy__eq%3D${Params.userId}${apiStatus != null ? '%26LVRLeaveCancellationHeader.ApprovalStatus__eq%3D$apiStatus' : ""}';
 
     final url = Uri.parse(
-      '$baseUrl?filter_query=$filterQuery&page=1&sort_order=asc',
+      '$baseUrl?filter_query=$filterQuery&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -10964,7 +11432,7 @@ class Controller extends GetxController {
     line.timerCompleted.value = false;
     timerClicked = true;
     // ✅ capture start time ONCE
-    line.timerStartMillis = DateTime.now().millisecondsSinceEpoch;
+    line.timerStartMillis = toMillisecondsWithTimezone(DateTime.now());
 
     line.timer = Timer.periodic(const Duration(seconds: 1), (_) {
       line.elapsedSeconds.value++;
@@ -10978,10 +11446,10 @@ class Controller extends GetxController {
     line.timerRunning.value = false;
     line.timerCompleted.value = true; // 👈 ONE TIME ONLY
 
-    final dateKey = date.millisecondsSinceEpoch;
+    final dateKey = toMillisecondsWithTimezone(date);
 
     // ⏰ end time
-    final timeToMillis = DateTime.now().millisecondsSinceEpoch;
+    final timeToMillis = toMillisecondsWithTimezone(DateTime.now());
 
     // ⏰ start time (stored earlier)
     final timeFromMillis = line.timerStartMillis;
@@ -11016,7 +11484,7 @@ class Controller extends GetxController {
         '${Urls.baseURL}/api/v1/leaverequisition/leavemanagement/pendingapprovals';
 
     final url = Uri.parse(
-      '$baseUrl?filter_query=LVRLeaveHeader.ApprovalStatus__eq%3DPending&page=1&sort_order=asc',
+      '$baseUrl?filter_query=LVRLeaveHeader.ApprovalStatus__eq%3DPending&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -11046,7 +11514,7 @@ class Controller extends GetxController {
   Future<List<GExpense>> fetchUnprocessExpense() async {
     isLoadingunprocess.value = true;
     final url = Uri.parse(
-      '${Urls.unProcessedList}${Params.userId}&page=1&sort_order=asc',
+      '${Urls.unProcessedList}${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     try {
@@ -11079,7 +11547,8 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
 
     const String baseBaseUrl = Urls.getallMyteamsGeneralExpense;
-    const String commonParams = "&page=1&sort_order=asc";
+    const String commonParams =
+        "&page=1&sort_by=ModifiedDatetime&sort_order=desc";
 
     String? filterStatus;
     switch (selectedStatusmyteam) {
@@ -11132,7 +11601,8 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     getAllListGExpense.clear();
     const String baseBaseUrl = Urls.getallMyteamsCashAdvanseRequest;
-    const String commonParams = "&page=1&sort_order=asc";
+    const String commonParams =
+        "&page=1&sort_by=ModifiedDatetime&sort_order=desc";
 
     String? filterStatus;
     switch (selectedStatusmyteamCashAdvance) {
@@ -11843,6 +12313,44 @@ class Controller extends GetxController {
     String? expenseID,
   ]) async {
     Map<String, dynamic> buildPayload() {
+      final expenseHeaderCustomFields = customFields
+          .where(
+            (field) =>
+                field['ObjectName'] == 'ExpenseHeader' &&
+                field['ExpenseType'] == 'PerDiem',
+          ) // adjust if needed
+          .map((field) {
+            dynamic fieldValue;
+
+            if (field['FieldType'] == 'List' ||
+                field['FieldType'] == 'CustomList' ||
+                field['FieldType'] == 'SystemList') {
+              fieldValue = field['SelectedValue']?.valueId ?? '';
+            } else if (field['FieldType'] == 'Checkbox') {
+              fieldValue = field['EnteredValue'] ?? false;
+            } else if (field['FieldType'] == 'Date') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                  : '';
+            } else if (field['FieldType'] == 'Date&Time') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat(
+                      'dd/MM/yyyy hh:mm a',
+                    ).format(field['EnteredValue'])
+                  : '';
+            } else {
+              fieldValue = field['EnteredValue']?.toString() ?? '';
+            }
+
+            return {
+              "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+              "FieldId": field['FieldId'] ?? '',
+              "FieldValue": fieldValue,
+              "FieldName": field['FieldName'] ?? '',
+              "FieldType": field['FieldType'] ?? '',
+            };
+          })
+          .toList();
       return {
         "ExpenseId": expenseID ?? '',
         // ignore: prefer_null_aware_operators
@@ -11866,7 +12374,7 @@ class Controller extends GetxController {
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
-        "Source": "Web",
+        "Source": "mobile",
         "ExchRate": 1,
         if (recIds != null) "RecId": recIds,
         "ExpenseType": "PerDiem",
@@ -11879,7 +12387,7 @@ class Controller extends GetxController {
         "ToDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -12045,6 +12553,42 @@ class Controller extends GetxController {
     String? recId,
     String expenseID,
   ) async {
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseHeader' &&
+              field['ExpenseType'] == 'PerDiem',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     // buttonLoader.value = true;
     // isUploading.value = true;
     //  //  // print(recId);
@@ -12072,7 +12616,7 @@ class Controller extends GetxController {
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
-        "Source": "Web",
+        "Source": "mobile",
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
@@ -12084,7 +12628,7 @@ class Controller extends GetxController {
         "ToDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "ExpenseHeaderCustomFieldValues": buildCustomFieldValues,
+        "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -12250,6 +12794,42 @@ class Controller extends GetxController {
     String? recId,
     String expenseID,
   ) async {
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseHeader' &&
+              field['ExpenseType'] == 'PerDiem',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
+
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     // buttonLoader.value = true;
     // isUploading.value = true;
     //  //  // print(recId);
@@ -12277,7 +12857,7 @@ class Controller extends GetxController {
         "Description": purposeController.text.isNotEmpty
             ? purposeController.text
             : '',
-        "Source": "Web",
+        "Source": "mobile",
         "ExchRate": 1,
         "ExpenseType": "PerDiem",
         "Location": selectedLocation?.location ?? '',
@@ -12289,7 +12869,7 @@ class Controller extends GetxController {
         "ToDate": toDateController.text.isNotEmpty
             ? parseDateToEpoch(toDateController.text)
             : null,
-        "ExpenseHeaderCustomFieldValues": buildCustomFieldValues,
+        "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -12399,7 +12979,7 @@ class Controller extends GetxController {
         return [];
       }
     } catch (e) {
-      //  //  // print('Error fetching payment methods: $e');
+      print('Error fetching payment methods: $e');
       isLoadingGE1.value = false;
       isLoadingGE2.value = false;
       return [];
@@ -12669,7 +13249,7 @@ class Controller extends GetxController {
       final body = {
         "LeaveReqId": leaveReqId,
         "CancellationType": cancellationType,
-        "CancellationDate": DateTime.now().millisecondsSinceEpoch,
+        "CancellationDate": toMillisecondsWithTimezone(DateTime.now()),
         "ReasonForCancellation": reason,
         "LeaveCancellationTrans": buildPartialCancelTrans(),
       };
@@ -12722,7 +13302,7 @@ class Controller extends GetxController {
       final payload = {
         "LeaveReqId": leaveReqId,
         "CancellationType": "Partial",
-        "CancellationDate": DateTime.now().millisecondsSinceEpoch,
+        "CancellationDate": toMillisecondsWithTimezone(DateTime.now()),
         "ReasonForCancellation": reason,
         "LeaveCancellationTrans": buildPartialCancelTrans(),
       };
@@ -13052,7 +13632,42 @@ class Controller extends GetxController {
       for (int i = 0; i < expenseTranArray.length; i++) {
         expenseTransMap[i.toString()] = expenseTranArray[i];
       }
+      final expenseHeaderCustomFields = customFields
+          .where(
+            (field) => field['ObjectName'] == 'ExpenseHeader',
+          ) // adjust if needed
+          .map((field) {
+            dynamic fieldValue;
 
+            if (field['FieldType'] == 'List' ||
+                field['FieldType'] == 'CustomList' ||
+                field['FieldType'] == 'SystemList') {
+              fieldValue = field['SelectedValue']?.valueId ?? '';
+            } else if (field['FieldType'] == 'Checkbox') {
+              fieldValue = field['EnteredValue'] ?? false;
+            } else if (field['FieldType'] == 'Date') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                  : '';
+            } else if (field['FieldType'] == 'Date&Time') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat(
+                      'dd/MM/yyyy hh:mm a',
+                    ).format(field['EnteredValue'])
+                  : '';
+            } else {
+              fieldValue = field['EnteredValue']?.toString() ?? '';
+            }
+
+            return {
+              "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+              "FieldId": field['FieldId'] ?? '',
+              "FieldValue": fieldValue,
+              "FieldName": field['FieldName'] ?? '',
+              "FieldType": field['FieldType'] ?? '',
+            };
+          })
+          .toList();
       // 🔹 Prepare main payload
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
@@ -13063,8 +13678,8 @@ class Controller extends GetxController {
         "EmployeeName": employeeName.text.trim().isEmpty
             ? null
             : employeeName.text.trim(),
-        "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
-        "Source": "Web",
+        "ReceiptDate": toMillisecondsWithTimezone(selectedDate!),
+        "Source": "mobile",
         "ExchRate": 1,
         "ExpenseId": expenseId ?? "",
         "ExpenseType": "Mileage",
@@ -13075,7 +13690,7 @@ class Controller extends GetxController {
         "FromLocation": tripControllers.first.text,
         "ToLocation": tripControllers.last.text,
         "CashAdvReqId": cashAdvanceIds.text,
-        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -13288,6 +13903,42 @@ class Controller extends GetxController {
       for (int i = 0; i < expenseTranArray.length; i++) {
         expenseTransMap[i.toStringAsFixed(2)] = expenseTranArray[i];
       }
+      final expenseHeaderCustomFields = customFields
+          .where(
+            (field) => field['ObjectName'] == 'ExpenseHeader',
+          ) // adjust if needed
+          .map((field) {
+            dynamic fieldValue;
+
+            if (field['FieldType'] == 'List' ||
+                field['FieldType'] == 'CustomList' ||
+                field['FieldType'] == 'SystemList') {
+              fieldValue = field['SelectedValue']?.valueId ?? '';
+            } else if (field['FieldType'] == 'Checkbox') {
+              fieldValue = field['EnteredValue'] ?? false;
+            } else if (field['FieldType'] == 'Date') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                  : '';
+            } else if (field['FieldType'] == 'Date&Time') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat(
+                      'dd/MM/yyyy hh:mm a',
+                    ).format(field['EnteredValue'])
+                  : '';
+            } else {
+              fieldValue = field['EnteredValue']?.toString() ?? '';
+            }
+
+            return {
+              "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+              "FieldId": field['FieldId'] ?? '',
+              "FieldValue": fieldValue,
+              "FieldName": field['FieldName'] ?? '',
+              "FieldType": field['FieldType'] ?? '',
+            };
+          })
+          .toList();
       // Prepare main payload
       final payload = {
         "TotalAmountTrans": calculatedAmountINR,
@@ -13298,8 +13949,8 @@ class Controller extends GetxController {
         "EmployeeName": employeeName.text.trim().isEmpty
             ? null
             : employeeName.text.trim(),
-        "ReceiptDate": DateTime.now().millisecondsSinceEpoch,
-        "Source": "Web",
+        "ReceiptDate": toMillisecondsWithTimezone(selectedDate!),
+        "Source": "mobile",
         "ExchRate": 1,
         "ExpenseId": expenseId ?? "",
         "ExpenseType": "Mileage",
@@ -13311,7 +13962,7 @@ class Controller extends GetxController {
         "ToLocation": tripControllers.last.text,
         // "RecId": null,
         "CashAdvReqId": cashAdvanceIds.text,
-        "ExpenseHeaderCustomFieldValues": [],
+        "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
         "ExpenseHeaderExpensecategorycustomfieldvalues": [],
         "AccountingDistributions": accountingDistributions.isNotEmpty
             ? accountingDistributions.map((e) => e?.toJson()).toList()
@@ -13383,11 +14034,9 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
-    final url = Uri.parse(
-      '${Urls.getCustomField}=PerDiem&Fromdate=$receiptDate',
-    );
+    final url = Uri.parse(Urls.getCustomField);
 
     final response = await ApiService.get(url);
 
@@ -13404,7 +14053,7 @@ class Controller extends GetxController {
   }
 
   Future<List<DimensionHierarchy>> fetchDimensionHierarchies() async {
-    int todayEpoch = DateTime.now().millisecondsSinceEpoch;
+    int todayEpoch = toMillisecondsWithTimezone(DateTime.now());
     final url = Uri.parse('${Urls.getdimensionsDropdownName}$todayEpoch');
 
     final response = await ApiService.get(url);
@@ -13442,11 +14091,11 @@ class Controller extends GetxController {
   Future<void> fetchChartData(String currentRole) async {
     // if (lastLoadedRole == currentRole) return; // already loaded
     // lastLoadedRole = currentRole;
-    final int endDate = DateTime.now().millisecondsSinceEpoch;
+    final int endDate = toMillisecondsWithTimezone(DateTime.now());
     isUploadingCards.value = true;
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.cashAdvanceChart}?role=$currentRole&end_date=$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=asc',
+        '${Urls.cashAdvanceChart}?role=$currentRole&end_date=$endDate&periods=5&period_type=Weekly&page=1&limit=10&sort_by=YAxis&sort_order=desc',
       ),
     );
 
@@ -13485,8 +14134,8 @@ class Controller extends GetxController {
     // ✅ Today
     final DateTime today = DateTime(now.year, now.month, now.day);
 
-    final int startDate = firstDayOfMonth.millisecondsSinceEpoch;
-    final int endDate = today.millisecondsSinceEpoch;
+    final int startDate = toMillisecondsWithTimezone(firstDayOfMonth);
+    final int endDate = toMillisecondsWithTimezone(today);
 
     final String apiUrl =
         '${Urls.expenseChart}'
@@ -13496,7 +14145,7 @@ class Controller extends GetxController {
         '&page=1'
         '&limit=10'
         '&sort_by=Value'
-        '&sort_order=asc';
+        '&sort_order=desc';
 
     final response = await ApiService.get(Uri.parse(apiUrl));
 
@@ -13804,7 +14453,7 @@ class Controller extends GetxController {
         case 'Expense':
           url =
               '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader'
-              '?filter_query=&page=1&sort_order=asc'
+              '?filter_query=&page=1&sort_order=desc'
               '&choosen_fields=ExpenseId,EmployeeId,ExpenseType';
           break;
 
@@ -13817,21 +14466,21 @@ class Controller extends GetxController {
         case 'Travel':
           url =
               '${Urls.baseURL}/api/v1/travelrequisition/travelrequisitionendpoints/travelrequisitions'
-              '?page=1&sort_order=asc'
+              '?page=1&sort_order=desc'
               '&choosen_fields=RequisitionId,RequestedBy';
           break;
 
         case 'Cash Advance':
           url =
               '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader'
-              '?page=1&sort_order=asc'
+              '?page=1&sort_order=desc'
               '&choosen_fields=RequisitionId,ApprovalStatus';
           break;
 
         case 'Payment Proposal':
           url =
               '${Urls.baseURL}/api/v1/reimbursementmgmt/reimbursement/paymentproposalheader'
-              '?page=1&sort_order=asc'
+              '?page=1&sort_order=desc'
               '&choosen_fields=ProposalId,ProposalStatus';
           break;
 
@@ -13893,7 +14542,7 @@ class Controller extends GetxController {
     final rawUrl =
         "${Urls.esCalateUserList}${Params.userId}"
         "&page=1"
-        "&sort_order=asc"
+        "&sort_order=desc"
         "&choosen_fields=UserName%2CUserId";
 
     try {
@@ -14184,7 +14833,7 @@ class Controller extends GetxController {
     }
 
     String baseUrl =
-        '${Urls.cashAdvanceGetall}?filter_query=$filterQuery&page=1&sort_order=asc';
+        '${Urls.cashAdvanceGetall}?filter_query=$filterQuery&page=1&sort_by=ModifiedDatetime&sort_order=desc';
 
     final Uri url = Uri.parse(baseUrl);
 
@@ -14343,7 +14992,7 @@ class Controller extends GetxController {
         : '0';
 
     final url = Uri.parse(
-      '${Urls.exchangeRate}/$amounts/$currencyValue/$fromDate',
+      '${Urls.exchangeRateCA}/$amounts/$currencyValue/$fromDate',
     );
 
     try {
@@ -14460,12 +15109,49 @@ class Controller extends GetxController {
     return null;
   }
 
+  Future<double?> fetchExchangeRatecalculatedCA2(String currencyCode) async {
+    final dateToUse = selectedDate ?? DateTime.now();
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
+    final fromDate = parseDateToEpoch(formatted);
+
+    final cacheKey = "$currencyCode-$fromDate";
+
+    // ✅ 1. Check Cache First
+    if (exchangeRateCache.containsKey(cacheKey)) {
+      return exchangeRateCache[cacheKey];
+    }
+
+    final url = Uri.parse('${Urls.exchangeRateCA}/1/$currencyCode/$fromDate');
+
+    try {
+      final response = await ApiService.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final double exchangeRate = (data['ExchangeRate'] as num).toDouble();
+
+        // ✅ 2. Store in Cache
+        exchangeRateCache[cacheKey] = exchangeRate;
+
+        return exchangeRate;
+      }
+    } catch (e) {
+      debugPrint("Exchange API Error: $e");
+    }
+
+    return null;
+  }
+
   Future<double?> fetchMaxAllowedPercentage() async {
     //  //  // print("Callx");
     // Get the required values directly from controller
     final dateToUse = selectedDate ?? DateTime.now();
-    final String requestDateEpoch = dateToUse.millisecondsSinceEpoch
-        .toStringAsFixed(2);
+    final String requestDateEpoch = toMillisecondsWithTimezone(
+      dateToUse,
+    ).toStringAsFixed(2);
     final String employeeId = Params.employeeId;
     final String expenseCategory = selectedCategoryId;
     final String location = locationController.text ?? '';
@@ -14515,8 +15201,9 @@ class Controller extends GetxController {
     //  //  // print("Callx");
     // Get the required values directly from controller
     final dateToUse = selectedDate ?? DateTime.now();
-    final String requestDateEpoch = dateToUse.millisecondsSinceEpoch
-        .toStringAsFixed(2);
+    final String requestDateEpoch = toMillisecondsWithTimezone(
+      dateToUse,
+    ).toStringAsFixed(2);
     final String employeeId = Params.employeeId;
     final String expenseCategory = selectedCategoryId;
     final String location = locationController.text ?? '';
@@ -14767,7 +15454,7 @@ class Controller extends GetxController {
     isLoadingGE1.value = true;
     pendingApprovalcashAdvanse.clear();
     final url = Uri.parse(
-      '${Urls.getApprovalDashboardData}pendingcashasvanceapprovals?filter_query=CSHCashAdvReqHeader.ApprovalStatus__eq%3DPending&page=1&sort_order=asc',
+      '${Urls.getApprovalDashboardData}pendingcashasvanceapprovals?filter_query=CSHCashAdvReqHeader.ApprovalStatus__eq%3DPending&page=1&sort_by=ModifiedDatetime&sort_order=desc',
     );
 
     final response = await ApiService.get(url);
@@ -14903,8 +15590,9 @@ class Controller extends GetxController {
   Future<List<CashAdvanceDropDownModel>> fetchExpenseCashAdvanceList() async {
     //  //  // print("currencyDropDowncontroller2${selectedLocation?.city}");
     viewCashAdvanceLoader.value = true;
-    int receiptDateMillis =
-        (selectedDate ?? DateTime.now()).millisecondsSinceEpoch;
+    int receiptDateMillis = toMillisecondsWithTimezone(
+      selectedDate ?? DateTime.now(),
+    );
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/cashadvreqids?EmployeeId=${Params.employeeId}&ProjectId=${selectedProject?.code ?? ''}&Location=${selectedLocation?.city ?? ''}&ExpenseCategoryId=&PaymentMethod=${paymentMethodeID ?? ''}&Currency=${currencyDropDowncontroller2.text ?? ""}&ReceiptDate=${receiptDateMillis ?? ''}',
     );
@@ -14936,12 +15624,45 @@ class Controller extends GetxController {
     final parsedDate = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).parse(formatted.toString());
-    final receiptDate = parsedDate.millisecondsSinceEpoch;
+    final receiptDate = toMillisecondsWithTimezone(parsedDate);
     //  //  // print("receiptDate$receiptDate");
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
     //  //  // print("receiptDate$attachmentPayload");
     //  //  // print("finalItems${finalItems.length}");
+    final expenseHeaderCustomFields = customFields
+        .where(
+          (field) => field['ObjectName'] == 'ExpenseHeader',
+        ) // adjust if needed
+        .map((field) {
+          dynamic fieldValue;
 
+          if (field['FieldType'] == 'List' ||
+              field['FieldType'] == 'CustomList' ||
+              field['FieldType'] == 'SystemList') {
+            fieldValue = field['SelectedValue']?.valueId ?? '';
+          } else if (field['FieldType'] == 'Checkbox') {
+            fieldValue = field['EnteredValue'] ?? false;
+          } else if (field['FieldType'] == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else {
+            fieldValue = field['EnteredValue']?.toString() ?? '';
+          }
+
+          return {
+            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue,
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": field['FieldType'] ?? '',
+          };
+        })
+        .toList();
     final hasValidUnit = (double.tryParse(unitAmount.text) ?? 0) > 1;
 
     //  //  // print("hasValidUnit$hasValidUnit${unitAmountView.text}");
@@ -14972,10 +15693,10 @@ class Controller extends GetxController {
           selectedCurrency.value?.code ?? currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
       "UserExchRate": unitRate.text.isNotEmpty ? unitRate.text : '1.0',
-      "Source": "Web",
+      "Source": "mobile",
       "IsBillable": false,
       "ExpenseType": "General Expenses",
-      "ExpenseHeaderCustomFieldValues": [],
+      "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
 
       "DocumentAttachment": {"File": attachmentPayload},
@@ -15286,7 +16007,7 @@ class Controller extends GetxController {
           : '?status=${uniqueStatuses.join(',')}';
 
       final url = Uri.parse(
-        '${Urls.emailHubList}${Params.userId}&page=1&sort_order=asc',
+        '${Urls.emailHubList}${Params.userId}&page=1&sort_by=ModifiedDatetime&sort_order=desc',
       );
 
       final response = await ApiService.get(url);
@@ -15427,7 +16148,7 @@ class Controller extends GetxController {
           '${Urls.baseURL}/api/v1/reports/reports/reports?'
           'filter_query=STPReportsTables.RecId__eq=$recId&'
           'page=1&'
-          'sort_order=asc&'
+          'sort_order=desc&'
           'lock_id=$recId&'
           'screen_name=STPReportsTables',
         ),
@@ -15929,7 +16650,7 @@ class Controller extends GetxController {
   }
 
   static const String _baseUrl =
-      '${Urls.baseURL}/api/v1/masters/organizationmgmt/organizations/featureenablement?page=1&sort_order=asc';
+      '${Urls.baseURL}/api/v1/masters/organizationmgmt/organizations/featureenablement?page=1&sort_by=ModifiedDatetime&sort_order=desc';
   static const String _prefsKey = 'feature_enablement_data';
 
   // Fetch features from API and save to local storage
@@ -16136,15 +16857,86 @@ class Controller extends GetxController {
     }
   }
 
-  Future<void> loadAllCustomFieldValues() async {
-    for (var field in customFields) {
-      if (field['FieldType'] == 'List') {
-        await fetchCustomFieldValues(field['FieldId']);
+  RxMap<int, List<Map<String, dynamic>>> lineItemFields =
+      <int, List<Map<String, dynamic>>>{}.obs;
+
+  void initLineItemFields(int index) {
+    // Deep clone so each line item gets its own independent copy
+    lineItemFields[index] = customFields
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseTrans' &&
+              (field['ExpenseType'] == 'General Expenses' ||
+                  field['ExpenseType'] == null),
+        )
+        .map((field) => Map<String, dynamic>.from(field))
+        .toList();
+    lineItemFields.refresh();
+  }
+
+  void removeLineItemFields(int index) {
+    lineItemFields.remove(index);
+    lineItemFields.refresh();
+  }
+
+  void loadAllCustomFieldValues({
+    List<Map<String, dynamic>>? savedValues,
+  }) async {
+    // Your existing API call to populate customFields
+    await fetchCustomFields(); // whatever your fetch method is
+
+    print("customFields after fetch: ${customFields.length}"); // should be > 0
+
+    if (savedValues != null && savedValues.isNotEmpty) {
+      for (final field in customFields) {
+        final match = savedValues.firstWhere(
+          (sv) => sv['FieldName'] == field['FieldName'],
+          orElse: () => {},
+        );
+
+        if (match.isEmpty) continue;
+
+        final fieldType = field['FieldType'];
+        final rawValue = match['FieldValue'];
+
+        if (fieldType == 'List' ||
+            fieldType == 'CustomList' ||
+            fieldType == 'SystemList') {
+          final options =
+              (field['Options'] as List<CustomDropdownValue>?) ?? [];
+          field['SelectedValue'] = options.firstWhereOrNull(
+            (opt) => opt.valueId == rawValue?.toString(),
+          );
+        } else if (fieldType == 'Checkbox') {
+          field['EnteredValue'] =
+              rawValue == true || rawValue?.toString() == 'true';
+        } else if (fieldType == 'Date') {
+          field['EnteredValue'] =
+              rawValue != null && rawValue.toString().isNotEmpty
+              ? DateFormat('dd/MM/yyyy').parse(rawValue.toString())
+              : null;
+        } else if (fieldType == 'Date&Time') {
+          field['EnteredValue'] =
+              rawValue != null && rawValue.toString().isNotEmpty
+              ? DateFormat('dd/MM/yyyy hh:mm a').parse(rawValue.toString())
+              : null;
+        } else if (fieldType == 'LongInteger') {
+          field['EnteredValue'] = int.tryParse(rawValue?.toString() ?? '');
+        } else if (fieldType == 'Decimal') {
+          field['EnteredValue'] = double.tryParse(rawValue?.toString() ?? '');
+        } else {
+          field['EnteredValue'] = rawValue?.toString() ?? '';
+        }
+
+        print("✅ matched: ${field['FieldName']} = ${field['EnteredValue']}");
       }
+
+      customFields.refresh();
     }
   }
 
   Future<void> fetchCustomFieldValues(String fieldId) async {
+    print("fieldIdfieldId$fieldId");
     final index = customFields.indexWhere(
       (field) => field['FieldId'] == fieldId,
     );
@@ -16156,7 +16948,7 @@ class Controller extends GetxController {
     customFields[index]['isLoading'] = true;
 
     final url =
-        "${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/customfieldlistvalues?filter_query=STPCustomFieldListValues.FieldId__eq%3D$fieldId&page=1&sort_order=asc";
+        "${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/customfieldlistvalues?filter_query=STPCustomFieldListValues.FieldId__eq%3D$fieldId&page=1&sort_order=desc";
 
     final response = await ApiService.get(Uri.parse(url));
 
@@ -16345,9 +17137,12 @@ class Controller extends GetxController {
       // +1 day so today is fully included
       final DateTime endDate = DateTime(now.year, now.month, now.day + 1);
 
-      final int startMillis = startDate.millisecondsSinceEpoch;
-      final int endMillis = endDate.millisecondsSinceEpoch;
-      int today = DateTime.now().millisecondsSinceEpoch;
+      final int startMillis = toMillisecondsWithTimezone(startDate);
+      final int endMillis = toMillisecondsWithTimezone(endDate);
+      int today = toMillisecondsWithTimezone(DateTime.now());
+
+      sortBy = "YAxis";
+      extraParams = "&end_date=$endMillis&periods=5&period_type=Weekly";
 
       /// 🔹 Widget-specific logic
       /// 🔹 Widget-specific logic
@@ -16355,6 +17150,11 @@ class Controller extends GetxController {
         case "ExpensesThisMonth":
           sortBy = "Value";
           extraParams = "&start_date=$startMillis&end_date=$endMillis";
+        case "CashAdvanceReturnTrends":
+        case "leavehistory":
+        case "CashAdvanceTrends":
+        case "ExpenseTrends":
+          extraParams = "&end_date=$endMillis&periods=5&period_type=Weekly";
 
         /// SUMMARY BOXES
         case "TotalCashAdvances":
@@ -16371,13 +17171,9 @@ class Controller extends GetxController {
           break;
 
         /// LINE CHARTS
-        case "CashAdvanceTrends":
-        case "ExpenseTrends":
-        case "CashAdvanceReturnTrends":
+
         case "EmployeesLeaveConnectedWithWeekends":
         case "empleaveconectwithweekends":
-        case "PolicyComplianceRateForCashAdvances":
-        case "Top5Spenders":
         case "ExpensesByEmployeeGrades":
         case "MileageByTop5Employees":
         case "Top5SpendingDepartments":
@@ -16387,19 +17183,24 @@ class Controller extends GetxController {
 
         /// MULTI BAR CHARTS
         case "ExpensesByCategories":
+        case "leavebalanceoverview":
         case "ExpenseBySource":
+        case "NoOfExpensesByStatus":
+        case "Top5Spenders":
+        case "Top10ExpenseCategoriesByLocations":
+        case "NoOfCashAdvancesByApprovalStatus":
+        case "Top5SpendingBranches":
+        case "ExpensesByBranches":
           sortBy = "YAxis";
+
           break;
 
         /// BAR CHARTS
         case "ExpensesByProjects":
-        case "NoOfCashAdvancesByApprovalStatus":
-        case "CashAdvancesByBusinessJustification":
         case "Top5CashAdvanceRequesters":
-        case "NoOfExpensesByStatus":
-        case "Top10ExpenseCategoriesByLocations":
         case "top5leavecodevsleaves":
         case "leavetypevsleaves":
+        case "ExpensesByCountries":
         case "top10empleavecancellation":
           sortBy = "y";
           break;
@@ -16410,6 +17211,8 @@ class Controller extends GetxController {
         case "SumOfCashAdvancesByApprovalStatus":
         case "RepeatedPolicyViolationsByEmployeesForCashAdvances":
         case "top10empleavecancelcount":
+        case "PolicyComplianceRateForCashAdvances":
+        case "CashAdvancesByBusinessJustification":
           sortBy = "YAxis";
           break;
 
@@ -16419,14 +17222,11 @@ class Controller extends GetxController {
           break;
 
         /// TABLE WIDGETS
-        case "ExpensesByCountries":
-        case "LeaveBalanceOverview":
+
         case "PendingApprovals":
           sortBy = "YAxis";
           break;
-        case "leavehistory":
-          sortBy = "YAxis";
-          extraParams = "end_date=$today&periods=5";
+
         default:
           sortBy = "YAxis";
       }
@@ -16453,20 +17253,13 @@ class Controller extends GetxController {
       }
 
       if (widgetName == "leavecalanderview") {
-        final fromDate = DateTime(
-          now.year,
-          now.month,
-          1,
-        ).millisecondsSinceEpoch;
+        final fromDate = toMillisecondsWithTimezone(
+          DateTime(now.year, now.month, 1),
+        );
 
-        final toDate = DateTime(
-          now.year,
-          now.month + 1,
-          0,
-          23,
-          59,
-          59,
-        ).millisecondsSinceEpoch;
+        final toDate = toMillisecondsWithTimezone(
+          DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+        );
 
         await loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
         return;
@@ -16480,6 +17273,7 @@ class Controller extends GetxController {
       final Uri url = Uri.parse(
         "${Urls.baseURL}/api/v1/dashboard/widgets/$widgetName"
         "?role=$roleId"
+        "&end_date=$endMillis"
         "&page=1"
         "&limit=10"
         "&sort_by=$sortBy"
@@ -16583,17 +17377,22 @@ class Controller extends GetxController {
       'leavehistory',
       'EmployeesLeaveConnectedWithWeekends',
       "empleaveconectwithweekends",
-      "PolicyComplianceRateForCashAdvances",
 
-      "Top5Spenders",
-      "ExpensesByEmployeeGrades",
-      "MileageByTop5Employees",
-      "Top5SpendingDepartments",
       "ExpensesByDepartment",
     ];
-    const multibarCharts = ['ExpensesByCategories', "ExpenseBySource"];
+    const multibarCharts = ['ExpensesByCategories'];
+    const multibarChartsSingleBar = ["ExpenseBySource"];
     const barCharts = [
+      'leavebalanceoverview',
+      "Top5SpendingBranches",
+      "Top5SpendingDepartments",
+      "PolicyComplianceRateForCashAdvances",
+      'ExpensesByMerchants',
+      "MileageByTop5Employees",
+      "ExpensesByEmployeeGrades",
+      "Top5Spenders",
       'ExpensesByProjects',
+      "RepeatedPolicyViolationsByEmployee",
       'RepeatedPolicyViolationsByEmployeesForCashAdvances',
       'SumOfCashAdvancesByApprovalStatus',
       'NoOfCashAdvancesByApprovalStatus',
@@ -16605,12 +17404,14 @@ class Controller extends GetxController {
       'leavetypevsleaves',
       'top10empleavecancellation',
       "top10empleavecancelcount",
+      'ExpensesByCountries',
     ];
 
     const pieCharts = [
       'ExpenseAmountByExpenseStatus',
       'SumOfCashAdvancesByApprovalStatus',
       'ExpensesAmountByApprovalStatus',
+      'ExpensesByBranches',
     ];
 
     const donutCharts = ['ExpensesByPaymentMethods'];
@@ -16620,32 +17421,35 @@ class Controller extends GetxController {
     const draftleaves = ['draftleaves'];
     const draftExpenses = ['DraftExpenses'];
     const summaryBoxes = [
-      'TotalCashAdvances',
-      'TotalExpenses',
-      'ExpensesThisMonth',
       'NoOfMyPendingApprovalsCard',
       'TotalLeaveMonth',
       'NoOfEscalations',
       "NoOfAutoRejectedApprovals",
       "NoOfAutoApprovedExpenses",
       "NoOfApprovalDelegations",
-      "AverageExpenseByEmployees",
+
       "totleavemonth",
     ];
-
-    const tableWidgets = [
-      'ExpensesByCountries',
-      'LeaveBalanceOverview',
-      'PendingApprovals',
+    const summeryBoxCount = [
+      'TotalCashAdvances',
+      'TotalExpenses',
+      'ExpensesThisMonth',
+      "AverageExpenseByEmployees",
     ];
+    const tableWidgets = ['PendingApprovals'];
     const tableWidgetsExpense = ['DraftExpenses'];
 
     if (lineCharts.contains(widgetName)) return 'LineChart';
     if (barCharts.contains(widgetName)) return 'BarChart';
     if (multibarCharts.contains(widgetName)) return 'MultiBarChart';
+    if (multibarChartsSingleBar.contains(widgetName)) {
+      return 'MultiBarChartSinglebar';
+    }
     if (pieCharts.contains(widgetName)) return 'PieChart';
     if (donutCharts.contains(widgetName)) return 'DonutChart';
     if (summaryBoxes.contains(widgetName)) return 'SummaryBox';
+    if (summeryBoxCount.contains(widgetName)) return 'SummaryBoxCounter';
+
     if (tableWidgets.contains(widgetName)) return 'Table';
     if (tableWidgetsExpense.contains(widgetName)) return 'ExpenseTable';
     if (leavecalanderview.contains(widgetName)) return 'Leavecalanderview';
@@ -16664,7 +17468,7 @@ class Controller extends GetxController {
   // Unique method names as requested
   Future<List<DashboardByRole>> fetchDashboardWidgetsForSpenders() async {
     final url = Uri.parse(
-      "${Urls.baseURL}/api/v1/dashboard/dashboard/widgets?filter_query=SYSWidgets.RoleIdSpender&page=1&sort_order=asc",
+      "${Urls.baseURL}/api/v1/dashboard/dashboard/widgets?filter_query=SYSWidgets.RoleIdSpender&page=1&sort_order=desc",
     );
     final response = await ApiService.get(url);
 
@@ -16877,7 +17681,7 @@ class Controller extends GetxController {
   //       "${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader"
   //       "?filter_query=EXPExpenseHeader.CreatedBy__eq%3D$email"
   //       "%26EXPExpenseHeader.ApprovalStatus__eq%3DCreated"
-  //       "&page=1&sort_order=asc",
+  //       "&page=1&sort_by=ModifiedDatetime&sort_order=desc",
   //     );
 
   //     final response = await ApiService.get(
@@ -16958,7 +17762,7 @@ class Controller extends GetxController {
       "${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/expenseheader"
       "?filter_query=EXPExpenseHeader.CreatedBy__eq%3D$email"
       "%26EXPExpenseHeader.ApprovalStatus__eq%3DCreated"
-      "&page=1&sort_order=asc",
+      "&page=1&sort_by=ModifiedDatetime&sort_order=desc",
     );
 
     try {
@@ -17014,20 +17818,13 @@ class Controller extends GetxController {
       if (widgetName.toLowerCase() == "leavecalanderview") {
         final now = DateTime.now();
 
-        final fromDate = DateTime(
-          now.year,
-          now.month,
-          1,
-        ).millisecondsSinceEpoch;
+        final fromDate = toMillisecondsWithTimezone(
+          DateTime(now.year, now.month, 1),
+        );
 
-        final toDate = DateTime(
-          now.year,
-          now.month + 1,
-          0,
-          23,
-          59,
-          59,
-        ).millisecondsSinceEpoch;
+        final toDate = toMillisecondsWithTimezone(
+          DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+        );
 
         await loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
 
@@ -17044,14 +17841,20 @@ class Controller extends GetxController {
       // +1 day so today is fully included
       final DateTime endDate = DateTime(now.year, now.month, now.day + 1);
 
-      final int startMillis = startDate.millisecondsSinceEpoch;
-      final int endMillis = endDate.millisecondsSinceEpoch;
+      final int startMillis = toMillisecondsWithTimezone(startDate);
+      final int endMillis = toMillisecondsWithTimezone(endDate);
 
       /// ✅ Widget-based logic
       if (widgetName == "ExpensesThisMonth" ||
           widgetName == "TotalCashAdvances") {
         sortBy = "Value";
         extraParams = "&start_date=$startMillis&end_date=$endMillis";
+      } else if (widgetName == "CashAdvanceReturnTrends" ||
+          widgetName == "leavehistory" ||
+          widgetName == "CashAdvanceTrends" ||
+          widgetName == "ExpenseTrends") {
+        sortBy = "YAxis";
+        extraParams = "&end_date=$endMillis&periods=5&period_type=Weekly";
       } else if (widgetName == "ExpensesByProjects" ||
           widgetName == "ExpensesByCountries" ||
           widgetName == "top10empleavecancellation") {
@@ -17159,44 +17962,177 @@ class Controller extends GetxController {
   //   return 'Generic';
   // }
   List<CartesianSeries<ProjectExpensebycategory, String>>
+  convertMultiSeriesChartSingle(Map<String, dynamic> data) {
+    if (data.isEmpty) return [];
+
+    final xAxisRaw = data['XAxis'];
+    final yAxisRaw = data['YAxis'];
+
+    if (xAxisRaw == null || yAxisRaw == null) return [];
+    if (xAxisRaw is! List || yAxisRaw is! List) return [];
+
+    final xAxis = List<String>.from(xAxisRaw.map((e) => e.toString()));
+
+    final yAxisGroups = yAxisRaw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    if (yAxisGroups.isEmpty) return [];
+
+    // 🔹 Color mapping
+    Color getSeriesColor(String name) {
+      switch (name.toLowerCase()) {
+        case 'approved':
+          return Colors.blue;
+        case 'rejected':
+          return Colors.green;
+        case 'submitted':
+          return Colors.orange;
+        case 'created':
+          return Colors.pink;
+        case 'pending':
+          return Colors.purple;
+        default:
+          return Colors.grey;
+      }
+    }
+
+    final List<CartesianSeries<ProjectExpensebycategory, String>> seriesList =
+        [];
+
+    for (var group in yAxisGroups) {
+      final String name = group['name']?.toString() ?? '';
+
+      final rawValues = group['data'];
+      if (rawValues == null || rawValues is! List) continue;
+
+      final List<dynamic> values = rawValues;
+      final List<ProjectExpensebycategory> chartPoints = [];
+
+      for (int i = 0; i < xAxis.length; i++) {
+        double yVal = 0.0;
+
+        if (i < values.length && values[i] != null) {
+          final v = values[i];
+          if (v is num) {
+            yVal = v.toDouble();
+          } else if (v is String) {
+            yVal = double.tryParse(v) ?? 0.0;
+          }
+        }
+
+        chartPoints.add(
+          ProjectExpensebycategory(
+            x: xAxis[i],
+            y: yVal,
+            color: getSeriesColor(name),
+          ),
+        );
+      }
+
+      seriesList.add(
+        StackedColumnSeries<ProjectExpensebycategory, String>(
+          name: name,
+          dataSource: chartPoints,
+
+          xValueMapper: (dp, _) => dp.x,
+          yValueMapper: (dp, _) => dp.y,
+
+          color: getSeriesColor(name),
+
+          // ⭐ SHOW VALUE INSIDE EACH STACK
+          dataLabelMapper: (dp, _) => dp.y == 0 ? '' : dp.y.toStringAsFixed(0),
+
+          dataLabelSettings: const DataLabelSettings(
+            isVisible: true,
+            labelAlignment: ChartDataLabelAlignment.outer,
+            connectorLineSettings: ConnectorLineSettings(
+              type: ConnectorType.line,
+              length: '12%',
+              width: 1,
+              color: Colors.black54,
+            ),
+            textStyle: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return seriesList;
+  }
+
+  List<CartesianSeries<ProjectExpensebycategory, String>>
   convertMultiSeriesChart(Map<String, dynamic> data) {
     if (data.isEmpty) return [];
 
     final xAxisRaw = data['XAxis'];
     final yAxisRaw = data['YAxis'];
 
-    // Safety checks
     if (xAxisRaw == null || yAxisRaw == null) return [];
     if (xAxisRaw is! List || yAxisRaw is! List) return [];
 
-    final xAxis = List<String>.from(xAxisRaw);
-    final yAxisGroups = List<Map<String, dynamic>>.from(yAxisRaw);
+    final xAxis = List<String>.from(xAxisRaw.map((e) => e.toString()));
+
+    final yAxisGroups = yAxisRaw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    if (yAxisGroups.isEmpty) return [];
 
     final List<CartesianSeries<ProjectExpensebycategory, String>> seriesList =
         [];
-
     int seriesIndex = 0;
 
+    // 🔹 Helper for fixed color mapping
+    Color getSeriesColor(String name, int index) {
+      switch (name.toLowerCase()) {
+        case 'approved':
+          return Colors.green;
+        case 'pending':
+          return Colors.orange;
+        case 'rejected':
+          return Colors.red; // Important: always red
+        default:
+          return Colors.primaries[index % Colors.primaries.length].shade300;
+      }
+    }
+
     for (var group in yAxisGroups) {
-      final String name = group['name'] ?? 'Series $seriesIndex';
-      final List<dynamic>? values = group['data'] as List<dynamic>?;
+      final String name = group['name']?.toString() ?? 'Series $seriesIndex';
 
-      if (values == null) continue;
+      final rawValues = group['data'];
+      if (rawValues == null || rawValues is! List) continue;
 
+      final List<dynamic> values = rawValues;
       final List<ProjectExpensebycategory> chartPoints = [];
 
+      final baseColor = getSeriesColor(name, seriesIndex);
+
       for (int i = 0; i < xAxis.length; i++) {
-        final yVal = (i < values.length && values[i] != null)
-            ? (values[i] as num).toDouble()
-            : 0.0;
+        double yVal = 0.0;
+
+        if (i < values.length && values[i] != null) {
+          final v = values[i];
+
+          if (v is num) {
+            yVal = v.toDouble();
+          } else if (v is String) {
+            yVal = double.tryParse(v) ?? 0.0;
+          }
+        }
 
         chartPoints.add(
           ProjectExpensebycategory(
             x: xAxis[i],
             y: yVal,
-            color: Colors
-                .primaries[seriesIndex % Colors.primaries.length]
-                .shade300,
+            // 🔹 Fade color if value is 0 (better UX)
+            color: yVal == 0 ? baseColor.withOpacity(0.2) : baseColor,
           ),
         );
       }
@@ -17205,17 +18141,27 @@ class Controller extends GetxController {
         ColumnSeries<ProjectExpensebycategory, String>(
           name: name,
           dataSource: chartPoints,
+
           xValueMapper: (dp, _) => dp.x,
-          yValueMapper: (dp, _) => dp.y,
+          spacing: 0.5, // space between groups (0 → no gap, 1 → max gap)
+          width: 0.8,
+          // 🔹 Hide bar completely when value = 0
+          yValueMapper: (dp, _) => dp.y == 0 ? null : dp.y,
+
           pointColorMapper: (dp, _) => dp.color,
+
+          dataLabelMapper: (dp, _) => dp.y == 0 ? '' : dp.y.toStringAsFixed(0),
+
           dataLabelSettings: const DataLabelSettings(
             isVisible: true,
+            angle: -45,
             textStyle: TextStyle(
-              fontSize: 9,
+              fontSize: 7,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
+
           borderRadius: BorderRadius.circular(5),
         ),
       );
@@ -17412,8 +18358,8 @@ class Controller extends GetxController {
     ).subtract(const Duration(milliseconds: 1));
 
     return {
-      'from': firstDayUtc.millisecondsSinceEpoch,
-      'to': lastDayUtc.millisecondsSinceEpoch,
+      'from': toMillisecondsWithTimezone(firstDayUtc),
+      'to': toMillisecondsWithTimezone(lastDayUtc),
     };
   }
 
@@ -17467,6 +18413,55 @@ class Controller extends GetxController {
     // notifyListeners();
   }
 
+  void markInterveningHolidays(List<LeaveTransactionModel> transactions) {
+    for (int i = 0; i < transactions.length; i++) {
+      final current = transactions[i];
+
+      // Skip non-holidays
+      if (!current.isHoliday) continue;
+
+      // -----------------------------
+      // Find previous non-holiday
+      // -----------------------------
+      int prevIndex = i - 1;
+
+      while (prevIndex >= 0 && transactions[prevIndex].isHoliday) {
+        prevIndex--;
+      }
+
+      // -----------------------------
+      // Find next non-holiday
+      // -----------------------------
+      int nextIndex = i + 1;
+
+      while (nextIndex < transactions.length &&
+          transactions[nextIndex].isHoliday) {
+        nextIndex++;
+      }
+
+      // -----------------------------
+      // Validate surrounding leaves
+      // -----------------------------
+      final hasPreviousLeave =
+          prevIndex >= 0 && transactions[prevIndex].noOfDays > 0;
+
+      final hasNextLeave =
+          nextIndex < transactions.length &&
+          transactions[nextIndex].noOfDays > 0;
+
+      // -----------------------------
+      // Mark intervening holiday
+      // -----------------------------
+      current.isInterveningHoliday = hasPreviousLeave && hasNextLeave;
+
+      print(
+        "Date: ${current.transDate} "
+        "Holiday: ${current.isHoliday} "
+        "Intervening: ${current.isInterveningHoliday}",
+      );
+    }
+  }
+
   Future<void> createLeaveTransactions({
     required String employeeId,
     required int fromDate,
@@ -17491,7 +18486,18 @@ class Controller extends GetxController {
       leaveBalance = decoded["LeaveBalance"] ?? "";
       calendarId = decoded["CalendarId"] ?? "";
       final List<dynamic> transactions = decoded["LeaveTransactions"] ?? [];
-
+      final leaveTransactions = decoded["LeaveTransactions"] != null
+          ? (decoded["LeaveTransactions"] as List)
+                .map((e) => LeaveTransactionModel.fromJson(e))
+                .toList()
+          : <LeaveTransactionModel>[];
+      markInterveningHolidays(leaveTransactions);
+      double totalDays = leaveTransactions.fold(
+        0,
+        (sum, item) => sum + item.calculatedDays,
+      );
+      totalRequestedDays.value = totalDays;
+      print(' Total Calculated Days: $totalDays ');
       leaveDays.addAll(
         transactions.map((e) => LeaveTransactionModel.fromJson(e)).toList(),
       );
@@ -18145,7 +19151,7 @@ class Controller extends GetxController {
       y += 20;
 
       g.drawString(
-        'Amount: ₹ ${p.periodStartDate}',
+        'Amount: ${organizationDefaultCurrencySymbol} ${p.periodStartDate}',
         bodyFont,
         bounds: Rect.fromLTWH(0, y, page.getClientSize().width, 20),
       );
@@ -18344,6 +19350,7 @@ class Controller extends GetxController {
   Future<void> startTimerTimeSheet() async {
     if (isActionLoading.value) return;
     isActionLoading.value = true;
+    loadingAction.value = 'start';
     try {
       final res = await ApiService.post(
         Uri.parse(
@@ -18413,6 +19420,7 @@ class Controller extends GetxController {
     if (timeRunId == null) return;
     if (isActionLoading.value) return;
     isActionLoading.value = true;
+    loadingAction.value = 'pause';
     try {
       final res = await ApiService.post(
         Uri.parse(
@@ -18444,7 +19452,7 @@ class Controller extends GetxController {
         final Map<String, dynamic> responseData = jsonDecode(res.body);
         final String message =
             responseData['detail']?['message'] ?? 'omething Wrong';
-
+        loadingAction.value = '';
         Fluttertoast.showToast(
           msg: message,
           backgroundColor: Colors.red[100],
@@ -18464,6 +19472,7 @@ class Controller extends GetxController {
     if (timeRunId == null) return;
     if (isActionLoading.value) return;
     isActionLoading.value = true;
+    loadingAction.value = 'resume';
     try {
       final res = await ApiService.post(
         Uri.parse(
@@ -18524,6 +19533,7 @@ class Controller extends GetxController {
     if (timeRunId == null) return;
     if (isActionLoading.value) return;
     isActionLoading.value = true;
+    loadingAction.value = 'complete';
     try {
       final res = await ApiService.post(
         Uri.parse(
@@ -18577,6 +19587,7 @@ class Controller extends GetxController {
     if (timeRunId == null) return;
     if (isActionLoading.value) return;
     isActionLoading.value = true;
+    loadingAction.value = 'cancel';
     try {
       final res = await ApiService.post(
         Uri.parse(
@@ -18633,7 +19644,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/runs?filter_query=TSRTimeRun.CreatedBy__eq%3D${Params.userId}%26TSRTimeRun.IsActive__eq%3DTrue&page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/runs?filter_query=TSRTimeRun.CreatedBy__eq%3D${Params.userId}%26TSRTimeRun.IsActive__eq%3DTrue&page=1&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -18674,7 +19685,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/segments?filter_query=TSRTimeRunSegment.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunSegment.IsActive__eq%3DTrue&page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/segments?filter_query=TSRTimeRunSegment.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunSegment.IsActive__eq%3DTrue&page=1&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -18696,7 +19707,7 @@ class Controller extends GetxController {
     isTabLoading.value = true;
     final res = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/events?filter_query=TSRTimeRunEvent.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunEvent.IsActive__eq%3DTrue&page=1&sort_order=asc',
+        '${Urls.baseURL}/api/v1/timesheetrequisition/timesheetrequisition/timerun/events?filter_query=TSRTimeRunEvent.CreatedBy__eq%3D${Params.userId}%26TSRTimeRunEvent.IsActive__eq%3DTrue&page=1&sort_by=ModifiedDatetime&sort_order=desc',
       ),
     );
 
@@ -18855,11 +19866,11 @@ class Controller extends GetxController {
           ? null
           : timeSheetID.text.trim(),
       "EmployeeId": employeeId,
-      "ApplicationDate": DateTime.now().millisecondsSinceEpoch,
-      "Source": "Web",
+      "ApplicationDate": toMillisecondsWithTimezone(DateTime.now()),
+      "Source": "mobile",
       "CaptureMethod": "Manual",
-      "FromDate": dateRange!.start.millisecondsSinceEpoch,
-      "ToDate": dateRange!.end.millisecondsSinceEpoch,
+      "FromDate": toMillisecondsWithTimezone(dateRange!.start),
+      "ToDate": toMillisecondsWithTimezone(dateRange!.end),
       "EmployeeName": Params.employeeName ?? userName.value,
       "TimesheetLocation": null,
       "ReferenceId": null,
@@ -18943,20 +19954,27 @@ class Controller extends GetxController {
   }
 
   String getPeriodTypeForUI(String frequency) {
-    print("frequency$frequency");
-    switch (frequency) {
-      case 'Week':
+    final value = frequency.toLowerCase().replaceAll(' ', '').trim();
+    print("frequency: $value");
+
+    switch (value) {
+      case 'week':
         return 'Weekly';
-      case 'Biweekly':
+
+      case 'biweekly':
         return 'BiWeekly';
-      case 'Month':
+
+      case 'month':
         return 'Monthly';
-      case 'Semimonthly':
+
+      case 'semimonthly':
         return 'Semimonthly';
-      case 'Day':
+
+      case 'day':
         return 'Day';
+
       default:
-        return 'Weekly';
+        return 'Day';
     }
   }
 
@@ -18988,7 +20006,7 @@ class Controller extends GetxController {
         Uri.parse(
           '${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/timesheetcconfigfields?'
           'filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DTimesheetRequisition&'
-          'page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId',
+          'page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId',
         ),
       );
 
@@ -19090,11 +20108,11 @@ class Controller extends GetxController {
       <Map<String, dynamic>>[].obs;
   Future<void> fetchCustomFieldsTimeSheet() async {
     try {
-      // print('Fetching custom fields from API...');
+      print('Fetching custom fields from API...');
 
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/customfields?filter_query=STPCustomFields.IsActive__eq%3Dtrue&page=1&sort_order=asc',
+          '${Urls.baseURL}/api/v1/masters/fieldmanagement/customfields/customfields?filter_query=STPCustomFields.IsActive__eq%3Dtrue&page=1&sort_order=desc',
         ),
       );
 
@@ -19638,7 +20656,7 @@ class Controller extends GetxController {
     isLoading.value = true;
 
     final url = Uri.parse(
-      '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/punchinpunchouttrans?filter_query=PUNAttendanceTransaction.EmployeeId__eq%3D${Params.employeeId}%26PUNAttendanceTransaction.IsActive__eq%3DTrue&page=1&sort_by=TransAttendanceId&sort_order=desc&limit=1',
+      '${Urls.baseURL}/api/v1/attendenceservices/punchinoutendpoints/punchinpunchouttrans?filter_query=PUNAttendanceTransaction.EmployeeId__eq%3D${Params.employeeId}%26PUNAttendanceTransaction.IsActive__eq%3DTrue&page=1&sort_by=TransAttendanceId&sort_by=ModifiedDatetime&sort_order=desc&limit=1',
     );
 
     final res = await ApiService.get(url);
@@ -20037,7 +21055,7 @@ class Controller extends GetxController {
       final dir = await getTemporaryDirectory();
       final targetPath = path.join(
         dir.path,
-        "compressed_${DateTime.now().millisecondsSinceEpoch}.jpg",
+        "compressed_${toMillisecondsWithTimezone(DateTime.now())}.jpg",
       );
 
       final result = await FlutterImageCompress.compressAndGetFile(

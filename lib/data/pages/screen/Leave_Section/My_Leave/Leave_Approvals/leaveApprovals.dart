@@ -9,6 +9,7 @@ import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/models.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart'
     show
         ManageExpensesCard,
@@ -1249,20 +1250,20 @@ class _PendingApprovalsLeaveDashboardState
               if (controller.filterFormKey.currentState?.validate() ?? true) {
                 // Use current month range or selected dates
                 final now = DateTime.now();
-                final fromDate = DateTime(
+                final fromDate = toMillisecondsWithTimezone(DateTime(
                   now.year,
                   now.month,
                   1,
-                ).millisecondsSinceEpoch;
+                ));
 
-                final toDate = DateTime(
+                final toDate = toMillisecondsWithTimezone(DateTime(
                   now.year,
                   now.month + 1,
                   0,
                   23,
                   59,
                   59,
-                ).millisecondsSinceEpoch;
+                ));
 
                 controller.loadCalendarLeaves(
                   fromDate: fromDate,
@@ -1280,20 +1281,20 @@ class _PendingApprovalsLeaveDashboardState
             onPressed: () {
               controller.resetFilters(); // reset filters
               final now = DateTime.now();
-              final fromDate = DateTime(
+              final fromDate = toMillisecondsWithTimezone(DateTime(
                 now.year,
                 now.month,
                 1,
-              ).millisecondsSinceEpoch;
+              ));
 
-              final toDate = DateTime(
+              final toDate = toMillisecondsWithTimezone(DateTime(
                 now.year,
                 now.month + 1,
                 0,
                 23,
                 59,
                 59,
-              ).millisecondsSinceEpoch;
+              ));
 
               controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
               Navigator.pop(context); // close dialog/page

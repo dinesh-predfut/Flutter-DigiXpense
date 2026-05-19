@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
@@ -180,7 +181,7 @@ Future<void> fetchMileageRates() async {
 
   final dateToUse = DateTime.now(); // Use receipt date if available
   final formatted = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateToUse);
-  final fromDate = (DateTime.parse(formatted).millisecondsSinceEpoch / 1000).floor();
+  final fromDate = (toMillisecondsWithTimezone(DateTime.parse(formatted)) / 1000).floor();
 
   try {
     final response = await http.get(

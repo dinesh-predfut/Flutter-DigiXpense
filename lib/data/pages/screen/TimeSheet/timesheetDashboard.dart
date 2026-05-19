@@ -101,9 +101,8 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
       controller.selectedTimeSheetStatusDropDown.value = "Un Reported";
     });
 
-    controller.fetchCustomFieldsTimeSheet();
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      controller.fetchCustomFieldsTimeSheet();
       await init();
       controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
@@ -132,7 +131,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
     final frequency = config?.entryFrequency ?? "";
     if (config?.captureMethod == "TimeTracker") {
       setState(() {
-        _selectedTabIndex = 1; 
+        _selectedTabIndex = 1;
       });
     }
     controller.dateRange = getRangeFromConfig(
@@ -750,7 +749,7 @@ class _TimeSheetDashboardState extends State<TimeSheetDashboard>
                                 Navigator.pushNamed(
                                   context,
                                   AppRoutes.timeSheetRequestPage,
-                                   arguments: {'status': false, "team": false},
+                                  arguments: {'status': false, "team": false},
                                   // arguments: {
                                   //   'item': null,
                                   //   'readOnly': false,

@@ -218,7 +218,7 @@ class _ApprovalHubPageState extends State<ApprovalHubPage> {
   Future<void> loadExternalFields() async {
     final response = await ApiService.get(
       Uri.parse(
-        '${Urls.baseURL}/api/v1/masters/approvalmanagement/workflowapproval/externalapproval/documenttype?page=1&sort_order=asc&choosen_fields=Name%2CDescription',
+        '${Urls.baseURL}/api/v1/masters/approvalmanagement/workflowapproval/externalapproval/documenttype?page=1&sort_by=ModifiedDatetime&sort_order=desc&choosen_fields=Name%2CDescription',
       ),
     );
 

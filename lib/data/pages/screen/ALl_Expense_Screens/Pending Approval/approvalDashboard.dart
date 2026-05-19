@@ -977,7 +977,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
           ),
           const SizedBox(height: 6),
           Text(
-            '₹${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,

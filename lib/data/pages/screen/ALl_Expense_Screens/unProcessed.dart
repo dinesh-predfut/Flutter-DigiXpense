@@ -577,7 +577,7 @@ class _UnProcessState extends State<UnProcess> {
   }
 
   Widget _buildStyledCard(GExpense item, BuildContext context) {
-    final controller = Get.put(Controller());
+  final controller = Get.find<Controller>();
     return GestureDetector(
       onTap: () async {
         final navigator = Navigator.of(context);

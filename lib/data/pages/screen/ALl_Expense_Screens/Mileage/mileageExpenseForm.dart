@@ -976,7 +976,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: _infoCardButton(
+                                  child: _infoCardButtonKM(
                                     title: AppLocalizations.of(
                                       context,
                                     )!.totalDistance,
@@ -2383,6 +2383,58 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
   }
 
   Widget _infoCardButton({
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      // Ensures card shares available space
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '${controller.organizationDefaultCurrencySymbol} $value',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.black,
+                  ),
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoCardButtonKM({
     required String title,
     required String value,
     required VoidCallback onTap,

@@ -4,6 +4,7 @@ import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart' show AppColors;
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
@@ -103,10 +104,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
   }
 
   Future<void> loadLeaveAnalytics() async {
-    final result = await controller.fetchLeaveAnalytics(
-      Params.employeeId,
-      Params.userToken,
-    );
+    final result = await controller.fetchEmployeeLeaveCodes();
 
     controller.leaveCodes.assignAll(result);
   }
@@ -119,7 +117,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
   Future<void> _selectDateRange(BuildContext context) async {
     /// Use today as default if no start/end dates
+    /// pri
+    print("isAllowedPastDates: ${controller.isAllowedPastDates.value}");
     final today = DateTime.now();
+    final firstDate = controller.isAllowedPastDates.value
+        ? DateTime(2023)
+        : DateTime(today.year, today.month, today.day);
     final initialDateRange =
         (controller.startDate.value != null && controller.endDate.value != null)
         ? DateTimeRange(
@@ -133,7 +136,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2023),
+      firstDate: firstDate,
+
       lastDate: DateTime(2030),
       initialDateRange: initialDateRange,
       initialEntryMode: DatePickerEntryMode.calendar,
@@ -151,12 +155,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       await controller.createLeaveTransactions(
         employeeId: Params.employeeId,
         fromDate: controller.toMillisecondsWithTimezone(picked.start),
-        toDate: controller.toMillisecondsWithTimezone(picked.end), 
+        toDate: controller.toMillisecondsWithTimezone(picked.end),
         leaveCode: controller.leaveCodeController.text,
       );
 
       /// Recalculate total leave days (Full Day by default)
-      controller.calculateTotalDays();
+      // controller.calculateTotalDays();
     }
   }
 
@@ -434,26 +438,25 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             controller.selectedLeaveCode.value = code;
                             controller.leaveCodeController.text =
                                 code?.leaveCode ?? '';
+                            controller.isAllowedPastDates.value =
+                                code!.isPastAllowed;
+                            print(
+                              "Selected Leave Code: ${code.leaveCode}, isAllowedPastDates: ${code.isPastAllowed}",
+                            );
                             if (controller.leaveCodeController.text.isEmpty)
                               return;
                             await controller.createLeaveTransactions(
                               employeeId: Params.employeeId,
-                              fromDate:
-                                  controller
-                                      .startDate
-                                      .value
-                                      ?.millisecondsSinceEpoch ??
-                                  DateTime.now().millisecondsSinceEpoch,
-                              toDate:
-                                  controller
-                                      .endDate
-                                      .value
-                                      ?.millisecondsSinceEpoch ??
-                                  DateTime.now().millisecondsSinceEpoch,
+                              fromDate: toMillisecondsWithTimezone(
+                                controller.startDate.value!,
+                              ),
+                              toDate: toMillisecondsWithTimezone(
+                                controller.endDate.value!,
+                              ),
                               leaveCode: controller.leaveCodeController.text,
                             );
 
-                            controller.calculateTotalDays();
+                            // controller.calculateTotalDays();
                           },
                           controller: controller.leaveCodeController,
                           rowBuilder: (code, searchQuery) {
@@ -834,7 +837,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               : null,
                         ),
 
-                  
                         _buildConfigurableField(
                           fieldName: 'Availability during leave',
                           builder: (isEnabled, isMandatory) {
@@ -1173,7 +1175,10 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                     /// Date column
                                     Expanded(
                                       child: Text(
-                                        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date),
+                                        DateFormat(
+                                          controller.selectedFormat?.key ??
+                                              'dd/MM/yyyy',
+                                        ).format(date),
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
@@ -1208,7 +1213,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                               onChanged: (option) {
                                                 leaveDay.dayType.value =
                                                     option!;
-                                                controller.calculateTotalDays();
+                                                // controller.calculateTotalDays();
                                               },
                                               rowBuilder: (option, searchQuery) {
                                                 return Padding(
@@ -1529,7 +1534,10 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   /// DATE
                                   Expanded(
                                     child: Text(
-                                      DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                                      DateFormat(
+                                        controller.selectedFormat?.key ??
+                                            'dd/MM/yyyy',
+                                      ).format(
                                         DateTime.fromMillisecondsSinceEpoch(
                                           leaveDay.transDate,
                                           isUtc: true,
@@ -1562,7 +1570,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                             displayText: (option) => option,
                                             onChanged: (option) {
                                               leaveDay.dayType.value = option!;
-                                              controller.calculateTotalDays();
+                                              // controller.calculateTotalDays();
 
                                               /// track modified only
                                               if (option !=
@@ -2229,7 +2237,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           if (_formKey.currentState!.validate()) {
                             controller.setButtonLoading('resubmit', true);
                             try {
-                              controller.calculateTotalDays();
+                              // controller.calculateTotalDays();
                               await controller.submitLeaveRequest(
                                 context,
                                 true,
@@ -2282,7 +2290,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               if (_formKey.currentState!.validate()) {
                                 controller.setButtonLoading('update', true);
                                 try {
-                                  controller.calculateTotalDays();
+                                  // controller.calculateTotalDays();
                                   await controller.submitLeaveRequest(
                                     context,
                                     false,
@@ -2354,7 +2362,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                       controller.setButtonLoading('submit', true);
 
                       try {
-                        controller.calculateTotalDays();
+                        // controller.calculateTotalDays();
                         await controller.submitLeaveRequest(
                           context,
                           true,
@@ -2392,7 +2400,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             controller.setButtonLoading('save', true);
 
                             try {
-                              controller.calculateTotalDays();
+                              // controller.calculateTotalDays();
                               await controller.submitLeaveRequest(
                                 context,
                                 false,
@@ -2650,7 +2658,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               controller.setButtonLoading('submit', true);
 
                               try {
-                                controller.calculateTotalDays();
+                                // controller.calculateTotalDays();/
                                 await controller.submitLeaveRequest(
                                   context,
                                   true,
@@ -2719,7 +2727,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   );
 
                                   try {
-                                    controller.calculateTotalDays();
+                                    // controller.calculateTotalDays();
                                     await controller.submitLeaveRequest(
                                       context,
                                       false,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
@@ -136,8 +137,8 @@ class _ApprovalHubViewEditLeavePageState
       /// Call API to create leave transactions
       await controller.createLeaveTransactions(
         employeeId: Params.employeeId,
-        fromDate: picked.start.millisecondsSinceEpoch,
-        toDate: picked.end.millisecondsSinceEpoch,
+        fromDate: toMillisecondsWithTimezone(picked.start),
+        toDate: toMillisecondsWithTimezone(picked.end),
         leaveCode: controller.leaveCodeController.text,
       );
 
@@ -374,14 +375,12 @@ class _ApprovalHubViewEditLeavePageState
                                 return;
                               controller.createLeaveTransactions(
                                 employeeId: Params.employeeId,
-                                fromDate: controller
-                                    .startDate
-                                    .value!
-                                    .millisecondsSinceEpoch,
-                                toDate: controller
+                                fromDate: toMillisecondsWithTimezone(controller.startDate.value!),    
+                                          
+                                toDate:toMillisecondsWithTimezone(controller
                                     .endDate
-                                    .value!
-                                    .millisecondsSinceEpoch,
+                                    .value!),
+                                  
                                 leaveCode: controller.leaveCodeController.text,
                               );
                             },

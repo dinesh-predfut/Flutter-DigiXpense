@@ -660,6 +660,17 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                       const SizedBox(height: 20),
                       Column(
                         children: [
+                           Obx(() {
+                            final isEnabled = controller.userPref.value;
+
+                            return AbsorbPointer(
+                              absorbing:
+                                  !isEnabled, // disables taps when loading
+                              child: Opacity(
+                                opacity: isEnabled
+                                    ? 1.0
+                                    : 0.5, // dim UI when disabled
+                                child:
                           Form(
                             key: _formKey,
                             child: _buildSection(
@@ -2300,7 +2311,10 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 ),
                               ],
                             ),
-                          ),
+                              ),
+                            ));
+                          }),
+
                           Obx(() {
                             final isEnabled = controller.userPref.value;
 

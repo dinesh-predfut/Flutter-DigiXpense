@@ -77,10 +77,13 @@ class _DashboardPageState extends State<DashboardPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileImage();
       controller.fetchFileTypes();
+      _loadDashboards();
     });
     controller.updateFeatureVisibility();
+      controller.loadAllCustomFieldValues(); 
+       controller.fetchCustomFields();
     //  controller.loadDashboards();
-    _loadDashboards();
+
     // controller.initializeWizardConfigs(); // Initialize wizard configs
     _initializeAsync();
     PermissionHelper.loadPermissions();
@@ -163,9 +166,14 @@ class _DashboardPageState extends State<DashboardPage>
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString('profileImagePath');
     final currency = prefs.getString('organizationCurrency');
-
+    final orgCurrencySymbol = prefs.getString(
+      'organizationDefaultCurrencySymbol',
+    );
     if (currency != null) {
       controller.organizationCurrency = currency;
+    }
+    if (orgCurrencySymbol != null) {
+      controller.organizationDefaultCurrencySymbol = orgCurrencySymbol;
     }
     if (path != null && path.isNotEmpty) {
       final file = File(path);
@@ -1010,7 +1018,8 @@ class _DashboardPageState extends State<DashboardPage>
 
       case 'SummaryBox':
         return _buildSummaryBoxWidget(item, data!);
-
+      case 'SummaryBoxCounter':
+        return _buildSummaryBoxWidgetCount(item, data!);
       case 'Table':
         return _buildTable(context);
       case 'Leavecalanderview':
@@ -1021,6 +1030,8 @@ class _DashboardPageState extends State<DashboardPage>
         return PendingApprovalTableWidget(controller: controller);
       case 'MultiBarChart':
         return _buildMultiBarChart(item, data!);
+          case 'MultiBarChartSinglebar':
+        return _buildMultiBarChartsingleLinebar(item, data!);
       case 'mypendingleaves':
         return PendingApprovalTableWidgetLeave(controller: controller);
       case 'DraftExpenses':
@@ -1031,7 +1042,53 @@ class _DashboardPageState extends State<DashboardPage>
         return _buildGenericWidgetContent(item, data!);
     }
   }
+Widget _buildMultiBarChartsingleLinebar(DashboardDataItem item, WidgetDataResponse widgetDataResponse) {
+  // final multiSeries = controller.convertMultiSeriesChartSingle(widget.data!.raw);
+final multiSeries = controller.convertMultiSeriesChartSingle(widgetDataResponse.raw);
+  if (multiSeries.isEmpty) {
+    return const Center(child: Text("No chart data"));
+  }
 
+  return Padding(
+    padding: const EdgeInsets.all(12.0),
+    child: SfCartesianChart(
+      legend: const Legend(
+        isVisible: true,
+        position: LegendPosition.bottom,
+        textStyle: TextStyle(fontSize: 10),
+      ),
+
+      tooltipBehavior: TooltipBehavior(enable: true),
+
+      plotAreaBorderWidth: 0,
+
+      primaryXAxis: CategoryAxis(
+        // majorGridLines: const MajorGridLines(width: 0),
+        
+        labelStyle: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+
+      primaryYAxis: NumericAxis(
+        numberFormat: NumberFormat.currency(
+          locale: 'en_IN',
+          symbol: '',
+        ),
+        // majorGridLines: const MajorGridLines(
+        //   width: 0.6,
+          
+        //   color: Color(0xFFE0E0E0),
+        // ),
+        // axisLine: const AxisLine(width: 0),
+        labelStyle: const TextStyle(fontSize: 9, color: Colors.black87),
+      ),
+
+      series: multiSeries,
+    ),
+  );
+}
   Widget _buildCalendarViewContent(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1444,168 +1501,518 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
-  Widget _buildMultiBarChart(DashboardDataItem item, WidgetDataResponse data) {
-    final multiSeries = controller.convertMultiSeriesChart(data!.raw);
-    if (multiSeries.isEmpty) {
-      return const Center(child: Text("No chart data"));
-    }
+  // ─── Color Palette ──────────────────────────────────────────────
+  List<Color> kChartColors = [
+    Color(0xFF378ADD), // blue
+    Color(0xFF1D9E75), // teal
+    Color(0xFFEF9F27), // amber
+    Color(0xFFD4537E), // pink
+    Color(0xFF7F77DD), // purple
+    Color(0xFFD85A30), // coral
+    Color(0xFF639922), // green
+    Color(0xFF534AB7), // indigo
+    Color(0xFFBA7517), // dark amber
+  ];
 
+  // ─── Shared Legend Builder ──────────────────────────────────────
+  Widget _buildLegend(List<String> labels) {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCartesianChart(
-        legend: Legend(isVisible: true),
-        // tooltipBehavior: TooltipBehavior(enable: true),
-        primaryXAxis: CategoryAxis(
-          labelRotation: 25,
-          labelStyle: const TextStyle(fontSize: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: List.generate(labels.length, (i) {
+            final color = kChartColors[i % kChartColors.length];
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  // width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  labels[i],
+                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+              ],
+            );
+          }),
         ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 9),
-        ),
-        series: multiSeries,
       ),
     );
   }
 
-  // Line Chart Widget
+  // ─── Shared Stat Footer ─────────────────────────────────────────
+  Widget _buildStatFooter(List<Map<String, String>> stats) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: stats.map((s) {
+          final isPositive =
+              (s['value'] ?? '').startsWith('+') ||
+              (s['value'] ?? '').startsWith('↑');
+          Color valColor = Colors.black87;
+          if (isPositive) valColor = const Color(0xFF1D9E75);
+          if ((s['value'] ?? '').startsWith('-') ||
+              (s['value'] ?? '').startsWith('↓')) {
+            valColor = const Color(0xFFD85A30);
+          }
+          return Expanded(
+            child: Column(
+              children: [
+                Text(
+                  s['value'] ?? '',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: valColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  s['label'] ?? '',
+                  style: const TextStyle(fontSize: 10, color: Colors.black45),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ─── Chart Card Wrapper ─────────────────────────────────────────
+  Widget _chartCard({
+    required String title,
+    required String badgeText,
+    required Color badgeColor,
+    required Color badgeTextColor,
+    required Widget chart,
+    Widget? footer,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // ✅ shrink-wrap the column
+        children: [
+          // Header
+
+          // ✅ Chart with fixed height — prevents overflow
+          SizedBox(height: 160, width: double.infinity, child: chart),
+        ],
+      ),
+    );
+  }
+
+  // ─── Multi Bar Chart ────────────────────────────────────────────
+  Widget _buildMultiBarChart(DashboardDataItem item, WidgetDataResponse data) {
+    final multiSeries = controller.convertMultiSeriesChart(data.raw);
+    if (multiSeries.isEmpty) return const Center(child: Text("No chart data"));
+
+    final labels = multiSeries.map((s) => s.name ?? '').toList();
+
+    // ✅ Auto-adjust label rotation based on data point count
+    final dataPointCount = (multiSeries.isNotEmpty)
+        ? (multiSeries.first as ColumnSeries).dataSource?.length ?? 0
+        : 0;
+
+    final labelRotation = dataPointCount > 6
+        ? -45
+        : (dataPointCount > 3 ? 25 : 0);
+    final labelFontSize = dataPointCount > 8 ? 7.0 : 9.0;
+
+    return _chartCard(
+      title: item.currentRole ?? 'Multi Series',
+      badgeText: 'Grouped Bar',
+      badgeColor: const Color(0xFFEEEDFE),
+      badgeTextColor: const Color(0xFF534AB7),
+      chart: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        child: SfCartesianChart(
+          legend: const Legend(isVisible: false),
+          plotAreaBorderWidth: 0,
+          primaryXAxis: CategoryAxis(
+            labelRotation: labelRotation, // ✅ Dynamic rotation
+            labelStyle: TextStyle(
+              fontSize: labelFontSize, // ✅ Dynamic font size
+              color: Colors.black45,
+            ),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: const MajorGridLines(width: 0),
+            // ✅ Key: use shift so edge labels are always visible
+            edgeLabelPlacement: EdgeLabelPlacement.shift,
+            // ✅ Rotate instead of hiding when labels overlap
+            labelIntersectAction: AxisLabelIntersectAction.rotate45,
+          ),
+          primaryYAxis: NumericAxis(
+            numberFormat: NumberFormat.compact(),
+            labelStyle: const TextStyle(fontSize: 9, color: Colors.black45),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: MajorGridLines(
+              width: 0.5,
+              color: Colors.grey.shade200,
+            ),
+          ),
+          series: multiSeries,
+        ),
+      ),
+      footer: _buildLegend(labels),
+    );
+  }
+
+  // ─── Line Chart ─────────────────────────────────────────────────
   Widget _buildLineChartWidget(
     DashboardDataItem item,
     WidgetDataResponse data,
   ) {
     final chartData = _convertToChartDataPoints(data);
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCartesianChart(
-        primaryXAxis: const CategoryAxis(
-          labelRotation: 25,
-          labelStyle: TextStyle(fontSize: 5),
-          edgeLabelPlacement: EdgeLabelPlacement.shift,
-          labelIntersectAction: AxisLabelIntersectAction.hide,
-        ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        tooltipBehavior: TooltipBehavior(enable: true),
+    final dataPointCount = chartData.length;
 
-        series: <LineSeries<ChartDataPoint, String>>[
-          LineSeries<ChartDataPoint, String>(
-            dataSource: chartData,
-            xValueMapper: (p, _) => p.x,
-            yValueMapper: (p, _) => p.y,
-            markerSettings: const MarkerSettings(isVisible: true),
+    // Dynamic sizing
+    final labelRotation = dataPointCount > 5 ? -45 : 0;
+    final labelFontSize = dataPointCount > 8 ? 7.0 : 9.0;
+
+    return _chartCard(
+      title: item.currentRole ?? 'Trend',
+      badgeText: 'Line Chart',
+      badgeColor: const Color(0xFFE6F1FB),
+      badgeTextColor: const Color(0xFF185FA5),
+
+      chart: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+
+        child: SfCartesianChart(
+          plotAreaBorderWidth: 0,
+
+          // ================= X AXIS =================
+          primaryXAxis: CategoryAxis(
+            arrangeByIndex: true, // ✅ Equal spacing between labels
+            labelIntersectAction: AxisLabelIntersectAction.none,
+            // Label settings
+            labelRotation: 40,
+            maximumLabels: 6,
+            maximumLabelWidth: 60,
+            labelsExtent: 5,
+
+            labelStyle: TextStyle(fontSize: 6, color: Colors.black45),
+
+            // Axis styling
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: const MajorGridLines(width: 0),
+
+            // Better label handling
+            edgeLabelPlacement: EdgeLabelPlacement.none,
+            // labelIntersectAction: AxisLabelIntersectAction.multipleRows,
           ),
-        ],
-      ),
-    );
-  }
 
-  // Bar Chart Widget
-  Widget _buildBarChartWidget(DashboardDataItem item, WidgetDataResponse data) {
-    final chartData = _convertToChartDataPoints(data);
+          // ================= Y AXIS =================
+          primaryYAxis: NumericAxis(
+            minimum: 0,
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCartesianChart(
-        primaryXAxis: const CategoryAxis(
-          labelRotation: 25,
-          labelStyle: TextStyle(fontSize: 5),
-          edgeLabelPlacement: EdgeLabelPlacement.shift,
-          labelIntersectAction: AxisLabelIntersectAction.hide,
-        ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        tooltipBehavior: TooltipBehavior(enable: true),
-        series: <ColumnSeries<ChartDataPoint, String>>[
-          ColumnSeries<ChartDataPoint, String>(
-            dataSource: chartData,
-            xValueMapper: (p, _) => p.x,
-            yValueMapper: (p, _) => p.y,
-            dataLabelSettings: const DataLabelSettings(isVisible: true),
-          ),
-        ],
-      ),
-    );
-  }
+            // Number format
+            numberFormat: NumberFormat('#,##0'),
 
-  // Pie Chart Widget
-  Widget _buildPieChartWidget(DashboardDataItem item, WidgetDataResponse data) {
-    final chartData = _convertToChartDataPoints(data);
+            labelStyle: const TextStyle(fontSize: 5, color: Colors.black45),
 
-    // 👇 Indian currency formatter
-    final formatter = NumberFormat.currency(
-      locale: 'en_IN',
-      symbol: ' ',
-      decimalDigits: 0,
-    );
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCircularChart(
-        tooltipBehavior: TooltipBehavior(
-          enable: true,
-          builder:
-              (
-                dynamic data,
-                dynamic point,
-                dynamic series,
-                int pointIndex,
-                int seriesIndex,
-              ) {
-                return Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Text(
-                    '${data.x} : ${formatter.format(data.y)}',
-                    style: const TextStyle(fontSize: 10, color: Colors.white),
-                  ),
-                );
-              },
-        ),
-        series: <PieSeries<ChartDataPoint, String>>[
-          PieSeries<ChartDataPoint, String>(
-            dataSource: chartData,
-            xValueMapper: (p, _) => p.x,
-            yValueMapper: (p, _) => p.y,
-
-            // 👇 Indian ₹ format for labels
-            dataLabelMapper: (p, _) =>
-                formatter.format(double.tryParse(p.y.toString()) ?? 0),
-
-            dataLabelSettings: const DataLabelSettings(
-              isVisible: true,
-              textStyle: TextStyle(fontSize: 8),
+            majorGridLines: MajorGridLines(
+              width: 0.5,
+              color: Colors.grey.shade200,
             ),
           ),
-        ],
+
+          // ================= TOOLTIP =================
+          tooltipBehavior: TooltipBehavior(
+            enable: true,
+            color: const Color(0xFF1A1A1A),
+            textStyle: const TextStyle(color: Colors.white, fontSize: 6),
+          ),
+
+          // ================= SERIES =================
+          series: <SplineSeries<ChartDataPoint, String>>[
+            SplineSeries<ChartDataPoint, String>(
+              dataSource: chartData,
+
+              xValueMapper: (ChartDataPoint p, _) => p.x,
+              yValueMapper: (ChartDataPoint p, _) => p.y,
+
+              color: const Color(0xFF378ADD),
+              width: 2.5,
+
+              splineType: SplineType.monotonic,
+
+              markerSettings: const MarkerSettings(
+                isVisible: true,
+                height: 7,
+                width: 7,
+                borderWidth: 2,
+                borderColor: Colors.white,
+                color: Color(0xFF378ADD),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // ================= FOOTER =================
+      footer: _buildStatFooter([
+        {'value': '${chartData.length}', 'label': 'Data Points'},
+        {'value': '↑ Trend', 'label': 'Direction'},
+        {
+          'value': chartData.isNotEmpty ? chartData.last.x : '—',
+          'label': 'Latest',
+        },
+      ]),
+    );
+  }
+
+  // ─── Bar Chart ──────────────────────────────────────────────────
+  Widget _buildBarChartWidget(DashboardDataItem item, WidgetDataResponse data) {
+    final chartData = _convertToChartDataPoints(data);
+    final dataPointCount = chartData.length;
+    final labelFontSize = dataPointCount > 8
+        ? 5.0
+        : (dataPointCount > 5 ? 6.0 : 7.0);
+
+    return _chartCard(
+      title: item.currentRole ?? 'Revenue',
+      badgeText: 'Bar Chart',
+      badgeColor: const Color(0xFFE1F5EE),
+      badgeTextColor: const Color(0xFF0F6E56),
+      chart: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        child: SfCartesianChart(
+          plotAreaBorderWidth: 0,
+
+          // ✅ Controls outer spacing of entire chart
+          margin: const EdgeInsets.only(bottom: 20),
+
+          onDataLabelRender: (DataLabelRenderArgs args) {
+            final value = args.dataPoints[args.pointIndex].y;
+            args.text = NumberFormat('#,##0').format(value);
+          },
+
+          primaryXAxis: CategoryAxis(
+            labelRotation: -30, // ✅ Rotate 90 degrees
+            labelStyle: TextStyle(
+              fontSize: labelFontSize,
+              color: const Color.fromRGBO(0, 0, 0, 0.451),
+            ),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: const MajorGridLines(width: 0),
+            edgeLabelPlacement: EdgeLabelPlacement.shift,
+            labelIntersectAction:
+                AxisLabelIntersectAction.none, // ✅ Don't hide/wrap, show all
+            maximumLabelWidth: 55,
+            // labelPadding: 8,
+          ),
+
+          primaryYAxis: NumericAxis(
+            numberFormat: NumberFormat.compact(),
+            labelStyle: const TextStyle(fontSize: 9, color: Colors.black45),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
+            majorGridLines: MajorGridLines(
+              width: 0.5,
+              color: Colors.grey.shade200,
+            ),
+          ),
+
+          tooltipBehavior: TooltipBehavior(
+            enable: true,
+            color: const Color(0xFF1A1A1A),
+            textStyle: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+
+          series: <ColumnSeries<ChartDataPoint, String>>[
+            ColumnSeries<ChartDataPoint, String>(
+              dataSource: chartData,
+              xValueMapper: (p, _) => p.x,
+              yValueMapper: (p, _) => p.y,
+              pointColorMapper: (p, i) => kChartColors[i % kChartColors.length],
+
+              // ✅ Consistent bar width
+              width: 0.5,
+              spacing: 0.2, // ✅ Gap between bars
+
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(6),
+              ),
+              dataLabelSettings: const DataLabelSettings(
+                isVisible: true,
+                textStyle: TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                labelPosition: ChartDataLabelPosition.outside,
+
+                // ✅ Pushes data label up away from bar top
+                offset: Offset(0, -4),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  // ─── Pie Chart ──────────────────────────────────────────────────
+  Widget _buildPieChartWidget(DashboardDataItem item, WidgetDataResponse data) {
+    final chartData = _convertToChartDataPoints(data);
+    final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+    final labels = chartData.map((p) => p.x).toList();
+
+    return _chartCard(
+      title: item.currentRole ?? 'Breakdown',
+      badgeText: 'Pie Chart',
+      badgeColor: const Color(0xFFFAEEDA),
+      badgeTextColor: const Color(0xFF854F0B),
+      chart: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        child: SfCircularChart(
+          tooltipBehavior: TooltipBehavior(
+            enable: true,
+            color: const Color(0xFF1A1A1A),
+
+            builder: (data, point, series, pointIndex, seriesIndex) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                '${data.x}  ${formatter.format(data.y)}',
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+              ),
+            ),
+          ),
+          series: <PieSeries<ChartDataPoint, String>>[
+            PieSeries<ChartDataPoint, String>(
+              dataSource: chartData,
+              xValueMapper: (p, _) => p.x,
+              yValueMapper: (p, _) => p.y,
+              pointColorMapper: (p, i) => kChartColors[i % kChartColors.length],
+              strokeColor: Colors.white,
+              strokeWidth: 2.5,
+              explode: true,
+              explodeOffset: '6%',
+              dataLabelMapper: (p, _) =>
+                  formatter.format(double.tryParse(p.y.toString()) ?? 0),
+              dataLabelSettings: const DataLabelSettings(
+                isVisible: true,
+                textStyle: TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                labelPosition: ChartDataLabelPosition.outside,
+                connectorLineSettings: ConnectorLineSettings(
+                  type: ConnectorType.curve,
+                  length: '15%',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      footer: _buildLegend(labels),
+    );
+  }
+
+  // ─── Donut Chart ────────────────────────────────────────────────
   Widget _buildDonutChartWidget(
     DashboardDataItem item,
     WidgetDataResponse data,
   ) {
     final chartData = _convertToChartDataPoints(data);
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '',
+      // decimalDigits: 5,
+    );
+    final labels = chartData.map((p) => p.x).toList();
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCircularChart(
-        legend: Legend(isVisible: true),
-        series: <DoughnutSeries<ChartDataPoint, String>>[
-          DoughnutSeries<ChartDataPoint, String>(
-            dataSource: chartData,
-            xValueMapper: (p, _) => p.x,
-            yValueMapper: (p, _) => p.y,
-            dataLabelSettings: const DataLabelSettings(isVisible: true),
-            explode: true,
-            explodeOffset: '10%',
+    return _chartCard(
+      title: item.currentRole ?? 'Share',
+      badgeText: 'Donut Chart',
+      badgeColor: const Color(0xFFFBEAF0),
+      badgeTextColor: const Color(0xFF993556),
+      chart: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        child: SfCircularChart(
+          annotations: <CircularChartAnnotation>[
+            CircularChartAnnotation(
+              widget: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Total',
+                    style: TextStyle(fontSize: 10, color: Colors.black45),
+                  ),
+                  Text(
+                    formatter.format(
+                      chartData.fold(0.0, (s, p) => s + (p.y ?? 0)),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          tooltipBehavior: TooltipBehavior(
+            enable: true,
+            color: const Color(0xFF1A1A1A),
+
+            builder: (data, point, series, pointIndex, seriesIndex) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                '${data.x}  ${formatter.format(data.y)}',
+                style: const TextStyle(fontSize: 11, color: Colors.white),
+              ),
+            ),
           ),
-        ],
+          series: <DoughnutSeries<ChartDataPoint, String>>[
+            DoughnutSeries<ChartDataPoint, String>(
+              dataSource: chartData,
+              xValueMapper: (p, _) => p.x,
+              yValueMapper: (p, _) => p.y,
+              pointColorMapper: (p, i) => kChartColors[i % kChartColors.length],
+              strokeColor: Colors.white,
+              strokeWidth: 2.5,
+              innerRadius: '62%',
+              explode: true,
+              explodeOffset: '6%',
+              dataLabelSettings: const DataLabelSettings(isVisible: false),
+            ),
+          ],
+        ),
       ),
+      footer: _buildLegend(labels),
     );
   }
 
@@ -1978,7 +2385,45 @@ class _DashboardPageState extends State<DashboardPage>
     final formattedValue = NumberFormat.currency(
       locale: 'en_IN',
       symbol: '',
-      decimalDigits: 0,
+      // decimalDigits: 5,
+    ).format(value);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.analytics, size: 38, color: Colors.blue),
+          const SizedBox(height: 8),
+
+          Text(
+            formattedValue,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+
+          const SizedBox(height: 4),
+          Text(
+            item.filterProps?.widgetName ?? "",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryBoxWidgetCount(
+    DashboardDataItem item,
+    WidgetDataResponse data,
+  ) {
+    final value = data.getSingleValue();
+    final formattedValue = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: controller.organizationDefaultCurrencySymbol,
+      // decimalDigits: 5,
     ).format(value);
 
     return Center(
@@ -2347,8 +2792,8 @@ class _DashboardPageState extends State<DashboardPage>
   Widget _buildSummaryBox(WizardConfig wizard, WidgetDataResponse data) {
     final value = data.getSingleValue();
     final formattedValue = NumberFormat.currency(
-      symbol: '₹',
-      decimalDigits: 0,
+      symbol: controller.organizationDefaultCurrencySymbol,
+      // decimalDigits: 5,
     ).format(value);
 
     return Center(
@@ -2709,7 +3154,7 @@ class _DashboardPageState extends State<DashboardPage>
               style: TextStyle(color: Colors.white),
             ),
             trailing: Text(
-              '₹${tx.totalRequestedAmountInReporting}',
+              '${controller.organizationDefaultCurrencySymbol} ${tx.totalRequestedAmountInReporting}',
               style: TextStyle(color: Colors.white),
             ),
           );
@@ -2769,7 +3214,7 @@ class _DashboardPageState extends State<DashboardPage>
           ],
         ),
         trailing: Text(
-          '₹${tx.totalAmountTrans.toStringAsFixed(2)}',
+          '${controller.organizationDefaultCurrencySymbol}${tx.totalAmountTrans.toStringAsFixed(2)}',
           style: TextStyle(color: Colors.white),
         ),
       );
@@ -2850,7 +3295,7 @@ class _DashboardPageState extends State<DashboardPage>
 
           // ✅ Show amount
           Text(
-            '₹ ${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -3214,11 +3659,11 @@ class _DashboardPageState extends State<DashboardPage>
             ),
           ),
 
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
 
           // ✅ Show amount
           Text(
-            '₹ ${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,

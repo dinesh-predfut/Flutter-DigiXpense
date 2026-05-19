@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:diginexa/core/utils.dart';
 import 'package:get/get_connect/http/src/response/response.dart'
     as http
     show Response;
@@ -1386,7 +1387,7 @@ class PerdiemResponseModel {
   final int noOfDays;
   final String? stepType;
   final int? workitemrecid;
-  final List<dynamic> expenseHeaderCustomFieldValues;
+  final List<Map<String, dynamic>> expenseHeaderCustomFieldValues;
   final List<dynamic> expenseHeaderExpensecategorycustomfieldvalues;
   late List<AccountingDistribution> accountingDistributions;
   final List<AllocationLine> allocationLines;
@@ -1430,51 +1431,57 @@ class PerdiemResponseModel {
   });
 
   factory PerdiemResponseModel.fromJson(Map<String, dynamic> json) {
-    return PerdiemResponseModel(
-      expenseId: json['ExpenseId'] ?? '',
-      cashAdvReqId: json['CashAdvReqId']?.toString(),
-      projectId: json['ProjectId']?.toString(),
-      totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
-      totalAmountReporting: (json['TotalAmountReporting'] ?? 0).toDouble(),
-      merchantName: json['MerchantName']?.toString(),
-      employeeId: json['EmployeeId']?.toString(),
-      employeeName: json['EmployeeName']?.toString(),
-      receiptDate: json['ReceiptDate'] ?? 0,
-      approvalStatus: json['ApprovalStatus']?.toString(),
-      currency: json['Currency']?.toString(),
-      referenceNumber: json['ReferenceNumber']?.toString(),
-      source: json['Source']?.toString(),
-      exchRate: (json['ExchRate'] ?? 1).toDouble(),
-      userExchRate:
-          double.tryParse(json['UserExchRate']?.toString() ?? '1') ?? 1,
-      isBillable: json['IsBillable'] ?? false,
-      isPreauthorised: json['IsPreauthorised'] ?? false,
-      expenseType: json['ExpenseType']?.toString(),
-      taxGroup: json['TaxGroup']?.toString(),
-      taxAmount: double.tryParse(json['TaxAmount']?.toString() ?? '0') ?? 0,
-      isReimbursable: json['IsReimbursable'] ?? false,
-      country: json['Country']?.toString(),
-      recId: json['RecId'] ?? 0,
-      expenseStatus: json['ExpenseStatus']?.toString(),
-      description: json['Description']?.toString(),
-      location: json['Location']?.toString(),
-      fromDate: json['FromDate'] ?? 0,
-      toDate: json['ToDate'] ?? 0,
-      noOfDays: json['NoOfDays'] ?? 0,
-      stepType: json['StepType']?.toString(),
-      workitemrecid: json['workitemrecid'],
-      expenseHeaderCustomFieldValues:
-          json['ExpenseHeaderCustomFieldValues'] ?? [],
-      expenseHeaderExpensecategorycustomfieldvalues:
-          json['ExpenseHeaderExpensecategorycustomfieldvalues'] ?? [],
-      accountingDistributions: (json['AccountingDistributions'] as List? ?? [])
-          .map((e) => AccountingDistribution.fromJson(e))
-          .toList(),
-      allocationLines: (json['AllocationLines'] as List? ?? [])
-          .map((e) => AllocationLine.fromJson(e))
-          .toList(),
-    );
-  }
+  return PerdiemResponseModel(
+    expenseId: json['ExpenseId'] ?? '',
+    cashAdvReqId: json['CashAdvReqId']?.toString(),
+    projectId: json['ProjectId']?.toString(),
+    totalAmountTrans: (json['TotalAmountTrans'] ?? 0).toDouble(),
+    totalAmountReporting: (json['TotalAmountReporting'] ?? 0).toDouble(),
+    merchantName: json['MerchantName']?.toString(),
+    employeeId: json['EmployeeId']?.toString(),
+    employeeName: json['EmployeeName']?.toString(),
+    receiptDate: json['ReceiptDate'] ?? 0,
+    approvalStatus: json['ApprovalStatus']?.toString(),
+    currency: json['Currency']?.toString(),
+    referenceNumber: json['ReferenceNumber']?.toString(),
+    source: json['Source']?.toString(),
+    exchRate: (json['ExchRate'] ?? 1).toDouble(),
+    userExchRate:
+        double.tryParse(json['UserExchRate']?.toString() ?? '1') ?? 1,
+    isBillable: json['IsBillable'] ?? false,
+    isPreauthorised: json['IsPreauthorised'] ?? false,
+    expenseType: json['ExpenseType']?.toString(),
+    taxGroup: json['TaxGroup']?.toString(),
+    taxAmount: double.tryParse(json['TaxAmount']?.toString() ?? '0') ?? 0,
+    isReimbursable: json['IsReimbursable'] ?? false,
+    country: json['Country']?.toString(),
+    recId: json['RecId'] ?? 0,
+    expenseStatus: json['ExpenseStatus']?.toString(),
+    description: json['Description']?.toString(),
+    location: json['Location']?.toString(),
+    fromDate: json['FromDate'] ?? 0,
+    toDate: json['ToDate'] ?? 0,
+    noOfDays: json['NoOfDays'] ?? 0,
+    stepType: json['StepType']?.toString(),
+    workitemrecid: json['workitemrecid'],
+    // ✅ Fixed casting
+    expenseHeaderCustomFieldValues:
+        (json['ExpenseHeaderCustomFieldValues'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+    // ✅ Fixed casting
+    expenseHeaderExpensecategorycustomfieldvalues:
+        (json['ExpenseHeaderExpensecategorycustomfieldvalues'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+    accountingDistributions: (json['AccountingDistributions'] as List? ?? [])
+        .map((e) => AccountingDistribution.fromJson(e))
+        .toList(),
+    allocationLines: (json['AllocationLines'] as List? ?? [])
+        .map((e) => AllocationLine.fromJson(e))
+        .toList(),
+  );
+}
 }
 
 class LocationModel {
@@ -1844,7 +1851,7 @@ class CashAdvanceReqModel {
   Map<String, dynamic> toJson() {
     return {
       'CashAdvanceReqId': cashAdvanceReqId,
-      'RequestDate': requestDate.millisecondsSinceEpoch,
+      'RequestDate': toMillisecondsWithTimezone(requestDate),
     };
   }
 }
@@ -2202,28 +2209,129 @@ class LeaveAnalyticsFilter {
 }
 
 class LeaveAnalytics {
-  final double totalLeaves; // 🔥 change to double
+  final double totalLeaves;
   final String leaveCode;
+  final String description;
   final double leaveBalance;
   final String leaveType;
+
+  final bool isPastAllowed;
+  final bool allowNegativeBal;
+  final bool allowHalfDay;
+  final bool reliever;
+
+  final bool isSupportiveDocReq;
+  final double supportDocDaysLimit;
+  final String? supportDocPeriod;
+
   final String leaveCodeColor;
+
+  final bool isLeaveUnPaid;
+  final bool isProbation;
+
+  final bool allowRequestWithWarning;
+  final int minimumWarning;
 
   LeaveAnalytics({
     required this.totalLeaves,
     required this.leaveCode,
+    required this.description,
     required this.leaveBalance,
     required this.leaveType,
+    required this.isPastAllowed,
+    required this.allowNegativeBal,
+    required this.allowHalfDay,
+    required this.reliever,
+    required this.isSupportiveDocReq,
+    required this.supportDocDaysLimit,
+    required this.supportDocPeriod,
     required this.leaveCodeColor,
+    required this.isLeaveUnPaid,
+    required this.isProbation,
+    required this.allowRequestWithWarning,
+    required this.minimumWarning,
   });
 
   factory LeaveAnalytics.fromJson(Map<String, dynamic> json) {
     return LeaveAnalytics(
-      totalLeaves: (json['TotalLeaves'] as num?)?.toDouble() ?? 0.0,
-      leaveCode: json['LeaveCode'] ?? '',
-      leaveBalance: (json['LeaveBalance'] as num?)?.toDouble() ?? 0.0,
-      leaveType: json['LeaveType'] ?? '',
-      leaveCodeColor: json['LeaveCodeColor'] ?? '#000000',
+      totalLeaves:
+          (json['TotalLeaves'] as num?)?.toDouble() ?? 0.0,
+
+      leaveCode:
+          json['LeaveCode']?.toString() ?? '',
+
+      description:
+          json['Description']?.toString() ?? '',
+
+      leaveBalance:
+          (json['LeaveBalance'] as num?)?.toDouble() ?? 0.0,
+
+      leaveType:
+          json['LeaveType']?.toString() ?? '',
+
+      isPastAllowed:
+          json['IsPastAllowed'] ?? false,
+
+      allowNegativeBal:
+          json['AllowNegativeBal'] ?? false,
+
+      allowHalfDay:
+          json['AllowHalfDay'] ?? false,
+
+      reliever:
+          json['Reliever'] ?? false,
+
+      isSupportiveDocReq:
+          json['IsSupportiveDocReq'] ?? false,
+
+      supportDocDaysLimit:
+          (json['SupportDocDaysLimit'] as num?)
+                  ?.toDouble() ??
+              0.0,
+
+      supportDocPeriod:
+          json['SupportDocPeriod']?.toString(),
+
+      leaveCodeColor:
+          json['LeaveCodeColor']?.toString() ??
+              '#000000',
+
+      isLeaveUnPaid:
+          json['IsLeaveUnPaid'] ?? false,
+
+      isProbation:
+          json['IsProbation'] ?? false,
+
+      allowRequestWithWarning:
+          json['AllowRequestWithWarning'] ?? false,
+
+      minimumWarning:
+          (json['MinimumWarning'] as num?)
+                  ?.toInt() ??
+              0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'TotalLeaves': totalLeaves,
+      'LeaveCode': leaveCode,
+      'Description': description,
+      'LeaveBalance': leaveBalance,
+      'LeaveType': leaveType,
+      'IsPastAllowed': isPastAllowed,
+      'AllowNegativeBal': allowNegativeBal,
+      'AllowHalfDay': allowHalfDay,
+      'Reliever': reliever,
+      'IsSupportiveDocReq': isSupportiveDocReq,
+      'SupportDocDaysLimit': supportDocDaysLimit,
+      'SupportDocPeriod': supportDocPeriod,
+      'LeaveCodeColor': leaveCodeColor,
+      'IsLeaveUnPaid': isLeaveUnPaid,
+      'IsProbation': isProbation,
+      'AllowRequestWithWarning': allowRequestWithWarning,
+      'MinimumWarning': minimumWarning,
+    };
   }
 }
 
@@ -2496,8 +2604,8 @@ class LeaveRequest {
       "ProjectId": (projectId?.trim().isNotEmpty ?? false) ? projectId : null,
       "Reliever": relieverId,
       "LeaveBalance": leaveBalance,
-      "FromDate": startDate?.millisecondsSinceEpoch,
-      "ToDate": endDate?.millisecondsSinceEpoch,
+      "FromDate": toMillisecondsWithTimezone(startDate!),
+      "ToDate": toMillisecondsWithTimezone(endDate!),
       "LeaveDateType": "MultipleDays",
       "ToDateHalfDay": toDateHalfDay,
       "ToDateHalfDayValue": toDateHalfDayValue,
@@ -2892,7 +3000,7 @@ class LeaveTransactionModel {
 
   /// Used specifically in partial cancel popup (same as dayType but kept separate if needed)
   RxString dayTypeLeave;
-
+  bool isInterveningHoliday;
   LeaveTransactionModel({
     this.employeeId,
     required this.transDate,
@@ -2907,22 +3015,31 @@ class LeaveTransactionModel {
     required this.dayType,
     required this.dayTypeLeave,
     required this.approvalStatus,
+       this.isInterveningHoliday = false,
   });
   double get calculatedDays {
-    if (noOfDays == 0 || isHoliday) {
+    // Intervening holiday counts as leave
+    print("Calculated Days: $isHoliday, $isInterveningHoliday, $noOfDays, $leaveFirstHalf, $leaveSecondHalf");
+    if (isHoliday && isInterveningHoliday) {
+      return 1.0;
+    }
+
+    // Normal holiday
+    if (isHoliday) {
       return 0.0;
     }
 
-    switch (dayType.value) {
-      case 'First Half':
-      case 'Second Half':
-      case 'FirstHalf':
-      case 'SecondHalf':
-        return 0.5;
-      case 'Full Day':
-      default:
-        return 1.0;
+    if (noOfDays == 0) {
+      return 0.0;
     }
+
+    // Half day
+    if (leaveFirstHalf || leaveSecondHalf) {
+      return 0.5;
+    }
+
+    // Full day
+    return 1.0;
   }
 
   /// =======================
@@ -2940,7 +3057,7 @@ class LeaveTransactionModel {
 
     /// holiday override
     if (json['IsHoliday'] == true) {
-      derivedDayType = 'Holiday';
+      derivedDayType = 'FullDay';
     }
 
     return LeaveTransactionModel(
@@ -2963,7 +3080,7 @@ class LeaveTransactionModel {
     return {
       "EmployeeId": employeeId,
       "TransDate": transDate,
-      "NoOfDays": calculatedDays,
+      "NoOfDays": noOfDays,
       "LeaveCode": leaveCode,
       "LeaveFirstHalf":
           dayType.value == "First Half" || dayType.value == "FirstHalf",
@@ -2971,7 +3088,7 @@ class LeaveTransactionModel {
           dayType.value == "Second Half" || dayType.value == "SecondHalf",
       "IsHoliday": isHoliday,
 
-      "DateType": {"DateType": dayType.value, "NoOfDays": calculatedDays},
+      "DateType": {"DateType": dayType.value, "NoOfDays": noOfDays},
 
       if (recId != null) "RecId": recId,
     };
@@ -3361,7 +3478,7 @@ class DashboardDataItem {
   final int x;
   final int y;
   final int w;
-  final int h;
+  final int h;  
   final String id;
   final String currentRole;
   final FilterProps? filterProps;
@@ -3817,6 +3934,7 @@ class GESpeficExpense {
   final DateTime? fromDate;
   final DateTime? toDate;
   final List<ExpenseItemUpdate> expenseTrans;
+  final List<Map<String, dynamic>> expenseHeaderCustomFieldValues;
 
   GESpeficExpense({
     required this.expenseId,
@@ -3855,6 +3973,7 @@ class GESpeficExpense {
     this.unprocessedRecId,
     this.fromDate,
     this.toDate,
+    this.expenseHeaderCustomFieldValues = const []
   });
 
   factory GESpeficExpense.fromJson(Map<String, dynamic> json) {
@@ -3897,6 +4016,10 @@ class GESpeficExpense {
       expenseTrans: (json['ExpenseTrans'] as List<dynamic>? ?? [])
           .map((e) => ExpenseItemUpdate.fromJson(e))
           .toList(),
+           expenseHeaderCustomFieldValues:
+          (json['ExpenseHeaderCustomFieldValues'] as List<dynamic>? ?? [])
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
     );
   }
 
@@ -4188,7 +4311,7 @@ class ItemizeSection {
   // Convert ItemizeSection to JSON (Map<String, dynamic>)
   Map<String, dynamic> toJson() {
     return {
-      'ReceiptDate': receiptDate.millisecondsSinceEpoch,
+      'ReceiptDate': toMillisecondsWithTimezone(receiptDate),
       'ExpenseId': expenseId ?? "",
       'MerchantName': merchantName ?? "",
       'Description': description ?? "",
@@ -4944,7 +5067,7 @@ class LeaveTransaction {
 
   Map<String, dynamic> toJson() {
     return {
-      'TransDate': transDate.millisecondsSinceEpoch,
+      'TransDate': toMillisecondsWithTimezone(transDate),
       'NoOfDays': noOfDays,
       'LeaveCode': leaveCode,
       'ApprovalStatus': approvalStatus,
@@ -5613,7 +5736,7 @@ class CashAdvanceRequestItemizeFornew {
   Map<String, dynamic> toJson() {
     return {
       "CashAdvReqHeader": 220,
-      "ExpenseCategoryId": expenseCategoryId ?? '',
+      "ExpenseCategoryId": expenseCategoryId,
       "Quantity": quantity ?? 1,
       "UOMId": uomId ?? "Uom-004",
       "Percentage": percentage ?? 100,
@@ -6767,6 +6890,8 @@ class RuleConfigSettings {
   final bool breakTimeDeductionRequired;
   final bool remarksMandatoryForOTDays;
   final bool isOverTimeAllowed;
+  final bool isWeekendsAllowed;   // ✅ Added
+  final bool isHolidaysAllowed;   // ✅ Added
   final String? dayWeekStarts;
   final String? dayMonthStarts;
   final bool attachmentsRequired;
@@ -6789,6 +6914,8 @@ class RuleConfigSettings {
     required this.breakTimeDeductionRequired,
     required this.remarksMandatoryForOTDays,
     required this.isOverTimeAllowed,
+    required this.isWeekendsAllowed,   // ✅ Added
+    required this.isHolidaysAllowed,   // ✅ Added
     this.dayWeekStarts,
     this.dayMonthStarts,
     required this.attachmentsRequired,
@@ -6805,37 +6932,37 @@ class RuleConfigSettings {
   });
 
   factory RuleConfigSettings.fromJson(Map<String, dynamic> json) {
-  return RuleConfigSettings(
-    lockOldRecordsAfter: (json['LockOldRecordsAfter'] as num?)?.toInt(),
-    minWorkingHours: (json['MinWorkingHours'] as num?)?.toInt(),
-    maxWorkingHours: (json['MaxWorkingHours'] as num?)?.toInt(),
-    maxWeeklyHours: (json['MaxWeeklyHours'] as num?)?.toInt(),
+    return RuleConfigSettings(
+      lockOldRecordsAfter: (json['LockOldRecordsAfter'] as num?)?.toInt(),
+      minWorkingHours: (json['MinWorkingHours'] as num?)?.toInt(),
+      maxWorkingHours: (json['MaxWorkingHours'] as num?)?.toInt(),
+      maxWeeklyHours: (json['MaxWeeklyHours'] as num?)?.toInt(),
 
-    breakTimeDeductionRequired:
-        json['BreakTimeDeductionRequired'] ?? false,
-    remarksMandatoryForOTDays:
-        json['RemarksMandatoryForOTDays'] ?? false,
-    isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
-    dayWeekStarts: json['DayWeekStarts'],
-    dayMonthStarts: json['DayMonthStarts'],
-    attachmentsRequired: json['AttachmentsRequired'] ?? false,
-    frequency: json['Frequency'],
-    requiredApproval: json['RequiredApproval'] ?? false,
-    defaultWorkFlow: json['DefaultWorkFlow'] != null
-        ? Map<String, dynamic>.from(json['DefaultWorkFlow'])
-        : null,
-    editableAfterApproval: json['EditableAfterApproval'] ?? false,
-    syncWithOverTimeModule:
-        json['SycWithOverTimeModule'] ?? false,
-    integrationSource: json['IntegrationSource'],
-    auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
-    captureMethod: json['CaptureMethod'],
-    entryFrequency: json['EntryFrequency'],
-
-    limitForPastDate:
-        (json['LimitForPastDate'] as num?)?.toDouble() ?? 0.0,
-  );
-}
+      breakTimeDeductionRequired:
+          json['BreakTimeDeductionRequired'] ?? false,
+      remarksMandatoryForOTDays:
+          json['RemarksMandatoryForOTDays'] ?? false,
+      isOverTimeAllowed: json['IsOverTimeAllowed'] ?? false,
+      isWeekendsAllowed: json['IsWeekendsAllowed'] ?? false,   // ✅ Added
+      isHolidaysAllowed: json['IsHolidaysAllowed'] ?? false,   // ✅ Added
+      dayWeekStarts: json['DayWeekStarts'],
+      dayMonthStarts: json['DayMonthStarts'],
+      attachmentsRequired: json['AttachmentsRequired'] ?? false,
+      frequency: json['Frequency'],
+      requiredApproval: json['RequiredApproval'] ?? false,
+      defaultWorkFlow: json['DefaultWorkFlow'] != null
+          ? Map<String, dynamic>.from(json['DefaultWorkFlow'])
+          : null,
+      editableAfterApproval: json['EditableAfterApproval'] ?? false,
+      syncWithOverTimeModule: json['SycWithOverTimeModule'] ?? false,
+      integrationSource: json['IntegrationSource'],
+      auditTrailEnabled: json['AuditTrailEnabled'] ?? false,
+      captureMethod: json['CaptureMethod'],
+      entryFrequency: json['EntryFrequency'],
+      limitForPastDate:
+          (json['LimitForPastDate'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -6847,6 +6974,8 @@ class RuleConfigSettings {
       'BreakTimeDeductionRequired': breakTimeDeductionRequired,
       'RemarksMandatoryForOTDays': remarksMandatoryForOTDays,
       'IsOverTimeAllowed': isOverTimeAllowed,
+      'IsWeekendsAllowed': isWeekendsAllowed,   // ✅ Added
+      'IsHolidaysAllowed': isHolidaysAllowed,   // ✅ Added
       'DayWeekStarts': dayWeekStarts,
       'DayMonthStarts': dayMonthStarts,
       'AttachmentsRequired': attachmentsRequired,
@@ -7896,12 +8025,12 @@ class EmailHubModel {
       'EmailBody': emailBody,
       'Subject': subject,
       'EmailStatus': emailStatus,
-      'ForwardedDate': forwardedDate.millisecondsSinceEpoch,
+      'ForwardedDate': toMillisecondsWithTimezone(forwardedDate),
       'IsActive': isActive,
       'CreatedBy': createdBy,
-      'CreatedDatetime': createdDatetime.millisecondsSinceEpoch,
+      'CreatedDatetime': toMillisecondsWithTimezone(createdDatetime),
       'ModifiedBy': modifiedBy,
-      'ModifiedDatetime': modifiedDatetime.millisecondsSinceEpoch,
+      'ModifiedDatetime': toMillisecondsWithTimezone(modifiedDatetime),
       'OrganizationId': organizationId,
       'SubOrganizationId': subOrganizationId,
     };

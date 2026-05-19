@@ -7,6 +7,7 @@ import 'package:diginexa/core/comman/widgets/customTimesheetDatePicker.dart';
 import 'package:diginexa/core/comman/widgets/loaderbutton.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
     show PermissionHelper;
+import 'package:diginexa/core/utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
@@ -124,7 +125,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     if (controller.dateRange == null) {
       isValid = false;
     }
-
+    final bool attachmentsRequired =
+        controller.ruleConfig?.attachmentsRequired ?? false;
+    if (attachmentsRequired && controller.uploadedImages.isEmpty) {
+      controller.showAttachmentError.value = true;
+      isValid = false;
+    } else {
+      controller.showAttachmentError.value = false;
+    }
     // Validate line items
     if (controller.lineItems.isEmpty) {
       isValid = false;
@@ -228,11 +236,11 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           : controller.timeSheetID.text.trim(),
 
       "EmployeeId": employeeId,
-      "ApplicationDate": DateTime.now().millisecondsSinceEpoch,
-      "Source": "Web",
+      "ApplicationDate": toMillisecondsWithTimezone(DateTime.now()),
+      "Source": "mobile",
       "CaptureMethod": controller.timerClicked ? "TimeTracker" : "Manual",
-      "FromDate": controller.dateRange!.start.millisecondsSinceEpoch,
-      "ToDate": controller.dateRange!.end.millisecondsSinceEpoch,
+      "FromDate": toMillisecondsWithTimezone(controller.dateRange!.start),
+      "ToDate": toMillisecondsWithTimezone(controller.dateRange!.end),
       "EmployeeName": Params.employeeName ?? controller.userName.value,
       "TimesheetLocation": null,
       "ReferenceId": null,
@@ -474,8 +482,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
       controller.fetchTasksTimeSheet(
-        fromDate: controller.dateRange!.start.millisecondsSinceEpoch,
-        toDate: controller.dateRange!.end.millisecondsSinceEpoch,
+        fromDate: toMillisecondsWithTimezone(controller.dateRange!.start),
+        toDate: toMillisecondsWithTimezone(controller.dateRange!.end),
       );
       final start = controller.dateRange!.start;
       final end = controller.dateRange!.end;
@@ -510,8 +518,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       print("FIXED START millis: ${safeStart.millisecondsSinceEpoch}");
 
       controller.loadTimeSheetRange(
-        fromDate: safeStart.millisecondsSinceEpoch,
-        toDate: safeEnd.millisecondsSinceEpoch,
+        fromDate: toMillisecondsWithTimezone(safeStart),
+        toDate: toMillisecondsWithTimezone(safeEnd),
       );
       // print("fromDate: $fromDate");
       // print("fromDate millis: ${fromDate.millisecondsSinceEpoch}");
@@ -534,19 +542,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     return DateTime(local.year, local.month, local.day);
   }
 
-  int toMSKStartOfDayMillis(DateTime date) {
-    // Step 1: treat given date as LOCAL (IST)
-    final local = DateTime(date.year, date.month, date.day);
-
-    // Step 2: remove IST offset → convert to UTC
-    final utc = local.subtract(const Duration(hours: 5, minutes: 30));
-
-    // Step 3: apply MSK offset (+3)
-    final msk = utc.add(const Duration(hours: 3));
-
-    return msk.millisecondsSinceEpoch;
-  }
-
   DateTime toEndOfDayUTC(DateTime date) {
     final local = date; // ensure we use local date fields
     return DateTime(local.year, local.month, local.day, 23, 59, 59, 999);
@@ -555,47 +550,79 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   // In your controller's initialization
   Future<void> init() async {
     DateTime now = DateTime.now();
+
     final range = controller.getWeekRangeUTC(DateTime.now());
+
     final config = await controller.getRuleConfig(
       employeeId: Params.employeeId,
       fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
       toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
     );
+
     controller.ruleConfig = config;
-    if (config != null && !widget.status) {
+
+    /// Priority:
+    /// 1. ruleConfig.frequency
+    /// 2. config.entryFrequency
+    /// 3. Default => Day
+
+    if (controller.ruleConfig?.frequency != null &&
+        controller.ruleConfig!.frequency!.isNotEmpty &&
+        !widget.status) {
+      controller.periodType.value = controller.getPeriodTypeForUI(
+        controller.ruleConfig!.frequency!,
+      );
+
+      print(
+        "Setting periodType from ruleConfig.frequency: "
+        "${controller.periodType.value}${periodTypes} ${config == null}${widget.status}",
+      );
+    } else if (config == null || widget.status) {
+      print(
+        "Config is null or widget.status is true, setting default periodType to 'Day'",
+      );
       // controller.periodType.value = controller.getPeriodTypeForUI(
-      //   config.entryFrequency ?? '',
+      //   config?.entryFrequency ?? '',
       // );
-      print('controller.periodType.value: ${controller.periodType.value}');
+
+      print(
+        "Setting periodType from entryFrequency: "
+        "${controller.periodType.value}",
+      );
+    } else {
+      print(
+        "Skip updating periodType because "
+        "config != null && !widget.status",
+      );
     }
-    final frequency = config?.entryFrequency ?? "";
-    print("Limit for past date from config: ${now}");
+
+    print("Final periodType: ${controller.periodType.value}");
+
     if (!widget.status) {
       setState(() {
         controller.isEditMode = true;
       });
-      controller.periodType.value = controller.getPeriodTypeForUI(
-        config!.entryFrequency ?? '',
-      );
-      print("Widget status is false");
+
       controller.dateRange = _getDateRangeByPeriod(
-        frequency,
-        now,
+        controller.periodType.value,
+        controller.dateRange!.start,
         weekStart: config?.dayWeekStarts ?? "Monday",
         monthStart: config?.dayMonthStarts ?? "1st",
       );
+
+      print("Widget status is false");
     } else {
       setState(() {
         controller.isEditMode = false;
       });
-      print("Widget status is true ${config?.dayWeekStarts}");
+
       controller.dateRange = _getDateRangeByPeriod(
         controller.periodType.value,
         controller.dateRange!.start,
       );
-    }
 
-    // Use frequency value
+      print("Widget status is true");
+    }
   }
 
   DateTimeRange getRangeFromConfig(
@@ -753,8 +780,10 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                 widget.status &&
                 PermissionHelper.canRead("Timesheet Requisition") &&
                 controller.statusApproval != "Approved" &&
-                controller.statusApproval != "Cancelled" &&
-                controller.statusApproval != "Pending")
+                controller.statusApproval != "Cancelled"
+            // &&
+            // controller.statusApproval != "Pending"
+            )
               Obx(
                 () => IconButton(
                   icon: Icon(
@@ -1413,19 +1442,19 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                           ),
 
                           /// ❌ Remove Button (TOP RIGHT FIXED)
-                          if (controller.leaveField.value)
+                          if (controller.sheetEnable.value)
                             Positioned(
                               top: -6,
                               right: -6,
                               child: GestureDetector(
                                 onTap: () {
                                   controller.uploadedImages.removeAt(index);
-                                  controller.update(); // 🔥 if using GetBuilder
+                                  controller.update();
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -1441,6 +1470,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                     },
                   ),
                 ),
+              Obx(
+                () => controller.showAttachmentError.value
+                    ? const Text(
+                        'Attachment is required',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           );
         }),
@@ -1525,10 +1562,13 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           ),
           onPressed: () {
             final line = controller.lineItems[controller.lineItems.length - 1];
-            if (controller.sheetEnable.value &&
-                !line.timerRunning.value &&
-                controller.enableTimerButton.value) {
+            if (controller.sheetEnable.value && !line.timerRunning.value
+            // &&
+            // controller.enableTimerButton.value
+            ) {
               setState(() {
+                // line.timerRunning.value = true;
+                controller.showCancelIcon.value = true;
                 controller.lineItems.add(LineItemModel());
               });
 
@@ -1971,7 +2011,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           final number = double.tryParse(value.toString());
           if (number != null) {
             return NumberFormat.currency(
-              symbol: '₹',
+              symbol: controller.organizationDefaultCurrencySymbol,
               decimalDigits: 2,
             ).format(number);
           }
@@ -2316,15 +2356,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               backgroundColor: const Color.fromARGB(255, 29, 1, 128),
               onPressed: () async {
                 if (!_validateForm()) {
-                  Fluttertoast.showToast(
-                    msg:
-                        "Required fields are missing. Please fill all mandatory fields.",
-                    toastLength: Toast.LENGTH_SHORT,
-                    gravity: ToastGravity.BOTTOM,
-                    backgroundColor: const Color.fromARGB(255, 250, 1, 1),
-                    textColor: const Color.fromARGB(255, 253, 252, 253),
-                    fontSize: 16.0,
-                  );
                   return;
                 }
 
@@ -2444,17 +2475,17 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     if (controller.statusApproval == null) return const SizedBox.shrink();
 
     final stepType = controller.stepType;
-    if (stepType == "Approval") {
-      controller.leaveField.value = true;
-    }
-    if (stepType == "Review") {
-      controller.sheetEnable.value = true;
-    }
-    if (stepType == null || stepType.isEmpty) return const SizedBox.shrink();
+    // if (stepType == "Approval") {
+    //   controller.leaveField.value = false;
+    // }
+    // if (stepType == "Review") {
+    //   controller.sheetEnable.value = false;
+    // }
+    // if (stepType == null || stepType.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [
-        if (stepType == "Review")
+        if (stepType == "Review" && controller.sheetEnable.value)
           Row(
             children: [
               Obx(() {
@@ -2554,9 +2585,10 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
             ],
           ),
 
-        if (stepType == "Review") const SizedBox(height: 12),
+        if (stepType == "Review" && controller.sheetEnable.value)
+          const SizedBox(height: 12),
 
-        if (stepType == "Review")
+        if (stepType == "Review" && controller.sheetEnable.value)
           Row(
             children: [
               Obx(() {
@@ -2614,8 +2646,23 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
               ),
             ],
           ),
+        if (!controller.sheetEnable.value)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    controller.chancelButton(context);
+                    controller.closeField();
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                  child: Text(AppLocalizations.of(context)!.close),
+                ),
+              ),
+            ],
+          ),
 
-        if (stepType == "Approval")
+        if (stepType == "Approval" && controller.sheetEnable.value)
           Row(
             children: [
               Obx(() {
@@ -2691,7 +2738,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
             ],
           ),
 
-        if (stepType == "Approval")
+        if (stepType == "Approval" && controller.sheetEnable.value)
           Row(
             children: [
               Obx(() {
@@ -3081,25 +3128,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                         ? null
                         : () async {
                             if (!_validateForm()) {
-                              Fluttertoast.showToast(
-                                msg:
-                                    "Required fields are missing. Please fill all mandatory fields.",
-                                toastLength: Toast.LENGTH_SHORT,
-                                gravity: ToastGravity.BOTTOM,
-                                backgroundColor: const Color.fromARGB(
-                                  255,
-                                  250,
-                                  1,
-                                  1,
-                                ),
-                                textColor: const Color.fromARGB(
-                                  255,
-                                  253,
-                                  252,
-                                  253,
-                                ),
-                                fontSize: 16.0,
-                              );
                               return;
                             }
 
@@ -3147,25 +3175,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                             ? null
                             : () async {
                                 if (!_validateForm()) {
-                                  Fluttertoast.showToast(
-                                    msg:
-                                        "Required fields are missing. Please fill all mandatory fields.",
-                                    toastLength: Toast.LENGTH_SHORT,
-                                    gravity: ToastGravity.BOTTOM,
-                                    backgroundColor: const Color.fromARGB(
-                                      255,
-                                      250,
-                                      1,
-                                      1,
-                                    ),
-                                    textColor: const Color.fromARGB(
-                                      255,
-                                      253,
-                                      252,
-                                      253,
-                                    ),
-                                    fontSize: 16.0,
-                                  );
                                   return;
                                 }
 
@@ -3466,6 +3475,11 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     }
 
     int extractDay(String value) {
+      final trimmed = value.trim().toLowerCase();
+
+      /// ✅ Handle named values
+      if (trimmed == "firstday") return 1;
+      if (trimmed == "lastday") return 31;
       final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
       return int.tryParse(digits) ?? 0;
     }
@@ -3508,13 +3522,13 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     // ================= MONTHLY =================
     else if (type == "monthly") {
       if (monthStart.trim().isEmpty) {
-        /// ✅ No config: tapped date IS the start, end = same day next month - 1
+        /// ✅ No config: tapped date IS the start, end = last day of same month
         startDate = date;
         endDate = DateTime(
           date.year,
           date.month + 1,
-          getSafeDay(date.year, date.month + 1, date.day - 1),
-        );
+          0,
+        ); // last day of current month
       } else {
         int startDay = extractDay(monthStart);
 
@@ -3524,8 +3538,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           endDate = DateTime(
             date.year,
             date.month + 1,
-            getSafeDay(date.year, date.month + 1, date.day - 1),
-          );
+            0,
+          ); // last day of current month
         } else if (date.day >= startDay) {
           startDate = DateTime(
             date.year,
@@ -3535,8 +3549,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           endDate = DateTime(
             date.year,
             date.month + 1,
-            getSafeDay(date.year, date.month + 1, startDay - 1),
-          );
+            0,
+          ); // last day of current month
         } else {
           startDate = DateTime(
             date.year,
@@ -3545,9 +3559,9 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           );
           endDate = DateTime(
             date.year,
-            date.month,
-            getSafeDay(date.year, date.month, startDay - 1),
-          );
+            date.month + 1,
+            0,
+          ); // last day of current month
         }
       }
     }
@@ -3610,7 +3624,7 @@ class _HourItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
 
     /// 📅 Normalize TODAY (remove time)
     final today = DateTime.now();
@@ -3624,19 +3638,19 @@ class _HourItem extends StatelessWidget {
     );
 
     /// 🔑 Use milliseconds as key (consistent with map type)
-    final entryKey = DateTime(
-      item.entryDate.year,
-      item.entryDate.month,
-      item.entryDate.day,
-    ).millisecondsSinceEpoch;
+    final entryKey = toMillisecondsWithTimezone(
+      DateTime(item.entryDate.year, item.entryDate.month, item.entryDate.day),
+    );
 
     /// 📊 Data
     final line = controller.lineItems[lineIndex];
     final entry = controller.timeEntries[lineIndex]?[entryKey];
-    final bool hasExistingEntry = entry == null;
-    final bool hasEntry = entry != null; // true = already exists
+
+    final bool hasEntry = entry != null; // true = entry EXISTS
+    final bool isNewEntry = entry == null; // true = already exists
     final isRunning = line.timerRunning.value;
     final seconds = line.elapsedSeconds.value;
+    print("⏱ isRunning: $isRunning, seconds: $seconds");
 
     /// 📊 Rule Config
     final int? lockAfter = controller.ruleConfig?.lockOldRecordsAfter;
@@ -3646,13 +3660,14 @@ class _HourItem extends StatelessWidget {
     final difference = todayOnly.difference(itemDate).inDays;
 
     /// 🔥 LIMIT (null or 0 = unlimited)
-    final int? limit = controller.limitpostdate;
+    final double limit = controller.ruleConfig!.limitForPastDate;
     final bool noLimit = limit == null || limit == 0;
 
     /// 🚫 FUTURE / TODAY
     final bool isFuture = difference < 0;
     final bool isToday = difference == 0;
     final bool isCreateMode = !controller.isEditMode;
+    print("🚫 isCreateMode: $isCreateMode, hasLock: ${difference > 0}");
 
     /// 🔒 LOCK RULE (FIXED)
     final bool isLockedByOldRecord =
@@ -3663,14 +3678,40 @@ class _HourItem extends StatelessWidget {
         ? difference > 0
         : (difference > 0 && difference <= limit);
 
-    final bool isAllowedPastDay = withinPastLimit && !isLockedByOldRecord;
+    final bool isAllowedPastDay = isNewEntry
+        ? (withinPastLimit &&
+              !isLockedByOldRecord) // No entry: allow if within limit & not locked
+        : withinPastLimit;
+    final bool anyTimerRunning = controller.lineItems.any(
+      (line) => line.timerRunning.value,
+    );
+
+    /// ✅ Check if THIS line's timer is running
+    final bool thisLineRunning =
+        controller.lineItems[lineIndex].timerRunning.value;
+
+    /// ✅ Check which line is currently running
+    final int runningLineIndex = controller.lineItems.indexWhere(
+      (line) => line.timerRunning.value,
+    );
+    final bool weekendsAllowed =
+        controller.ruleConfig?.isWeekendsAllowed ?? false;
+    final bool holidaysAllowed =
+        controller.ruleConfig?.isHolidaysAllowed ?? false;
+
+    print(
+      "weekendsAllowed: $weekendsAllowed, holidaysAllowed: $holidaysAllowed, item.weekend: ${item.weekend}, item.holiday: ${item.holiday}",
+    );
 
     /// 🚫 FINAL DISABLE CONDITION
     final bool isDisabled =
-        item.weekend ||
-        item.holiday ||
+        (item.weekend && !weekendsAllowed) ||
+        (item.holiday && !holidaysAllowed) ||
         isFuture ||
-        (!isToday && !isAllowedPastDay);
+        (!isToday && !isAllowedPastDay) ||
+        (!isToday && isRunning) ||
+        (!isToday && thisLineRunning);
+    // (isToday && anyTimerRunning && runningLineIndex != lineIndex);
 
     /// ▶️ TIMER BUTTON (ONLY TODAY)
     final bool showTimerButton = isToday && controller.sheetEnable.value;
@@ -3682,7 +3723,7 @@ class _HourItem extends StatelessWidget {
     print("Available Keys: ${controller.timeEntries[lineIndex]?.keys}");
     print(" item.weekend : ${item.weekend}");
     print("item.holiday: ${item.holiday}");
-    print("Has Entry: $hasExistingEntry");
+    print("Has Entry: $hasEntry");
     print("difference: $difference");
     print("lockAfter: $lockAfter");
     print("isLockedByOldRecord: $isLockedByOldRecord");
@@ -3690,7 +3731,9 @@ class _HourItem extends StatelessWidget {
     print("limit: $limit");
     print("noLimit: $noLimit");
     print("withinPastLimit: $withinPastLimit");
-
+    print(
+      "controller.ruleConfig!.limitForPastDate: ${controller.ruleConfig!.limitForPastDate}",
+    );
     print("isFuture: $isFuture");
     print("isToday: $isToday");
     print("isAllowedPastDay: $isAllowedPastDay");
@@ -3742,30 +3785,99 @@ class _HourItem extends StatelessWidget {
                     style: const TextStyle(fontSize: 10),
                   );
                 }),
+                if (showTimerButton &&
+                    controller.lineItems[lineIndex].timerRunning.value &&
+                    !controller.showCancelIcon.value &&
+                    !isDisabled)
+                  Obx(() {
+                    final isRunning =
+                        controller.lineItems[lineIndex].timerRunning.value;
+                    final seconds =
+                        controller.lineItems[lineIndex].elapsedSeconds.value;
+
+                    return GestureDetector(
+                      onTap: () {
+                        if (isRunning) {
+                          controller.lineItems[lineIndex].timerRunning.value =
+                              false;
+                          controller.stopTimer(lineIndex, item.entryDate);
+                        } else {
+                          controller.lineItems[lineIndex].timerRunning.value =
+                              false;
+                          controller.startTimer(lineIndex, item.entryDate);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          size: 12,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    );
+                  }),
 
                 /// ▶️ Timer Button
-                if (showTimerButton)
-                  GestureDetector(
-                    onTap: () {
-                      if (isRunning) {
-                        controller.stopTimer(lineIndex, item.entryDate);
-                      } else {
-                        controller.startTimer(lineIndex, item.entryDate);
-                      }
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.play_arrow,
-                        size: 12,
-                        color: Colors.orange,
+                /// ▶️ Timer Button
+                if (showTimerButton && !isDisabled)
+                  Obx(() {
+                    final isRunning =
+                        controller.lineItems[lineIndex].timerRunning.value;
+                    final seconds =
+                        controller.lineItems[lineIndex].elapsedSeconds.value;
+
+                    return GestureDetector(
+                      onTap: () {
+                        if (isRunning) {
+                          controller.stopTimer(lineIndex, item.entryDate);
+                        } else {
+                          controller.startTimer(lineIndex, item.entryDate);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: isRunning
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // 🔴 Stop icon
+                                  const Icon(
+                                    Icons.stop_circle,
+                                    size: 12,
+                                    color: Colors.red,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  // ⏱ Live countdown
+                                  Text(
+                                    _formatSeconds(seconds),
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : const Icon(
+                                Icons.play_arrow,
+                                size: 12,
+                                color: Colors.orange,
+                              ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
               ],
             ),
-            if (entry?.totalHours != null)
-              Row(
+            Obx(() {
+              final entry = controller.timeEntries[lineIndex]?[entryKey];
+              final isRunning =
+                  controller.lineItems[lineIndex].timerRunning.value;
+
+              if (entry?.totalHours == null || isRunning)
+                return const SizedBox.shrink();
+
+              return Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
@@ -3773,13 +3885,19 @@ class _HourItem extends StatelessWidget {
                         ? null
                         : () {
                             final double hours =
-                                double.tryParse(entry!.totalHours) ?? 0.0;
+                                double.tryParse(entry?.totalHours ?? '0') ??
+                                0.0;
 
-                            // ✅ Existing logic
-                            if (controller.split.isEmpty &&
-                                controller.accountingDistributions.isNotEmpty) {
+                            final freshEntry =
+                                controller.timeEntries[lineIndex]?[entryKey];
+                            final entryDistributions =
+                                freshEntry?.accountingDistributions ?? [];
+
+                            controller.split.clear();
+
+                            if (entryDistributions.isNotEmpty) {
                               controller.split.assignAll(
-                                controller.accountingDistributions.map((e) {
+                                entryDistributions.map((e) {
                                   return AccountingSplit(
                                     paidFor: e?.dimensionValueId ?? '',
                                     percentage: e?.allocationFactor ?? 0.0,
@@ -3787,7 +3905,7 @@ class _HourItem extends StatelessWidget {
                                   );
                                 }).toList(),
                               );
-                            } else if (controller.split.isEmpty) {
+                            } else {
                               controller.split.add(
                                 AccountingSplit(percentage: 100.0),
                               );
@@ -3813,7 +3931,8 @@ class _HourItem extends StatelessWidget {
                                 child: SingleChildScrollView(
                                   child: AccountingDistributionWidgetHours(
                                     splits: controller.split,
-                                    lineAmount: hours, // ✅ use validated value
+                                    lineAmount: hours,
+                                    isEnable: controller.sheetEnable.value,
                                     onChanged: (i, updatedSplit) {
                                       controller.split[i] = updatedSplit;
                                     },
@@ -3824,25 +3943,176 @@ class _HourItem extends StatelessWidget {
                                         newList,
                                       );
 
-                                      controller
-                                              .timeEntries[lineIndex]?[entryKey] =
-                                          entry!.copyWith(
-                                            accountingDistributions: newList,
-                                          );
+                                      final currentEntry = controller
+                                          .timeEntries[lineIndex]?[entryKey];
+
+                                      if (currentEntry != null) {
+                                        controller
+                                                .timeEntries[lineIndex]?[entryKey] =
+                                            currentEntry.copyWith(
+                                              accountingDistributions: newList,
+                                            );
+                                      } else {
+                                        controller.timeEntries[lineIndex] ??=
+                                            {};
+                                        controller
+                                                .timeEntries[lineIndex]![entryKey] =
+                                            TimeEntryModel(
+                                              entryDate: entryKey,
+                                              totalHours: hours.toString(),
+                                              accountingDistributions: newList,
+                                            );
+                                      }
                                     },
                                   ),
                                 ),
                               ),
                             );
                           },
-                    child: Icon(Icons.call_split, size: 12),
+                    child: const Icon(Icons.call_split, size: 12),
                   ),
                 ],
-              ),
+              );
+            }),
           ],
         ),
       ),
     );
+  }
+
+  DateTimeRange _getDateRangeByPeriod(
+    String type,
+    DateTime date, {
+    String weekStart = "",
+    String monthStart = "",
+  }) {
+    date = DateTime(date.year, date.month, date.day);
+    type = type.replaceAll("-", "").toLowerCase();
+
+    print("type: $type, weekStart: $weekStart, monthStart: $monthStart");
+
+    int getWeekdayFromString(String day) {
+      const map = {
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 7,
+      };
+      return map[day.toLowerCase()] ?? 1;
+    }
+
+    int extractDay(String value) {
+      final trimmed = value.trim().toLowerCase();
+
+      /// ✅ Handle named values
+      if (trimmed == "firstday") return 1;
+      if (trimmed == "lastday") return 31;
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
+      return int.tryParse(digits) ?? 0;
+    }
+
+    int getSafeDay(int year, int month, int day) {
+      int lastDay = DateTime(year, month + 1, 0).day;
+      return day.clamp(1, lastDay);
+    }
+
+    DateTime startDate;
+    DateTime endDate;
+
+    // ================= WEEK =================
+    if (type == "week" || type == "weekly") {
+      if (weekStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start
+        startDate = date;
+      } else {
+        int startWeekday = getWeekdayFromString(weekStart);
+        int diff = date.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+        startDate = date.subtract(Duration(days: diff));
+      }
+      endDate = startDate.add(const Duration(days: 6));
+    }
+    // ================= BIWEEKLY =================
+    else if (type == "biweekly") {
+      if (weekStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start
+        startDate = date;
+      } else {
+        int startWeekday = getWeekdayFromString(weekStart);
+        int diff = date.weekday - startWeekday;
+        if (diff < 0) diff += 7;
+        DateTime currentWeekStart = date.subtract(Duration(days: diff));
+        startDate = currentWeekStart.subtract(const Duration(days: 7));
+      }
+      endDate = startDate.add(const Duration(days: 13));
+    }
+    // ================= MONTHLY =================
+    else if (type == "monthly") {
+      if (monthStart.trim().isEmpty) {
+        /// ✅ No config: tapped date IS the start, end = last day of same month
+        startDate = date;
+        endDate = DateTime(
+          date.year,
+          date.month + 1,
+          0,
+        ); // last day of current month
+      } else {
+        int startDay = extractDay(monthStart);
+
+        if (startDay <= 0) {
+          /// ✅ Fallback if extractDay fails
+          startDate = date;
+          endDate = DateTime(
+            date.year,
+            date.month + 1,
+            0,
+          ); // last day of current month
+        } else if (date.day >= startDay) {
+          startDate = DateTime(
+            date.year,
+            date.month,
+            getSafeDay(date.year, date.month, startDay),
+          );
+          endDate = DateTime(
+            date.year,
+            date.month + 1,
+            0,
+          ); // last day of current month
+        } else {
+          startDate = DateTime(
+            date.year,
+            date.month - 1,
+            getSafeDay(date.year, date.month - 1, startDay),
+          );
+          endDate = DateTime(
+            date.year,
+            date.month + 1,
+            0,
+          ); // last day of current month
+        }
+      }
+    }
+    // ================= SEMI-MONTHLY =================
+    else if (type == "semimonth" || type == "semimonthly") {
+      if (date.day <= 15) {
+        startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month, 15);
+      } else {
+        startDate = DateTime(date.year, date.month, 16);
+        endDate = DateTime(date.year, date.month + 1, 0);
+      }
+      // ℹ️ SemiMonth has fixed halves — weekStart/monthStart don't apply
+    }
+    // ================= DEFAULT =================
+    else {
+      startDate = date;
+      endDate = date;
+    }
+
+    return DateTimeRange(start: startDate, end: endDate);
   }
 
   String _format(int seconds) {
@@ -3865,6 +4135,16 @@ class _HourItem extends StatelessWidget {
           TimeDetailsSheet(lineIndex: lineIndex, entryDate: item.entryDate),
     );
   }
+}
+
+String _formatSeconds(int seconds) {
+  final h = seconds ~/ 3600;
+  final m = (seconds % 3600) ~/ 60;
+  final s = seconds % 60;
+  if (h > 0) {
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+  return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
 }
 
 class LineCustomFieldSheet extends StatefulWidget {
@@ -4027,8 +4307,9 @@ class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
                           controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                         ).parse(finalValue);
 
-                        finalValue = parsedDate.millisecondsSinceEpoch
-                            .toString();
+                        finalValue = toMillisecondsWithTimezone(
+                          parsedDate,
+                        ).toString();
                       } catch (_) {}
                     }
 
@@ -4086,12 +4367,13 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
   @override
   void initState() {
     super.initState();
-    final key = DateTime(
-      widget.entryDate.year,
-      widget.entryDate.month,
-      widget.entryDate.day,
-    ).millisecondsSinceEpoch;
-
+    final key = toMillisecondsWithTimezone(
+      DateTime(
+        widget.entryDate.year,
+        widget.entryDate.month,
+        widget.entryDate.day,
+      ),
+    );
     final existing = controller.timeEntries[widget.lineIndex]?[key];
     if (existing != null) {
       // print("RecId: ${existing.recId}");
@@ -4337,6 +4619,16 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
             decoration: InputDecoration(
               labelText: "${AppLocalizations.of(context)!.totalHours} *",
             ),
+            onChanged: (value) {
+              // Allow manual override of total hours, but validate format
+              if (value.isEmpty) return;
+              _calculateTotalHours();
+              final parsed = double.tryParse(value);
+              if (parsed == null) {
+                _showErrorToast("Please enter a valid number for total hours");
+                totalHoursCtrl.text = '';
+              }
+            },
           ),
 
           const SizedBox(height: 12),
@@ -4371,8 +4663,10 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                 () => controller.sheetEnable.value
                     ? ElevatedButton(
                         onPressed: () {
-                          final key = widget.entryDate.millisecondsSinceEpoch;
-
+                          final key = toMillisecondsWithTimezone(
+                            widget.entryDate,
+                          );
+                          _calculateTotalHours();
                           controller.updateEntry(
                             widget.lineIndex,
                             key,
@@ -4387,7 +4681,7 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                                   ?.recId,
                             ),
                           );
-
+                          setState(() {});
                           Navigator.pop(context);
                         },
                         child: Text(AppLocalizations.of(context)!.save),
@@ -4412,7 +4706,7 @@ class TimeTrackerView extends StatefulWidget {
 }
 
 class _TimeTrackerViewState extends State<TimeTrackerView> {
-  final Controller controller = Get.put(Controller());
+    final Controller controller = Get.find<Controller>();
   late final GlobalKey<FormState> _formKey;
 
   @override
@@ -4444,17 +4738,13 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
       controller.fetchTasksTimeSheet(
-        fromDate: controller.dateRange!.start.millisecondsSinceEpoch,
-        toDate: controller.dateRange!.end.millisecondsSinceEpoch,
+        fromDate: toMillisecondsWithTimezone(controller.dateRange!.start),
+        toDate: toMillisecondsWithTimezone(controller.dateRange!.end),
       );
     });
   }
 
-  @override
-  void dispose() {
-    controller.clearTimeSheetForm();
-    super.dispose();
-  }
+ 
 
   @override
   Widget build(BuildContext context) {
@@ -4832,6 +5122,7 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
               icon: Icons.play_arrow,
               label: AppLocalizations.of(context)!.start,
               color: Colors.green,
+              actionKey: 'start',
               enabled: true,
               onTap: () {
                 if (controller.validateFields()) {
@@ -4849,6 +5140,7 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
               color: Colors.amber,
               enabled: true,
               onTap: controller.pauseTimer,
+              actionKey: 'pause',
             ),
 
           // Resume button - only for paused timer
@@ -4860,6 +5152,7 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
               color: Colors.blue,
               enabled: true,
               onTap: controller.resumeTimer,
+              actionKey: 'resume',
             ),
 
           // Complete button - for any active timer
@@ -4871,6 +5164,7 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
               color: Colors.green,
               enabled: true,
               onTap: controller.completeTimer,
+              actionKey: 'complete',
             ),
 
           // Cancel button - for any active timer
@@ -4882,6 +5176,7 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
               color: Colors.red,
               enabled: true,
               onTap: controller.cancelTimer,
+              actionKey: 'cancel',
             ),
         ],
       );
@@ -4895,36 +5190,53 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
     required Color color,
     required bool enabled,
     required VoidCallback onTap,
+    String? actionKey, // NEW: identifies this button's action
   }) {
     return Obx(() {
-      final isLoading = controller.isActionLoading.value;
+      final isLoading = controller.isTimerActionLoading.value;
+      final isThisLoading = controller.loadingAction.value == actionKey;
+      final isDisabled = isLoading && !isThisLoading; // other button is loading
 
-      return ElevatedButton(
+      return GestureDetector(
         key: key,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        onPressed: (!enabled || isLoading) ? null : onTap,
-        child: SizedBox(
-          height: 24,
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
+        onTap: (enabled && !isLoading) ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDisabled
+                ? Colors
+                      .grey
+                      .shade300 // ✅ proper grey when disabled
+                : isThisLoading
+                ? color.withOpacity(0.7)
+                : color,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isThisLoading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: Colors.white,
                   ),
                 )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(label),
-                  ],
+              else
+                Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDisabled ? Colors.white54 : Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+            ],
+          ),
         ),
       );
     });

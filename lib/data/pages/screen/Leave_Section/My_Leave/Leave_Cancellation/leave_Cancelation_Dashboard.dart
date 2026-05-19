@@ -7,6 +7,7 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/models.dart';
 import 'package:diginexa/core/constant/Parames/params.dart' show Params;
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart'
     show ManageExpensesCard, GExpense, LeaveAnalytics, LeaveCancellationModel, LeaveDetailsModel, LeaveRequisition, LeaveAnalyticsFilter, Employee;
 import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
@@ -1088,20 +1089,19 @@ void _openFilterBottomSheet(BuildContext context) {
               if (controller.filterFormKey.currentState?.validate() ?? true) {
                 // Use current month range or selected dates
                 final now = DateTime.now();
-                final fromDate = DateTime(
+                final fromDate = toMillisecondsWithTimezone(DateTime(
                   now.year,
                   now.month,
                   1,
-                ).millisecondsSinceEpoch;
-
-                final toDate = DateTime(
+                ));
+                final toDate = toMillisecondsWithTimezone(DateTime(
                   now.year,
                   now.month + 1,
                   0,
                   23,
                   59,
                   59,
-                ).millisecondsSinceEpoch;
+                ));
 
                 controller.loadCalendarLeaves(
                   fromDate: fromDate,

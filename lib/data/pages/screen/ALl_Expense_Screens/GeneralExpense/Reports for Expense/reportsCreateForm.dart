@@ -124,7 +124,7 @@ class _ExpenseReportCreateScreenState extends State<ExpenseReportCreateScreen> {
     try {
       final response = await ApiService.get(
         Uri.parse(
-          '${Urls.baseURL}/api/v1/global/global/datasets?page=1&sort_order=asc',
+          '${Urls.baseURL}/api/v1/global/global/datasets?page=1&sort_order=desc',
         ),
       );
       if (response.statusCode == 200) {

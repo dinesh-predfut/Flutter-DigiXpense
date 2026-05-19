@@ -984,7 +984,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
 
           // ✅ Show amount
           Text(
-            '₹ ${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,

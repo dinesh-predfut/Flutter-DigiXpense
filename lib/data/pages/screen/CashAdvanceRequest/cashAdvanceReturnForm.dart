@@ -89,7 +89,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     paidAmountFocusNode.addListener(() async {
       if (!paidAmountFocusNode.hasFocus) {
         if (controllerItems.paidAmountCA1.text.trim().isNotEmpty) {
-          await calculateAmountSafe();
+          await calculateAndFetchExchangeSafe();
         }
       }
     });
@@ -141,11 +141,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
   }
 
   final FocusNode percentageFocusNode = FocusNode();
-  Future<void> calculateAmountSafe() async {
+  Future<void> calculateAndFetchExchangeSafe() async {
     if (_isCalling) return;
 
     _isCalling = true;
-    // await calculateAmount();
+    // await calculateAndFetchExchange();
     _isCalling = false;
   }
 
@@ -166,13 +166,6 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     Controller controller,
     int index,
   ) async {
-    // if (value.trim().isEmpty) {
-    //   controller.totalRequestedAmount.clear();
-    //   controller.amountINRCA2.clear();
-    //   controller.percentageError.value = false;
-    //   return;
-    // }
-
     final percentage = double.tryParse(value) ?? 0.0;
 
     final maxPercentage =
@@ -184,30 +177,33 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
     if (_showPercentageError) return;
 
-    final paidAmount = double.tryParse(controller.paidAmountCA1.text) ?? 0.0;
+    final paidAmount = double.tryParse(controller.amountINRCA1.text) ?? 0.0;
 
     if (paidAmount > 0 && percentage > 0) {
+      /// ✅ STEP 1: Calculate requested amount
       final requestedAmount = (paidAmount * percentage) / 100;
 
       controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
 
-      final reqCurrency = controller.currencyDropDowncontrollerCA2.text;
+      /// ✅ STEP 2: Get exchange rate only
+      final reqCurrency = controller.currencyDropDowncontrollerCA2.text.trim();
 
       if (reqCurrency.isNotEmpty) {
-        final exchangeResponse = await controller.fetchExchangeRateCA(
+        final exchangeRate = await controller.fetchExchangeRatecalculatedCA2(
           reqCurrency,
-          requestedAmount.toString(),
         );
 
-        if (exchangeResponse != null) {
-          controller.unitRateCA2.text = exchangeResponse.exchangeRate
-              .toString();
+        if (exchangeRate != null) {
+          /// ✅ Store rate
+          controller.unitRateCA2.text = exchangeRate.toString();
 
-          controller.amountINRCA2.text = exchangeResponse.totalAmount
+          /// ✅ STEP 3: Manual conversion (IMPORTANT CHANGE)
+          controller.amountINRCA2.text = (requestedAmount * exchangeRate)
               .toStringAsFixed(2);
         }
       }
     } else {
+      controller.totalRequestedAmount.text = '0.00';
       controller.amountINRCA2.text = '0.00';
     }
   }
@@ -544,10 +540,10 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     });
 
     // Validate Paid For (category)
-    if (controller.selectedCategoryId.isEmpty) {
-      controller.showPaidForError.value = true;
-      isValid = false;
-    }
+    // if (controller.selectedCategoryId.isEmpty) {
+    //   controller.showPaidForError.value = true;
+    //   isValid = false;
+    // }
 
     // Validate Tax Amount if mandatory
     final taxAmountMandatory = controller.configList.any(
@@ -749,7 +745,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         final c = itemizeControllers[i];
 
         // Check category
-        if (c.selectedCategoryId.isEmpty) return i;
+        // if (c.selectedCategoryId.isEmpty) return i;
 
         // Check paid amount
         final paidAmount = double.tryParse(c.paidAmountCA1.text.trim()) ?? 0.0;
@@ -785,71 +781,73 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       return -1; // All valid
     }
 
-    Future<void> calculateAmount() async {
-      controller.isAmountCalculating.value = true;
+    // Future<void> calculateAndFetchExchange1() async {
+    //   print("Calculating Amount for Itemize");
+    //   controller.isAmountCalculating.value = true;
 
-      final paidAmountText = controller.paidAmountCA1.text.trim();
+    //   final paidAmountText = controller.paidAmountCA1.text.trim();
 
-      final double paidAmounts = double.tryParse(paidAmountText) ?? 0.0;
+    //   final double paidAmounts =
+    //       double.tryParse(controller.amountINRCA1.text.trim()) ?? 0.0;
 
-      final currency1 = controller.currencyDropDowncontrollerCA3.text;
+    //   final currency1 = controller.currencyDropDowncontrollerCA3.text;
 
-      if (currency1.isEmpty || paidAmounts <= 0) {
-        controller.isAmountCalculating.value = false;
-        return;
-      }
+    //   if (currency1.isEmpty || paidAmounts <= 0) {
+    //     controller.isAmountCalculating.value = false;
+    //     return;
+    //   }
 
-      /// 🔥 GET EXCHANGE RATE (Only once)
-      final exchangeRate1 = await controller.fetchExchangeRatecalculated(
-        currency1,
-      );
+    //   /// 🔥 GET EXCHANGE RATE (Only once)
+    //   final exchangeRate1 = await controller.fetchExchangeRatecalculated(
+    //     currency1,
+    //   );
 
-      if (exchangeRate1 != null) {
-        controller.unitRateCA1.text = exchangeRate1.toString();
+    //   if (exchangeRate1 != null) {
+    //     controller.unitRateCA1.text = exchangeRate1.toString();
 
-        controller.amountINRCA1.text = (paidAmounts * exchangeRate1)
-            .toStringAsFixed(2);
+    //     controller.amountINRCA1.text = (paidAmounts * exchangeRate1)
+    //         .toStringAsFixed(2);
 
-        controller.isVisible.value = true;
-      }
+    //     controller.isVisible.value = true;
+    //   }
 
-      /// -----------------------
-      /// Requested %
-      /// -----------------------
-      final requestedPercentage =
-          double.tryParse(
-            controller.requestedPercentage.text.replaceAll('%', '').trim(),
-          ) ??
-          0.0;
+    //   /// -----------------------
+    //   /// Requested %
+    //   /// -----------------------
+    //   final requestedPercentage =
+    //       double.tryParse(
+    //         controller.requestedPercentage.text.replaceAll('%', '').trim(),
+    //       ) ??
+    //       0.0;
 
-      double requestedAmount = 0.0;
+    //   double requestedAmount = 0.0;
 
-      if (requestedPercentage > 0) {
-        requestedAmount = (paidAmounts * requestedPercentage) / 100;
-      }
+    //   if (requestedPercentage > 0) {
+    //     requestedAmount = (paidAmounts * requestedPercentage) / 100;
+    //   }
 
-      controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
+    //   controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
 
-      /// -----------------------
-      /// CA2 Exchange
-      /// -----------------------
-      final currency2 = controller.currencyDropDowncontrollerCA2.text;
+    //   /// -----------------------
+    //   /// CA2 Exchange
+    //   /// -----------------------
+    //   final currency2 = controller.currencyDropDowncontrollerCA2.text;
 
-      if (currency2.isNotEmpty && requestedAmount > 0) {
-        final exchangeRate2 = await controller.fetchExchangeRatecalculated(
-          currency2,
-        );
+    //   if (currency2.isNotEmpty && requestedAmount > 0) {
+    //     final exchangeRate2 = await controller.fetchExchangeRatecalculated(
+    //       currency2,
+    //     );
 
-        if (exchangeRate2 != null) {
-          controller.unitRateCA2.text = exchangeRate2.toString();
+    //     if (exchangeRate2 != null) {
+    //       controller.unitRateCA2.text = exchangeRate2.toString();
 
-          controller.amountINRCA2.text = (requestedAmount * exchangeRate2)
-              .toStringAsFixed(2);
-        }
-      }
+    //       controller.amountINRCA2.text = (requestedAmount * exchangeRate2)
+    //           .toStringAsFixed(2);
+    //     }
+    //   }
 
-      controller.isAmountCalculating.value = false;
-    }
+    //   controller.isAmountCalculating.value = false;
+    // }
 
     final theme = Theme.of(context);
     print(
@@ -890,11 +888,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         final unitText = controller.unitAmount.text.trim();
         final qtyText = controller.quantity.text.trim();
 
-        final double? unit = double.tryParse(unitText);
+        final double lineAmount = unitText.isEmpty
+            ? (double.tryParse(controller.paidAmountCA1.text.trim()) ?? 0.0)
+            : (double.tryParse(unitText) ?? 0.0);
         final double qty = double.tryParse(qtyText) ?? 0.0;
-
+        print("LineAmount$lineAmount &$qty");
         // ✅ Validation
-        if (unitText.isEmpty || unit == null || unit <= 0) {
+        if (lineAmount == null || lineAmount <= 0) {
           controller.showUnitAmountError.value = true;
           return;
         }
@@ -902,10 +902,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         /// -----------------------------
         /// STEP 1: Line Total
         /// -----------------------------
-        final calculatedLineAmount = qty * unit;
-
-        controller.paidAmountCA1.text = calculatedLineAmount.toStringAsFixed(2);
+        final calculatedLineAmount = qty * lineAmount;
+        print("calculatedLineAmount$calculatedLineAmount");
+        controller.amountINRCA1.text = calculatedLineAmount.toStringAsFixed(2);
         controller.paidAmount.text = calculatedLineAmount.toStringAsFixed(2);
+        controller.paidAmountCA1.text = calculatedLineAmount.toStringAsFixed(2);
 
         /// -----------------------------
         /// STEP 2: Requested %
@@ -915,7 +916,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
               controller.requestedPercentage.text.replaceAll('%', '').trim(),
             ) ??
             0.0;
-
+        print("RequestedPercentage$requestedPercentage");
         double calculatedRequestedAmount = 0.0;
 
         if (requestedPercentage > 0) {
@@ -923,8 +924,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
               (calculatedLineAmount * requestedPercentage) / 100;
         }
 
-        controller.totalRequestedAmount.text = calculatedRequestedAmount
-            .toStringAsFixed(2);
+        // controller.totalRequestedAmount.text = calculatedRequestedAmount
+        //     .toStringAsFixed(2);
 
         controller.calculatedPercentage.value = calculatedRequestedAmount;
 
@@ -943,32 +944,137 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
             controller.amountINRCA1.text =
                 (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
+            final double requestedAmount =
+                ((calculatedLineAmount * exchangeRate1) * requestedPercentage) /
+                100;
 
             controller.isVisible.value = true;
+            final currency2 = controller.currencyDropDowncontrollerCA2.text
+                .trim();
+            controller.totalRequestedAmount.text = requestedAmount
+                .toStringAsFixed(2);
+            if (currency2.isNotEmpty) {
+              final exchangeResponse = await controller.fetchExchangeRateCA(
+                currency2,
+                requestedAmount.toString(),
+              );
+
+              if (exchangeResponse != null) {
+                controller.unitRateCA2.text = exchangeResponse.exchangeRate
+                    .toString();
+                controller.amountINRCA2.text = exchangeResponse.totalAmount
+                    .toStringAsFixed(2);
+              }
+            }
           }
         }
 
         /// -----------------------------
         /// STEP 4: Get Exchange Rate CA2
         /// -----------------------------
-        final currency2 = controller.currencyDropDowncontrollerCA2.text.trim();
-
-        if (currency2.isNotEmpty && calculatedRequestedAmount > 0) {
-          final exchangeRate2 = await controller.fetchExchangeRatecalculated(
-            currency2,
-          );
-
-          if (exchangeRate2 != null) {
-            controller.unitRateCA2.text = exchangeRate2.toString();
-
-            controller.amountINRCA2.text =
-                (calculatedRequestedAmount * exchangeRate2).toStringAsFixed(2);
-          }
-        }
+        ///
+        ///
+        ///
       } catch (e) {
         debugPrint("Calculation Error: $e");
       }
     }
+
+    // Future<void> calculateAndFetchExchangeline() async {
+    //   try {
+    //     final unitText = controller.unitAmount.text.trim();
+    //     final qtyText = controller.quantity.text.trim();
+
+    //     final double lineAmount = unitText.isEmpty
+    //         ? (double.tryParse(controller.paidAmountCA1.text.trim()) ?? 0.0)
+    //         : (double.tryParse(unitText) ?? 0.0);
+    //     final double qty = double.tryParse(qtyText) ?? 0.0;
+    //     print("LineAmount$lineAmount &$qty");
+    //     // ✅ Validation
+    //     if (lineAmount == null || lineAmount <= 0) {
+    //       controller.showUnitAmountError.value = true;
+    //       return;
+    //     }
+
+    //     /// -----------------------------
+    //     /// STEP 1: Line Total
+    //     /// -----------------------------
+    //     final calculatedLineAmount = qty * lineAmount;
+    //     print("calculatedLineAmount$calculatedLineAmount");
+    //     controller.amountINRCA1.text = calculatedLineAmount.toStringAsFixed(2);
+    //     controller.paidAmount.text = calculatedLineAmount.toStringAsFixed(2);
+    //     controller.paidAmountCA1.text = calculatedLineAmount.toStringAsFixed(2);
+
+    //     /// -----------------------------
+    //     /// STEP 2: Requested %
+    //     /// -----------------------------
+    //     final requestedPercentage =
+    //         double.tryParse(
+    //           controller.requestedPercentage.text.replaceAll('%', '').trim(),
+    //         ) ??
+    //         0.0;
+    //     print("RequestedPercentage$requestedPercentage");
+    //     double calculatedRequestedAmount = 0.0;
+
+    //     if (requestedPercentage > 0) {
+    //       calculatedRequestedAmount =
+    //           (calculatedLineAmount * requestedPercentage) / 100;
+    //     }
+
+    //     // controller.totalRequestedAmount.text = calculatedRequestedAmount
+    //     //     .toStringAsFixed(2);
+
+    //     controller.calculatedPercentage.value = calculatedRequestedAmount;
+
+    //     /// -----------------------------
+    //     /// STEP 3: Get Exchange Rate CA1 (Only Rate)
+    //     /// -----------------------------
+    //     final currency1 = controller.currencyDropDowncontrollerCA3.text.trim();
+
+    //     if (currency1.isNotEmpty) {
+    //       final exchangeRate1 = await controller.fetchExchangeRatecalculated(
+    //         currency1,
+    //       );
+
+    //       if (exchangeRate1 != null) {
+    //         controller.unitRateCA1.text = exchangeRate1.toString();
+
+    //         controller.amountINRCA1.text =
+    //             (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
+    //         final double requestedAmount =
+    //             ((calculatedLineAmount * exchangeRate1) * requestedPercentage) /
+    //             100;
+
+    //         controller.totalRequestedAmount.text = requestedAmount
+    //             .toStringAsFixed(2);
+    //         controller.isVisible.value = true;
+    //       }
+    //     }
+
+    //     /// -----------------------------
+    //     /// STEP 4: Get Exchange Rate CA2
+    //     /// -----------------------------
+    //     final currency2 = controller.currencyDropDowncontrollerCA2.text.trim();
+
+    //     if (currency2.isNotEmpty && calculatedRequestedAmount > 0) {
+    //       final exchangeRate2 = await controller.fetchExchangeRatecalculatedCA2(
+    //         currency2,
+    //       );
+
+    //       if (exchangeRate2 != null) {
+    //         controller.unitRateCA2.text = exchangeRate2.toString();
+
+    //         final requestedAmount =
+    //             double.tryParse(controller.totalRequestedAmount.text) ?? 0.0;
+
+    //         controller.amountINRCA2.text = (requestedAmount * exchangeRate2)
+    //             .toStringAsFixed(2);
+    //       }
+    //     }
+    //   } catch (e) {
+    //     debugPrint("Calculation Error: $e");
+    //   }
+    // }
 
     _calculateTotalLineAmount(controller);
     _calculateTotalLineAmount2(controller);
@@ -991,6 +1097,353 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+               const SizedBox(height: 6),
+                        Obx(() {
+                          return Column(
+                            children: controllerItems.customFields
+                                .where(
+                                  (field) =>
+                                      field['ObjectName'] == 'cashadvancetrans' 
+                                )
+                                .map((field) {
+                                  final String label =
+                                      field['FieldLabel'] ?? field['FieldName'];
+                                  final bool isMandatory =
+                                      field['IsMandatory'] ?? false;
+
+                                  Widget inputField;
+
+                                  if (field['FieldType'] == 'List' ||
+                                      field['FieldType'] == 'CustomList' ||
+                                      field['FieldType'] == 'SystemList') {
+                                    // ── Dropdown / Searchable List ──
+                                    inputField =
+                                        SearchableMultiColumnDropdownField<
+                                          CustomDropdownValue
+                                        >(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          items:
+                                              (field['Options']
+                                                  as List<
+                                                    CustomDropdownValue
+                                                  >?) ??
+                                              [],
+                                          selectedValue: field['SelectedValue'],
+                                          searchValue: (val) => val.valueName,
+                                          // enabled: controller.isEditModePerdiem,
+                                          displayText: (val) => val.valueName,
+                                          columnHeaders: const [
+                                            'Value ID',
+                                            'Value Name',
+                                          ],
+                                          rowBuilder: (val, searchQuery) =>
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 10,
+                                                      horizontal: 16,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(val.valueId),
+                                                    ),
+                                                    Expanded(
+                                                      child: Text(
+                                                        val.valueName,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          onChanged: (val) {
+                                            field['SelectedValue'] = val;
+                                            field['Error'] = null;
+                                            controller.customFields.refresh();
+                                          },
+                                        );
+                                  } else if (field['FieldType'] == 'Checkbox') {
+                                    // ── Checkbox ──
+                                    inputField = CheckboxListTile(
+                                      title: Text(
+                                        '$label${isMandatory ? " *" : ""}',
+                                      ),
+                                      value: field['EnteredValue'] ?? false,
+                                      // enabled: controller.isEditModePerdiem,
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      contentPadding: EdgeInsets.zero,
+                                      onChanged: controller.isEditModePerdiem
+                                          ? (bool? val) {
+                                              field['EnteredValue'] =
+                                                  val ?? false;
+                                              controller.customFields.refresh();
+                                            }
+                                          : null,
+                                    );
+                                  } else if (field['FieldType'] == 'Date' ||
+                                      field['FieldType'] == 'Date&Time') {
+                                    // ── Date / Date&Time ──
+                                    final bool isDateTime =
+                                        field['FieldType'] == 'Date&Time';
+
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      readOnly: true,
+                                      controller: TextEditingController(
+                                        text: field['EnteredValue'] != null
+                                            ? isDateTime
+                                                  ? DateFormat(
+                                                      'dd/MM/yyyy hh:mm a',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                                  : DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                            : '',
+                                      ),
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.calendar_today,
+                                        ),
+                                      ),
+                                      onTap: controller.isEditModePerdiem
+                                          ? () async {
+                                              final DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        field['EnteredValue'] ??
+                                                        DateTime.now(),
+                                                    firstDate: DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                  );
+
+                                              if (pickedDate == null) return;
+
+                                              if (isDateTime) {
+                                                final TimeOfDay?
+                                                pickedTime = await showTimePicker(
+                                                  context: context,
+                                                  initialTime:
+                                                      field['EnteredValue'] !=
+                                                          null
+                                                      ? TimeOfDay.fromDateTime(
+                                                          field['EnteredValue'],
+                                                        )
+                                                      : TimeOfDay.now(),
+                                                );
+
+                                                if (pickedTime == null) return;
+
+                                                field['EnteredValue'] =
+                                                    DateTime(
+                                                      pickedDate.year,
+                                                      pickedDate.month,
+                                                      pickedDate.day,
+                                                      pickedTime.hour,
+                                                      pickedTime.minute,
+                                                    );
+                                              } else {
+                                                field['EnteredValue'] =
+                                                    pickedDate;
+                                              }
+
+                                              controller.customFields.refresh();
+                                            }
+                                          : null,
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            field['EnteredValue'] == null) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] ==
+                                      'LongInteger') {
+                                    // ── Integer Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      initialValue:
+                                          field['EnteredValue']?.toString() ??
+                                          '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = int.tryParse(
+                                          value,
+                                        );
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] == 'Decimal') {
+                                    // ── Decimal Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'^\d+\.?\d*'),
+                                        ),
+                                      ],
+                                      initialValue:
+                                          field['EnteredValue']?.toString() ??
+                                          '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = double.tryParse(
+                                          value,
+                                        );
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] == 'Email') {
+                                    // ── Email ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.emailAddress,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.email_outlined,
+                                        ),
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        if (value != null && value.isNotEmpty) {
+                                          final emailRegex = RegExp(
+                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                          );
+                                          if (!emailRegex.hasMatch(value)) {
+                                            return 'Enter a valid email address';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] ==
+                                      'MobileNumber') {
+                                    // ── Mobile Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.phone,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.phone_outlined,
+                                        ),
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        if (value != null && value.isNotEmpty) {
+                                          final phoneRegex = RegExp(
+                                            r'^\+?[\d\s\-]{7,15}$',
+                                          );
+                                          if (!phoneRegex.hasMatch(value)) {
+                                            return 'Enter a valid mobile number';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else {
+                                    // ── Default Text ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.text,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: inputField,
+                                  );
+                                })
+                                .toList(),
+                          );
+                        }),
+                        const SizedBox(height: 6),
               /// 🔹 PROJECT ID SECTION
               Obx(() {
                 return Column(
@@ -1109,95 +1562,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   _debounce!.cancel();
 
                                 // Start a new debounce timer
-                                _debounce = Timer(
-                                  const Duration(milliseconds: 400),
-                                  () async {
-                                    final paidAmountText = controller
-                                        .paidAmountCA1
-                                        .text
-                                        .trim();
-                                    controller.unitAmount.text =
-                                        controller.paidAmountCA1.text;
-                                    final double paidAmounts =
-                                        double.tryParse(paidAmountText) ?? 0.0;
-                                    final currency = controller
-                                        .currencyDropDowncontrollerCA3
-                                        .text;
-
-                                    // Only proceed if currency and amount are provided
-                                    if (currency.isNotEmpty &&
-                                        paidAmountText.isNotEmpty) {
-                                      // Fire API calls concurrently
-                                      final results = await Future.wait([
-                                        controller.fetchExchangeRateCA(
-                                          currency,
-                                          paidAmountText,
-                                        ),
-                                        controller.fetchMaxAllowedPercentage(),
-                                      ]);
-
-                                      // Process the first exchange rate response
-                                      final exchangeResponse1 =
-                                          results[0] as ExchangeRateResponse?;
-                                      if (exchangeResponse1 != null) {
-                                        controller.unitRateCA1.text =
-                                            exchangeResponse1.exchangeRate
-                                                .toString();
-                                        controller.amountINRCA1.text =
-                                            exchangeResponse1.totalAmount
-                                                .toStringAsFixed(2);
-                                        controller.isVisible.value = true;
-                                      }
-
-                                      // Process max allowed percentage
-                                      final maxPercentage =
-                                          results[1] as double?;
-
-                                      if (maxPercentage != null &&
-                                          maxPercentage > 0) {
-                                        final double calculatedPercentage =
-                                            (paidAmounts * maxPercentage) / 100;
-
-                                        controller.totalRequestedAmount.text =
-                                            calculatedPercentage.toString();
-                                        controller.calculatedPercentage.value =
-                                            calculatedPercentage;
-
-                                        // final percentageStr = maxPercentage
-                                        //     .toInt()
-                                        //     .toString();
-                                        // controller.requestedPercentage.text =
-                                        //     '$percentageStr %';
-                                      }
-                                      final reqPaidAmount = controller
-                                          .totalRequestedAmount
-                                          .text
-                                          .trim();
-                                      final reqCurrency = controller
-                                          .currencyDropDowncontrollerCA2
-                                          .text;
-                                      if (reqCurrency.isNotEmpty &&
-                                          reqPaidAmount.isNotEmpty) {
-                                        final exchangeResponse =
-                                            await controller
-                                                .fetchExchangeRateCA(
-                                                  reqCurrency,
-                                                  reqPaidAmount,
-                                                );
-
-                                        if (exchangeResponse != null) {
-                                          controller.unitRateCA2.text =
-                                              exchangeResponse.exchangeRate
-                                                  .toString();
-                                          controller.amountINRCA2.text =
-                                              exchangeResponse.totalAmount
-                                                  .toStringAsFixed(2);
-                                          // controller.isVisible.value = true;
-                                        }
-                                      }
-                                    }
-                                  },
-                                );
+                                calculateAndFetchExchange();
                                 field['Error'] =
                                     null; // Clear error when value selected
                               },
@@ -1238,16 +1603,16 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
               }),
 
               const SizedBox(height: 6),
-              Text("${AppLocalizations.of(context)!.paidFor} *"),
+              Text("${AppLocalizations.of(context)!.paidFor}"),
               const SizedBox(height: 1),
-              if (controller.showPaidForError.value)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    AppLocalizations.of(context)!.pleaseSelectCategory,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
+              // if (controller.showPaidForError.value)
+              //   Padding(
+              //     padding: const EdgeInsets.only(top: 4),
+              //     child: Text(
+              //       AppLocalizations.of(context)!.pleaseSelectCategory,
+              //       style: const TextStyle(color: Colors.red, fontSize: 12),
+              //     ),
+              //   ),
               const SizedBox(height: 20),
               Obx(() {
                 final fetchCategory = (controller.expenseCategory.isNotEmpty)
@@ -1328,6 +1693,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                       0,
                     );
                   });
+                  calculateAndFetchExchange();
                 },
                 // onChanged: (value) {
                 //   final allowed = controller.allowedPercentage.text;
@@ -1551,126 +1917,127 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   setQuality = false;
                                 });
 
-                                final qty =
-                                    double.tryParse(controller.quantity.text) ??
-                                    0.0;
-                                final unit =
-                                    double.tryParse(
-                                      controller.unitAmount.text,
-                                    ) ??
-                                    0.0;
+                                //   final qty =
+                                //       double.tryParse(controller.quantity.text) ??
+                                //       0.0;
+                                //   final unit =
+                                //       double.tryParse(
+                                //         controller.unitAmount.text,
+                                //       ) ??
+                                //       0.0;
 
-                                // Step 1️⃣: Calculate base line total
-                                final calculatedLineAmount = qty * unit;
-                                print(
-                                  "calculatedLineAmount: $qty x $unit = $calculatedLineAmount",
-                                );
+                                //   // Step 1️⃣: Calculate base line total
+                                //   final calculatedLineAmount = qty * unit;
+                                //   print(
+                                //     "calculatedLineAmount: $qty x $unit = $calculatedLineAmount",
+                                //   );
 
-                                controller.paidAmountCA1.text =
-                                    calculatedLineAmount.toStringAsFixed(2);
-                                controller.paidAmontIsEditable.value = false;
+                                //   controller.paidAmountCA1.text =
+                                //       calculatedLineAmount.toStringAsFixed(2);
+                                //   controller.paidAmontIsEditable.value = false;
 
-                                // Step 2️⃣: Debounce to avoid multiple API calls
-                                if (_debounce?.isActive ?? false)
-                                  _debounce!.cancel();
+                                //   // Step 2️⃣: Debounce to avoid multiple API calls
+                                //   if (_debounce?.isActive ?? false)
+                                //     _debounce!.cancel();
 
-                                _debounce = Timer(
-                                  const Duration(milliseconds: 400),
-                                  () async {
-                                    final paidAmountText = controller
-                                        .paidAmountCA1
-                                        .text
-                                        .trim();
-                                    final double paidAmounts =
-                                        double.tryParse(paidAmountText) ?? 0.0;
-                                    final currency = controller
-                                        .currencyDropDowncontrollerCA3
-                                        .text;
+                                //   _debounce = Timer(
+                                //     const Duration(milliseconds: 400),
+                                //     () async {
+                                //       final paidAmountText = controller
+                                //           .paidAmountCA1
+                                //           .text
+                                //           .trim();
+                                //       final double paidAmounts =
+                                //           double.tryParse(paidAmountText) ?? 0.0;
+                                //       final currency = controller
+                                //           .currencyDropDowncontrollerCA3
+                                //           .text;
 
-                                    // Proceed only if valid
-                                    if (currency.isNotEmpty &&
-                                        paidAmountText.isNotEmpty) {
-                                      // Step 3️⃣: Fetch exchange rate for CA1
-                                      final results = await Future.wait([
-                                        controller.fetchExchangeRateCA(
-                                          currency,
-                                          paidAmountText,
-                                        ),
-                                      ]);
+                                //       // Proceed only if valid
+                                //       if (currency.isNotEmpty &&
+                                //           paidAmountText.isNotEmpty) {
+                                //         // Step 3️⃣: Fetch exchange rate for CA1
+                                //         final results = await Future.wait([
+                                //           controller.fetchExchangeRateCA(
+                                //             currency,
+                                //             paidAmountText,
+                                //           ),
+                                //         ]);
 
-                                      final exchangeResponse1 =
-                                          results[0] as ExchangeRateResponse?;
-                                      if (exchangeResponse1 != null) {
-                                        controller.unitRateCA1.text =
-                                            exchangeResponse1.exchangeRate
-                                                .toString();
-                                        controller.amountINRCA1.text =
-                                            exchangeResponse1.totalAmount
-                                                .toStringAsFixed(2);
-                                        controller.isVisible.value = true;
-                                      }
+                                //         final exchangeResponse1 =
+                                //             results[0] as ExchangeRateResponse?;
+                                //         if (exchangeResponse1 != null) {
+                                //           controller.unitRateCA1.text =
+                                //               exchangeResponse1.exchangeRate
+                                //                   .toString();
+                                //           controller.amountINRCA1.text =
+                                //               exchangeResponse1.totalAmount
+                                //                   .toStringAsFixed(2);
+                                //           controller.isVisible.value = true;
+                                //         }
 
-                                      // Step 4️⃣: Read requested percentage instead of maxPercentage
-                                      final requestedPercentageText = controller
-                                          .requestedPercentage
-                                          .text
-                                          .trim();
-                                      final double requestedPercentage =
-                                          double.tryParse(
-                                            requestedPercentageText
-                                                .replaceAll('%', '')
-                                                .trim(),
-                                          ) ??
-                                          0.0;
+                                //         // Step 4️⃣: Read requested percentage instead of maxPercentage
+                                //         final requestedPercentageText = controller
+                                //             .requestedPercentage
+                                //             .text
+                                //             .trim();
+                                //         final double requestedPercentage =
+                                //             double.tryParse(
+                                //               requestedPercentageText
+                                //                   .replaceAll('%', '')
+                                //                   .trim(),
+                                //             ) ??
+                                //             0.0;
 
-                                      if (requestedPercentage > 0 &&
-                                          paidAmounts > 0) {
-                                        // Calculate requested amount (in same currency)
-                                        final double calculatedRequestedAmount =
-                                            (paidAmounts *
-                                                requestedPercentage) /
-                                            100;
+                                //         if (requestedPercentage > 0 &&
+                                //             paidAmounts > 0) {
+                                //           // Calculate requested amount (in same currency)
+                                //           final double calculatedRequestedAmount =
+                                //               (paidAmounts *
+                                //                   requestedPercentage) /
+                                //               100;
 
-                                        controller.totalRequestedAmount.text =
-                                            calculatedRequestedAmount
-                                                .toStringAsFixed(2);
-                                        controller.calculatedPercentage.value =
-                                            calculatedRequestedAmount;
-                                      } else {
-                                        controller.totalRequestedAmount.text =
-                                            '0.00';
-                                      }
+                                //           controller.totalRequestedAmount.text =
+                                //               calculatedRequestedAmount
+                                //                   .toStringAsFixed(2);
+                                //           controller.calculatedPercentage.value =
+                                //               calculatedRequestedAmount;
+                                //         } else {
+                                //           controller.totalRequestedAmount.text =
+                                //               '0.00';
+                                //         }
 
-                                      // Step 5️⃣: Convert requested amount to INR (CA2)
-                                      final reqPaidAmount = controller
-                                          .totalRequestedAmount
-                                          .text
-                                          .trim();
-                                      final reqCurrency = controller
-                                          .currencyDropDowncontrollerCA2
-                                          .text;
+                                //         // Step 5️⃣: Convert requested amount to INR (CA2)
+                                //         final reqPaidAmount = controller
+                                //             .totalRequestedAmount
+                                //             .text
+                                //             .trim();
+                                //         final reqCurrency = controller
+                                //             .currencyDropDowncontrollerCA2
+                                //             .text;
 
-                                      if (reqCurrency.isNotEmpty &&
-                                          reqPaidAmount.isNotEmpty) {
-                                        final exchangeResponse =
-                                            await controller
-                                                .fetchExchangeRateCA(
-                                                  reqCurrency,
-                                                  reqPaidAmount,
-                                                );
+                                //         if (reqCurrency.isNotEmpty &&
+                                //             reqPaidAmount.isNotEmpty) {
+                                //           final exchangeResponse =
+                                //               await controller
+                                //                   .fetchExchangeRateCA(
+                                //                     reqCurrency,
+                                //                     reqPaidAmount,
+                                //                   );
 
-                                        if (exchangeResponse != null) {
-                                          controller.unitRateCA2.text =
-                                              exchangeResponse.exchangeRate
-                                                  .toString();
-                                          controller.amountINRCA2.text =
-                                              exchangeResponse.totalAmount
-                                                  .toStringAsFixed(2);
-                                        }
-                                      }
-                                    }
-                                  },
-                                );
+                                //           if (exchangeResponse != null) {
+                                //             controller.unitRateCA2.text =
+                                //                 exchangeResponse.exchangeRate
+                                //                     .toString();
+                                //             controller.amountINRCA2.text =
+                                //                 exchangeResponse.totalAmount
+                                //                     .toStringAsFixed(2);
+                                //           }
+                                //         }
+                                //       }
+                                //     },
+                                //   );
+                                calculateAndFetchExchange();
                               },
 
                               decoration: InputDecoration(
@@ -1816,13 +2183,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   // ✅ When user presses Enter
                                   onFieldSubmitted: (_) async {
                                     FocusScope.of(context).unfocus();
-                                    await calculateAmount();
+                                    await calculateAndFetchExchange();
                                   },
 
                                   // ✅ When user taps outside (focus lost)
                                   onEditingComplete: () async {
                                     FocusScope.of(context).unfocus();
-                                    await calculateAmount();
+                                    await calculateAndFetchExchange();
                                   },
 
                                   inputFormatters: [
@@ -1844,7 +2211,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       _debounce = Timer(
                                         const Duration(seconds: 3),
                                         () async {
-                                          await calculateAmount();
+                                          await calculateAndFetchExchange();
                                         },
                                       );
                                     }
@@ -1924,27 +2291,28 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                                   .text =
                                               c?.code ?? '';
 
-                                          final paidAmount = controller
-                                              .paidAmountCA1
-                                              .text
-                                              .trim();
-                                          if (paidAmount.isNotEmpty) {
-                                            final exchangeResponse =
-                                                await controller
-                                                    .fetchExchangeRateCA(
-                                                      c!.code,
-                                                      paidAmount,
-                                                    );
+                                          // final paidAmount = controller
+                                          //     .paidAmountCA1
+                                          //     .text
+                                          //     .trim();
+                                          // if (paidAmount.isNotEmpty) {
+                                          //   final exchangeResponse =
+                                          //       await controller
+                                          //           .fetchExchangeRateCA(
+                                          //             c!.code,
+                                          //             paidAmount,
+                                          //           );
 
-                                            if (exchangeResponse != null) {
-                                              controller.unitRateCA1.text =
-                                                  exchangeResponse.exchangeRate
-                                                      .toString();
-                                              controller.amountINRCA1.text =
-                                                  exchangeResponse.totalAmount
-                                                      .toStringAsFixed(2);
-                                            }
-                                          }
+                                          //   if (exchangeResponse != null) {
+                                          //     controller.unitRateCA1.text =
+                                          //         exchangeResponse.exchangeRate
+                                          //             .toString();
+                                          //     controller.amountINRCA1.text =
+                                          //         exchangeResponse.totalAmount
+                                          //             .toStringAsFixed(2);
+                                          //   }
+                                          // }
+                                          calculateAndFetchExchange();
                                         },
                                         rowBuilder: (c, searchQuery) {
                                           return Padding(
@@ -2084,24 +2452,25 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                         .currencyDropDowncontrollerCA2
                                         .text;
 
-                                    if (currency.isNotEmpty &&
-                                        paidAmount.isNotEmpty) {
-                                      final exchangeResponse = await controller
-                                          .fetchExchangeRateCA(
-                                            currency,
-                                            paidAmount,
-                                          );
+                                    // if (currency.isNotEmpty &&
+                                    //     paidAmount.isNotEmpty) {
+                                    //   final exchangeResponse = await controller
+                                    //       .fetchExchangeRateCA(
+                                    //         currency,
+                                    //         paidAmount,
+                                    //       );
 
-                                      if (exchangeResponse != null) {
-                                        controller.unitRateCA2.text =
-                                            exchangeResponse.exchangeRate
-                                                .toString();
-                                        controller.amountINRCA2.text =
-                                            exchangeResponse.totalAmount
-                                                .toStringAsFixed(2);
-                                        controller.isVisible.value = true;
-                                      }
-                                    }
+                                    //   if (exchangeResponse != null) {
+                                    //     controller.unitRateCA2.text =
+                                    //         exchangeResponse.exchangeRate
+                                    //             .toString();
+                                    //     controller.amountINRCA2.text =
+                                    //         exchangeResponse.totalAmount
+                                    //             .toStringAsFixed(2);
+                                    //     controller.isVisible.value = true;
+                                    //   }
+                                    // }
+                                    calculateAndFetchExchange();
                                   },
                                   onEditingComplete: () {
                                     String text =
@@ -2411,13 +2780,13 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                 isValid = false;
                               }
                               // 2. Validate Category
-                              if (controller.selectedCategoryId.isEmpty) {
-                                setState(
-                                  () =>
-                                      controller.showPaidForError.value = true,
-                                );
-                                isValid = false;
-                              }
+                              // if (controller.selectedCategoryId.isEmpty) {
+                              //   setState(
+                              //     () =>
+                              //         controller.showPaidForError.value = true,
+                              //   );
+                              //   isValid = false;
+                              // }
 
                               // 3. Validate Paid Amount (CA1)
                               final paidAmountText = controller
@@ -2513,10 +2882,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                   controllerItems.finalItemsCashAdvanceNew =
                                       items;
                                   _addItemize();
-                                } catch (e) {
+                                } catch (e, stackTrace) {
+                                  print("❌ EXACT ERROR: $e");
                                   print(
-                                    '❌ Error converting to CashAdvanceRequestItemize: $e',
-                                  );
+                                    "❌ STACK TRACE: $stackTrace",
+                                  ); // ← This will show the exact line
+                                  rethrow;
                                 }
                               }
                             },
@@ -2596,12 +2967,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             }
 
                             // 2. Validate Category
-                            if (controller.selectedCategoryId.isEmpty) {
-                              setState(
-                                () => controller.showPaidForError.value = true,
-                              );
-                              isValid = false;
-                            }
+                            // if (controller.selectedCategoryId.isEmpty) {
+                            //   setState(
+                            //     () => controller.showPaidForError.value = true,
+                            //   );
+                            //   isValid = false;
+                            // }
                             final amount =
                                 double.tryParse(
                                   controller.amountINRCA1.text.trim(),
@@ -2727,12 +3098,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
                                   controllerItems.finalItemsCashAdvanceNew =
                                       items;
-                                  await calculateAmount();
+                                  await calculateAndFetchExchange();
                                   _nextStep();
                                 }
                               } catch (e) {
                                 print(
-                                  '❌ Error converting to CashAdvanceRequestItemize: $e',
+                                  '❌ Error converting to CashAdvanceRequestItemize1: $e',
                                 );
                               }
                             }
@@ -2922,6 +3293,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             controller.requestedPercentage.text = maxPercentage
                 .toInt()
                 .toString();
+            if (item.itemisationMandatory && showItemizeDetails == false) {
+              _addItemize();
+            }
           }
 
           final reqPaidAmount = controller.totalRequestedAmount.text.trim();
@@ -3106,7 +3480,12 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                       Text(
                                         controller.selectedDate == null
                                             ? 'Select date'
-                                            : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                                            : DateFormat(
+                                                controller
+                                                        .selectedFormat
+                                                        ?.key ??
+                                                    'dd/MM/yyyy',
+                                              ).format(
                                                 controller.selectedDate!,
                                               ),
                                       ),
@@ -3367,7 +3746,353 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                             ),
                         ],
                       ),
+ const SizedBox(height: 6),
+                        Obx(() {
+                          return Column(
+                            children: controller.customFields
+                                .where(
+                                  (field) =>
+                                      field['ObjectName'] == 'cashadvanceheader' 
+                                )
+                                .map((field) {
+                                  final String label =
+                                      field['FieldLabel'] ?? field['FieldName'];
+                                  final bool isMandatory =
+                                      field['IsMandatory'] ?? false;
 
+                                  Widget inputField;
+
+                                  if (field['FieldType'] == 'List' ||
+                                      field['FieldType'] == 'CustomList' ||
+                                      field['FieldType'] == 'SystemList') {
+                                    // ── Dropdown / Searchable List ──
+                                    inputField =
+                                        SearchableMultiColumnDropdownField<
+                                          CustomDropdownValue
+                                        >(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          items:
+                                              (field['Options']
+                                                  as List<
+                                                    CustomDropdownValue
+                                                  >?) ??
+                                              [],
+                                          selectedValue: field['SelectedValue'],
+                                          searchValue: (val) => val.valueName,
+                                          // enabled: controller.isEditModePerdiem,
+                                          displayText: (val) => val.valueName,
+                                          columnHeaders: const [
+                                            'Value ID',
+                                            'Value Name',
+                                          ],
+                                          rowBuilder: (val, searchQuery) =>
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 10,
+                                                      horizontal: 16,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(val.valueId),
+                                                    ),
+                                                    Expanded(
+                                                      child: Text(
+                                                        val.valueName,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          onChanged: (val) {
+                                            field['SelectedValue'] = val;
+                                            field['Error'] = null;
+                                            controller.customFields.refresh();
+                                          },
+                                        );
+                                  } else if (field['FieldType'] == 'Checkbox') {
+                                    // ── Checkbox ──
+                                    inputField = CheckboxListTile(
+                                      title: Text(
+                                        '$label${isMandatory ? " *" : ""}',
+                                      ),
+                                      value: field['EnteredValue'] ?? false,
+                                      // enabled: controller.isEditModePerdiem,
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      contentPadding: EdgeInsets.zero,
+                                      onChanged: controller.isEditModePerdiem
+                                          ? (bool? val) {
+                                              field['EnteredValue'] =
+                                                  val ?? false;
+                                              controller.customFields.refresh();
+                                            }
+                                          : null,
+                                    );
+                                  } else if (field['FieldType'] == 'Date' ||
+                                      field['FieldType'] == 'Date&Time') {
+                                    // ── Date / Date&Time ──
+                                    final bool isDateTime =
+                                        field['FieldType'] == 'Date&Time';
+
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      readOnly: true,
+                                      controller: TextEditingController(
+                                        text: field['EnteredValue'] != null
+                                            ? isDateTime
+                                                  ? DateFormat(
+                                                      'dd/MM/yyyy hh:mm a',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                                  : DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(
+                                                      field['EnteredValue'],
+                                                    )
+                                            : '',
+                                      ),
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.calendar_today,
+                                        ),
+                                      ),
+                                      onTap: controller.isEditModePerdiem
+                                          ? () async {
+                                              final DateTime? pickedDate =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        field['EnteredValue'] ??
+                                                        DateTime.now(),
+                                                    firstDate: DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                  );
+
+                                              if (pickedDate == null) return;
+
+                                              if (isDateTime) {
+                                                final TimeOfDay?
+                                                pickedTime = await showTimePicker(
+                                                  context: context,
+                                                  initialTime:
+                                                      field['EnteredValue'] !=
+                                                          null
+                                                      ? TimeOfDay.fromDateTime(
+                                                          field['EnteredValue'],
+                                                        )
+                                                      : TimeOfDay.now(),
+                                                );
+
+                                                if (pickedTime == null) return;
+
+                                                field['EnteredValue'] =
+                                                    DateTime(
+                                                      pickedDate.year,
+                                                      pickedDate.month,
+                                                      pickedDate.day,
+                                                      pickedTime.hour,
+                                                      pickedTime.minute,
+                                                    );
+                                              } else {
+                                                field['EnteredValue'] =
+                                                    pickedDate;
+                                              }
+
+                                              controller.customFields.refresh();
+                                            }
+                                          : null,
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            field['EnteredValue'] == null) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] ==
+                                      'LongInteger') {
+                                    // ── Integer Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      initialValue:
+                                          field['EnteredValue']?.toString() ??
+                                          '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = int.tryParse(
+                                          value,
+                                        );
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] == 'Decimal') {
+                                    // ── Decimal Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'^\d+\.?\d*'),
+                                        ),
+                                      ],
+                                      initialValue:
+                                          field['EnteredValue']?.toString() ??
+                                          '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = double.tryParse(
+                                          value,
+                                        );
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] == 'Email') {
+                                    // ── Email ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.emailAddress,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.email_outlined,
+                                        ),
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        if (value != null && value.isNotEmpty) {
+                                          final emailRegex = RegExp(
+                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                          );
+                                          if (!emailRegex.hasMatch(value)) {
+                                            return 'Enter a valid email address';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else if (field['FieldType'] ==
+                                      'MobileNumber') {
+                                    // ── Mobile Number ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.phone,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                        suffixIcon: const Icon(
+                                          Icons.phone_outlined,
+                                        ),
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        if (value != null && value.isNotEmpty) {
+                                          final phoneRegex = RegExp(
+                                            r'^\+?[\d\s\-]{7,15}$',
+                                          );
+                                          if (!phoneRegex.hasMatch(value)) {
+                                            return 'Enter a valid mobile number';
+                                          }
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  } else {
+                                    // ── Default Text ──
+                                    inputField = TextFormField(
+                                      enabled: controller.isEditModePerdiem,
+                                      keyboardType: TextInputType.text,
+                                      initialValue: field['EnteredValue'] ?? '',
+                                      decoration: InputDecoration(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        border: const OutlineInputBorder(),
+                                        errorText: field['Error'],
+                                      ),
+                                      onChanged: (value) {
+                                        field['EnteredValue'] = value;
+                                      },
+                                      validator: (value) {
+                                        if (isMandatory &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return '$label is required';
+                                        }
+                                        return null;
+                                      },
+                                    );
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    child: inputField,
+                                  );
+                                })
+                                .toList(),
+                          );
+                        }),
+                        const SizedBox(height: 6),
                       const SizedBox(height: 10),
                       Text(
                         AppLocalizations.of(context)!.paidWith,

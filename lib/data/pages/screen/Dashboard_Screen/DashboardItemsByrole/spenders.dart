@@ -54,11 +54,21 @@ class _SpendersDashboardPageState extends State<SpendersDashboardPage> {
   final Map<DateTime, List<LeaveCancellationModel>> _events = {};
   CalendarFormat _viewMode = CalendarFormat.month;
   CalendarFormat _calendarFormat = CalendarFormat.month;
+  final RxString _globalSearchQuery = ''.obs;
+  final TextEditingController _globalSearchController = TextEditingController();
   @override
   void initState() {
     super.initState();
-    controller.loadSpendersDashboards(widget.role);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.loadSpendersDashboards(widget.role);
+    });
     late final ScrollController _scrollController;
+  }
+
+  @override
+  void dispose() {
+    _globalSearchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -90,103 +100,133 @@ class _SpendersDashboardPageState extends State<SpendersDashboardPage> {
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
-              // Role selector
-              // Row(
-              //   children: [
-              //     const Text('Role: '),
-              //     const SizedBox(width: 8),
+              // ✅ Global search bar
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _globalSearchController,
+                  onChanged: (value) {
+                    _globalSearchQuery.value = value.toLowerCase().trim();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search across all widgets...',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black38,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      size: 20,
+                      color: Colors.black45,
+                    ),
+                    suffixIcon: Obx(
+                      () => _globalSearchQuery.value.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                size: 18,
+                                color: Colors.black45,
+                              ),
+                              onPressed: () {
+                                _globalSearchController.clear();
+                                _globalSearchQuery.value = '';
+                              },
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    isDense: true,
+                  ),
+                ),
+              ),
 
-              //     const Spacer(),
-              //     // Search (optional)
-              //     Expanded(
-              //       flex: 2,
-              //       child: TextField(
-              //         decoration: InputDecoration(
-              //           hintText: 'Search',
-              //           contentPadding: const EdgeInsets.symmetric(
-              //             horizontal: 12,
-              //             vertical: 8,
-              //           ),
-              //           border: OutlineInputBorder(
-              //             borderRadius: BorderRadius.circular(8),
-              //           ),
-              //           isDense: true,
-              //         ),
-              //       ),
-              //     ),
-              //   ],
-              // ),
-
-              // const SizedBox(height: 12),
-
-              // Horizontal scroll area (widgets)
-              // SizedBox(
-              //   height: 280,
-              //   child: Obx(() {
-              //     if (controller.isLoadingWidgets.value) {
-              //       return const Center(child: CircularProgressIndicator());
-              //     }
-
-              //     final wizards = widgetsList;
-              //     if (wizards.isEmpty) {
-              //       return const Center(child: Text('No widgets for this role'));
-              //     }
-
-              //     return SingleChildScrollView(
-              //       scrollDirection: Axis.horizontal,
-              //       child: Column(
-              //         children: wizards.map((wizardItem) {
-              //           final keyName = wizardItem.widgetName ?? '';
-              //           final gKey = controller.widgetRenderKeys.putIfAbsent(keyName, () => GlobalKey());
-              //           final widgetData = controller.getSpendersWidgetData(wizardItem.widgetName ?? '');
-              //           final widgetType = controller.getSpendersWidgetType(wizardItem.widgetName ?? '');
-
-              //           return Padding(
-              //             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              //             child: SpendersDynamicWidget(
-              //               item: wizardItem,
-              //               data: widgetData,
-              //               widgetType: widgetType,
-              //               captureKey: gKey,
-
-              //             ),
-              //           );
-              //         }).toList(),
-              //       ),
-              //     );
-              //   }),
-              // ),
-              const SizedBox(height: 16),
-
-              // Optionally you can place a grid/list of the widgets in single column below
+              // ✅ Filtered list inside its own Obx
               Expanded(
-                child: ListView.builder(
-                  itemCount: widgetsList.length,
-                  itemBuilder: (context, idx) {
-                    final item = widgetsList[idx];
-                    final keyName = item.widgetName ?? '';
-                    final gKey = controller.widgetRenderKeys.putIfAbsent(
-                      keyName,
-                      () => GlobalKey(),
-                    );
-                    final widgetData = controller.getSpendersWidgetData(
-                      item.widgetName ?? '',
-                    );
-                    final widgetType = controller.getWidgetType(
-                      item.widgetName ?? '',
-                    );
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: SpendersDynamicWidget(
-                        item: item,
-                        data: widgetData,
-                        widgetType: widgetType,
-                        captureKey: gKey,
-                        currentRoel: widget.role,
+                child: Obx(() {
+                  final query = _globalSearchQuery.value;
+
+                  final filteredWidgets = query.isEmpty
+                      ? widgetsList
+                      : widgetsList.where((item) {
+                          return (item.widgetLabel ?? '')
+                                  .toLowerCase()
+                                  .contains(query) ||
+                              (item.widgetName ?? '').toLowerCase().contains(
+                                query,
+                              );
+                        }).toList();
+
+                  if (filteredWidgets.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.search_off,
+                            size: 48,
+                            color: Colors.black26,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No widgets match "$query"',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black45,
+                            ),
+                          ),
+                        ],
                       ),
                     );
-                  },
-                ),
+                  }
+
+                  return ListView.builder(
+                    itemCount: filteredWidgets.length,
+                    itemBuilder: (context, idx) {
+                      final item = filteredWidgets[idx];
+                      final keyName = item.widgetName ?? '';
+                      final gKey = controller.widgetRenderKeys.putIfAbsent(
+                        keyName,
+                        () => GlobalKey(),
+                      );
+                      final widgetData = controller.getSpendersWidgetData(
+                        item.widgetName ?? '',
+                      );
+                      final widgetType = controller.getWidgetType(
+                        item.widgetName ?? '',
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: SpendersDynamicWidget(
+                          item: item,
+                          data: widgetData,
+                          widgetType: widgetType,
+                          captureKey: gKey,
+                          currentRoel: widget.role,
+                        ),
+                      );
+                    },
+                  );
+                }),
               ),
             ],
           ),
@@ -247,7 +287,10 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
     // Initialize events from controller's leave data
     for (var leave in controller.approvalsfilteredLeaves) {
       if (leave.applicationDate != null) {
-        final date = DateTime.fromMillisecondsSinceEpoch(leave.applicationDate,isUtc: true);
+        final date = DateTime.fromMillisecondsSinceEpoch(
+          leave.applicationDate,
+          isUtc: true,
+        );
         final dateOnly = DateTime(date.year, date.month, date.day);
 
         if (_events[dateOnly] == null) {
@@ -356,6 +399,8 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
         return _buildDonutChart();
       case 'SummaryBox':
         return _buildSummary();
+      case 'SummaryBoxCounter':
+        return _buildSummaryCount();
       case 'Table':
         return _buildTable(context);
       case 'Leavecalanderview':
@@ -366,6 +411,8 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
         return PendingApprovalTableWidget(controller: controller);
       case 'MultiBarChart':
         return _buildMultiBarChart();
+        case 'MultiBarChartSinglebar':
+        return _buildMultiBarChartsingleLinebar();
       case 'mypendingleaves':
         return PendingApprovalTableWidgetLeave(controller: controller);
       // case 'DraftExpenses':
@@ -619,33 +666,146 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
     final points = controller.convertSpendersChartPoints(widget.data!);
     if (points.isEmpty) return const Center(child: Text('No data'));
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: SfCartesianChart(
-        primaryXAxis: const CategoryAxis(
-          labelRotation: 25,
-          labelStyle: TextStyle(fontSize: 5),
-          edgeLabelPlacement: EdgeLabelPlacement.shift,
-          labelIntersectAction: AxisLabelIntersectAction.hide,
-        ),
-        primaryYAxis: NumericAxis(
-          numberFormat: NumberFormat.compact(),
-          labelStyle: const TextStyle(fontSize: 8),
-        ),
-        tooltipBehavior: TooltipBehavior(enable: true),
+    final dataPointCount = points.length;
+    final labelRotation = dataPointCount > 6
+        ? -45
+        : (dataPointCount > 3 ? 25 : 0);
 
-        series: <LineSeries<ChartDataPoint, String>>[
-          LineSeries<ChartDataPoint, String>(
-            dataSource: points,
-            xValueMapper: (p, _) => p.x,
-            yValueMapper: (p, _) => p.y,
-            markerSettings: const MarkerSettings(isVisible: true),
-          ),
-        ],
+    return SfCartesianChart(
+      plotAreaBorderWidth: 0,
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+
+      tooltipBehavior: TooltipBehavior(
+        enable: true,
+        color: Colors.blueAccent,
+        textStyle: const TextStyle(color: Colors.white, fontSize: 11),
       ),
+
+      primaryXAxis: CategoryAxis(
+        labelRotation: labelRotation,
+        labelStyle: const TextStyle(fontSize: 7, color: Colors.black54),
+        edgeLabelPlacement: EdgeLabelPlacement.shift,
+        labelIntersectAction:
+            AxisLabelIntersectAction.rotate45, // ✅ rotate instead of hide
+        axisLine: const AxisLine(color: Colors.black26),
+        majorGridLines: const MajorGridLines(width: 0),
+        majorTickLines: const MajorTickLines(size: 2),
+      ),
+
+      primaryYAxis: NumericAxis(
+        minimum: 0, // ✅ clamps curve at 0, no dip below X axis
+        numberFormat: NumberFormat('#,##0'),
+        labelStyle: const TextStyle(fontSize: 6, color: Colors.black54),
+        axisLine: const AxisLine(width: 0),
+        majorGridLines: const MajorGridLines(
+          width: 0.5,
+          color: Colors.black12,
+          dashArray: [4, 4],
+        ),
+        majorTickLines: const MajorTickLines(size: 0),
+      ),
+
+      series: <SplineSeries<ChartDataPoint, String>>[
+        // ✅ SplineSeries for curved line
+        SplineSeries<ChartDataPoint, String>(
+          dataSource: points,
+          xValueMapper: (p, _) => p.x,
+          yValueMapper: (p, _) => p.y,
+          color: Colors.blueAccent,
+          width: 2.5,
+          splineType: SplineType.monotonic, // ✅ smooth natural curve
+          markerSettings: const MarkerSettings(
+            isVisible: true,
+            height: 8,
+            width: 8,
+            shape: DataMarkerType.circle,
+            borderWidth: 2,
+            borderColor: Colors.white,
+            color: Colors.blueAccent,
+          ),
+          dataLabelSettings: DataLabelSettings(
+            isVisible: true,
+            labelPosition: ChartDataLabelPosition.outside,
+            textStyle: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            builder: (data, point, series, pointIndex, seriesIndex) {
+              final p = data as ChartDataPoint;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                ),
+                child: Text(
+                  NumberFormat(
+                    '#,##0',
+                  ).format(p.y), // ✅ full number like 20,000
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
+  // ── Gradient area renderer ─────────────────────────────────────
+Widget _buildMultiBarChartsingleLinebar() {
+  final multiSeries = controller.convertMultiSeriesChartSingle(widget.data!.raw);
+
+  if (multiSeries.isEmpty) {
+    return const Center(child: Text("No chart data"));
+  }
+
+  return Padding(
+    padding: const EdgeInsets.all(12.0),
+    child: SfCartesianChart(
+      legend: const Legend(
+        isVisible: true,
+        position: LegendPosition.bottom,
+        textStyle: TextStyle(fontSize: 10),
+      ),
+
+      tooltipBehavior: TooltipBehavior(enable: true),
+
+      plotAreaBorderWidth: 0,
+
+      primaryXAxis: CategoryAxis(
+        // majorGridLines: const MajorGridLines(width: 0),
+        
+        labelStyle: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+
+      primaryYAxis: NumericAxis(
+        numberFormat: NumberFormat.currency(
+          locale: 'en_IN',
+          symbol: '',
+        ),
+        // majorGridLines: const MajorGridLines(
+        //   width: 0.6,
+          
+        //   color: Color(0xFFE0E0E0),
+        // ),
+        // axisLine: const AxisLine(width: 0),
+        labelStyle: const TextStyle(fontSize: 9, color: Colors.black87),
+      ),
+
+      series: multiSeries,
+    ),
+  );
+}
   Widget _buildMultiBarChart() {
     final multiSeries = controller.convertMultiSeriesChart(widget.data!.raw);
 
@@ -676,7 +836,7 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
           numberFormat: NumberFormat.currency(
             locale: 'en_IN',
             symbol: '',
-            decimalDigits: 2,
+            // decimalDigits: 2,
           ),
           majorGridLines: const MajorGridLines(
             width: 0.6,
@@ -731,8 +891,8 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
 
     final formatter = NumberFormat.currency(
       locale: 'en_IN',
-      symbol: '₹ ',
-      decimalDigits: 0,
+      symbol: '${controller.organizationDefaultCurrencySymbol} ',
+      // decimalDigits: 0,
     );
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -797,7 +957,32 @@ class _SpendersDynamicWidgetState extends State<SpendersDynamicWidget> {
     final formatted = NumberFormat.currency(
       locale: 'en_IN',
       symbol: '',
-      decimalDigits: 0,
+      // decimalDigits: 0,
+    ).format(value);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.analytics, size: 36, color: Colors.blue),
+          const SizedBox(height: 8),
+          Text(
+            formatted,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(widget.item.widgetLabel ?? ''),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCount() {
+    final value = widget.data!.getSingleValue();
+
+    final formatted = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: controller.organizationDefaultCurrencySymbol,
+      // decimalDigits: 2,
     ).format(value);
     return Center(
       child: Column(
@@ -1634,10 +1819,12 @@ class PendingApprovalTableWidget extends StatelessWidget {
                       /// 📅 Receipt Date
                       DataCell(
                         Text(
-                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                          DateFormat(
+                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                          ).format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.receiptDate,isUtc: true
-                              
+                              item.receiptDate,
+                              isUtc: true,
                             ),
                           ),
                           style: _cellStyle(),
@@ -2131,9 +2318,12 @@ class PendingApprovalTableWidgetLeave extends StatelessWidget {
 
                       DataCell(
                         Text(
-                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                          DateFormat(
+                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                          ).format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.cancellationDate,isUtc: true
+                              item.cancellationDate,
+                              isUtc: true,
                             ),
                           ),
                           style: _cellStyle(),

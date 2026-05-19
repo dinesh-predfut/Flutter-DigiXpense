@@ -657,7 +657,7 @@ Widget _buildCard(
   final theme = Theme.of(context);
   final primaryColor = theme.primaryColor;
   final onPrimaryColor = theme.colorScheme.onPrimary;
-
+  final Controller controller = Get.find<Controller>();
   return Container(
     width: 220,
     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -712,7 +712,7 @@ Widget _buildCard(
 
         // ✅ Show amount
         Text(
-          '₹ ${card.amount.toStringAsFixed(2)}',
+          '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,

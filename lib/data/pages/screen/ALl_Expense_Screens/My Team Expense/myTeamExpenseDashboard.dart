@@ -1025,7 +1025,7 @@ class _MyTeamExpenseDashboardState extends State<MyTeamExpenseDashboard>
           ),
           const SizedBox(height: 4),
           Text(
-            '₹ ${card.amount.toStringAsFixed(2)}',
+            '${controller.organizationDefaultCurrencySymbol} ${card.amount.toStringAsFixed(2)}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,

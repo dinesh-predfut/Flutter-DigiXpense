@@ -17,6 +17,7 @@ class SearchableMultiColumnDropdownField<T> extends StatefulWidget {
   final double? alignLeft;
   final bool? enabled;
   final TextEditingController? controller;
+  final bool? forceShowAbove; // ✅ nullable: true=above, false=below, null=auto
 
   const SearchableMultiColumnDropdownField({
     Key? key,
@@ -36,6 +37,7 @@ class SearchableMultiColumnDropdownField<T> extends StatefulWidget {
     this.alignLeft,
     this.enabled,
     this.controller,
+    this.forceShowAbove, // ✅ optional, not required
   }) : super(key: key);
 
   @override
@@ -56,16 +58,16 @@ class _SearchableMultiColumnDropdownFieldState<T>
   bool _isOverlayOpen = false;
   final ScrollController _scrollController = ScrollController();
 
+  Size _fieldSize = Size.zero;
+  final GlobalKey _fieldKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
 
-    // Initialize selected item and controller text from initial value
     if (widget.selectedValue != null) {
       _selectedItem = widget.selectedValue;
-
-      // Only set text if controller is not externally controlled
       if (widget.controller == null) {
         _controller.text = widget.displayText(widget.selectedValue as T);
       }
@@ -85,7 +87,6 @@ class _SearchableMultiColumnDropdownFieldState<T>
       _searchQuery = _controller.text;
     });
 
-    // If the user clears the text, clear the selected item
     if (_controller.text.isEmpty && _selectedItem != null) {
       setState(() {
         _selectedItem = null;
@@ -97,64 +98,98 @@ class _SearchableMultiColumnDropdownFieldState<T>
   }
 
   void _showOverlay() {
-    // Hide any other open dropdown before showing this one
     _currentOpenOverlay?._hideOverlay();
 
     final renderBox = context.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-    final screenHeight = MediaQuery.of(context).size.height;
+    _fieldSize = renderBox.size;
 
-    final dropdownHeight = widget.dropdownMaxHeight;
-    final spaceBelow = screenHeight - offset.dy - size.height;
-    final spaceAbove = offset.dy;
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        final RenderBox? box =
+            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
 
-    // Determine if the dropdown should show above or below the field
-    final showAbove =
-        spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
+        final keyboardHeight = MediaQueryData.fromView(
+          View.of(overlayContext),
+        ).viewInsets.bottom;
+        final screenHeight = MediaQueryData.fromView(
+          View.of(overlayContext),
+        ).size.height;
 
-_overlayEntry = OverlayEntry(
-  builder: (context) => Stack(
-    children: [
-      // Tap outside to close
-      Positioned.fill(
-        child: GestureDetector(
-          onTap: _hideOverlay,
-          behavior: HitTestBehavior.translucent,
-          child: const SizedBox(),
-        ),
-      ),
+        double top = 0;
+        double left = widget.alignLeft ?? 0;
+        double fieldWidth = widget.dropdownWidth ?? _fieldSize.width;
+        bool showAbove = false;
 
-      CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        offset: Offset(
-          widget.alignLeft ?? 0,
-          showAbove ? -dropdownHeight - 5 : size.height + 5,
-        ),
-        child: Material(
-          elevation: 6,
-          child: SizedBox(
-            width: widget.dropdownWidth ?? size.width,
-            child: _buildDropdownContent(),
-          ),
-        ),
-      ),
-    ],
-  ),
-);
+        final fieldGap = keyboardHeight > 0 ? 12.0 : 5.0;
 
+        if (box != null && box.hasSize) {
+          final globalOffset = box.localToGlobal(Offset.zero);
+          final fieldBottom = globalOffset.dy + box.size.height;
+          final spaceBelow = screenHeight - keyboardHeight - fieldBottom;
+          final spaceAbove = globalOffset.dy;
+          final dropdownHeight = widget.dropdownMaxHeight;
 
-    Overlay.of(context, rootOverlay: true)!.insert(_overlayEntry!);
+          fieldWidth = widget.dropdownWidth ?? box.size.width;
+
+          // ✅ forceShowAbove: true=always above, false=always below, null=auto
+          showAbove =
+              widget.forceShowAbove ??
+              (spaceBelow < dropdownHeight && spaceAbove > spaceBelow);
+
+          if (showAbove) {
+            top = globalOffset.dy - dropdownHeight - fieldGap;
+          } else {
+            double naturalTop = fieldBottom + fieldGap;
+            double naturalBottom = naturalTop + dropdownHeight;
+            double keyboardTop = screenHeight - keyboardHeight;
+
+            if (naturalBottom > keyboardTop && keyboardHeight > 0) {
+              top = keyboardTop - dropdownHeight - 8;
+            } else {
+              top = naturalTop;
+            }
+          }
+
+          left = globalOffset.dx + (widget.alignLeft ?? 0);
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _hideOverlay,
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox(),
+              ),
+            ),
+            Positioned(
+              top: top,
+              left: left,
+              width: fieldWidth,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(4),
+                child: _buildDropdownContent(showAbove: showAbove),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
     _currentOpenOverlay = this;
     setState(() => _isOverlayOpen = true);
 
-    // Auto-scroll to selected item after opening
+    WidgetsBinding.instance.addObserver(_KeyboardObserver(_overlayEntry!));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_selectedItem != null) {
         final index = widget.items.indexOf(_selectedItem as T);
-        if (index >= 0 && index < widget.items.length) {
-          final position = index * 48.0; // Approx height per row
+        if (index >= 0 &&
+            _scrollController.hasClients &&
+            index < widget.items.length) {
+          final position = index * 48.0;
           _scrollController.jumpTo(
             position.clamp(0.0, _scrollController.position.maxScrollExtent),
           );
@@ -162,16 +197,22 @@ _overlayEntry = OverlayEntry(
       }
     });
 
-    // Hide overlay if scroll position changes
     ScrollableState? scrollableState = Scrollable.of(context);
     scrollableState?.position.addListener(_hideOverlay);
   }
+
+  _KeyboardObserver? _keyboardObserver;
 
   void _hideOverlay() {
     if (_isOverlayOpen) {
       _overlayEntry?.remove();
       _overlayEntry = null;
       setState(() => _isOverlayOpen = false);
+
+      if (_keyboardObserver != null) {
+        WidgetsBinding.instance.removeObserver(_keyboardObserver!);
+        _keyboardObserver = null;
+      }
 
       ScrollableState? scrollableState = Scrollable.of(context);
       scrollableState?.position.removeListener(_hideOverlay);
@@ -182,10 +223,9 @@ _overlayEntry = OverlayEntry(
     }
   }
 
-  Widget  _buildDropdownContent() {
+  Widget _buildDropdownContent({required bool showAbove}) {
     List<T> sortedItems = List.from(widget.items);
 
-    // Sort based on search query
     if (widget.searchValue != null && _searchQuery.isNotEmpty) {
       sortedItems.sort((a, b) {
         final aMatch = widget.searchValue!(a).toLowerCase().contains(
@@ -194,7 +234,6 @@ _overlayEntry = OverlayEntry(
         final bMatch = widget.searchValue!(b).toLowerCase().contains(
           _searchQuery.toLowerCase(),
         );
-
         final aStartsWith = widget.searchValue!(a).toLowerCase().startsWith(
           _searchQuery.toLowerCase(),
         );
@@ -210,75 +249,69 @@ _overlayEntry = OverlayEntry(
       });
     }
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: widget.dropdownMaxHeight),
+    // ✅ Header — corners flip based on showAbove
+    final header = Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).primaryColor,
+        borderRadius: BorderRadius.only(
+          topLeft: showAbove ? Radius.zero : const Radius.circular(4),
+          topRight: showAbove ? Radius.zero : const Radius.circular(4),
+          bottomLeft: showAbove ? const Radius.circular(4) : Radius.zero,
+          bottomRight: showAbove ? const Radius.circular(4) : Radius.zero,
+        ),
       ),
-      child: Column(
-        children: [
-          // Header Row
-         Container(
-  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-  color: Theme.of(context).primaryColor,
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.start,
-    children: widget.columnHeaders
-        .map(
-          (header) => Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                header,
-                textAlign: TextAlign.left,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 8,
-                  color: Colors.white,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: widget.columnHeaders
+            .map(
+              (h) => Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    h,
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 8,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        )
-        .toList(),
-  ),
-),
+            )
+            .toList(),
+      ),
+    );
 
-          const Divider(height: 0, thickness: 1),
-
-          // List Items
-          Flexible(
-            child: ListView.builder(
+    // ✅ Body — SAME fixed height for both empty and list states
+    final body = SizedBox(
+      height: widget.dropdownMaxHeight - 33, // 33 = header height (approx)
+      child: sortedItems.isEmpty
+          ? Container(
+              color: Theme.of(context).cardColor,
+              alignment: Alignment.center,
+              child: const Text(
+                'No data available',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
               controller: _scrollController,
               padding: EdgeInsets.zero,
-              shrinkWrap: true,
+              shrinkWrap:
+                  false, // ✅ false so it fills the fixed SizedBox height
               physics: const ClampingScrollPhysics(),
               itemCount: sortedItems.length,
               itemBuilder: (context, index) {
                 final item = sortedItems[index];
 
-                bool isSearchMatch = false;
-                if (_searchQuery.isNotEmpty && widget.searchValue != null) {
-                  isSearchMatch = widget.searchValue!(item)
-                      .toLowerCase()
-                      .contains(_searchQuery.toLowerCase());
-                }
-
-                // Highlight selected or matching row
                 Color? rowColor;
-                // if (_selectedItem != null && _selectedItem == item) {
-                //   rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
-                // } else if (isSearchMatch) {
-                //   rowColor = Theme.of(context).focusColor.withOpacity(0.1);
-                // } else {
-                //   rowColor = Colors.transparent;
-                // }
-if (_selectedItem != null &&
-    widget.displayText(_selectedItem as T) ==
-        widget.displayText(item)) {
-  rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
-}
+                if (_selectedItem != null &&
+                    widget.displayText(_selectedItem as T) ==
+                        widget.displayText(item)) {
+                  rowColor = Theme.of(context).highlightColor.withOpacity(0.5);
+                }
 
                 return InkWell(
                   hoverColor: Colors.blue.withOpacity(0.08),
@@ -286,7 +319,6 @@ if (_selectedItem != null &&
                   child: Container(
                     height: 48,
                     alignment: Alignment.centerLeft,
-                    // padding: const EdgeInsets.symmetric(horizontal: 12),
                     color: rowColor,
                     child: Align(
                       alignment: Alignment.centerLeft,
@@ -296,8 +328,19 @@ if (_selectedItem != null &&
                 );
               },
             ),
-          ),
-        ],
+    );
+
+    return Container(
+      // ✅ Fixed total height always — no jumping between empty and filled
+      height: widget.dropdownMaxHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        color: Theme.of(context).cardColor,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        // ✅ Header always on top, never reorder
+        children: [header, const Divider(height: 0, thickness: 1), body],
       ),
     );
   }
@@ -305,11 +348,9 @@ if (_selectedItem != null &&
   void _selectItem(T item) {
     _controller.text = widget.displayText(item);
     _searchQuery = '';
-
     setState(() {
       _selectedItem = item;
     });
-
     widget.onChanged(item);
     _hideOverlay();
     _focusNode.unfocus();
@@ -332,58 +373,76 @@ if (_selectedItem != null &&
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
       link: _layerLink,
-      child: FormField<T>(
-        initialValue: _selectedItem,
-        validator: widget.validator,
-        builder: (fieldState) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                enabled: widget.enabled ?? true,
-                decoration:
-                    widget.inputDecoration ??
-                    InputDecoration(
-                      labelText: widget.labelText,
-                      filled: widget.backgroundColor != null,
-                      fillColor: widget.backgroundColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isOverlayOpen
-                              ? Icons.arrow_drop_up
-                              : Icons.arrow_drop_down,
+      child: KeyedSubtree(
+        key: _fieldKey,
+        child: FormField<T>(
+          initialValue: _selectedItem,
+          validator: widget.validator,
+          builder: (fieldState) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  enabled: widget.enabled ?? true,
+                  decoration:
+                      widget.inputDecoration ??
+                      InputDecoration(
+                        labelText: widget.labelText,
+                        filled: widget.backgroundColor != null,
+                        fillColor: widget.backgroundColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        onPressed: () {
-                          if (_isOverlayOpen) {
-                            _hideOverlay();
-                          } else {
-                            _focusNode.requestFocus();
-                            _showOverlay();
-                          }
-                        },
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isOverlayOpen
+                                ? Icons.arrow_drop_up
+                                : Icons.arrow_drop_down,
+                          ),
+                          onPressed: () {
+                            if (_isOverlayOpen) {
+                              _hideOverlay();
+                            } else {
+                              _focusNode.requestFocus();
+                              _showOverlay();
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                onTap: () {
-                  if (!_isOverlayOpen) _showOverlay();
-                },
-              ),
-              if (fieldState.hasError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 12),
-                  child: Text(
-                    fieldState.errorText!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
+                  onTap: () {
+                    if (!_isOverlayOpen) _showOverlay();
+                  },
                 ),
-            ],
-          );
-        },
+                if (fieldState.hasError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 12),
+                    child: Text(
+                      fieldState.errorText!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
+  }
+}
+
+// ✅ Observes keyboard metric changes and forces overlay to reposition
+class _KeyboardObserver extends WidgetsBindingObserver {
+  final OverlayEntry entry;
+
+  _KeyboardObserver(this.entry);
+
+  @override
+  void didChangeMetrics() {
+    entry.markNeedsBuild();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.removeObserver(this);
+    });
   }
 }

@@ -41,7 +41,8 @@ class TimeSheetPendingDashboard extends StatefulWidget {
 class _TimeSheetPendingDashboard extends State<TimeSheetPendingDashboard>
     with TickerProviderStateMixin {
   // late final Controller controller;
-final controller = Get.find<Controller>();
+    final controller = Get.find<Controller>();
+    
   late final AnimationController _animationController;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
   RxList<LeaveAnalytics> leaveAnalyticsCards = <LeaveAnalytics>[].obs;
@@ -77,6 +78,8 @@ final controller = Get.find<Controller>();
     
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadProfileImage();
+           
       controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
       controller.fetchPendingApprovalsTimeSHeet().then((_) {
@@ -824,8 +827,7 @@ final controller = Get.find<Controller>();
   }
 
   Widget _buildStyledCard(TimesheetModel item, BuildContext context) {
-    final controller = Get.put(Controller());
-    final int id = item.workItemRecId;
+  final controller = Get.find<Controller>();    final int id = item.workItemRecId;
 
     return Obx(() {
       final selectedIds = controller.selectedTimesheetIds;

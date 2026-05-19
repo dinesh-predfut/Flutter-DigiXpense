@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:diginexa/core/constant/url.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/API_Service/apiService.dart'
     show ApiService;
@@ -533,7 +534,7 @@ class ReportModel with ChangeNotifier {
 
   Future<List<dynamic>> fetchDatasetsDropDown() async {
     final url = Uri.parse(
-      '${Urls.baseURL}/api/v1/global/global/datasets?page=1&sort_order=asc',
+      '${Urls.baseURL}/api/v1/global/global/datasets?page=1&sort_order=desc',
     );
 
     try {
@@ -876,8 +877,8 @@ class ReportModel with ChangeNotifier {
       // 2️⃣ Prepare query parameters
       final queryParams = {
         'functionalarea': functionalArea.replaceAll(' ', ''),
-        'from_date': fromDate.millisecondsSinceEpoch.toString(),
-        'to_date': toDate.millisecondsSinceEpoch.toString(),
+        'from_date': toMillisecondsWithTimezone(fromDate),
+        'to_date': toMillisecondsWithTimezone(toDate),
         'sort_by': sortBy ?? '',
         'sort_order': sortOrder ?? '',
       };
@@ -1002,19 +1003,19 @@ _functionalArea = '';
   }
 
   void setFromDate(DateTime date, String formatted) {
-    fromDateMillis = date.millisecondsSinceEpoch;
+    fromDateMillis = toMillisecondsWithTimezone(date);
     fromDateCtrl.text = formatted;
     notifyListeners();
   }
 
   void setToDate(DateTime date, String formatted) {
-    toDateMillis = date.millisecondsSinceEpoch;
+    toDateMillis = toMillisecondsWithTimezone(date);
     toDateCtrl.text = formatted;
     notifyListeners();
   }
 
   void setSortOrder(String value) {
-    sortOrder = value; // value will be 'asc' or 'desc'
+    sortOrder = value; // value will be 'desc' or 'desc'
     notifyListeners();
   }
 

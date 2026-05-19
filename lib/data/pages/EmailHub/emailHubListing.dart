@@ -18,7 +18,7 @@ class EmailHubScreen extends StatefulWidget {
 
 class _EmailHubScreenState extends State<EmailHubScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final controllers = Get.put(Controller());
+  final controllers = Get.find<Controller>();
   List<EmailHubModel> _emails = [];
   List<EmailHubModel> _filteredEmails = [];
   bool _isLoading = true;

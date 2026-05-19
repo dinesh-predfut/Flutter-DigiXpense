@@ -30,7 +30,8 @@ class _PendingApprovalDashboardforPendingState
     with TickerProviderStateMixin {
   // final controllers = Get.put(Controller());
   bool isLoading = false;
-  final controller = Get.put(Controller());
+    final controller = Get.find<Controller>();
+
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
   late final Animation<double> _animation;

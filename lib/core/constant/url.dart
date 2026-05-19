@@ -10,25 +10,25 @@ class Urls {
   static const getPersonalByID =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userjoin/";
   static const countryList =
-      "$baseURL/api/v1/global/global/countries?sort_order=asc&sort_by=CountryName&choosen_fields=CountryCode%2CCountryName";
+      "$baseURL/api/v1/global/global/countries?sort_by=ModifiedDatetime&sort_order=desc&sort_by=CountryName&choosen_fields=CountryCode%2CCountryName";
   static const stateList =
       "$baseURL/api/v1/global/global/states?filter_query=STPStates.Country__eq%3D";
   static const languageList =
-      "$baseURL/api/v1/global/global/globallanguages?page=1&sort_by=LanguageName&sort_order=asc&choosen_fields=LanguageId%2CLanguageName";
+      "$baseURL/api/v1/global/global/globallanguages?page=1&sort_by=LanguageName&sort_order=desc&choosen_fields=LanguageId%2CLanguageName";
   static const correncyDropdown =
-      "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
+      "$baseURL/api/v1/global/globalcurrency/currencyconfigurations?page=1&sort_by=CurrencyName&sort_order=desc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const geconfigureField =
-      "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/expensefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DExpenseRequisition&page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId&lock_id=123&screen_name=expenseconfigure";
       static const geconfigureFieldLeave =
-      "$baseURL/api/v1/masters/fieldmanagement/customfields/leavefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DLeaveRequisition&page=1&sort_order=asc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId";
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/leavefieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DLeaveRequisition&page=1&sort_order=desc&choosen_fields=FieldId%2CFieldName%2CIsEnabled%2CIsMandatory%2CFunctionalArea%2CRecId";
   static const geconfigureFieldCashAdvance =
-      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cashfieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DCashAdvanceRequisition&page=1&sort_order=asc&choosen_fields=FieldId,FieldName,IsEnabled,IsMandatory,FunctionalArea,RecId";
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cashfieldconfigurations?filter_query=STPFieldConfigurations.FunctionalEntity__eq%3DCashAdvanceRequisition&page=1&sort_order=desc&choosen_fields=FieldId,FieldName,IsEnabled,IsMandatory,FunctionalArea,RecId";
   static const defalutPayment =
       "$baseURL/api/v1/masters/taxmanagement/tax/paymentmethods?filter_query=STPPaymentMethods.IsActive__eq%3Dtrue%26STPPaymentMethods.ImportOnly__eq%3Dfalse&page=1&sort_by=PaymentMethodName&sort_order=asc&choosen_fields=PaymentMethodName%2CPaymentMethodId";
   static const timeZoneDropdown =
-      "$baseURL/api/v1/global/global/timezones?page=1&sort_by=TimezoneName&sort_order=asc&choosen_fields=TimezoneId%2CTimezoneName%2CTimezoneCode";
+      "$baseURL/api/v1/global/global/timezones?page=1&sort_by=TimezoneName&sort_order=desc&choosen_fields=TimezoneId%2CTimezoneName%2CTimezoneCode";
   static const locale =
-      "$baseURL/api/v1/global/global/locale?page=1&sort_by=Name&sort_order=asc&choosen_fields=Name%2CCode";
+      "$baseURL/api/v1/global/global/locale?page=1&sort_order=desc&choosen_fields=Name%2CCode";
   static const updateAddressDetails =
       "$baseURL/api/v1/masters/usersandrolesmgmt/user/userjoin?UserId=";
   static const userPreferencesAPI =
@@ -48,11 +48,11 @@ class Urls {
   static const getProjectDropdown =
       "$baseURL/api/v1/expenseregistration/expenseregistration/projectid";
   static const taxGroup =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/taxgroups?filter_query=TAXTaxGroups.IsActive__eq%3Dtrue&page=1&sort_order=asc";
+      "$baseURL/api/v1/expenseregistration/expenseregistration/taxgroups?filter_query=TAXTaxGroups.IsActive__eq%3Dtrue&page=1&sort_order=desc";
   static const unitDropdown =
-      "$baseURL/api/v1/global/global/unitofmeasurements?filter_query=STPUnitOfMeasurements.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=UomId%2CUomName";
+      "$baseURL/api/v1/global/global/unitofmeasurements?filter_query=STPUnitOfMeasurements.IsActive__eq%3Dtrue&page=1&sort_order=desc&choosen_fields=UomId%2CUomName";
   static const currencySymbol =
-      "$baseURL/api/v1/expenseregistration/expenseregistration/currency?filter_query=STPCompanyCurrencies.IsActive__eq%3Dtrue&page=1&sort_order=asc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
+      "$baseURL/api/v1/expenseregistration/expenseregistration/currency?filter_query=STPCompanyCurrencies.IsActive__eq%3Dtrue&page=1&sort_order=desc&choosen_fields=CurrencyCode%2CCurrencyName%2CCurrencySymbol";
   static const expenseCategory =
       "$baseURL/api/v1/expenseregistration/expenseregistration/expensecategory?ProjectId=";
       static const cashAdvanceexpenseCategory =
@@ -110,9 +110,9 @@ class Urls {
   static const autoScanExtract =
       "$baseURL/api/v1/expensemgmt/expenseocr/extract";
   static const dimensionValueDropDown =
-      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=asc";
+      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=desc";
   static const locationDropDown = 
-      "$baseURL/api/v1/perdiemregistration/perdiemregistration/locations?page=1&sort_order=asc";
+      "$baseURL/api/v1/perdiemregistration/perdiemregistration/locations?page=1&sort_order=desc";
   static const perDiemPrefillValue =
       "$baseURL/api/v1/perdiemregistration/perdiemregistration/perdiemrateid?Fromdate=";
   static const perDiemAllocation =
@@ -143,11 +143,11 @@ class Urls {
     static const getUnreadedNotifications = "$baseURL/api/v1/websocket/notifications/";
 
   static const getCustomField =
-      "$baseURL/api/v1/perdiemregistration/perdiemregistration/expensecategorycustomfields?expensetype";
+      "$baseURL/api/v1/masters/fieldmanagement/customfields/customfields?filter_query=STPCustomFields.IsActive__eq%3Dtrue%26STPCustomFields.ObjectName__not_eq%3DExpenseCategories&page=1&sort_order=asc";
   static const getdimensionsDropdownName =
       "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionhierarchiesanddimensionhierarchylines/?passeddate=";
   static const getdimensionsDropdownValue =
-      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=asc";
+      "$baseURL/api/v1/masters/financemgmt/dimensions/dimensions/dimensionvalues?page=1&sort_order=desc";
   static const reviewUpDate =
       "$baseURL/api/v1/mileageregistration/mileageregistration/reviewmileageregistrations?";
   static const reviewexpenseregistration =
@@ -167,7 +167,7 @@ class Urls {
   static const cashAdvanceGetall =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/getcashadvanceheader";
   static const businessJustification =
-      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/businessjustification?filter_query=FINBusinessJustification.IsActive__eq%3DTrue&page=1&sort_order=asc";
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/businessjustification?filter_query=FINBusinessJustification.IsActive__eq%3DTrue&page=1&sort_order=desc";
   static const maxAllowedPercentage =
       "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/maxallowedpercentage?";
   static const getSpecificCashAdvance =
@@ -179,9 +179,9 @@ class Urls {
   static const cashadvanceregistration =
       "$baseURL/api/v1/cashadvancerequisition/cashadvanceregistration/";
   static const cashadvanceGeneralSettings =
-      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=asc";
+      "$baseURL/api/v1/masters/cashadvancemgmt/cashadvance/cshadvancegeneralsettings?page=1&sort_order=desc";
   static const cashadvancerequisition =
-      "$baseURL/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_by=ModifiedDatetime&sort_order=desc";
+      "$baseURL/api/v1/system/system/sequencenumbers?page=1&limit=10000&sort_order=desc";
     static const emailHubList =
         "$baseURL/api/v1/forwardemailmanagement/fetchallemails?filter_query=STPForwordedEmails.CreatedBy__eq%3D";
   static const emailHubGetSpecific =
