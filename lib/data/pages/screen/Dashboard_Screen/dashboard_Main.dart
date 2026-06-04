@@ -3760,7 +3760,7 @@ class PendingApprovalTableWidget extends StatelessWidget {
               controller.searchQuery.value = value.toLowerCase();
             },
             decoration: InputDecoration(
-              hintText: "Search expenses...",
+              hintText: "Search expen...",
               prefixIcon: const Icon(Icons.search, size: 18),
               isDense: true,
               border: OutlineInputBorder(
