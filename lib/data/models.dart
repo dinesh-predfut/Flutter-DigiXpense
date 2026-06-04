@@ -1107,7 +1107,7 @@ class ExpenseCategory {
     required this.itemisationMandatory,
     required this.maxExpenseAmount,
     required this.minExpensesAmount,
-    required this.receiptRequiredLimit,
+    required this.receiptRequiredLimit, 
   });
 
   factory ExpenseCategory.fromJson(Map<String, dynamic> json) {
