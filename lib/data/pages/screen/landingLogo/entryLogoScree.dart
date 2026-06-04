@@ -37,7 +37,7 @@ class _LandingPageState extends State<Logo_Screen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  Images.logo,
+                  'assets/Xpense.png',
                   width: 350, // Adjust size as needed
                   height: 100,
                 ),

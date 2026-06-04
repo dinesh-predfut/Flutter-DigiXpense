@@ -1,13 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart' show MyDrawer;
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
-import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
-import 'package:diginexa/core/comman/widgets/searchDropown.dart';
-import 'package:diginexa/core/constant/Parames/colors.dart';
-import 'package:diginexa/core/constant/Parames/params.dart' show Params;
 import 'package:diginexa/data/models.dart'
     show
         ManageExpensesCard,
@@ -18,9 +13,6 @@ import 'package:diginexa/data/models.dart'
         Employee,
         TimesheetModel,
         TeamAttendance;
-import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/leaveCalenderView.dart';
-import 'package:diginexa/data/pages/screen/Leave_Section/My_Leave/view_CreateLeave.dart';
-import 'package:diginexa/data/pages/screen/TimeSheet/createViewTimeSheet.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +21,6 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
-import 'package:table_calendar/table_calendar.dart';
 
 class MyTeamPunchInOutList extends StatefulWidget {
   const MyTeamPunchInOutList({super.key});
@@ -306,7 +297,7 @@ class _MyTeamPunchInOutList extends State<MyTeamPunchInOutList>
                   child: Padding(
                     padding: const EdgeInsets.only(left: 16.0),
                     child: Text(
-                      AppLocalizations.of(context)!.myTeamAttendance,
+                      AppLocalizations.of(context)!.attendance,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

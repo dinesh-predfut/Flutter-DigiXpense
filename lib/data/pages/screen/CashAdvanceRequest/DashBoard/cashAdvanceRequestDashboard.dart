@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:diginexa/core/comman/Side_Bar/side_bar.dart';
 import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:fluttertoast/fluttertoast.dart' show Fluttertoast;
 import 'package:lottie/lottie.dart';
 import 'package:diginexa/core/comman/widgets/languageDropdown.dart';
@@ -162,7 +163,9 @@ class _CashAdvanceRequestDashboardState
       controller.selectedExpenseType.value = "All Expenses";
       controller.searchControllerCashAdvance.clear();
       controller.fetchUnreadNotifications();
+      controller.getUserPref(context);
       controller.getPersonalDetails(context);
+      loadTimezoneValue();
     });
     // controller.loadProfilePictureFromStorage();
     controller.selectedStatus = "Un Reported";
@@ -202,6 +205,16 @@ class _CashAdvanceRequestDashboardState
 
   void _openMenu() {
     _scaffoldKey.currentState?.openDrawer();
+  }
+
+  Future<void> loadTimezoneValue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? timezoneValue = prefs.getString('defaultTimeZone');
+
+    controller.selectedTimezonevalue.value = timezoneValue!;
+    print(
+      "controller.selectedTimezonevalue.value${controller.selectedTimezonevalue.value}",
+    );
   }
 
   @override
@@ -767,10 +780,16 @@ class _CashAdvanceRequestDashboardState
                   ),
                   Text(
                     item.requestDate != null
-                        ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                        ? DateFormat(
+                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                          ).format(
                             DateTime.fromMillisecondsSinceEpoch(
-                              item.requestDate,isUtc: true
-                              
+                              toStartOfDayUtc(
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  item.requestDate,
+                                  isUtc: true,
+                                ),
+                              ),
                             ),
                           )
                         : 'No date',

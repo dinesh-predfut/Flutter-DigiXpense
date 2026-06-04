@@ -26,24 +26,10 @@ class ReportModel with ChangeNotifier {
   String recID = '';
   String resrecID = '';
   String sortOrder = '';
-  String sortByExpense = '';
   int? fromDateMillis;
   int? toDateMillis;
-  void setSortBy(String value) {
-    sortBy = value;
-    notifyListeners(); // ✅ triggers UI rebuild properly
-  }
-
   // String description.text = '';
   bool showCheckBox = false;
-  bool transData = false;
-  bool documentAttachments = false;
-  bool accountingDistributions = false;
-  bool expenseCategoryCustomFieldValues = false;
-  bool transCustomfieldValues = false;
-  bool headerCustomfieldValues = false;
-  bool workFlowHistory = false;
-  bool activityLog = false;
   String _applicableFor = '';
   String globalOperator = 'AND'; // Global operator between groups
   List<String> groupOperators = ['AND'];
@@ -131,7 +117,7 @@ class ReportModel with ChangeNotifier {
 
   void updateFunctionalArea(String value) {
     _functionalArea = value;
-    print("updateFunctionalArea$value");
+
     final filtered = allDatasets.where((ds) {
       if (ds is! Map<String, dynamic>) return false; // skip invalid entries
       final dsFA = ds['FunctionalArea']?.toString();
@@ -350,18 +336,15 @@ class ReportModel with ChangeNotifier {
 
         if (colType != null && conditionsByType.containsKey(colType)) {
           rule.conditionItems = conditionsByType[colType]!;
-          print(
-            "Set condition items for column $value (type: $colType): ${rule.conditionItems}",
-          );
+          print("colType${rule.conditionItems}");
         } else {
-          // Default to string conditions if type not found
-          rule.conditionItems = conditionsByType['string']!;
-          print("Using default string conditions for column $value");
+          rule.conditionItems = [];
         }
         break;
 
       case 'condition':
         rule.condition = value;
+
         // FIX: Check for correct "In Between" condition
         if (value.toString().trim().toLowerCase() !=
             'in between'.toLowerCase()) {
@@ -379,7 +362,8 @@ class ReportModel with ChangeNotifier {
         }
         break;
     }
-    notifyListeners();
+
+   
   }
 
   void initializeFilterGroups(List<dynamic> metaData) {
@@ -390,54 +374,16 @@ class ReportModel with ChangeNotifier {
       final rules = group['rules'] as List;
       final operator = group['matchType'] as String;
 
-      final filterRules = rules.map((rule) {
-        // Get the column type to properly handle date values
-        final table = rule['selectedTable'] ?? '';
-        final column = rule['selectedField'] ?? '';
-        String singleValue = rule['singleValue'] ?? '';
-        List<String> inBetweenValues =
-            (rule['inBetweenValues'] as List?)?.cast<String>() ?? [];
-        String condition = rule['selectedCondition'] ?? '';
-
-        // Convert condition from API format to display format
-        String displayCondition = _convertApiConditionToDisplay(condition);
-
-        // Get available columns for this table
-        List<String> availableCols = [];
-        List<String> conditionItemsList = [];
-
-        // Get column type from tableColumnTypes if available
-        String colType = tableColumnTypes[table]?[column] ?? 'string';
-
-        // Get available columns from the schema
-        final columns = getColumnsForTableLabelExpens(table);
-        availableCols = columns
-            .map((col) => col['colname'] ?? '')
-            .where((c) => c.isNotEmpty)
-            .toList();
-
-        // Set condition items based on column type
-        if (colType.isNotEmpty && conditionsByType.containsKey(colType)) {
-          conditionItemsList = conditionsByType[colType]!;
-        } else {
-          // Default to string conditions
-          conditionItemsList = conditionsByType['string']!;
-        }
-
-        print(
-          "Initializing rule - Table: $table, Column: $column, Condition: $displayCondition, SingleValue: $singleValue, InBetween: $inBetweenValues, ColType: $colType",
-        );
-
-        return FilterRule(
-          table: table,
-          column: column,
-          condition: displayCondition,
-          value: singleValue,
-          inBetweenValues: inBetweenValues,
-          availableColumns: availableCols,
-          conditionItems: conditionItemsList,
-        );
-      }).toList();
+      final filterRules = rules
+          .map(
+            (rule) => FilterRule(
+              table: rule['selectedTable'],
+              column: rule['selectedField'],
+              condition: rule['selectedCondition'],
+              value: rule['singleValue'],
+            ),
+          )
+          .toList();
 
       filterGroups.add(filterRules);
       groupOperators.add(operator);
@@ -447,98 +393,73 @@ class ReportModel with ChangeNotifier {
       filterGroups.add([]);
       groupOperators.add('AND');
     }
-
     print(
-      "filterGroups initialized: ${jsonEncode(filterGroups.map((group) => group.map((rule) => rule.toJson()).toList()).toList())}",
+      "filterGroups: ${jsonEncode(filterGroups.map((group) => group.map((rule) => rule.toJson()).toList()).toList())}",
     );
-    notifyListeners();
-  }
 
-  // Helper method to convert API condition to display format
-  String _convertApiConditionToDisplay(String apiCondition) {
-    switch (apiCondition) {
-      case 'equal':
-        return 'Equal To';
-      case 'not_equal':
-        return 'Not Equal To';
-      case 'contains':
-        return 'Contains';
-      case 'starts_with':
-        return 'Starts With';
-      case 'ends_with':
-        return 'Ends With';
-      case 'less_than':
-        return 'Less Than';
-      case 'greater_than':
-        return 'Greater Than';
-      case 'less_or_equal':
-        return 'Less Than or Equal';
-      case 'greater_or_equal':
-        return 'Greater Than or Equal';
-      case 'between':
-        return 'In Between';
-      case 'is_empty':
-        return 'Is Empty';
-      case 'is_not_empty':
-        return 'Is Not Empty';
-      default:
-        return 'Equal To';
-    }
+    notifyListeners();
   }
 
   void initializeColumnSelections(dynamic columnChooserData) {
-    selectedCheckbox1.clear();
-    selectedCheckbox2.clear();
 
-    try {
-      if (columnChooserData is List) {
-        for (var item in columnChooserData) {
-          if (item is Map) {
-            final header =
-                (item['header'] as Map?)?.cast<String, dynamic>() ?? {};
+  selectedCheckbox1.clear();
+  selectedCheckbox2.clear();
 
-            final lines =
-                (item['lines'] as Map?)?.cast<String, dynamic>() ?? {};
+  try {
 
-            header.forEach((key, value) {
-              if (value == true) {
-                selectedCheckbox1.add(key);
-              }
-            });
+    if (columnChooserData is List) {
 
-            lines.forEach((key, value) {
-              if (value == true) {
-                selectedCheckbox2.add(key);
-              }
-            });
-          }
+      for (var item in columnChooserData) {
+
+        if (item is Map) {
+
+          final header =
+              (item['header'] as Map?)?.cast<String, dynamic>() ?? {};
+
+          final lines =
+              (item['lines'] as Map?)?.cast<String, dynamic>() ?? {};
+
+          header.forEach((key, value) {
+            if (value == true) {
+              selectedCheckbox1.add(key);
+            }
+          });
+
+          lines.forEach((key, value) {
+            if (value == true) {
+              selectedCheckbox2.add(key);
+            }
+          });
         }
-      } else if (columnChooserData is Map) {
-        final header =
-            (columnChooserData['header'] as Map?)?.cast<String, dynamic>() ??
-            {};
-
-        final lines =
-            (columnChooserData['lines'] as Map?)?.cast<String, dynamic>() ?? {};
-
-        header.forEach((key, value) {
-          if (value == true) {
-            selectedCheckbox1.add(key);
-          }
-        });
-
-        lines.forEach((key, value) {
-          if (value == true) {
-            selectedCheckbox2.add(key);
-          }
-        });
       }
-    } catch (e) {
-      print("Column initialization error: $e");
+
+    } else if (columnChooserData is Map) {
+
+      final header =
+          (columnChooserData['header'] as Map?)?.cast<String, dynamic>() ?? {};
+
+      final lines =
+          (columnChooserData['lines'] as Map?)?.cast<String, dynamic>() ?? {};
+
+      header.forEach((key, value) {
+        if (value == true) {
+          selectedCheckbox1.add(key);
+        }
+      });
+
+      lines.forEach((key, value) {
+        if (value == true) {
+          selectedCheckbox2.add(key);
+        }
+      });
     }
 
-    notifyListeners();
+  } catch (e) {
+    print("Column initialization error: $e");
   }
+
+  notifyListeners();
+}
 
   List<String> _getColumnsForTable(String table) {
     // Implement your logic to get columns for the selected table
@@ -584,11 +505,6 @@ class ReportModel with ChangeNotifier {
     } else if (functionalArea == 'TimeSheet Requisition') {
       return allDatasets
           .where((ds) => ds['FunctionalArea'] == 'TimeSheetRequisition')
-          .cast<Map<String, dynamic>>()
-          .toList();
-    } else if (functionalArea == 'Attendance Requisition') {
-      return allDatasets
-          .where((ds) => ds['FunctionalArea'] == 'AttendanceRequisition')
           .cast<Map<String, dynamic>>()
           .toList();
     }
@@ -818,11 +734,8 @@ class ReportModel with ChangeNotifier {
 
   List<Map<String, String>> getColumnsForTableLabelExpens(String tableName) {
     final normalizedName = tableName.trim().toLowerCase();
-    print(
-      'Looking for TableName: "$tableName" in matchedDatasets (size: ${matchedDatasets.length})',
-    );
+    print('Looking for TableName: "$tableName" in matchedDatasets');
 
-    // Try matchedDatasets first
     for (var dataset in matchedDatasets) {
       if (dataset is! Map<String, dynamic> || !dataset.containsKey('Schema')) {
         continue;
@@ -845,7 +758,7 @@ class ReportModel with ChangeNotifier {
             .toLowerCase();
 
         if (tableNameFromData == normalizedName) {
-          print("Found matching table in matchedDatasets: $tableNameFromData");
+          print("Found matching table: $tableNameFromData");
 
           if (table['Columns'] is! List) return [];
 
@@ -858,12 +771,10 @@ class ReportModel with ChangeNotifier {
                 final label = col['Label']?.toString() ?? '';
                 final type = (col['Type'] ?? '').toString().toLowerCase();
 
+                // Store column type in tableColumnTypes
                 tableColumnTypes.putIfAbsent(tableName, () => {});
                 tableColumnTypes[tableName]![colName] = type;
 
-                print(
-                  "Added column: $colName with type: $type to table: $tableName",
-                );
                 return {'colname': colName, 'label': label};
               })
               .toList();
@@ -873,59 +784,6 @@ class ReportModel with ChangeNotifier {
       }
     }
 
-    // If not found in matchedDatasets, try allDatasets
-    print("Table not found in matchedDatasets, trying allDatasets...");
-    for (var dataset in allDatasets) {
-      if (dataset is! Map<String, dynamic> || !dataset.containsKey('Schema')) {
-        continue;
-      }
-
-      final schema = dataset['Schema'];
-      if (schema is! Map<String, dynamic> || !schema.containsKey('tables')) {
-        continue;
-      }
-
-      final tables = schema['tables'];
-      if (tables is! List) continue;
-
-      for (var table in tables) {
-        if (table is! Map<String, dynamic>) continue;
-
-        final tableNameFromData = (table['TableName'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-
-        if (tableNameFromData == normalizedName) {
-          print("Found matching table in allDatasets: $tableNameFromData");
-
-          if (table['Columns'] is! List) return [];
-
-          final cols = (table['Columns'] as List)
-              .where(
-                (col) => col is Map<String, dynamic> && col['Colname'] != null,
-              )
-              .map((col) {
-                final colName = col['Colname'].toString();
-                final label = col['Label']?.toString() ?? '';
-                final type = (col['Type'] ?? '').toString().toLowerCase();
-
-                tableColumnTypes.putIfAbsent(tableName, () => {});
-                tableColumnTypes[tableName]![colName] = type;
-
-                print(
-                  "Added column: $colName with type: $type to table: $tableName",
-                );
-                return {'colname': colName, 'label': label};
-              })
-              .toList();
-
-          return cols;
-        }
-      }
-    }
-
-    print("Table not found: $tableName");
     return [];
   }
 
@@ -1012,38 +870,16 @@ class ReportModel with ChangeNotifier {
       final DateTime fromDate = fromDateCtrl.text.isNotEmpty
           ? DateFormat('dd-MM-yyyy').parse(fromDateCtrl.text)
           : DateTime.now();
-
       final DateTime toDate = toDateCtrl.text.isNotEmpty
           ? DateFormat('dd-MM-yyyy').parse(toDateCtrl.text)
           : DateTime.now();
 
-      // ✅ FIX: Adjust time boundaries
-      final DateTime fromDateStart = DateTime(
-        fromDate.year,
-        fromDate.month,
-        fromDate.day,
-        0,
-        0,
-        0,
-        0,
-      );
-
-      final DateTime toDateEnd = DateTime(
-        toDate.year,
-        toDate.month,
-        toDate.day,
-        23,
-        59,
-        59,
-        999,
-      );
-
       // 2️⃣ Prepare query parameters
-      final Map<String, String> queryParams = {
+      final queryParams = {
         'functionalarea': functionalArea.replaceAll(' ', ''),
-        'from_date': toMillisecondsWithTimezone(fromDateStart).toString(),
-        'to_date': toMillisecondsWithTimezone(toDateEnd).toString(),
-        'sort_by': sortByExpense ?? '',
+        'from_date': toMillisecondsWithTimezone(fromDate),
+        'to_date': toMillisecondsWithTimezone(toDate),
+        'sort_by': sortBy ?? '',
         'sort_order': sortOrder ?? '',
       };
 
@@ -1114,8 +950,8 @@ class ReportModel with ChangeNotifier {
                 fontSize: 16.0,
               );
               return;
-            } else {
-              clearMISFields();
+            }else{
+              clearMISFields(); 
             }
             // ignore: use_build_context_synchronously
             Navigator.pushNamed(context, AppRoutes.expensePaginationPage);
@@ -1138,32 +974,21 @@ class ReportModel with ChangeNotifier {
       Fluttertoast.showToast(msg: "Something went wrong");
     }
   }
+void clearMISFields() {
+  fromDateCtrl.clear();
+  toDateCtrl.clear();
 
-  void clearMISFields() {
-    fromDateCtrl.clear();
-    toDateCtrl.clear();
-    sortByExpense = '';
-    showCheckBox = false;
-    transData = false;
-    documentAttachments = false;
-    accountingDistributions = false;
-    expenseCategoryCustomFieldValues = false;
-    transCustomfieldValues = false;
-    headerCustomfieldValues = false;
-    workFlowHistory = false;
-    activityLog = false;
-    sortBy = '';
-    sortOrder = '';
-    _functionalArea = '';
-    allDatasets = [];
-    // Clear filter groups
-    filterGroups.clear();
-    groupOperators.clear();
-    tableColumnTypes.clear();
+  sortBy = '';
+  sortOrder = '';
+_functionalArea = '';
 
-    notifyListeners();
-  }
+  // Clear filter groups
+  filterGroups.clear();
+  groupOperators.clear();
+  tableColumnTypes.clear();
 
+  notifyListeners();
+}
   /// 📌 Helper function to save ExpenseIds to local storage
   Future<void> _saveExpenseIds(List<dynamic> expenseList) async {
     List<String> expenseIds = expenseList
@@ -1194,12 +1019,8 @@ class ReportModel with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveReport(
-    BuildContext context, [
-    String? expenseRequisition,
-  ]) async {
+  Future<void> saveReport(BuildContext context, String s) async {
     final List<Map<String, dynamic>> filterGroupsData = [];
-
     for (int i = 0; i < filterGroups.length; i++) {
       final group = filterGroups[i];
       final groupOperator = i < groupOperators.length
@@ -1242,48 +1063,23 @@ class ReportModel with ChangeNotifier {
                 break;
               case 'Greater Than or Equal':
                 apiCondition = 'greater_or_equal';
-                break;
               case 'Is Not Empty':
                 apiCondition = 'is_not_empty';
                 break;
               case 'Is Empty':
                 apiCondition = 'is_empty';
                 break;
-              case 'In Between':
-                apiCondition = 'between';
-                break;
               default:
                 apiCondition = 'equal';
-            }
-
-            // ✅ Get the column type
-            final colType =
-                tableColumnTypes[rule.table]?[rule.column] ?? 'string';
-
-            // ✅ Handle single value vs inBetweenValues
-            String singleValue = '';
-            List<String> inBetweenValues = ['', ''];
-
-            if (rule.condition == 'In Between') {
-              // For "In Between" condition, use inBetweenValues
-              // Ensure dates are in YYYY-MM-DD format (they should already be)
-              inBetweenValues = rule.inBetweenValues.isNotEmpty
-                  ? rule.inBetweenValues
-                  : ['', ''];
-              singleValue = '';
-            } else {
-              // For other conditions, use singleValue
-              singleValue = rule.value ?? '';
-              inBetweenValues = ['', ''];
             }
 
             return {
               'selectedTable': rule.table,
               'selectedField': rule.column,
-              'Type': colType,
+              'Type': _getFieldType(rule.column),
               'selectedCondition': apiCondition,
-              'singleValue': singleValue,
-              'inBetweenValues': inBetweenValues,
+              'singleValue': rule.value,
+              'inBetweenValues': ['', ''],
             };
           }).toList(),
         });
@@ -1336,7 +1132,6 @@ class ReportModel with ChangeNotifier {
       'Cash Advance Requisition': 'CashAdvanceRequisition',
       'Leave Requisition': 'LeaveRequisition',
       'TimeSheet Requisition': 'TimeSheetRequisition',
-      'Attendance Requisition': 'AttendanceRequisition',
     };
     final functionalAreaValue = functionalAreaMap[functionalArea] ?? '';
 
@@ -1369,22 +1164,7 @@ class ReportModel with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 280) {
         final responseData = jsonDecode(response.body);
-        print("ExpenseRequisition$expenseRequisition");
-
-        if (expenseRequisition == "ExpenseRequisition") {
-          Navigator.pushNamed(context, AppRoutes.expensereportsDashboard);
-        } else if (expenseRequisition == "LeaveRequisition") {
-          Navigator.pushNamed(context, AppRoutes.leaveMyReportsDashboard);
-        } else if (expenseRequisition == "CashAdvanceRequisition") {
-          Navigator.pushNamed(context, AppRoutes.cashAdvanceMyReportsDashboard);
-        } else if (expenseRequisition == "TimeSheetRequisition") {
-          Navigator.pushNamed(context, AppRoutes.timeSheetDashboardReports);
-        } else if (expenseRequisition == "AttendanceRequisition") {
-          Navigator.pushNamed(context, AppRoutes.attanceReportDashboards);
-        } else {
-          Navigator.pushNamed(context, AppRoutes.leaveMyReportsDashboard);
-        }
-
+        Navigator.pushNamed(context, AppRoutes.leaveMyReportsDashboard);
         resetForm();
         Fluttertoast.showToast(
           msg: responseData['detail']['message'] ?? 'Report saved successfully',

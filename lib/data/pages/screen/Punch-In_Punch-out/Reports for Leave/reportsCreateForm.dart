@@ -18,12 +18,12 @@ import 'package:http/http.dart' as http;
 import '../../../../../core/constant/url.dart';
 import '../../../../../../l10n/app_localizations.dart';
 
-class LeaveReportCreateScreen extends StatefulWidget {
+class AttendanceReportCreateScreen extends StatefulWidget {
   final Map<String, dynamic>? existingReport;
   final bool isEdit;
   final bool isEditable; // New flag to control editability
 
-  const LeaveReportCreateScreen({
+  const AttendanceReportCreateScreen({
     super.key,
     this.existingReport,
     required this.isEdit,
@@ -31,19 +31,17 @@ class LeaveReportCreateScreen extends StatefulWidget {
   });
 
   @override
-  _LeaveReportCreateScreenState createState() =>
-      _LeaveReportCreateScreenState();
+  _AttendanceRequisitionState createState() => _AttendanceRequisitionState();
 }
 
-class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
+class _AttendanceRequisitionState extends State<AttendanceReportCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _initialized = false;
   bool showCheckBox = false;
   bool isEditableField = false;
   bool isPreviousData = false;
   final controller = Get.find<Controller>();
-    final Map<String, TextEditingController> _dateValueControllers = {};
-
+  final Map<String, TextEditingController> _dateValueControllers = {};
   late final reportModel = Provider.of<ReportModel>(context, listen: false);
   @override
   void initState() {
@@ -58,7 +56,7 @@ class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
         _initializeWithExistingData();
       } else {
         // ✅ Default only for new report
-        reportModel.updateFunctionalArea("Leave Requisition");
+        reportModel.updateFunctionalArea("Attendance Requisition");
         await _fetchDatasets();
       }
     });
@@ -83,6 +81,7 @@ class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
     'CashAdvanceRequisition': 'Cash Advance Requisition',
     'LeaveRequisition': 'Leave Requisition',
     'TimeSheetRequisition': 'TimeSheet Requisition',
+    'AttendanceRequisition': 'Attendance Requisition',
   };
   Future<void> _initializeWithExistingData() async {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
@@ -263,8 +262,8 @@ class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
           title: Text(
             widget.isEdit
                 ? isEditableField
-                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.leave} ${AppLocalizations.of(context)!.reports}'
-                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.leave} ${AppLocalizations.of(context)!.reports}'
+                      ? '${AppLocalizations.of(context)!.edit} ${AppLocalizations.of(context)!.attendance} ${AppLocalizations.of(context)!.reports}'
+                      : '${AppLocalizations.of(context)!.view} ${AppLocalizations.of(context)!.attendance} ${AppLocalizations.of(context)!.reports}'
                 : AppLocalizations.of(context)!.createReport,
           ),
           elevation: 1,
@@ -632,12 +631,14 @@ class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
                                   Navigator.pushNamed(
                                     context,
                                     AppRoutes.reportsAssignUser,
-                                    arguments: {'page': "LeaveRequisition"},
+                                    arguments: {
+                                      'page': "AttendanceRequisition",
+                                    },
                                   );
                                 } else {
                                   await reportModel.saveReport(
                                     context,
-                                    "LeaveRequisition",
+                                    "AttendanceRequisition",
                                   );
                                 }
                               }
@@ -708,6 +709,7 @@ class _LeaveReportCreateScreenState extends State<LeaveReportCreateScreen> {
       enabled: isEditable,
     );
   }
+
 Widget buildValueInputByType({
   required FilterRule rule,
   required int groupIndex,
@@ -1228,6 +1230,7 @@ Widget buildValueInputByType({
     );
   }
 }
+
   Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
     // if (widget.existingReport != null) {
@@ -1354,7 +1357,146 @@ Widget buildValueInputByType({
                             isEditable: isEditableField,
                           ),
 
-                        
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition != "In Between")
+                        //   const SizedBox(height: 16),
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition != "In Between" &&
+                        //     rule.condition != "Is Not Empty" &&
+                        //     rule.condition != "Is Empty")
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.value,
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.value,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterValueToMatch,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (value) {
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'value',
+                        //           value,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        // if (rule.condition.isNotEmpty &&
+                        //     rule.condition == "In Between") ...[
+                        //   const SizedBox(height: 12),
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.inBetweenValues.isNotEmpty
+                        //           ? rule.inBetweenValues[0]
+                        //           : '',
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.from,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterStartingValue,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (val) {
+                        //         var list = [...rule.inBetweenValues];
+                        //         if (list.length < 2) list = ['', ''];
+                        //         list[0] = val;
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'inBetweenValues',
+                        //           list,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        //   const SizedBox(height: 12),
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: TextFormField(
+                        //       initialValue: rule.inBetweenValues.length > 1
+                        //           ? rule.inBetweenValues[1]
+                        //           : '',
+                        //       decoration: InputDecoration(
+                        //         labelText: AppLocalizations.of(context)!.to,
+                        //         hintText: AppLocalizations.of(
+                        //           context,
+                        //         )!.enterEndingValue,
+                        //         border: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //         ),
+                        //         enabledBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: const BorderSide(
+                        //             color: Colors.grey,
+                        //           ),
+                        //         ),
+                        //         focusedBorder: OutlineInputBorder(
+                        //           borderRadius: BorderRadius.circular(12),
+                        //           borderSide: BorderSide(
+                        //             color: Colors.blue.shade400,
+                        //           ),
+                        //         ),
+                        //         contentPadding: const EdgeInsets.symmetric(
+                        //           horizontal: 12,
+                        //           vertical: 14,
+                        //         ),
+                        //       ),
+                        //       onChanged: (val) {
+                        //         var list = [...rule.inBetweenValues];
+                        //         if (list.length < 2) list = ['', ''];
+                        //         list[1] = val;
+                        //         reportModel.updateFilterRule(
+                        //           groupIndex,
+                        //           ruleIndex,
+                        //           'inBetweenValues',
+                        //           list,
+                        //         );
+                        //       },
+                        //     ),
+                        //   ),
+                        // Replace this block in _buildFilterRuleCard:
+                        // if (rule.condition.isNotEmpty && rule.condition != "In Between" && ...)
                         if (rule.condition.isNotEmpty ) ...[
                           const SizedBox(height: 16),
                           buildValueInputByType(
@@ -1362,9 +1504,38 @@ Widget buildValueInputByType({
                             groupIndex: groupIndex,
                             ruleIndex: ruleIndex,
                           ),
-                         
+                        ],
+                        // ],
+                        // const SizedBox(height: 12),
+                        if (isEditableField)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              label: Text(
+                                AppLocalizations.of(context)!.removeRule,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              onPressed: () {
+                                reportModel.removeFilterRuleFromGroup(
+                                  groupIndex,
+                                  ruleIndex,
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
-          ]),
+                    ),
                   ),
                 );
               },
@@ -1398,7 +1569,7 @@ class CustomDropdown extends StatelessWidget {
     // Add debug print to check items
     print("CustomDropdown - $labelText items: ${items.length}");
     print("CustomDropdown - $labelText isEditable: $isEditable");
-    
+
     return TextFormField(
       decoration: InputDecoration(
         labelText: labelText,
@@ -1421,7 +1592,7 @@ class CustomDropdown extends StatelessWidget {
 
   void _showPopupMenu(BuildContext context) {
     print("Showing popup menu - items: ${items.length}");
-    
+
     if (items.isEmpty) {
       print("Items is empty, cannot show popup");
       // Show a snackbar to inform user
@@ -1430,9 +1601,10 @@ class CustomDropdown extends StatelessWidget {
       );
       return;
     }
-    
+
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final Offset position = button.localToGlobal(
       Offset.zero,
       ancestor: overlay,
@@ -1440,36 +1612,35 @@ class CustomDropdown extends StatelessWidget {
     final double y = position.dy + button.size.height;
 
     showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromPoints(
-          Offset(position.dx, y),
-          Offset(position.dx + button.size.width, y + 1),
-        ),
-        Offset.zero & overlay.size,
-      ),
-      items: items
-          .map((item) => PopupMenuItem(
-                value: item, 
-                child: Text(item),
-              ))
-          .toList(),
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      constraints: BoxConstraints(
-        maxHeight: 200, 
-        minWidth: button.size.width,
-      ),
-    ).then((selectedValue) {
-      if (selectedValue != null && onChanged != null) {
-        print("Selected value: $selectedValue");
-        onChanged!(selectedValue);
-      }
-    }).catchError((error) {
-      print("Error showing popup: $error");
-    });
+          context: context,
+          position: RelativeRect.fromRect(
+            Rect.fromPoints(
+              Offset(position.dx, y),
+              Offset(position.dx + button.size.width, y + 1),
+            ),
+            Offset.zero & overlay.size,
+          ),
+          items: items
+              .map((item) => PopupMenuItem(value: item, child: Text(item)))
+              .toList(),
+          elevation: 8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          constraints: BoxConstraints(
+            maxHeight: 200,
+            minWidth: button.size.width,
+          ),
+        )
+        .then((selectedValue) {
+          if (selectedValue != null && onChanged != null) {
+            print("Selected value: $selectedValue");
+            onChanged!(selectedValue);
+          }
+        })
+        .catchError((error) {
+          print("Error showing popup: $error");
+        });
   }
 }
 
@@ -1616,6 +1787,14 @@ class _CompactColumnSelectorState extends State<CompactColumnSelector> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Filter out invalid items
+    final validColumns = widget.columns.where((col) {
+      if (col is! Map) return false;
+      final colname = col['Colname'];
+      final label = col['Label'];
+      return colname != null && label != null && colname.toString().isNotEmpty;
+    }).toList();
+
     return Stack(
       children: [
         /// ✅ Card Background
@@ -1641,78 +1820,93 @@ class _CompactColumnSelectorState extends State<CompactColumnSelector> {
               /// ✅ Scrollable List
               SizedBox(
                 height: 200,
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: widget.columns.length,
-                    itemBuilder: (ctx, index) {
-                      final col = widget.columns[index];
-                      final colname = col['Colname'] as String;
-                      final label = col['Label'] as String;
-                      final isSelected = widget.selectedColumns.contains(
-                        colname,
-                      );
+                child: validColumns.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No valid columns available',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: validColumns.length,
+                          itemBuilder: (ctx, index) {
+                            final col = validColumns[index];
+                            // Safe cast with null checks
+                            final colname = col['Colname']?.toString() ?? '';
+                            final label = col['Label']?.toString() ?? colname;
+                            final isSelected = widget.selectedColumns.contains(
+                              colname,
+                            );
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? theme.colorScheme.primary.withOpacity(0.08)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                            // Skip if no valid column name
+                            if (colname.isEmpty) return const SizedBox.shrink();
+
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? theme.colorScheme.primary.withOpacity(
+                                        0.08,
+                                      )
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: CheckboxListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                title: Text(
+                                  label,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                value: isSelected,
+                                onChanged:
+                                    widget.isEditable && widget.onToggle != null
+                                    ? (_) => widget.onToggle!(colname)
+                                    : null,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                              ),
+                            );
+                          },
                         ),
-                        child: CheckboxListTile(
-                          dense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                          ),
-                          title: Text(
-                            label,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          value: isSelected,
-                          onChanged:
-                              widget.isEditable && widget.onToggle != null
-                              ? (_) => widget.onToggle!(colname)
-                              : null,
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                      ),
               ),
             ],
           ),
         ),
 
         /// ✅ Scroll Toggle Button (Right Bottom)
-        Positioned(
-          right: 6,
-          bottom: 6,
-          child: Material(
-            elevation: 4,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _scrollToggle,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primary,
-                ),
-                child: Icon(
-                  _isAtBottom ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: Colors.white,
-                  size: 18,
+        if (validColumns.isNotEmpty)
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: Material(
+              elevation: 4,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _scrollToggle,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: theme.colorScheme.primary,
+                  ),
+                  child: Icon(
+                    _isAtBottom ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

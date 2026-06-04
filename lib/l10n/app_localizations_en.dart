@@ -77,12 +77,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectDateFormat => 'Default Date Format';
   @override
   String get cancel => 'Cancel';
-  @override String get emailsForReceiptForwarding => 'Emails For Receipt Forwarding';
-  @override String get example => 'Example';
-@override String get onlyLettersAndNumbers => 'Only letters and numbers are allowed';
-@override String get zipMustIncludeNumber => 'ZIP code must include at least one number';
-@override String get noMatchingStates => 'No matching states';
-@override String get invalidPhoneNumber => 'Invalid phone number';
+  @override
+  String get emailsForReceiptForwarding => 'Emails For Receipt Forwarding';
+  @override
+  String get example => 'Example';
+  @override
+  String get onlyLettersAndNumbers => 'Only letters and numbers are allowed';
+  @override
+  String get zipMustIncludeNumber =>
+      'ZIP code must include at least one number';
+  @override
+  String get noMatchingStates => 'No matching states';
+  @override
+  String get invalidPhoneNumber => 'Invalid phone number';
   @override
   String get submit => 'Submit';
   @override
@@ -100,7 +107,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dashboard => 'Dashboard';
   @override
-  String get punchInOut => 'Punch In/Out';
+  String get punchInOut => 'Punch Out';
 
   @override
   String get punchInOutList => 'Punch In/Out List';
@@ -590,8 +597,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cropImage => 'Crop Image';
   @override
   String get referenceId => 'Reference Id';
-  @override String get reason => 'Reason';
-  @override String get add => 'Add';
+  @override
+  String get reason => 'Reason';
+  @override
+  String get add => 'Add';
   @override
   String get reliever => 'Reliever';
   @override
@@ -896,7 +905,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cashAdvanceRequestForm => 'Cash Advance Request Form';
   @override
-  String get requestedPercentage => 'Line Requested Percentage';
+  String get requestedPercentage => ' Requested Percentage';
+  @override
+  String get attendance => 'Attendance';
   @override
   String get unitEstimatedAmount => 'Unit Estimated Amount';
   @override

@@ -160,6 +160,8 @@ abstract class AppLocalizations {
   String get punchInOut;
   String get punchInOutList;
   String get myTeamAttendance;
+    String get attendance;
+
   String get timesheets;
   String get myTeamTimesheets;
   String get payroll;

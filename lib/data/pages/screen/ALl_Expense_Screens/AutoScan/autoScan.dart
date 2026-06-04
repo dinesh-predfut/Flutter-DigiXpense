@@ -101,9 +101,9 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       controller.fetchUnit();
       controller.fetchExpenseCategory();
       _loadSettings();
-        if (widget.apiResponse == null) {
-          controller.getUserPref(context);
-        }
+      if (widget.apiResponse == null) {
+        controller.getUserPref(context);
+      }
       // controller.getUserPref(context);
 
       controller.fetchPaidwith();
@@ -128,7 +128,7 @@ class _AutoScanExpensePageState extends State<AutoScanExpensePage> {
       });
     } else {
       receiptDateController.text = DateFormat(
-       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
       ).format(DateTime.now());
     }
 
@@ -208,68 +208,70 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
     try {
       controller.isImageLoading.value = true;
 
-        final result = await FilePicker.platform.pickFiles(
-          allowMultiple: true,
-          type: FileType.custom,
-           allowedExtensions: controller.allowedExtensions,
-        );
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: controller.allowedExtensions,
+      );
 
-        if (result == null) return;
+      if (result == null) return;
 
-        for (final pickedFile in result.files) {
-          if (pickedFile.path == null) continue;
+      for (final pickedFile in result.files) {
+        if (pickedFile.path == null) continue;
 
-          File file = File(pickedFile.path!);
-          final ext = pickedFile.extension?.toLowerCase();
+        File file = File(pickedFile.path!);
+        final ext = pickedFile.extension?.toLowerCase();
 
-          if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
-            final croppedFile = await _cropImage(file);
-            if (croppedFile != null) {
-              final croppedImage = File(croppedFile.path);
-              final compressedImage = await _compressImage(croppedImage); // ✅ Compress after crop
-              await _processSelectedFile(compressedImage ?? croppedImage);
-            }
-          } else {
-            await _processSelectedFile(file);
+        if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') {
+          final croppedFile = await _cropImage(file);
+          if (croppedFile != null) {
+            final croppedImage = File(croppedFile.path);
+            final compressedImage = await _compressImage(
+              croppedImage,
+            ); // ✅ Compress after crop
+            await _processSelectedFile(compressedImage ?? croppedImage);
           }
+        } else {
+          await _processSelectedFile(file);
         }
-      } catch (e) {
-        debugPrint("❌ File pick error: $e");
-      } finally {
-        controller.isImageLoading.value = false;
       }
+    } catch (e) {
+      debugPrint("❌ File pick error: $e");
+    } finally {
+      controller.isImageLoading.value = false;
     }
+  }
 
-    /// Compresses the image and returns a new [File], or null on failure.
-    Future<File?> _compressImage(File file) async {
-      try {
-        final dir = await getTemporaryDirectory();
-        final targetPath =
-            '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_compressed.jpg';
+  /// Compresses the image and returns a new [File], or null on failure.
+  Future<File?> _compressImage(File file) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final targetPath =
+          '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_compressed.jpg';
 
-        final compressedFile = await FlutterImageCompress.compressAndGetFile(
-          file.absolute.path,
-          targetPath,
-          quality: 70,        // 0–100 — lower = smaller file
-          minWidth: 1024,     // max width in px
-          minHeight: 1024,    // max height in px
-          format: CompressFormat.jpeg,
-        );
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70, // 0–100 — lower = smaller file
+        minWidth: 1024, // max width in px
+        minHeight: 1024, // max height in px
+        format: CompressFormat.jpeg,
+      );
 
-        if (compressedFile == null) return null;
+      if (compressedFile == null) return null;
 
-        final originalSize = await file.length();
-        final compressedSize = await compressedFile.length();
-        debugPrint(
-          '🗜️ Compressed: ${_formatBytes(originalSize)} → ${_formatBytes(compressedSize)}',
-        );
+      final originalSize = await file.length();
+      final compressedSize = await compressedFile.length();
+      debugPrint(
+        '🗜️ Compressed: ${_formatBytes(originalSize)} → ${_formatBytes(compressedSize)}',
+      );
 
-        return File(compressedFile.path);
-      } catch (e) {
-        debugPrint('❌ Compression error: $e');
-        return null;
-      }
+      return File(compressedFile.path);
+    } catch (e) {
+      debugPrint('❌ Compression error: $e');
+      return null;
     }
+  }
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -351,10 +353,12 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
   void _initializeFormFromApiResponse() {
     final receiptTimestamp = widget.apiResponse?['ReceiptDate'];
     final date = (receiptTimestamp != null && receiptTimestamp != 0)
-        ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp,isUtc: true)
+        ? DateTime.fromMillisecondsSinceEpoch(receiptTimestamp, isUtc: true)
         : DateTime.now();
 
-    receiptDateController.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(date);
+    receiptDateController.text = DateFormat(
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(date);
 
     controller.selectedDate = date;
     controller.isManualEntryMerchant = true;
@@ -496,7 +500,7 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
       controller.finalItems.add(
         ExpenseItem(
           expenseCategoryId: item.categoryController.text.trim(),
-          discount: 0,
+
           quantity: double.tryParse(item.quantityController.text) ?? 0,
           uomId: item.uomIdController.text.trim(),
           unitPriceTrans: double.tryParse(item.unitPriceController.text) ?? 0,
@@ -817,7 +821,7 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate = DateFormat(
-                       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       initialDate = DateTime.now();
@@ -832,7 +836,9 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
+                    controllers.text = DateFormat(
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                    ).format(picked);
                     controller.selectedDate = picked;
                   }
                 },
@@ -1340,7 +1346,6 @@ void _loadCategoryCustomFields(ExpenseCategory category, Controller targetContro
                         ),
 
                         // ── Cash Advance ──────────────────────────────────
-                     
                         if (allowCashAd)
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

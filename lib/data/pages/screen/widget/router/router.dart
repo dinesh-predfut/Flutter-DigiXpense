@@ -43,6 +43,8 @@ import 'package:diginexa/data/pages/screen/Notification/notification.dart';
 import 'package:diginexa/data/pages/screen/Payroll/allpaySlipDashboard.dart';
 import 'package:diginexa/data/pages/screen/Payroll/myPaySlips.dart';
 import 'package:diginexa/data/pages/screen/Profile/personalDetail.dart';
+import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/Reports%20for%20Leave/reportsCreateForm.dart';
+import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/Reports%20for%20Leave/reportsdashboard.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/createPunchIn-out.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/listPunchIn-Out.dart';
 import 'package:diginexa/data/pages/screen/Punch-In_Punch-out/myTeamPunchIn-Out.dart';
@@ -97,6 +99,7 @@ class AppRoutes {
   static const String getSpecificExpense = '/expense/getSpecificExpense/view';
   static const String unProcessExpense = '/expense/unProcessExpense/view';
   static const String externalApprovals = '/expense/externalApprovals/view';
+  static const String attanceReportDashboards = '/expense/attenceReportDashboard/view';
 
   static const String getSpecificCashAdvanseView =
       '/expense/getSpecificCashAdvanseView/view';
@@ -149,6 +152,8 @@ class AppRoutes {
       '/expense/expensereportCreateScreen/expensereportCreateScreen';
   static const String leaveReportCreateScreen =
       '/expense/LeaveReportCreateScreen/LeaveReportCreateScreen';
+       static const String attendanceReportCreateScreen =
+      '/expense/attendanceReportCreateScreen/attendanceReportCreateScreen';
   static const String timeSheetsReportCreateScreen =
       '/expense/timeSheetsReportCreateScreen/timeSheetsReportCreateScreen';
   static const String cashAdvancereportCreateScreen =
@@ -268,6 +273,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => ReportWizardParent());
       case expenseMIS:
         return MaterialPageRoute(builder: (_) => ExpenseReportWizardParent());
+          case reportWizardParent:
+        return MaterialPageRoute(builder: (_) => ReportWizardParent());
+      case attanceReportDashboards:
+        return MaterialPageRoute(builder: (_) => AttendanceReportDashbard());
       case cashAdvanceMISReports:
         return MaterialPageRoute(builder: (_) => CashAdvanceMISReports());
       case leaveMISReports:
@@ -330,6 +339,10 @@ class AppRoutes {
       case leaveReportCreateScreen:
         return MaterialPageRoute(
           builder: (_) => const LeaveReportCreateScreen(isEdit: false),
+        );
+        case attendanceReportCreateScreen:
+        return MaterialPageRoute(
+          builder: (_) => const AttendanceReportCreateScreen(isEdit: false),
         );
       case timeSheetsReportCreateScreen:
         return MaterialPageRoute(

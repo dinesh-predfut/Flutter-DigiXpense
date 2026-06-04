@@ -73,42 +73,72 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
     'TimeSheetRequisition': 'TimeSheet Requisition',
   };
   Future<void> _initializeWithExistingData() async {
-    final reportModel = Provider.of<ReportModel>(context, listen: false);
-    final report = widget.existingReport is List
-        ? (widget.existingReport as List).first
-        : widget.existingReport;
-    reportModel.resrecID = report['RecId'].toString();
-    reportModel.updateReportName(report['Name'] ?? '');
-    reportModel.updateFunctionalArea(
-      functionalAreaDisplayMap[report?['FunctionalArea']] ??
-          'Expense Requisition',
-    );
-    final recId = report['RecId'].toString();
-    reportModel.updateDataSet(recId);
-    _loadDatasets();
-    if (!showCheckBox) {
-      reportModel.addFilterRuleToGroup(0);
-    }
-    reportModel.updateDataSet(report?['DataSet']?.toString() ?? '');
-    reportModel.updateDescription(report?['Description'] ?? '');
-    reportModel.updateTags(report?['AvailableFor'] ?? '');
-    reportModel.updateApplicableFor(report?['ReportAvailability'] ?? 'Public');
+  final reportModel = Provider.of<ReportModel>(context, listen: false);
+  final report = widget.existingReport is List
+      ? (widget.existingReport as List).first
+      : widget.existingReport;
 
-    await _fetchDatasets();
-    final metaData = report['ReportMetaData'];
-    reportModel.initializeFilterGroups(metaData);
+  reportModel.resrecID = report['RecId'].toString();
+  reportModel.updateReportName(report['Name'] ?? '');
+  reportModel.updateFunctionalArea(
+    functionalAreaDisplayMap[report?['FunctionalArea']] ??
+        'Cash Advance Requisition',
+  );
 
-    final columnChooser = report['ColumnChooser'];
-    if (columnChooser is List) {
-      reportModel.initializeColumnSelections(columnChooser);
-    } else {
-      reportModel.initializeColumnSelections([columnChooser]);
-    }
-
-    setState(() {
-      showCheckBox = true;
-    });
+  // First, fetch datasets and populate matchedDatasets
+  await _fetchDatasets();
+  
+  // Set the dataset ID and load the specific dataset
+  final dataSetId = report?['DataSet']?.toString() ?? '';
+  reportModel.updateDataSet(dataSetId);
+  
+  // Load datasets to populate matchedDatasets and tableLabels
+  await _loadDatasets();
+  
+  if (!showCheckBox) {
+    reportModel.addFilterRuleToGroup(0);
   }
+
+  reportModel.updateDescription(report?['Description'] ?? '');
+  reportModel.updateTags(report?['AvailableFor'] ?? '');
+  reportModel.updateApplicableFor(report?['ReportAvailability'] ?? 'Public');
+
+  final metaData = report['ReportMetaData'];
+
+  // ✅ Populate tableColumnTypes and tableLabels before initializing filter groups
+  if (metaData != null && metaData is List) {
+    for (var group in metaData) {
+      final rules = group['rules'] as List;
+      for (var rule in rules) {
+        final table = rule['selectedTable'];
+        if (table != null && table.isNotEmpty) {
+          // This will populate tableColumnTypes
+          final columns = reportModel.getColumnsForTableLabelExpens(table);
+          print("Fetched columns for table $table: ${columns.length}");
+          
+          // Also add table to tableLabels if not already there
+          if (!reportModel.tableLabels.contains(table)) {
+            reportModel.tableLabels.add(table);
+          }
+        }
+      }
+    }
+  }
+
+  // Now initialize filter groups with populated data
+  reportModel.initializeFilterGroups(metaData);
+
+  final columnChooser = report['ColumnChooser'];
+  if (columnChooser is List) {
+    reportModel.initializeColumnSelections(columnChooser);
+  } else {
+    reportModel.initializeColumnSelections([columnChooser]);
+  }
+
+  setState(() {
+    showCheckBox = true;
+  });
+}
 
   Future<void> _fetchDatasets() async {
     final reportModel = Provider.of<ReportModel>(context, listen: false);

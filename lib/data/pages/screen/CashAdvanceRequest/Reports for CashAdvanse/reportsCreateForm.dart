@@ -42,6 +42,8 @@ class _CashAdvanceReportCreateScreenState
   bool isEditableField = false;
   bool isPreviousData = false;
   final controller = Get.find<Controller>();
+  final Map<String, TextEditingController> _dateValueControllers = {};
+
   late final reportModel = Provider.of<ReportModel>(context, listen: false);
   @override
   void initState() {
@@ -91,25 +93,59 @@ class _CashAdvanceReportCreateScreenState
     final report = widget.existingReport is List
         ? (widget.existingReport as List).first
         : widget.existingReport;
+
     reportModel.resrecID = report['RecId'].toString();
     reportModel.updateReportName(report['Name'] ?? '');
     reportModel.updateFunctionalArea(
       functionalAreaDisplayMap[report?['FunctionalArea']] ??
-          'Expense Requisition',
+          'Cash Advance Requisition',
     );
-    final recId = report['RecId'].toString();
-    reportModel.updateDataSet(recId);
-    _loadDatasets();
+
+    // First, fetch datasets and populate matchedDatasets
+    await _fetchDatasets();
+
+    // Set the dataset ID and load the specific dataset
+    final dataSetId = report?['DataSet']?.toString() ?? '';
+    reportModel.updateDataSet(dataSetId);
+
+    // IMPORTANT: Load datasets to populate matchedDatasets and tableLabels
+    await _loadDatasets();
+
+    // Now populate tableLabels from matchedDatasets
+    // The finedRecIdValuefunction already populates tableLabels, but we need to ensure it's called
+    // with the correct data. _loadDatasets calls finedRecIdValuefunction internally.
+
     if (!showCheckBox) {
       reportModel.addFilterRuleToGroup(0);
     }
-    reportModel.updateDataSet(report?['DataSet']?.toString() ?? '');
+
     reportModel.updateDescription(report?['Description'] ?? '');
     reportModel.updateTags(report?['AvailableFor'] ?? '');
     reportModel.updateApplicableFor(report?['ReportAvailability'] ?? 'Public');
 
-    await _fetchDatasets();
     final metaData = report['ReportMetaData'];
+
+    // ✅ IMPORTANT: Populate tableColumnTypes and tableLabels before initializing filter groups
+    if (metaData != null && metaData is List) {
+      for (var group in metaData) {
+        final rules = group['rules'] as List;
+        for (var rule in rules) {
+          final table = rule['selectedTable'];
+          if (table != null && table.isNotEmpty) {
+            // This will populate tableColumnTypes
+            final columns = reportModel.getColumnsForTableLabelExpens(table);
+            print("Fetched columns for table $table: ${columns.length}");
+
+            // Also add table to tableLabels if not already there
+            if (!reportModel.tableLabels.contains(table)) {
+              reportModel.tableLabels.add(table);
+            }
+          }
+        }
+      }
+    }
+
+    // Now initialize filter groups with populated data
     reportModel.initializeFilterGroups(metaData);
 
     final columnChooser = report['ColumnChooser'];
@@ -144,12 +180,14 @@ class _CashAdvanceReportCreateScreenState
   }
 
   Future<void> _loadDatasets() async {
-    if (!isEditableField) return; // Don't load if not editable
+    if (!isEditableField && widget.existingReport == null) return;
 
     final reportModel = Provider.of<ReportModel>(context, listen: false);
     try {
       final data = await reportModel.fetchDatasetsDropDown();
+      print("Fetched datasets count: ${data.length}");
       reportModel.finedRecIdValuefunction(data);
+      print("Table labels after load: ${reportModel.tableLabels}");
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -278,9 +316,9 @@ class _CashAdvanceReportCreateScreenState
                 return IconButton(
                   icon: Icon(
                     controller.isEnable.value
-                        ? Icons
-                              .remove_red_eye // View mode
-                        : Icons.edit_document, // Edit mode
+                        ? // View mode
+                          Icons.edit_document
+                        : Icons.remove_red_eye, // Edit mode
                   ),
                   onPressed: () {
                     controller.isEnable.value = !controller.isEnable.value;
@@ -636,7 +674,9 @@ class _CashAdvanceReportCreateScreenState
                                   Navigator.pushNamed(
                                     context,
                                     AppRoutes.reportsAssignUser,
-                                     arguments: {'page': "CashAdvanceRequisition"},
+                                    arguments: {
+                                      'page': "CashAdvanceRequisition",
+                                    },
                                   );
                                 } else {
                                   await reportModel.saveReport(
@@ -713,16 +753,604 @@ class _CashAdvanceReportCreateScreenState
     );
   }
 
-  Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
+  Widget buildValueInputByType({
+    required FilterRule rule,
+    required int groupIndex,
+    required int ruleIndex,
+  }) {
     final reportModel = Provider.of<ReportModel>(context, listen: false);
-    if (widget.existingReport != null) {
-      reportModel.selectTableForFilterAppendData(
-        groupIndex,
-        ruleIndex,
-        rule.table,
-        rule.column,
+
+    // ✅ Get column type from tableColumnTypes map
+    final colType =
+        reportModel.tableColumnTypes[rule.table]?[rule.column]?.toLowerCase() ??
+        'string';
+
+    // ✅ Check if condition is "In Between"
+    final isInBetween = rule.condition.toLowerCase() == 'in between';
+
+    // ✅ DATE type → show date picker
+    if (colType == 'date') {
+      // ✅ Unique keys for controllers
+      final fromControllerKey = '$groupIndex-$ruleIndex-from';
+      final toControllerKey = '$groupIndex-$ruleIndex-to';
+
+      if (!_dateValueControllers.containsKey(fromControllerKey)) {
+        _dateValueControllers[fromControllerKey] = TextEditingController();
+      }
+      if (!_dateValueControllers.containsKey(toControllerKey)) {
+        _dateValueControllers[toControllerKey] = TextEditingController();
+      }
+
+      final fromDateCtrl = _dateValueControllers[fromControllerKey]!;
+      final toDateCtrl = _dateValueControllers[toControllerKey]!;
+
+      // ✅ Convert YYYY-MM-DD to formatted display date (DD/MM/YYYY)
+      String formatDisplayDate(String yyyyMmDd) {
+        if (yyyyMmDd.isEmpty) return '';
+        try {
+          final parts = yyyyMmDd.split('-');
+          if (parts.length == 3) {
+            return '${parts[2]}/${parts[1]}/${parts[0]}';
+          }
+          return yyyyMmDd;
+        } catch (_) {
+          return yyyyMmDd;
+        }
+      }
+
+      // ✅ Convert display date (DD/MM/YYYY) to YYYY-MM-DD for storage
+      String convertToYyyyMmDd(String displayDate) {
+        if (displayDate.isEmpty) return '';
+        try {
+          final parts = displayDate.split('/');
+          if (parts.length == 3) {
+            final year = int.parse(parts[2]);
+            final month = int.parse(parts[1]);
+            final day = int.parse(parts[0]);
+            return '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+          }
+          return displayDate;
+        } catch (_) {
+          return displayDate;
+        }
+      }
+
+      // ✅ Update from date display
+      if (isInBetween) {
+        // In Between mode - show two date pickers
+        final fromValue = rule.inBetweenValues.isNotEmpty
+            ? rule.inBetweenValues[0]
+            : '';
+        final toValue = rule.inBetweenValues.length > 1
+            ? rule.inBetweenValues[1]
+            : '';
+
+        if (fromValue.isNotEmpty) {
+          final formatted = formatDisplayDate(fromValue);
+          if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
+        } else {
+          if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
+        }
+
+        if (toValue.isNotEmpty) {
+          final formatted = formatDisplayDate(toValue);
+          if (toDateCtrl.text != formatted) toDateCtrl.text = formatted;
+        } else {
+          if (toDateCtrl.text.isNotEmpty) toDateCtrl.clear();
+        }
+
+        return Column(
+          children: [
+            // From Date
+            GestureDetector(
+              onTap: isEditableField
+                  ? () async {
+                      DateTime initialDate = DateTime.now();
+                      if (fromValue.isNotEmpty) {
+                        try {
+                          final parts = fromValue.split('-');
+                          if (parts.length == 3) {
+                            initialDate = DateTime(
+                              int.parse(parts[0]),
+                              int.parse(parts[1]),
+                              int.parse(parts[2]),
+                            );
+                          }
+                        } catch (_) {}
+                      }
+
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: initialDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+
+                      if (picked != null) {
+                        // ✅ Store as YYYY-MM-DD
+                        final yyyyMmDd =
+                            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                        final formatted =
+                            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+
+                        fromDateCtrl.text = formatted;
+
+                        final updatedValues = [...rule.inBetweenValues];
+                        if (updatedValues.isEmpty) updatedValues.add('');
+                        if (updatedValues.length < 2) updatedValues.add('');
+                        updatedValues[0] = yyyyMmDd;
+
+                        reportModel.updateFilterRule(
+                          groupIndex,
+                          ruleIndex,
+                          'inBetweenValues',
+                          updatedValues,
+                        );
+                      }
+                    }
+                  : null,
+              child: AbsorbPointer(
+                child: TextFormField(
+                  controller: fromDateCtrl,
+                  readOnly: true,
+                  enabled: isEditableField,
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.from,
+                    hintText: 'Select from date',
+                    suffixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // To Date
+            GestureDetector(
+              onTap: isEditableField
+                  ? () async {
+                      DateTime initialDate = DateTime.now();
+                      if (toValue.isNotEmpty) {
+                        try {
+                          final parts = toValue.split('-');
+                          if (parts.length == 3) {
+                            initialDate = DateTime(
+                              int.parse(parts[0]),
+                              int.parse(parts[1]),
+                              int.parse(parts[2]),
+                            );
+                          }
+                        } catch (_) {}
+                      }
+
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: initialDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+
+                      if (picked != null) {
+                        // ✅ Store as YYYY-MM-DD
+                        final yyyyMmDd =
+                            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                        final formatted =
+                            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+
+                        toDateCtrl.text = formatted;
+
+                        final updatedValues = [...rule.inBetweenValues];
+                        if (updatedValues.isEmpty) updatedValues.add('');
+                        if (updatedValues.length < 2) updatedValues.add('');
+                        updatedValues[1] = yyyyMmDd;
+
+                        reportModel.updateFilterRule(
+                          groupIndex,
+                          ruleIndex,
+                          'inBetweenValues',
+                          updatedValues,
+                        );
+                      }
+                    }
+                  : null,
+              child: AbsorbPointer(
+                child: TextFormField(
+                  controller: toDateCtrl,
+                  readOnly: true,
+                  enabled: isEditableField,
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.to,
+                    hintText: 'Select to date',
+                    suffixIcon: const Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      } else {
+        // Single date picker mode
+        if (rule.value.isNotEmpty) {
+          final formatted = formatDisplayDate(rule.value);
+          if (fromDateCtrl.text != formatted) fromDateCtrl.text = formatted;
+        } else {
+          if (fromDateCtrl.text.isNotEmpty) fromDateCtrl.clear();
+        }
+
+        return GestureDetector(
+          onTap: isEditableField
+              ? () async {
+                  DateTime initialDate = DateTime.now();
+                  if (rule.value.isNotEmpty) {
+                    try {
+                      final parts = rule.value.split('-');
+                      if (parts.length == 3) {
+                        initialDate = DateTime(
+                          int.parse(parts[0]),
+                          int.parse(parts[1]),
+                          int.parse(parts[2]),
+                        );
+                      }
+                    } catch (_) {}
+                  }
+
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initialDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+
+                  if (picked != null) {
+                    // ✅ Store as YYYY-MM-DD
+                    final yyyyMmDd =
+                        '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                    final formatted =
+                        '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+
+                    fromDateCtrl.text = formatted;
+
+                    reportModel.updateFilterRule(
+                      groupIndex,
+                      ruleIndex,
+                      'value',
+                      yyyyMmDd,
+                    );
+                  }
+                }
+              : null,
+          child: AbsorbPointer(
+            child: TextFormField(
+              controller: fromDateCtrl,
+              readOnly: true,
+              enabled: isEditableField,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.value,
+                hintText: 'Select date',
+                suffixIcon: const Icon(Icons.calendar_today),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // ✅ NUMBER type
+    if (colType == 'number') {
+      if (isInBetween) {
+        return Column(
+          children: [
+            TextFormField(
+              initialValue: rule.inBetweenValues.isNotEmpty
+                  ? rule.inBetweenValues[0]
+                  : '',
+              enabled: isEditableField,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.from,
+                hintText: AppLocalizations.of(context)!.enterStartingValue,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (value) {
+                final updatedValues = [...rule.inBetweenValues];
+                if (updatedValues.isEmpty) updatedValues.add('');
+                if (updatedValues.length < 2) updatedValues.add('');
+                updatedValues[0] = value;
+                reportModel.updateFilterRule(
+                  groupIndex,
+                  ruleIndex,
+                  'inBetweenValues',
+                  updatedValues,
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: rule.inBetweenValues.length > 1
+                  ? rule.inBetweenValues[1]
+                  : '',
+              enabled: isEditableField,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.to,
+                hintText: AppLocalizations.of(context)!.enterEndingValue,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (value) {
+                final updatedValues = [...rule.inBetweenValues];
+                if (updatedValues.isEmpty) updatedValues.add('');
+                if (updatedValues.length < 2) updatedValues.add('');
+                updatedValues[1] = value;
+                reportModel.updateFilterRule(
+                  groupIndex,
+                  ruleIndex,
+                  'inBetweenValues',
+                  updatedValues,
+                );
+              },
+            ),
+          ],
+        );
+      } else {
+        return TextFormField(
+          initialValue: rule.value,
+          enabled: isEditableField,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.value,
+            hintText: AppLocalizations.of(context)!.enterValueToMatch,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          onChanged: (value) {
+            reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+          },
+        );
+      }
+    }
+
+    // ✅ BOOLEAN type → dropdown True/False (In Between not applicable)
+    if (colType == 'boolean') {
+      return CustomDropdown(
+        labelText: AppLocalizations.of(context)!.value,
+        items: const ['True', 'False'],
+        value: rule.value.isEmpty ? null : rule.value,
+        onChanged: isEditableField
+            ? (val) {
+                reportModel.updateFilterRule(
+                  groupIndex,
+                  ruleIndex,
+                  'value',
+                  val,
+                );
+              }
+            : null,
+        isEditable: isEditableField,
       );
     }
+
+    // ✅ ENUM type
+    if (colType == 'enum') {
+      if (isInBetween) {
+        return Column(
+          children: [
+            TextFormField(
+              initialValue: rule.inBetweenValues.isNotEmpty
+                  ? rule.inBetweenValues[0]
+                  : '',
+              enabled: isEditableField,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.from,
+                hintText: AppLocalizations.of(context)!.enterStartingValue,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (value) {
+                final updatedValues = [...rule.inBetweenValues];
+                if (updatedValues.isEmpty) updatedValues.add('');
+                if (updatedValues.length < 2) updatedValues.add('');
+                updatedValues[0] = value;
+                reportModel.updateFilterRule(
+                  groupIndex,
+                  ruleIndex,
+                  'inBetweenValues',
+                  updatedValues,
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: rule.inBetweenValues.length > 1
+                  ? rule.inBetweenValues[1]
+                  : '',
+              enabled: isEditableField,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.to,
+                hintText: AppLocalizations.of(context)!.enterEndingValue,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+              onChanged: (value) {
+                final updatedValues = [...rule.inBetweenValues];
+                if (updatedValues.isEmpty) updatedValues.add('');
+                if (updatedValues.length < 2) updatedValues.add('');
+                updatedValues[1] = value;
+                reportModel.updateFilterRule(
+                  groupIndex,
+                  ruleIndex,
+                  'inBetweenValues',
+                  updatedValues,
+                );
+              },
+            ),
+          ],
+        );
+      } else {
+        return TextFormField(
+          initialValue: rule.value,
+          enabled: isEditableField,
+          decoration: InputDecoration(
+            labelText: AppLocalizations.of(context)!.value,
+            hintText: AppLocalizations.of(context)!.enterValueToMatch,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          onChanged: (value) {
+            reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+          },
+        );
+      }
+    }
+
+    // ✅ DEFAULT: STRING → plain text
+    if (isInBetween) {
+      return Column(
+        children: [
+          TextFormField(
+            initialValue: rule.inBetweenValues.isNotEmpty
+                ? rule.inBetweenValues[0]
+                : '',
+            enabled: isEditableField,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.from,
+              hintText: AppLocalizations.of(context)!.enterStartingValue,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[0] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: rule.inBetweenValues.length > 1
+                ? rule.inBetweenValues[1]
+                : '',
+            enabled: isEditableField,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.to,
+              hintText: AppLocalizations.of(context)!.enterEndingValue,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
+            ),
+            onChanged: (value) {
+              final updatedValues = [...rule.inBetweenValues];
+              if (updatedValues.isEmpty) updatedValues.add('');
+              if (updatedValues.length < 2) updatedValues.add('');
+              updatedValues[1] = value;
+              reportModel.updateFilterRule(
+                groupIndex,
+                ruleIndex,
+                'inBetweenValues',
+                updatedValues,
+              );
+            },
+          ),
+        ],
+      );
+    } else {
+      return TextFormField(
+        initialValue: rule.value,
+        enabled: isEditableField,
+        decoration: InputDecoration(
+          labelText: AppLocalizations.of(context)!.value,
+          hintText: AppLocalizations.of(context)!.enterValueToMatch,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
+        ),
+        onChanged: (value) {
+          reportModel.updateFilterRule(groupIndex, ruleIndex, 'value', value);
+        },
+      );
+    }
+  }
+
+  Widget _buildFilterRuleCard(FilterRule rule, int groupIndex, int ruleIndex) {
+    final reportModel = Provider.of<ReportModel>(context, listen: false);
+
+    // ❌ REMOVE THIS BLOCK - it's causing the build error
+    // if (widget.existingReport != null) {
+    //   reportModel.selectTableForFilterAppendData(
+    //     groupIndex,
+    //     ruleIndex,
+    //     rule.table,
+    //     rule.column,
+    //   );
+    // }
+
     print("rule.column&${rule.column}");
     return Container(
       child: Padding(
@@ -771,14 +1399,6 @@ class _CashAdvanceReportCreateScreenState
 
                         Builder(
                           builder: (context) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              // Ensure any model updates happen after build
-                              if (rule.availableColumns.isEmpty &&
-                                  widget.existingReport == null) {
-                                // Do nothing
-                              }
-                            });
-
                             if (rule.availableColumns.isNotEmpty ||
                                 widget.existingReport != null) {
                               return CustomDropdown(
@@ -787,13 +1407,6 @@ class _CashAdvanceReportCreateScreenState
                                 value: rule.column,
                                 onChanged: isEditableField
                                     ? (value) {
-                                        if (widget.existingReport != null) {
-                                          reportModel.selectTableForFilter(
-                                            groupIndex,
-                                            ruleIndex,
-                                            rule.table,
-                                          );
-                                        }
                                         if (value != null) {
                                           reportModel.updateFilterRule(
                                             groupIndex,
@@ -807,11 +1420,12 @@ class _CashAdvanceReportCreateScreenState
                                 isEditable: isEditableField,
                               );
                             }
-
-                            return SizedBox.shrink();
+                            return const SizedBox.shrink();
                           },
                         ),
+
                         if (rule.column.isNotEmpty) const SizedBox(height: 16),
+
                         if (rule.column.isNotEmpty)
                           CustomDropdown(
                             labelText: AppLocalizations.of(context)!.condition,
@@ -823,12 +1437,6 @@ class _CashAdvanceReportCreateScreenState
                                 ? (value) {
                                     if (value != null) {
                                       print("Selected condition: $value");
-                                      print(
-                                        "Available conditions: ${rule.conditionItems}",
-                                      );
-                                      print(
-                                        "Current rule.condition: ${rule.condition}",
-                                      );
                                       reportModel.updateFilterRule(
                                         groupIndex,
                                         ruleIndex,
@@ -841,146 +1449,15 @@ class _CashAdvanceReportCreateScreenState
                             isEditable: isEditableField,
                           ),
 
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition != "In Between")
+                        if (rule.condition.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition != "In Between" &&
-                            rule.condition != "Is Not Empty" &&
-                            rule.condition != "Is Empty")
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.value,
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.value,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterValueToMatch,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (value) {
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'value',
-                                  value,
-                                );
-                              },
-                            ),
-                          ),
-                        if (rule.condition.isNotEmpty &&
-                            rule.condition == "In Between") ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.inBetweenValues.isNotEmpty
-                                  ? rule.inBetweenValues[0]
-                                  : '',
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.from,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterStartingValue,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (val) {
-                                var list = [...rule.inBetweenValues];
-                                if (list.length < 2) list = ['', ''];
-                                list[0] = val;
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'inBetweenValues',
-                                  list,
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: TextFormField(
-                              initialValue: rule.inBetweenValues.length > 1
-                                  ? rule.inBetweenValues[1]
-                                  : '',
-                              decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!.to,
-                                hintText: AppLocalizations.of(
-                                  context,
-                                )!.enterEndingValue,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.blue.shade400,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              onChanged: (val) {
-                                var list = [...rule.inBetweenValues];
-                                if (list.length < 2) list = ['', ''];
-                                list[1] = val;
-                                reportModel.updateFilterRule(
-                                  groupIndex,
-                                  ruleIndex,
-                                  'inBetweenValues',
-                                  list,
-                                );
-                              },
-                            ),
+                          buildValueInputByType(
+                            rule: rule,
+                            groupIndex: groupIndex,
+                            ruleIndex: ruleIndex,
                           ),
                         ],
-                        // const SizedBox(height: 12),
+
                         if (isEditableField)
                           Align(
                             alignment: Alignment.centerRight,

@@ -770,6 +770,7 @@ class _MyExpenseReportsDashboardState extends State<MyExpenseReportsDashboard>
                         final data = await controller.fetchDataset(
                           item.reportMetaData,
                           context,
+                          "ExpenseRequisition"
                         );
 
                         if (data != null) {

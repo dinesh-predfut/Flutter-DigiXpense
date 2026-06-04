@@ -82,14 +82,13 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get personalDetails => '个人信息';
   @override
-  String get punchInOut => '打卡/签退';
-
+  String get punchInOut => '签退';
   @override
   String get punchInOutList => '打卡记录';
 
   @override
   String get myTeamAttendance => '我的团队考勤';
-
+@override String get attendance => '考勤';
   @override
   String get timesheets => '时间表';
 
@@ -501,23 +500,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get descriptionMandatory => '如果管理员已将描述设置为所有费用的必填项';
   @override
   String get expiredPolicy => '过期的费用被视为违反政策';
-  @override String get addRule => '添加规则';
-  @override String get reportedAmountNotWithinRange => '申报金额不在允许范围内';
-  @override String get count => '数量';
-  @override String get misReports => '管理信息系统报告';
-  @override String get toDateValidation => '结束日期不能早于开始日期';
-  @override String get confirmLogout => '确认退出登录';
-@override String get logoutConfirmationMessage => '您确定要退出登录吗？';
-@override String get example => '示例';
-@override String get onlyLettersAndNumbers => '仅允许字母和数字';
-@override String get zipMustIncludeNumber => '邮政编码必须包含至少一个数字';
-@override String get noMatchingStates => '没有匹配的州';
-@override String get invalidPhoneNumber => '无效的电话号码';
-@override String get emailsForReceiptForwarding => '用于转发收据的电子邮件';
-@override String get add => '添加';
+  @override
+  String get addRule => '添加规则';
+  @override
+  String get reportedAmountNotWithinRange => '申报金额不在允许范围内';
+  @override
+  String get count => '数量';
+  @override
+  String get misReports => '管理信息系统报告';
+  @override
+  String get toDateValidation => '结束日期不能早于开始日期';
+  @override
+  String get confirmLogout => '确认退出登录';
+  @override
+  String get logoutConfirmationMessage => '您确定要退出登录吗？';
+  @override
+  String get example => '示例';
+  @override
+  String get onlyLettersAndNumbers => '仅允许字母和数字';
+  @override
+  String get zipMustIncludeNumber => '邮政编码必须包含至少一个数字';
+  @override
+  String get noMatchingStates => '没有匹配的州';
+  @override
+  String get invalidPhoneNumber => '无效的电话号码';
+  @override
+  String get emailsForReceiptForwarding => '用于转发收据的电子邮件';
+  @override
+  String get add => '添加';
   @override
   String get taxId => '税号';
-  @override String get reason => 'السبب';
+  @override
+  String get reason => 'السبب';
   @override
   String get back => '返回';
   @override

@@ -9,6 +9,7 @@ import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
 import 'package:diginexa/core/constant/Parames/params.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
 import 'package:diginexa/main.dart';
@@ -81,13 +82,24 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
     super.initState();
     // controller.clearFormFields();
     _focusNode = FocusNode();
-    controller.selectedDate ??= DateTime.now();
+    final now = DateTime.now();
+
+    /// Convert using timezone method
+    final fromMs = toStartOfDayUtc(now);
+    controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
+      fromMs,
+      isUtc: true,
+    );
     _focusNode.addListener(() {
       setState(() {
         _isTyping = _focusNode.hasFocus;
       });
     });
-    itemizeControllers.add(Controller());
+    final newController = Controller();
+    if (controller.customFields.isNotEmpty) {
+      newController.cloneCustomFieldsFromRx(controller.customFields);
+    }
+    itemizeControllers.add(newController);
     // controller.fetchPaidto();
     controller.split.clear();
     controller.accountingDistributions.clear();
@@ -427,28 +439,59 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
   }
 
   void _addItemize() {
-    if (!showItemizeDetails) {
-      print("Check$showItemizeDetails");
-      setState(() {
-        showItemizeDetails = true;
-      });
-    } else {
-      if (_validateCurrentItemizeForm()) {
-        // print("validateDropdowns()${validateDropdownsCurrent()}");
-        // FocusScope.of(context).unfocus();
+  if (!showItemizeDetails) {
+    print("Check$showItemizeDetails");
+    setState(() {
+      showItemizeDetails = true;
+    });
+  } else {
+    if (_validateCurrentItemizeForm()) {
+      if (_itemizeCount < 5) {
+        setState(() {
+          final newController = Controller();
 
-        if (_itemizeCount < 5) {
-          setState(() {
-            itemizeControllers.add(Controller());
-            _itemizeCount++;
-            _selectedItemizeIndex = _itemizeCount - 1;
-            showItemizeDetails = true;
-          });
-        }
+          // ✅ IMPORTANT: Clone custom fields from the current controller
+          final currentController = itemizeControllers[_selectedItemizeIndex];
+          
+          // Clone ExpenseTrans custom fields
+          if (currentController.customFields.isNotEmpty) {
+            newController.cloneCustomFieldsFromRx(currentController.customFields);
+          }
+          
+          // ✅ CRITICAL: Clone ExpenseCategories custom fields with their values
+          if (currentController.customFieldsItems.isNotEmpty) {
+            final clonedCategoryFields = currentController.customFieldsItems
+                .where((f) => f['ObjectName'] == 'ExpenseCategories')
+                .map((field) {
+                  final Map<String, dynamic> cloned = Map<String, dynamic>.from(field);
+                  // Preserve all values
+                  cloned['EnteredValue'] = field['EnteredValue'];
+                  cloned['SelectedValue'] = field['SelectedValue'];
+                  cloned['_rxStringValue'] = field['_rxStringValue'];
+                  cloned['_rxCheckboxValue'] = field['_rxCheckboxValue'];
+                  cloned['_rxDateValue'] = field['_rxDateValue'];
+                  cloned['_rxIntValue'] = field['_rxIntValue'];
+                  cloned['_rxDoubleValue'] = field['_rxDoubleValue'];
+                  cloned['_rxSelectedValue'] = field['_rxSelectedValue'];
+                  return cloned;
+                })
+                .toList();
+            
+            newController.customFieldsItems.addAll(clonedCategoryFields);
+          }
+
+          // Also clone the selected category ID
+          newController.selectedCategoryId = currentController.selectedCategoryId;
+          
+          itemizeControllers.add(newController);
+          _itemizeCount++;
+          _selectedItemizeIndex = _itemizeCount - 1;
+          showItemizeDetails = true;
+        });
       }
     }
   }
-
+}
   void _removeItemize(int selectedItemizeIndex) {
     if (_itemizeCount < 1) {
       showItemizeDetails = false;
@@ -816,6 +859,15 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         "controllerItems.paidWithCashAdvance.value${controllerItems.paidWithCashAdvance.value}",
       );
     }
+    final currentCustomFields = controller.customFieldsItems;
+
+    // If this controller doesn't have its own custom fields yet,
+    // initialize them from the master
+    if (currentCustomFields.isEmpty && controller.customFields.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.cloneCustomFieldsFromRx(controller.customFields);
+      });
+    }
     // if (controllerItems.paidWithCashAdvance.value == null ||
     //     controllerItems.paidWithCashAdvance.value!.isEmpty) {
     //   controller.isReimbursiteCreate.value = true;
@@ -879,7 +931,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 '${loc.projectId} ${isMandatory ? "*" : ""}',
                             columnHeaders: [loc.projectName, loc.projectId],
                             items: controllerItems.project,
-                            
+
                             controller: controller.projectDropDowncontroller,
                             selectedValue: controller.selectedProject,
                             searchValue: (proj) => '${proj.name} ${proj.code}',
@@ -1130,316 +1182,512 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                     );
                   })
                   .toList(),
+            Obx(() {
+  return Column(
+    children: currentCustomFields.asMap().entries.map((entry) {
+      final index = entry.key;
+      final field = entry.value;
 
-              Obx(() {
-                return Column(
-                  children: controllerItems.customFields.asMap().entries.map((
-                    entry,
-                  ) {
-                    final index = entry.key;
-                    final field = entry.value;
+      final objectName = field['ObjectName'] ?? '';
+      final expenseType = field['ExpenseType'];
 
-                    if (!(field['ObjectName'] == 'ExpenseTrans' &&
-                        (field['ExpenseType'] == 'General Expenses' ||
-                            field['ExpenseType'] == null))) {
-                      return const SizedBox.shrink();
-                    }
+      final shouldShow =
+          (objectName == 'ExpenseTrans' &&
+              (expenseType == 'General Expenses' ||
+                  expenseType == null)) ||
+          (objectName == 'ExpenseCategories');
 
-                    final String label =
-                        field['FieldLabel'] ?? field['FieldName'];
-                    final bool isMandatory = field['IsMandatory'] ?? false;
+      if (!shouldShow) {
+        return const SizedBox.shrink();
+      }
 
-                    /// UNIQUE KEY FOR EVERY FIELD
-                    final String fieldKey =
-                        '${field['FieldName']}_${field['LineId'] ?? index}';
+      final String label = field['FieldLabel'] ?? field['FieldName'];
+      final bool isMandatory = field['IsMandatory'] ?? false;
+      final String fieldType = field['FieldType'];
 
-                    /// CREATE CONTROLLER ONLY ONCE
-                    fieldControllers.putIfAbsent(
-                      fieldKey,
-                      () => TextEditingController(
-                        text: field['EnteredValue']?.toString() ?? '',
-                      ),
-                    );
+      /// UNIQUE KEY FOR EVERY FIELD
+      final String fieldKey =
+          '${controller.hashCode}_${field['FieldName']}_${field['LineId'] ?? index}_${field['RecId'] ?? index}';
 
-                    Widget inputField;
+      Widget inputField;
 
-                    /// ================= DROPDOWN =================
-                    if (field['FieldType'] == 'List' ||
-                        field['FieldType'] == 'CustomList' ||
-                        field['FieldType'] == 'SystemList') {
-                      inputField =
-                          SearchableMultiColumnDropdownField<
-                            CustomDropdownValue
-                          >(
-                            key: ValueKey(fieldKey),
-                            labelText: '$label${isMandatory ? " *" : ""}',
-                            items:
-                                (field['Options']
-                                    as List<CustomDropdownValue>?) ??
-                                [],
-                            selectedValue: field['SelectedValue'],
-                            searchValue: (val) => val.valueName,
-                            displayText: (val) => val.valueName,
-                            columnHeaders: const ['Value ID', 'Value Name'],
-                            rowBuilder: (val, searchQuery) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                                horizontal: 16,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text(val.valueId)),
-                                  Expanded(child: Text(val.valueName)),
-                                ],
-                              ),
-                            ),
-                            onChanged: (val) {
-                              field['SelectedValue'] = val;
-                              field['Error'] = null;
-                              controllerItems.customFields.refresh();
-                            },
-                          );
+      /// ================= DROPDOWN (List/CustomList/SystemList) =================
+      if (fieldType == 'List' ||
+          fieldType == 'CustomList' ||
+          fieldType == 'SystemList') {
+        
+        // ✅ FIX: Initialize dropdown with default value
+        if (field['_rxSelectedValue'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final options = (field['Options'] as List<CustomDropdownValue>?) ?? [];
+          
+          CustomDropdownValue? matchedOption;
+          
+          // Try to find matching option by valueName or valueId
+          if (defaultValue.isNotEmpty && options.isNotEmpty) {
+            matchedOption = options.firstWhere(
+              (opt) => 
+                  opt.valueName == defaultValue || 
+                  opt.valueId == defaultValue ||
+                  opt.valueId == defaultValue.split('@').first, // Handle email-like defaults
+              // orElse: () => null,
+            );
+          }
+          
+          // Also check if there's an existing SelectedValue
+          final existingSelected = field['SelectedValue'] as CustomDropdownValue?;
+          final finalSelected = existingSelected ?? matchedOption;
+          
+          field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(finalSelected);
+          field['SelectedValue'] = finalSelected;
+          
+          print("📋 DROPDOWN Field: $label");
+          print("  - DefaultValue: '$defaultValue'");
+          print("  - Matched Option: ${finalSelected?.valueName ?? 'None'}");
+        }
 
-                      /// ================= CHECKBOX =================
-                    } else if (field['FieldType'] == 'Checkbox') {
-                      inputField = CheckboxListTile(
-                        key: ValueKey(fieldKey),
-                        title: Text('$label${isMandatory ? " *" : ""}'),
-                        value: field['EnteredValue'] ?? false,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (bool? val) {
-                          field['EnteredValue'] = val ?? false;
-                          controllerItems.customFields.refresh();
-                        },
-                      );
+        inputField = Obx(() {
+          final rxValue = field['_rxSelectedValue'] as Rx<CustomDropdownValue?>;
+          
+          return SearchableMultiColumnDropdownField<CustomDropdownValue>(
+            key: ValueKey(fieldKey),
+            labelText: '$label${isMandatory ? " *" : ""}',
+            items: (field['Options'] as List<CustomDropdownValue>?) ?? [],
+            selectedValue: rxValue.value,
+            searchValue: (val) => val.valueName,
+            displayText: (val) => val.valueName,
+            columnHeaders: const ['Value ID', 'Value Name'],
+            dropdownMaxHeight: 300,
+            rowBuilder: (val, searchQuery) => Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 10,
+                horizontal: 16,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      val.valueId,
+                      style: const TextStyle(fontSize: 8),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      val.valueName,
+                      style: const TextStyle(fontSize: 8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            onChanged: (val) {
+              rxValue.value = val;
+              field['SelectedValue'] = val;
+              field['EnteredValue'] = val?.valueId ?? '';
+              field['Error'] = null;
+            },
+          );
+        });
+      }
+      /// ================= CHECKBOX =================
+      else if (fieldType == 'Checkbox') {
+        // ✅ FIX: Initialize checkbox with default value
+        if (field['_rxCheckboxValue'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] ?? false;
+          final bool initialValue = existingValue is bool 
+              ? existingValue 
+              : defaultValue.toLowerCase() == 'true';
+          
+          field['_rxCheckboxValue'] = Rx<bool>(initialValue);
+          field['EnteredValue'] = initialValue;
+        }
 
-                      /// ================= DATE / DATETIME =================
-                    } else if (field['FieldType'] == 'Date' ||
-                        field['FieldType'] == 'Date&Time') {
-                      final bool isDateTime = field['FieldType'] == 'Date&Time';
+        inputField = Obx(() {
+          final rxValue = field['_rxCheckboxValue'] as Rx<bool>;
 
-                      /// UPDATE TEXT SAFELY
-                      fieldControllers[fieldKey]!.text =
-                          field['EnteredValue'] != null
-                          ? isDateTime
-                                ? DateFormat(
-                                    'dd/MM/yyyy hh:mm a',
-                                  ).format(field['EnteredValue'])
-                                : DateFormat(
-                                    'dd/MM/yyyy',
-                                  ).format(field['EnteredValue'])
-                          : '';
+          return CheckboxListTile(
+            key: ValueKey(fieldKey),
+            title: Text('$label${isMandatory ? " *" : ""}'),
+            value: rxValue.value,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (bool? val) {
+              rxValue.value = val ?? false;
+              field['EnteredValue'] = val ?? false;
+            },
+          );
+        });
+      }
+      /// ================= DATE / DATETIME =================
+      else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+        final bool isDateTime = fieldType == 'Date&Time';
 
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        readOnly: true,
-                        controller: fieldControllers[fieldKey],
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                          suffixIcon: const Icon(Icons.calendar_today),
-                        ),
-                        onTap: () async {
-                          final DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate:
-                                field['EnteredValue'] ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
+        // ✅ FIX: Initialize date with default value
+        if (field['_rxDateValue'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] as DateTime?;
+          DateTime? initialDate = existingValue;
+          
+          if (initialDate == null && defaultValue.isNotEmpty) {
+            try {
+              initialDate = DateTime.parse(defaultValue);
+            } catch (e) {
+              print("Error parsing date: $e");
+            }
+          }
+          
+          field['_rxDateValue'] = Rx<DateTime?>(initialDate);
+          field['EnteredValue'] = initialDate;
+        }
 
-                          if (pickedDate == null) return;
+        inputField = Obx(() {
+          final rxDateValue = field['_rxDateValue'] as Rx<DateTime?>;
+          final currentDate = rxDateValue.value;
 
-                          if (isDateTime) {
-                            final TimeOfDay? pickedTime = await showTimePicker(
-                              context: context,
-                              initialTime: field['EnteredValue'] != null
-                                  ? TimeOfDay.fromDateTime(
-                                      field['EnteredValue'],
-                                    )
-                                  : TimeOfDay.now(),
-                            );
+          final textEditingController = TextEditingController();
+          if (currentDate != null) {
+            if (isDateTime) {
+              textEditingController.text = DateFormat(
+                'dd/MM/yyyy hh:mm a',
+              ).format(currentDate);
+            } else {
+              textEditingController.text = DateFormat(
+                'dd/MM/yyyy',
+              ).format(currentDate);
+            }
+          }
 
-                            if (pickedTime == null) return;
+          return TextFormField(
+            key: ValueKey(fieldKey),
+            readOnly: true,
+            controller: textEditingController,
+            decoration: InputDecoration(
+              labelText: '$label${isMandatory ? " *" : ""}',
+              border: const OutlineInputBorder(),
+              errorText: field['Error'],
+              suffixIcon: const Icon(Icons.calendar_today),
+            ),
+            onTap: () async {
+              DateTime? currentDate = rxDateValue.value ?? DateTime.now();
 
-                            field['EnteredValue'] = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          } else {
-                            field['EnteredValue'] = pickedDate;
-                          }
+              final DateTime? pickedDate = await showDatePicker(
+                context: context,
+                initialDate: currentDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
 
-                          controllerItems.customFields.refresh();
-                        },
-                        validator: (value) {
-                          if (isMandatory && field['EnteredValue'] == null) {
-                            return '$label is required';
-                          }
-                          return null;
-                        },
-                      );
+              if (pickedDate == null) return;
 
-                      /// ================= LONG INTEGER =================
-                    } else if (field['FieldType'] == 'LongInteger') {
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        controller: fieldControllers[fieldKey],
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                        ),
-                        onChanged: (value) {
-                          field['EnteredValue'] = int.tryParse(value);
-                        },
-                        validator: (value) {
-                          if (isMandatory &&
-                              (value == null || value.trim().isEmpty)) {
-                            return '$label is required';
-                          }
-                          return null;
-                        },
-                      );
+              if (isDateTime) {
+                TimeOfDay initialTime = TimeOfDay.now();
+                if (rxDateValue.value != null) {
+                  initialTime = TimeOfDay.fromDateTime(
+                    rxDateValue.value!,
+                  );
+                }
 
-                      /// ================= DECIMAL =================
-                    } else if (field['FieldType'] == 'Decimal') {
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        controller: fieldControllers[fieldKey],
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d*'),
-                          ),
-                        ],
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                        ),
-                        onChanged: (value) {
-                          field['EnteredValue'] = double.tryParse(value);
-                        },
-                        validator: (value) {
-                          if (isMandatory &&
-                              (value == null || value.trim().isEmpty)) {
-                            return '$label is required';
-                          }
-                          return null;
-                        },
-                      );
-
-                      /// ================= EMAIL =================
-                    } else if (field['FieldType'] == 'Email') {
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        controller: fieldControllers[fieldKey],
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                          suffixIcon: const Icon(Icons.email_outlined),
-                        ),
-                        onChanged: (value) {
-                          field['EnteredValue'] = value;
-                        },
-                        validator: (value) {
-                          if (isMandatory &&
-                              (value == null || value.trim().isEmpty)) {
-                            return '$label is required';
-                          }
-
-                          if (value != null && value.isNotEmpty) {
-                            final emailRegex = RegExp(
-                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                            );
-
-                            if (!emailRegex.hasMatch(value)) {
-                              return 'Enter a valid email';
-                            }
-                          }
-
-                          return null;
-                        },
-                      );
-
-                      /// ================= MOBILE =================
-                    } else if (field['FieldType'] == 'MobileNumber') {
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        controller: fieldControllers[fieldKey],
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                          suffixIcon: const Icon(Icons.phone_outlined),
-                        ),
-                        onChanged: (value) {
-                          field['EnteredValue'] = value;
-                        },
-                        validator: (value) {
-                          if (isMandatory &&
-                              (value == null || value.trim().isEmpty)) {
-                            return '$label is required';
-                          }
-
-                          if (value != null && value.isNotEmpty) {
-                            final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
-
-                            if (!phoneRegex.hasMatch(value)) {
-                              return 'Enter valid mobile number';
-                            }
-                          }
-
-                          return null;
-                        },
-                      );
-
-                      /// ================= DEFAULT TEXT =================
-                    } else {
-                      inputField = TextFormField(
-                        key: ValueKey(fieldKey),
-                        controller: fieldControllers[fieldKey],
-                        keyboardType: TextInputType.text,
-                        decoration: InputDecoration(
-                          labelText: '$label${isMandatory ? " *" : ""}',
-                          border: const OutlineInputBorder(),
-                          errorText: field['Error'],
-                        ),
-                        onChanged: (value) {
-                          field['EnteredValue'] = value;
-                        },
-                        validator: (value) {
-                          if (isMandatory &&
-                              (value == null || value.trim().isEmpty)) {
-                            return '$label is required';
-                          }
-                          return null;
-                        },
-                      );
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: inputField,
-                    );
-                  }).toList(),
+                final TimeOfDay? pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: initialTime,
                 );
-              }),
+
+                if (pickedTime == null) return;
+
+                final fullDateTime = DateTime(
+                  pickedDate.year,
+                  pickedDate.month,
+                  pickedDate.day,
+                  pickedTime.hour,
+                  pickedTime.minute,
+                );
+
+                rxDateValue.value = fullDateTime;
+                field['EnteredValue'] = fullDateTime;
+                textEditingController.text = DateFormat(
+                  'dd/MM/yyyy hh:mm a',
+                ).format(fullDateTime);
+              } else {
+                rxDateValue.value = pickedDate;
+                field['EnteredValue'] = pickedDate;
+                textEditingController.text = DateFormat(
+                  'dd/MM/yyyy',
+                ).format(pickedDate);
+              }
+
+              field['Error'] = null;
+            },
+            validator: (value) {
+              if (isMandatory && rxDateValue.value == null) {
+                return '$label is required';
+              }
+              return null;
+            },
+          );
+        });
+      }
+      /// ================= LONG INTEGER =================
+      else if (fieldType == 'LongInteger') {
+        // ✅ FIX: Initialize with persistent controller
+        if (field['_controller'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] as int?;
+          final initialValue = existingValue ?? int.tryParse(defaultValue);
+          
+          field['_controller'] = TextEditingController(
+            text: initialValue?.toString() ?? '',
+          );
+          field['_rxIntValue'] = Rx<int?>(initialValue);
+          field['EnteredValue'] = initialValue;
+          field['_focusNode'] = FocusNode();
+          
+          field['_controller'].addListener(() {
+            final value = field['_controller'].text;
+            if (value.isEmpty) {
+              field['_rxIntValue'].value = null;
+              field['EnteredValue'] = null;
+            } else {
+              final intValue = int.tryParse(value);
+              if (intValue != field['_rxIntValue'].value) {
+                field['_rxIntValue'].value = intValue;
+                field['EnteredValue'] = intValue;
+              }
+            }
+            field['Error'] = null;
+          });
+        }
+
+        inputField = TextFormField(
+          key: ValueKey(fieldKey),
+          controller: field['_controller'],
+          focusNode: field['_focusNode'],
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+          ),
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            return null;
+          },
+        );
+      }
+      /// ================= DECIMAL =================
+      else if (fieldType == 'Decimal') {
+        // ✅ FIX: Initialize with persistent controller
+        if (field['_controller'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] as double?;
+          final initialValue = existingValue ?? double.tryParse(defaultValue);
+          
+          field['_controller'] = TextEditingController(
+            text: initialValue?.toString() ?? '',
+          );
+          field['_rxDoubleValue'] = Rx<double?>(initialValue);
+          field['EnteredValue'] = initialValue;
+          field['_focusNode'] = FocusNode();
+          
+          field['_controller'].addListener(() {
+            final value = field['_controller'].text;
+            if (value.isEmpty) {
+              field['_rxDoubleValue'].value = null;
+              field['EnteredValue'] = null;
+            } else {
+              final doubleValue = double.tryParse(value);
+              if (doubleValue != field['_rxDoubleValue'].value) {
+                field['_rxDoubleValue'].value = doubleValue;
+                field['EnteredValue'] = doubleValue;
+              }
+            }
+            field['Error'] = null;
+          });
+        }
+
+        inputField = TextFormField(
+          key: ValueKey(fieldKey),
+          controller: field['_controller'],
+          focusNode: field['_focusNode'],
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(
+              RegExp(r'^\d+\.?\d*'),
+            ),
+          ],
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+          ),
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            return null;
+          },
+        );
+      }
+      /// ================= EMAIL =================
+      else if (fieldType == 'Email') {
+        // ✅ FIX: Initialize with persistent controller
+        if (field['_controller'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] as String?;
+          final initialValue = existingValue ?? defaultValue;
+          
+          field['_controller'] = TextEditingController(text: initialValue);
+          field['_rxStringValue'] = Rx<String?>(initialValue);
+          field['EnteredValue'] = initialValue;
+          field['_focusNode'] = FocusNode();
+          
+          field['_controller'].addListener(() {
+            final value = field['_controller'].text;
+            if (value != field['_rxStringValue'].value) {
+              field['_rxStringValue'].value = value;
+              field['EnteredValue'] = value;
+            }
+            field['Error'] = null;
+          });
+        }
+
+        inputField = TextFormField(
+          key: ValueKey(fieldKey),
+          controller: field['_controller'],
+          focusNode: field['_focusNode'],
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+            suffixIcon: const Icon(Icons.email_outlined),
+          ),
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            if (value != null && value.isNotEmpty) {
+              final emailRegex = RegExp(
+                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+              );
+              if (!emailRegex.hasMatch(value)) {
+                return 'Enter a valid email address';
+              }
+            }
+            return null;
+          },
+        );
+      }
+      /// ================= MOBILE NUMBER =================
+     else if (fieldType == 'Email') {
+  // Create persistent controller and focus node
+  if (field['_controller'] == null) {
+    final defaultValue = field['DefaultValue']?.toString() ?? '';
+    final existingValue = field['EnteredValue'] as String?;
+    final initialValue = existingValue ?? defaultValue;
+    
+    field['_controller'] = TextEditingController(text: initialValue);
+    field['_rxStringValue'] = Rx<String?>(initialValue);
+    field['_focusNode'] = FocusNode();
+    field['EnteredValue'] = initialValue;
+    
+    // Update when text changes
+    field['_controller'].addListener(() {
+      final value = field['_controller'].text;
+      if (value != field['_rxStringValue'].value) {
+        field['_rxStringValue'].value = value;
+        field['EnteredValue'] = value;
+      }
+      field['Error'] = null;
+    });
+  }
+  
+  inputField = Obx(() {
+    final textEditingController = field['_controller'] as TextEditingController;
+    final focusNode = field['_focusNode'] as FocusNode;
+    
+    return TextFormField(
+      controller: textEditingController,
+      focusNode: focusNode,
+      enabled: controller.isEnable.value,
+      keyboardType: TextInputType.emailAddress,
+      decoration: InputDecoration(
+        labelText: '$label${isMandatory ? " *" : ""}',
+        border: const OutlineInputBorder(),
+        errorText: field['Error'],
+        suffixIcon: const Icon(Icons.email_outlined),
+      ),
+      validator: (value) {
+        if (isMandatory && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (value != null && value.isNotEmpty) {
+          final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+          if (!emailRegex.hasMatch(value)) {
+            return 'Enter a valid email address';
+          }
+        }
+        return null;
+      },
+    );
+  });
+}
+      /// ================= DEFAULT TEXT =================
+      else {
+        // ✅ FIX: Initialize with persistent controller
+        if (field['_controller'] == null) {
+          final defaultValue = field['DefaultValue']?.toString() ?? '';
+          final existingValue = field['EnteredValue'] as String?;
+          final initialValue = existingValue ?? defaultValue;
+          
+          field['_controller'] = TextEditingController(text: initialValue);
+          field['_rxStringValue'] = Rx<String?>(initialValue);
+          field['EnteredValue'] = initialValue;
+          field['_focusNode'] = FocusNode();
+          
+          field['_controller'].addListener(() {
+            final value = field['_controller'].text;
+            if (value != field['_rxStringValue'].value) {
+              field['_rxStringValue'].value = value;
+              field['EnteredValue'] = value;
+            }
+            field['Error'] = null;
+          });
+        }
+
+        inputField = TextFormField(
+          key: ValueKey(fieldKey),
+          controller: field['_controller'],
+          focusNode: field['_focusNode'],
+          keyboardType: TextInputType.text,
+          decoration: InputDecoration(
+            labelText: '$label${isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            errorText: field['Error'],
+          ),
+          validator: (value) {
+            if (isMandatory && (value == null || value.trim().isEmpty)) {
+              return '$label is required';
+            }
+            return null;
+          },
+        );
+      }
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: inputField,
+      );
+    }).toList(),
+  );
+}),
               const SizedBox(height: 8),
               Text("${loc.paidFor} *"),
               const SizedBox(height: 20),
@@ -1712,9 +1960,46 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 double.tryParse(controller.lineAmount.text) ??
                                 0.0;
 
-                            // Only initialize splits if empty
-                            if (controller.split.isEmpty &&
-                                controller.accountingDistributions.isNotEmpty) {
+                            // CRITICAL: Clear existing data properly
+                            controller.split.clear();
+
+                            // IMPORTANT: Remove duplicates from accountingDistributions
+                            // This prevents the duplicate EMP001 issue
+                            final uniqueDistributions =
+                                <AccountingDistribution>[];
+                            final seenDimensionValues = <String>{};
+
+                            for (var dist
+                                in controller.accountingDistributions) {
+                              if (dist != null &&
+                                  dist.dimensionValueId.isNotEmpty) {
+                                // Split the dimensionValueId string and check for duplicates
+                                final values = dist.dimensionValueId.split(',');
+                                final uniqueValues = values.toSet().toList();
+                                final cleanedValueId = uniqueValues.join(',');
+
+                                if (!seenDimensionValues.contains(
+                                  cleanedValueId,
+                                )) {
+                                  seenDimensionValues.add(cleanedValueId);
+                                  uniqueDistributions.add(
+                                    AccountingDistribution(
+                                      transAmount: dist.transAmount,
+                                      reportAmount: dist.reportAmount,
+                                      allocationFactor: dist.allocationFactor,
+                                      dimensionValueId: cleanedValueId,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+
+                            controller.accountingDistributions.clear();
+                            controller.accountingDistributions.addAll(
+                              uniqueDistributions,
+                            );
+
+                            if (controller.accountingDistributions.isNotEmpty) {
                               controller.split.assignAll(
                                 controller.accountingDistributions.map((e) {
                                   return AccountingSplit(
@@ -1724,7 +2009,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   );
                                 }).toList(),
                               );
-                            } else if (controller.split.isEmpty) {
+                            } else {
                               controller.split.add(
                                 AccountingSplit(percentage: 100.0),
                               );
@@ -1749,8 +2034,17 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 ),
                                 child: SingleChildScrollView(
                                   child: AccountingDistributionWidget(
-                                    splits: controller.split,
+                                    splits: controller.split
+                                        .map(
+                                          (s) => AccountingSplit(
+                                            paidFor: s.paidFor,
+                                            percentage: s.percentage,
+                                            amount: s.amount,
+                                          ),
+                                        )
+                                        .toList(),
                                     lineAmount: lineAmount,
+                                    isEnable: true,
                                     onChanged: (i, updatedSplit) {
                                       if (!mounted) return;
                                       controller.split[i] = updatedSplit;
@@ -1761,6 +2055,17 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                           .clear();
                                       controller.accountingDistributions.addAll(
                                         newList,
+                                      );
+
+                                      controller.split.clear();
+                                      controller.split.assignAll(
+                                        newList.map(
+                                          (e) => AccountingSplit(
+                                            paidFor: e.dimensionValueId,
+                                            percentage: e.allocationFactor,
+                                            amount: e.transAmount,
+                                          ),
+                                        ),
                                       );
                                     },
                                   ),
@@ -2398,7 +2703,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
 
       try {
         if (icon != null && icon.isNotEmpty) {
-          // ✅ Cached Base64 or Data URI
           if (icon.startsWith('data:image')) {
             final base64Str = icon.split(',').last;
             if (!_base64Cache.containsKey(base64Str)) {
@@ -2408,7 +2712,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
               _base64Cache[base64Str]!,
               width: 30,
               height: 30,
-              gaplessPlayback: true, // 🔄 prevents flicker
+              gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) =>
                   const Icon(Icons.image_not_supported, size: 30),
             );
@@ -2456,6 +2760,55 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         controller.selectedCategoryId = item.categoryId;
         controller.categoryController.text = item.categoryId;
 
+        // ✅ FIX: Load custom fields with DefaultValue for this specific controller
+        if (item.customFields != null && item.customFields!.isNotEmpty) {
+          final categoryFields = item.customFields!.map((f) {
+            final Map<String, dynamic> field = Map<String, dynamic>.from(f);
+            field['ObjectName'] = 'ExpenseCategories';
+            field['ExpenseType'] = 'General Expenses';
+
+            // ✅ CRITICAL: Set Default Value properly
+            final defaultVal = field['DefaultValue']?.toString() ?? '';
+
+            // Store the actual entered value separately
+            field['EnteredValue'] = defaultVal;
+
+            // For dropdown/list types, store selected value separately
+            if (field['FieldType'] == 'List' ||
+                field['FieldType'] == 'CustomList' ||
+                field['FieldType'] == 'SystemList') {
+              // Find the matching option from Options list
+              final options = field['Options'] as List<CustomDropdownValue>?;
+              CustomDropdownValue? matchedOption;
+              if (options != null && defaultVal.isNotEmpty) {
+                matchedOption = options.firstWhere(
+                  (opt) =>
+                      opt.valueName == defaultVal || opt.valueId == defaultVal,
+                  // orElse: () => null,
+                );
+              }
+              field['SelectedValue'] = matchedOption;
+            }
+
+            field['_rxStringValue'] = Rx<String?>(defaultVal);
+            field['Error'] = null;
+            return field;
+          }).toList();
+
+          // ✅ Remove old category fields and add new ones for THIS controller only
+          controllers.customFieldsItems.removeWhere(
+            (f) => f['ObjectName'] == 'ExpenseCategories',
+          );
+          controllers.customFieldsItems.addAll(categoryFields);
+          controllers.customFieldsItems.refresh();
+        } else {
+          // ✅ Clear category fields if category has none
+          controllers.customFieldsItems.removeWhere(
+            (f) => f['ObjectName'] == 'ExpenseCategories',
+          );
+          controllers.customFieldsItems.refresh();
+        }
+
         if (item.itemisationMandatory && showItemizeDetails == false) {
           _addItemize();
         }
@@ -2468,10 +2821,8 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
             .toDouble();
         controllers.minExpenseAmount.value = (item.minExpensesAmount ?? 0)
             .toDouble();
-
         controllers.maxExpenseAmount.value = (item.maxExpenseAmount ?? 0)
             .toDouble();
-
         controllers.receiptRequiredLimit.value =
             (item.receiptRequiredLimit ?? 0).toDouble();
       },
@@ -2490,7 +2841,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 👇 smooth hide/show without rebuilding image
             AnimatedOpacity(
               opacity: _isTyping ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 250),
@@ -3402,7 +3752,26 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                 (index) {
                                   final method =
                                       controller.paymentMethods[index];
+                                  final defaultMethod = controller
+                                      .paymentMethods
+                                      .firstWhereOrNull(
+                                        (method) =>
+                                            method.paymentMethodId ==
+                                            controller
+                                                .paidWithCashAdvance
+                                                .value,
+                                      );
 
+                                  if (defaultMethod != null) {
+                                    controller
+                                            .paymentMethodeIDCashAdvance
+                                            .value =
+                                        defaultMethod.paymentMethodId;
+                                    controller.isReimbursableEnabled.value =
+                                        defaultMethod.reimbursible;
+                                    controllerItems.isReimbursiteCreate.value =
+                                        defaultMethod.reimbursible;
+                                  }
                                   List<Color> colors = [
                                     Colors.red.shade100,
                                     Colors.green.shade100,
@@ -3445,7 +3814,6 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                       groupValue:
                                           controller.paidWithCashAdvance.value,
 
-                                      /// ❌ REMOVE setState — GetX handles it
                                       onChanged: (value) {
                                         if (controller
                                                 .paidWithCashAdvance
@@ -3468,6 +3836,11 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                                   .isReimbursableEnabled
                                                   .value =
                                               method.reimbursible;
+                                          controllerItems
+                                                  .isReimbursiteCreate
+                                                  .value =
+                                              method.reimbursible;
+                                          ;
                                         }
                                       },
 

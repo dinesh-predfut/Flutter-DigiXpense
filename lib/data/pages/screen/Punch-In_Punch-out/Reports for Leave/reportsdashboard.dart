@@ -14,17 +14,17 @@ import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../../models.dart';
+import '../../../../models.dart';
 import 'package:diginexa/l10n/app_localizations.dart';
 
-class LeaveReportDashbard extends StatefulWidget {
-  const LeaveReportDashbard({super.key});
+class AttendanceReportDashbard extends StatefulWidget {
+  const AttendanceReportDashbard({super.key});
 
   @override
-  State<LeaveReportDashbard> createState() => _LeaveReportDashbardState();
+  State<AttendanceReportDashbard> createState() => _AttendanceReportDashbardState();
 }
 
-class _LeaveReportDashbardState extends State<LeaveReportDashbard>
+class _AttendanceReportDashbardState extends State<AttendanceReportDashbard>
     with TickerProviderStateMixin {
   late final Controller controller;
   late final ScrollController _scrollController;
@@ -45,7 +45,7 @@ class _LeaveReportDashbardState extends State<LeaveReportDashbard>
       loadProfileImage();
       controller.fetchUnreadNotifications();
       controller.getPersonalDetails(context);
-      controller.fetchAndAppendReports("LeaveRequisition").then((_) {
+      controller.fetchAndAppendReports("AttendanceRequisition").then((_) {
         controller.isLoadingGE1.value = false;
       });
     });
@@ -318,7 +318,7 @@ class _LeaveReportDashbardState extends State<LeaveReportDashbard>
                       left: 16.0,
                     ), // Like margin-left
                     child: Text(
-                      '${AppLocalizations.of(context)!.leave} ${AppLocalizations.of(context)!.reports}',
+                      '${AppLocalizations.of(context)!.attendance} ${AppLocalizations.of(context)!.reports}',
                       style: const TextStyle(
                         // color: AppColors.gradientEnd, // Text color
                         fontSize: 20, // font-size
@@ -392,7 +392,7 @@ class _LeaveReportDashbardState extends State<LeaveReportDashbard>
                             onPressed: () {
                               Navigator.pushNamed(
                                 context,
-                                AppRoutes.leaveReportCreateScreen,
+                                AppRoutes.attendanceReportCreateScreen,
                               );
                             },
                             icon: const Icon(
@@ -769,7 +769,7 @@ class _LeaveReportDashbardState extends State<LeaveReportDashbard>
                         final data = await controller.fetchDataset(
                           item.reportMetaData,
                           context,
-                          "LeaveRequisition"
+                          "AttendanceRequisition"
                         );
 
                         if (data != null) {

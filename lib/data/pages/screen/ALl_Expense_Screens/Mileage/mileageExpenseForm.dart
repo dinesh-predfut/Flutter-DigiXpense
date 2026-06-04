@@ -990,19 +990,23 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                   child: _infoCardButton(
                                     title:
                                         '${AppLocalizations.of(context)!.totalAmountIN} ${controller.selectedCurrencyMileage.value}',
-                                    value: controller.calculatedAmountINR
-                                        .toStringAsFixed(2),
+                                    value: controller.calculatedAmountINR.toStringAsFixed(0)
+                                        ,
                                     onTap: () {},
                                   ),
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
-                                  child: _infoCardButton(
-                                    title:
-                                        '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
-                                    value: controller.calculatedAmountUSD
-                                        .toStringAsFixed(2),
-                                    onTap: () {},
+                                  child: Obx(
+                                    () => _infoCardButton(
+                                      title:
+                                          '${AppLocalizations.of(context)!.totalAmountIN} ${controller.organizationCurrency}',
+                                      value: controller
+                                          .calculatedAmountUSD
+                                          .value
+                                          .toStringAsFixed(0),
+                                      onTap: () {},
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2154,6 +2158,7 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
                                     ),
                                   ),
                                   onPressed: () {
+                                    controller.closeField();
                                     if (controller.isEnable.value) {
                                       Navigator.pushNamed(
                                         context,

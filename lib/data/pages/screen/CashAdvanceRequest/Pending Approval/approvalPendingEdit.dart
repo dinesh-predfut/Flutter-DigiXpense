@@ -89,7 +89,7 @@ class _ApprovalViewEditExpensePageState
     initializeCashAdvanceSelection();
     historyFuture = controller.fetchExpenseHistory(widget.items!.recId);
     final formatted = DateFormat(
-     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(widget.items!.receiptDate);
     controller.selectedDate = widget.items!.receiptDate;
     receiptDateController.text = formatted;
@@ -313,6 +313,196 @@ class _ApprovalViewEditExpensePageState
     } finally {
       controller.isImageLoading.value = false;
     }
+  }
+
+  void addToFinalItems(GESpeficExpense expense) {
+    print(
+      "addToFinalItems called with ${itemizeControllers.length} controllers",
+    );
+    print("Expense transactions count: ${expense.expenseTrans.length}");
+
+    // ✅ If itemizeControllers is empty but expense has transactions, reinitialize
+    if (itemizeControllers.isEmpty && expense.expenseTrans.isNotEmpty) {
+      print(
+        "Itemize controllers empty but expense has transactions - reinitializing...",
+      );
+      _initializeItemizeControllers();
+    }
+
+    if (itemizeControllers.isEmpty) {
+      print(
+        "No itemize controllers available - creating from expense transactions",
+      );
+      // Create controllers from expense transactions
+      for (int i = 0; i < expense.expenseTrans.length; i++) {
+        final trans = expense.expenseTrans[i];
+        final newController = Controller();
+
+        // Clone custom fields from main controller
+        final mainController = Get.find<Controller>();
+        if (mainController.customFields.isNotEmpty) {
+          newController.cloneCustomFieldsFromRx(mainController.customFields);
+        }
+
+        // Set basic fields
+        newController.recIDItem = trans.recId;
+        newController.projectDropDowncontroller.text = trans.projectId ?? '';
+        newController.descriptionController.text = trans.description ?? '';
+        newController.quantity.text = trans.quantity.toStringAsFixed(2);
+        newController.unitPriceTrans.text = trans.unitPriceTrans
+            .toStringAsFixed(2);
+        newController.lineAmount.text = trans.lineAmountTrans.toStringAsFixed(
+          2,
+        );
+        newController.lineAmountINR.text = trans.lineAmountReporting
+            .toStringAsFixed(2);
+        newController.taxAmount.text = trans.taxAmount.toStringAsFixed(2);
+        newController.taxGroupController.text = trans.taxGroup ?? '';
+        newController.categoryController.text = trans.expenseCategoryId;
+        newController.uomId.text = trans.uomId;
+        newController.isReimbursable = trans.isReimbursable;
+        newController.isBillableCreate = trans.isBillable;
+
+        itemizeControllers.add(newController);
+      }
+      _itemizeCount = expense.expenseTrans.length;
+    }
+
+    controller.finalItemsSpecific.clear();
+
+    for (
+      int i = 0;
+      i < itemizeControllers.length && i < expense.expenseTrans.length;
+      i++
+    ) {
+      final itemController = itemizeControllers[i];
+      final trans = expense.expenseTrans[i];
+
+      print("Processing item $i - recId: ${trans.recId}");
+
+      // ✅ Collect ExpenseTrans custom field values for THIS transaction
+      final List<Map<String, dynamic>> transCustomFieldValues = [];
+
+      print(
+        "ItemController customFieldsItems length: ${itemController.customFieldsItems.length}",
+      );
+
+      for (var field in itemController.customFieldsItems) {
+        final objectName = field['ObjectName'];
+
+        if (objectName != 'ExpenseTrans') continue;
+
+        final fieldId = field['FieldId'];
+        final fieldName = field['FieldName'];
+        final fieldType = field['FieldType'] ?? 'Text';
+        dynamic rawValue = field['EnteredValue'];
+
+        if (rawValue == null) continue;
+
+        String fieldValue;
+
+        try {
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            final selected = field['SelectedValue'] as CustomDropdownValue?;
+            if (selected == null) continue;
+            fieldValue = selected.valueId;
+          } else if (fieldType == 'Checkbox') {
+            fieldValue = rawValue.toString();
+          } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+            DateTime? dt;
+            if (rawValue is DateTime) {
+              dt = rawValue;
+            } else if (rawValue is int) {
+              dt = DateTime.fromMillisecondsSinceEpoch(rawValue);
+            } else if (rawValue is String) {
+              dt = DateTime.tryParse(rawValue);
+            }
+            if (dt == null) continue;
+            fieldValue = dt.millisecondsSinceEpoch.toString();
+          } else if (fieldType == 'LongInteger') {
+            int? intValue;
+            if (rawValue is int) {
+              intValue = rawValue;
+            } else if (rawValue is String) {
+              intValue = int.tryParse(rawValue);
+            }
+            if (intValue == null) continue;
+            fieldValue = intValue.toString();
+          } else if (fieldType == 'Decimal') {
+            double? doubleValue;
+            if (rawValue is double) {
+              doubleValue = rawValue;
+            } else if (rawValue is int) {
+              doubleValue = rawValue.toDouble();
+            } else if (rawValue is String) {
+              doubleValue = double.tryParse(rawValue);
+            }
+            if (doubleValue == null) continue;
+            fieldValue = doubleValue.toString();
+          } else {
+            fieldValue = rawValue.toString();
+          }
+
+          if (fieldValue.isEmpty) continue;
+
+          transCustomFieldValues.add({
+            'FieldId': fieldId,
+            'FieldValue': fieldValue,
+            'FieldName': fieldName,
+            'CustomFieldEntity': 'ExpenseTrans',
+          });
+        } catch (e) {
+          print("Error processing field $fieldName: $e");
+        }
+      }
+
+      // Preserve the original recId from the transaction
+      final taxGroupValue =
+          (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
+          ? trans.taxGroup
+          : null;
+
+      // Map accounting distributions while preserving their recIds
+      final mappedDistributions =
+          trans.accountingDistributions?.map((dist) {
+            return AccountingDistribution(
+              transAmount: dist.transAmount,
+              reportAmount: dist.reportAmount,
+              dimensionValueId: dist.dimensionValueId,
+              allocationFactor: dist.allocationFactor,
+              recId: dist.recId,
+            );
+          }).toList() ??
+          [];
+
+      // Create the expense item update model
+      final item = ExpenseItemUpdate(
+        recId: trans.recId,
+        expenseId: trans.expenseId,
+        expenseCategoryId: trans.expenseCategoryId,
+        uomId: trans.uomId,
+        quantity: trans.quantity,
+        unitPriceTrans: trans.unitPriceTrans,
+        taxAmount: trans.taxAmount,
+        taxGroup: taxGroupValue,
+        lineAmountTrans: trans.lineAmountTrans,
+        lineAmountReporting: trans.lineAmountReporting,
+        projectId: trans.projectId,
+        description: trans.description ?? '',
+        isReimbursable: trans.isReimbursable,
+        isBillable: trans.isBillable,
+        accountingDistributions: mappedDistributions,
+        expenseTransCustomFieldValues: transCustomFieldValues,
+      );
+
+      controller.finalItemsSpecific.add(item);
+    }
+
+    print(
+      "Total items in finalItemsSpecific: ${controller.finalItemsSpecific.length}",
+    );
   }
 
   @override
@@ -1694,7 +1884,7 @@ class _ApprovalViewEditExpensePageState
                               text: "Resubmit",
                               isLoading: controller.buttonLoader.value,
                               onPressed: () {
-                                controller.addToFinalItems(widget.items!);
+                                addToFinalItems(widget.items!);
                                 controller.saveinviewPageGeneralExpense(
                                   context,
                                   true,
@@ -1725,7 +1915,7 @@ class _ApprovalViewEditExpensePageState
                       //           ? null
                       //           : () {
                       //               controller.setButtonLoading('update', true);
-                      //               controller.addToFinalItems(widget.items!);
+                      //               addToFinalItems(widget.items!);
                       //               controller
                       //                   .reviewGendralExpense(context, false,
                       //                       widget.items!.workitemrecid)
@@ -1792,9 +1982,7 @@ class _ApprovalViewEditExpensePageState
                                             'update',
                                             true,
                                           );
-                                          controller.addToFinalItems(
-                                            widget.items!,
-                                          );
+                                          addToFinalItems(widget.items!);
                                           controller
                                               .reviewGendralExpense(
                                                 context,
@@ -1862,9 +2050,7 @@ class _ApprovalViewEditExpensePageState
                                             'update_accept',
                                             true,
                                           );
-                                          controller.addToFinalItems(
-                                            widget.items!,
-                                          );
+                                          addToFinalItems(widget.items!);
                                           controller
                                               .reviewGendralExpense(
                                                 context,
@@ -1939,9 +2125,7 @@ class _ApprovalViewEditExpensePageState
                                             'reject',
                                             true,
                                           );
-                                          controller.addToFinalItems(
-                                            widget.items!,
-                                          );
+                                          addToFinalItems(widget.items!);
                                           controller
                                               .saveinviewPageGeneralExpense(
                                                 context,
@@ -2202,7 +2386,9 @@ class _ApprovalViewEditExpensePageState
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate =
-                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy') // Adjust your format
+                          DateFormat(
+                                controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                              ) // Adjust your format
                               .parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -2214,11 +2400,13 @@ class _ApprovalViewEditExpensePageState
                     context: context,
                     initialDate: initialDate,
                     firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
+                    lastDate: DateTime.now(),
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
+                    controllers.text = DateFormat(
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                    ).format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 

@@ -47,7 +47,7 @@ class _MyTeamCashAdvanceDashboardState extends State<MyTeamCashAdvanceDashboard>
     _scrollController = ScrollController();
 
     // Load data
-
+    controller.loadSequenceModules();
     controller.fetchUnreadNotifications();
     controller.getPersonalDetails(context);
     // controller.fetchMileageRates();
@@ -833,8 +833,13 @@ Widget _buildStyledCard(CashAdvanceRequestHeader item, BuildContext context) {
                 ),
                 Text(
                   item.requestDate != null
-                      ? DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
-                          DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
+                      ? DateFormat(
+                          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                        ).format(
+                          DateTime.fromMillisecondsSinceEpoch(
+                            item.requestDate,
+                            isUtc: true,
+                          ),
                         )
                       : 'No date',
                   style: const TextStyle(fontSize: 12),

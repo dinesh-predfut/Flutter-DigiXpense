@@ -5,6 +5,7 @@ import 'package:diginexa/core/comman/widgets/accountDistribution.dart';
 import 'package:diginexa/core/comman/widgets/button.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
@@ -120,11 +121,19 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       });
 
       final timestamp = widget.items!.requestDate;
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(
+
+      final requestDate = DateTime.fromMillisecondsSinceEpoch(
         timestamp,
         isUtc: true,
       );
-      final formatted = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(dateTime);
+
+      final fromMs = toStartOfDayUtc(requestDate);
+
+      final dateTime = DateTime.fromMillisecondsSinceEpoch(fromMs);
+
+      final formatted = DateFormat(
+        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(dateTime);
       requestDateController.text = formatted;
 
       if (widget.items != null &&
@@ -5058,7 +5067,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                   if (controllers.text.isNotEmpty) {
                     try {
                       initialDate = DateFormat(
-                       controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                       ).parseStrict(controllers.text.trim());
                     } catch (e) {
                       print("Invalid date format: ${controllers.text}");
@@ -5074,7 +5083,9 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
                   );
 
                   if (picked != null) {
-                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(picked);
+                    controllers.text = DateFormat(
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                    ).format(picked);
                     setState(() {
                       controller.selectedDate = picked;
 

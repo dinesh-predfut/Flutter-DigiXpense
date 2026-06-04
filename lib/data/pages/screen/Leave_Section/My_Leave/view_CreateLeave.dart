@@ -55,6 +55,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       //  controller.uploadedImages.value.clear();
       controller.loadSequenceModules();
       _initLeaveScreen();
+      controller.loadAllCustomFieldValues();
     });
   }
 
@@ -67,10 +68,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
         controller.leaveconfiguration(),
         controller.fetchProjectName(),
         controller.fetchLocation(),
-        loadLeaveAnalytics(),
+        controller.loadLeaveAnalytics(DateTime.now()),
         loadEmployee(),
         controller.fetchUsers(),
       ]);
+      await controller.mergeLeaveBalances();
 
       controller.markInitialized();
       controller.isLoading.value = false;
@@ -96,17 +98,12 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
       } else {
         controller.leaveField.value = true;
       }
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint("Init Leave Screen Error: $e");
+      debugPrint('Stack: $stack');
     } finally {
       controller.isLoading.value = false;
     }
-  }
-
-  Future<void> loadLeaveAnalytics() async {
-    final result = await controller.fetchEmployeeLeaveCodes();
-
-    controller.leaveCodes.assignAll(result);
   }
 
   Future<void> loadEmployee() async {
@@ -150,12 +147,13 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
 
       /// Update text field
       controller.updateDatesController();
+      controller.loadLeaveAnalytics(controller.startDate.value);
 
       /// Call API to create leave transactions
       await controller.createLeaveTransactions(
         employeeId: Params.employeeId,
-        fromDate: controller.toMillisecondsWithTimezone(picked.start),
-        toDate: controller.toMillisecondsWithTimezone(picked.end),
+        fromDate: toStartOfDayUtc(picked.start),
+        toDate: toEndOfDayUtc(picked.end),
         leaveCode: controller.leaveCodeController.text,
       );
 
@@ -443,19 +441,18 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             print(
                               "Selected Leave Code: ${code.leaveCode}, isAllowedPastDates: ${code.isPastAllowed}",
                             );
-                            if (controller.leaveCodeController.text.isEmpty)
+                            if (controller.leaveCodeController.text.isEmpty) {
                               return;
+                            }
+
                             await controller.createLeaveTransactions(
                               employeeId: Params.employeeId,
-                              fromDate: toMillisecondsWithTimezone(
+                              fromDate: toStartOfDayUtc(
                                 controller.startDate.value!,
                               ),
-                              toDate: toMillisecondsWithTimezone(
-                                controller.endDate.value!,
-                              ),
+                              toDate: toEndOfDayUtc(controller.endDate.value!),
                               leaveCode: controller.leaveCodeController.text,
                             );
-
                             // controller.calculateTotalDays();
                           },
                           controller: controller.leaveCodeController,
@@ -604,7 +601,370 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             );
                           },
                         ),
+                        const SizedBox(height: 6),
+                      Obx(() {
+  return Column(
+    children: controller.customFields
+        .where((field) => field['ObjectName'] == "LeaveRequisition")
+        .map((field) {
+          final String label = field['FieldLabel'] ?? field['FieldName'];
+          final bool isMandatory = field['IsMandatory'] ?? false;
+          final String fieldType = field['FieldType'] ?? 'Text';
+          final bool isDateTime = fieldType == 'Date&Time';
 
+          Widget inputField;
+
+          // List type fields - Make Reactive
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            
+            // Create an Rx value for the selected option
+            if (field['_rxSelectedValue'] == null) {
+              field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(field['SelectedValue'] as CustomDropdownValue?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxSelectedValue'] as Rx<CustomDropdownValue?>;
+              return SearchableMultiColumnDropdownField<CustomDropdownValue>(
+                labelText: '$label${isMandatory ? " *" : ""}',
+                items: (field['Options'] as List<CustomDropdownValue>?) ?? [],
+                selectedValue: rxValue.value,
+                searchValue: (val) => '${val.valueId} ${val.valueName}',
+                enabled: controller.leaveField.value,
+                displayText: (val) => val.valueName,
+                columnHeaders: const ['Value ID', 'Value Name'],
+                rowBuilder: (val, searchQuery) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(val.valueId)),
+                      Expanded(child: Text(val.valueName)),
+                    ],
+                  ),
+                ),
+                onChanged: (val) {
+                  rxValue.value = val;
+                  field['SelectedValue'] = val;
+                  field['Error'] = null;
+                },
+              );
+            });
+          }
+          // Checkbox type
+          else if (fieldType == 'Checkbox') {
+            // Make checkbox reactive
+            if (field['_rxCheckboxValue'] == null) {
+              field['_rxCheckboxValue'] = Rx<bool>(field['EnteredValue'] ?? false);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxCheckboxValue'] as Rx<bool>;
+              return CheckboxListTile(
+                title: Text('$label${isMandatory ? " *" : ""}'),
+                value: rxValue.value,
+                enabled: controller.leaveField.value,
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (bool? val) {
+                  rxValue.value = val ?? false;
+                  field['EnteredValue'] = val ?? false;
+                  controller.customFields.refresh();
+                },
+              );
+            });
+          }
+          // Date and DateTime types
+          else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+            // Create a controller that updates when field value changes
+            final textController = TextEditingController();
+            
+            // Create reactive value for date
+            if (field['_rxDateValue'] == null) {
+              field['_rxDateValue'] = Rx<DateTime?>(field['EnteredValue'] as DateTime?);
+            }
+            
+            // Listen to changes
+            ever(field['_rxDateValue'], (DateTime? newDate) {
+              if (newDate != null) {
+                if (isDateTime) {
+                  textController.text = DateFormat('dd/MM/yyyy hh:mm a').format(newDate);
+                } else {
+                  textController.text = DateFormat('dd/MM/yyyy').format(newDate);
+                }
+              } else {
+                textController.text = '';
+              }
+            });
+            
+            // Initial update
+            final initialDate = field['_rxDateValue'].value;
+            if (initialDate != null) {
+              if (isDateTime) {
+                textController.text = DateFormat('dd/MM/yyyy hh:mm a').format(initialDate);
+              } else {
+                textController.text = DateFormat('dd/MM/yyyy').format(initialDate);
+              }
+            }
+            
+            inputField = Obx(() {
+              return TextFormField(
+                readOnly: true,
+                enabled: controller.leaveField.value,
+                controller: textController,
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                  suffixIcon: const Icon(Icons.calendar_today),
+                ),
+                onTap: !controller.leaveField.value
+                    ? null
+                    : () async {
+                        DateTime? currentDate = field['_rxDateValue'].value ?? DateTime.now();
+                        
+                        final DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: currentDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+
+                        if (pickedDate == null) return;
+
+                        if (isDateTime) {
+                          TimeOfDay initialTime = TimeOfDay.now();
+                          if (field['_rxDateValue'].value != null) {
+                            initialTime = TimeOfDay.fromDateTime(field['_rxDateValue'].value!);
+                          }
+
+                          final TimeOfDay? pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: initialTime,
+                          );
+
+                          if (pickedTime == null) return;
+
+                          final fullDateTime = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+
+                          field['_rxDateValue'].value = fullDateTime;
+                          field['EnteredValue'] = fullDateTime;
+                        } else {
+                          field['_rxDateValue'].value = pickedDate;
+                          field['EnteredValue'] = pickedDate;
+                        }
+
+                        field['Error'] = null;
+                      },
+                validator: (value) {
+                  if (isMandatory && field['_rxDateValue'].value == null) {
+                    return '$label is required';
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+          // LongInteger (Integer) type
+          else if (fieldType == 'LongInteger') {
+            if (field['_rxIntValue'] == null) {
+              field['_rxIntValue'] = Rx<int?>(field['EnteredValue'] as int?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxIntValue'] as Rx<int?>;
+              return TextFormField(
+                keyboardType: TextInputType.number,
+                enabled: controller.leaveField.value,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                initialValue: rxValue.value?.toString() ?? '',
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                ),
+                onChanged: (value) {
+                  if (value.isEmpty) {
+                    rxValue.value = null;
+                    field['EnteredValue'] = null;
+                  } else {
+                    final intValue = int.tryParse(value);
+                    rxValue.value = intValue;
+                    field['EnteredValue'] = intValue;
+                  }
+                  field['Error'] = null;
+                },
+                validator: (value) {
+                  if (isMandatory && (value == null || value.trim().isEmpty)) {
+                    return '$label is required';
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+          // Decimal type
+          else if (fieldType == 'Decimal') {
+            if (field['_rxDoubleValue'] == null) {
+              field['_rxDoubleValue'] = Rx<double?>(field['EnteredValue'] as double?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+              return TextFormField(
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                enabled: controller.leaveField.value,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+                ],
+                initialValue: rxValue.value?.toString() ?? '',
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                ),
+                onChanged: (value) {
+                  if (value.isEmpty) {
+                    rxValue.value = null;
+                    field['EnteredValue'] = null;
+                  } else {
+                    final doubleValue = double.tryParse(value);
+                    rxValue.value = doubleValue;
+                    field['EnteredValue'] = doubleValue;
+                  }
+                  field['Error'] = null;
+                },
+                validator: (value) {
+                  if (isMandatory && (value == null || value.trim().isEmpty)) {
+                    return '$label is required';
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+          // Email type
+          else if (fieldType == 'Email') {
+            if (field['_rxStringValue'] == null) {
+              field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxStringValue'] as Rx<String?>;
+              return TextFormField(
+                keyboardType: TextInputType.emailAddress,
+                enabled: controller.leaveField.value,
+                initialValue: rxValue.value ?? '',
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                  suffixIcon: const Icon(Icons.email_outlined),
+                ),
+                onChanged: (value) {
+                  rxValue.value = value;
+                  field['EnteredValue'] = value;
+                  field['Error'] = null;
+                },
+                validator: (value) {
+                  if (isMandatory && (value == null || value.trim().isEmpty)) {
+                    return '$label is required';
+                  }
+                  if (value != null && value.isNotEmpty) {
+                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(value)) {
+                      return 'Enter a valid email address';
+                    }
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+          // MobileNumber type
+          else if (fieldType == 'MobileNumber') {
+            if (field['_rxStringValue'] == null) {
+              field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxStringValue'] as Rx<String?>;
+              return TextFormField(
+                keyboardType: TextInputType.phone,
+                enabled: controller.leaveField.value,
+                initialValue: rxValue.value ?? '',
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                  suffixIcon: const Icon(Icons.phone_outlined),
+                ),
+                onChanged: (value) {
+                  rxValue.value = value;
+                  field['EnteredValue'] = value;
+                  field['Error'] = null;
+                },
+                validator: (value) {
+                  if (isMandatory && (value == null || value.trim().isEmpty)) {
+                    return '$label is required';
+                  }
+                  if (value != null && value.isNotEmpty) {
+                    final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
+                    if (!phoneRegex.hasMatch(value)) {
+                      return 'Enter a valid mobile number';
+                    }
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+          // Default Text type
+          else {
+            if (field['_rxStringValue'] == null) {
+              field['_rxStringValue'] = Rx<String?>(field['EnteredValue'] as String?);
+            }
+            
+            inputField = Obx(() {
+              final rxValue = field['_rxStringValue'] as Rx<String?>;
+              return TextFormField(
+                keyboardType: TextInputType.text,
+                enabled: controller.leaveField.value,
+                initialValue: rxValue.value ?? '',
+                decoration: InputDecoration(
+                  labelText: '$label${isMandatory ? " *" : ""}',
+                  border: const OutlineInputBorder(),
+                  errorText: field['Error'],
+                ),
+                onChanged: (value) {
+                  rxValue.value = value;
+                  field['EnteredValue'] = value;
+                  field['Error'] = null;
+                },
+                validator: (value) {
+                  if (isMandatory && (value == null || value.trim().isEmpty)) {
+                    return '$label is required';
+                  }
+                  return null;
+                },
+              );
+            });
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: inputField,
+          );
+        })
+        .toList(),
+  );
+}),
                         const SizedBox(height: 16),
 
                         // Dates * (Always required)
@@ -664,7 +1024,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                       : null,
                                   onChanged: (proj) {
                                     controller.selectedLocation = proj;
-                                    controller.fetchPerDiemRates();
+                                    // controller.fetchPerDiemRates();
                                   },
                                   columnHeaders: [
                                     AppLocalizations.of(context)!.location,
@@ -825,7 +1185,7 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                             alignLabelWithHint: true,
                           ),
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
+                            if (controller.commentsController.text.isEmpty) {
                               return '${AppLocalizations.of(context)!.comments} ${AppLocalizations.of(context)!.fieldRequired}';
                             }
                             return null;
@@ -924,7 +1284,10 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               ),
                               validator: isMandatory
                                   ? (value) {
-                                      if (value == null || value.isEmpty) {
+                                      if (controller
+                                          .outOfOfficeMessageController
+                                          .text
+                                          .isEmpty) {
                                         return '${AppLocalizations.of(context)!.outOfOfficeMessage} ${AppLocalizations.of(context)!.fieldRequired}';
                                       }
                                       return null;
@@ -1162,11 +1525,15 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: controller.leaveDays.map((leaveDay) {
-                              final date = DateTime.fromMillisecondsSinceEpoch(
-                                leaveDay.transDate,
-                                isUtc: true,
-                              ).toLocal();
-
+                              final date =
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    leaveDay.transDate,
+                                    isUtc: true,
+                                  ).add(
+                                    Duration(
+                                      milliseconds: getTimezoneOffsetMs(),
+                                    ),
+                                  );
                               return Padding(
                                 padding: const EdgeInsets.only(top: 12),
                                 child: Row(
@@ -1186,55 +1553,86 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                     const SizedBox(width: 12),
 
                                     /// Day type column (ALWAYS Expanded)
+                                    // In the leaveDays Obx builder, replace the items list:
                                     Expanded(
                                       child: leaveDay.noOfDays == 0
                                           ? const Text(
                                               "Non Working Day",
                                               style: TextStyle(fontSize: 12),
                                             )
-                                          : SearchableMultiColumnDropdownField<
-                                              String
-                                            >(
-                                              enabled:
-                                                  controller.leaveField.value &&
-                                                  !leaveDay.isHoliday,
-                                              labelText: AppLocalizations.of(
-                                                context,
-                                              )!.dayType,
-                                              items: [
-                                                'Full Day',
-                                                'First Half',
-                                                'Second Half',
-                                              ],
-                                              selectedValue:
-                                                  leaveDay.dayType.value,
-                                              searchValue: (option) => option,
-                                              displayText: (option) => option,
-                                              onChanged: (option) {
-                                                leaveDay.dayType.value =
-                                                    option!;
-                                                // controller.calculateTotalDays();
-                                              },
-                                              rowBuilder: (option, searchQuery) {
-                                                return Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 12,
-                                                        horizontal: 16,
-                                                      ),
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(option),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              },
-                                              columnHeaders: const ['Day Type'],
-                                            ),
-                                    ),
+                                          : Obx(() {
+                                              // Build items based on AllowHalfDay from selected leave code
+                                              final allowHalfDay =
+                                                  controller
+                                                      .selectedLeaveCode
+                                                      .value
+                                                      ?.allowHalfDay ??
+                                                  true;
 
+                                              final dayTypeItems = allowHalfDay
+                                                  ? [
+                                                      'Full Day',
+                                                      'First Half',
+                                                      'Second Half',
+                                                    ]
+                                                  : ['Full Day'];
+
+                                              // If current value is half day but not allowed, reset to Full Day
+                                              if (!allowHalfDay &&
+                                                  (leaveDay.dayType.value ==
+                                                          'First Half' ||
+                                                      leaveDay.dayType.value ==
+                                                          'Second Half')) {
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                      leaveDay.dayType.value =
+                                                          'Full Day';
+                                                    });
+                                              }
+
+                                              return SearchableMultiColumnDropdownField<
+                                                String
+                                              >(
+                                                enabled:
+                                                    controller
+                                                        .leaveField
+                                                        .value &&
+                                                    !leaveDay.isHoliday,
+                                                labelText: AppLocalizations.of(
+                                                  context,
+                                                )!.dayType,
+                                                items:
+                                                    dayTypeItems, // ← dynamic list
+                                                selectedValue:
+                                                    leaveDay.dayType.value,
+                                                searchValue: (option) => option,
+                                                displayText: (option) => option,
+                                                onChanged: (option) {
+                                                  leaveDay.dayType.value =
+                                                      option!;
+                                                },
+                                                rowBuilder: (option, searchQuery) {
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 16,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(option),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                                columnHeaders: const [
+                                                  'Day Type',
+                                                ],
+                                              );
+                                            }),
+                                    ),
                                     // const SizedBox(width: 12),
 
                                     // /// New Status button column
@@ -1547,61 +1945,82 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   ),
 
                                   const SizedBox(width: 12),
+
+                                  // In the leaveDays Obx builder, replace the items list:
                                   Expanded(
-                                    child: leaveDay.isHoliday == true
+                                    child: leaveDay.noOfDays == 0
                                         ? const Text(
                                             "Non Working Day",
                                             style: TextStyle(fontSize: 12),
                                           )
-                                        : SearchableMultiColumnDropdownField<
-                                            String
-                                          >(
-                                            labelText: AppLocalizations.of(
-                                              context,
-                                            )!.dayType,
-                                            items: [
-                                              'Full Day',
-                                              'First Half',
-                                              'Second Half',
-                                            ],
-                                            selectedValue:
-                                                leaveDay.dayType.value,
-                                            searchValue: (option) => option,
-                                            displayText: (option) => option,
-                                            onChanged: (option) {
-                                              leaveDay.dayType.value = option!;
-                                              // controller.calculateTotalDays();
+                                        : Obx(() {
+                                            // Build items based on AllowHalfDay from selected leave code
+                                            final allowHalfDay =
+                                                controller
+                                                    .selectedLeaveCode
+                                                    .value
+                                                    ?.allowHalfDay ??
+                                                true;
 
-                                              /// track modified only
-                                              if (option !=
-                                                  leaveDay.originalDayType) {
-                                                controller.modifiedDays[leaveDay
-                                                        .recId!] =
+                                            final dayTypeItems = allowHalfDay
+                                                ? [
+                                                    'Full Day',
+                                                    'First Half',
+                                                    'Second Half',
+                                                  ]
+                                                : ['Full Day'];
+
+                                            // If current value is half day but not allowed, reset to Full Day
+                                            if (!allowHalfDay &&
+                                                (leaveDay.dayType.value ==
+                                                        'First Half' ||
+                                                    leaveDay.dayType.value ==
+                                                        'Second Half')) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    leaveDay.dayType.value =
+                                                        'Full Day';
+                                                  });
+                                            }
+
+                                            return SearchableMultiColumnDropdownField<
+                                              String
+                                            >(
+                                              enabled:
+                                                  controller.leaveField.value &&
+                                                  !leaveDay.isHoliday,
+                                              labelText: AppLocalizations.of(
+                                                context,
+                                              )!.dayType,
+                                              items:
+                                                  dayTypeItems, // ← dynamic list
+                                              selectedValue:
+                                                  leaveDay.dayType.value,
+                                              searchValue: (option) => option,
+                                              displayText: (option) => option,
+                                              onChanged: (option) {
+                                                leaveDay.dayType.value =
                                                     option!;
-                                              } else {
-                                                controller.modifiedDays.remove(
-                                                  leaveDay.recId,
+                                              },
+                                              rowBuilder: (option, searchQuery) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 16,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(option),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 );
-                                              }
-                                            },
-                                            rowBuilder: (option, searchQuery) {
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(option),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                            columnHeaders: const ['Day Type'],
-                                          ),
+                                              },
+                                              columnHeaders: const ['Day Type'],
+                                            );
+                                          }),
                                   ),
 
                                   /// DAY TYPE
@@ -1713,7 +2132,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     onPressed: isLoading || isAnyLoading
                         ? null
                         : () async {
-                            if (_formKey.currentState!.validate()) {
+                            if (_formKey.currentState!.validate() &
+                                !_validateNegativeBalance()) {
                               controller.setButtonLoading('update', true);
                               try {
                                 await controller.submitApprovalLeaveRequest(
@@ -1760,7 +2180,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     onPressed: isLoading || isAnyLoading
                         ? null
                         : () async {
-                            if (_formKey.currentState!.validate()) {
+                            if (_formKey.currentState!.validate() &
+                                !_validateNegativeBalance()) {
                               controller.setButtonLoading(
                                 'update_accept',
                                 true,
@@ -1820,7 +2241,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     onPressed: isLoading || isAnyLoading
                         ? null
                         : () async {
-                            if (_formKey.currentState!.validate()) {
+                            if (_formKey.currentState!.validate() &
+                                !_validateNegativeBalance()) {
                               controller.setButtonLoading('reject', true);
                               try {
                                 showActionPopup(context, "Reject");
@@ -2234,7 +2656,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                   onPressed: (isResubmitLoading || isAnyLoading)
                       ? null
                       : () async {
-                          if (_formKey.currentState!.validate()) {
+                          if (_formKey.currentState!.validate() &
+                              !_validateNegativeBalance()) {
                             controller.setButtonLoading('resubmit', true);
                             try {
                               // controller.calculateTotalDays();
@@ -2243,8 +2666,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                 true,
                                 true,
                               );
-                              controller.uploadedImages.clear();
-                              controller.fileItems.clear();
                             } finally {
                               controller.setButtonLoading('resubmit', false);
                             }
@@ -2287,7 +2708,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                       onPressed: (isUpdateLoading || isAnyLoading)
                           ? null
                           : () async {
-                              if (_formKey.currentState!.validate()) {
+                              if (_formKey.currentState!.validate() &
+                                  !_validateNegativeBalance()) {
                                 controller.setButtonLoading('update', true);
                                 try {
                                   // controller.calculateTotalDays();
@@ -2296,8 +2718,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                     false,
                                     false,
                                   );
-                                  controller.uploadedImages.clear();
-                                  controller.fileItems.clear();
                                 } finally {
                                   controller.setButtonLoading('update', false);
                                 }
@@ -2357,7 +2777,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                     borderRadius: BorderRadius.circular(30),
                     backgroundColor: const Color.fromARGB(255, 29, 1, 128),
                     onPressed: () async {
-                      if (!_formKey.currentState!.validate()) return;
+                      if (!_formKey.currentState!.validate() &&
+                          !_validateNegativeBalance()) {
+                        setState(() {});
+                        return;
+                      }
 
                       controller.setButtonLoading('submit', true);
 
@@ -2368,8 +2792,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           true,
                           false,
                         );
-                        controller.uploadedImages.clear();
-                        controller.fileItems.clear();
                       } finally {
                         controller.setButtonLoading('submit', false);
                       }
@@ -2395,7 +2817,11 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                           backgroundColor: const Color(0xFF1E7503),
                           height: 52,
                           onPressed: () async {
-                            if (!_formKey.currentState!.validate()) return;
+                            if (!_formKey.currentState!.validate() &&
+                                !_validateNegativeBalance()) {
+                              setState(() {});
+                              return;
+                            }
 
                             controller.setButtonLoading('save', true);
 
@@ -2406,8 +2832,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                 false,
                                 false,
                               );
-                              controller.uploadedImages.clear();
-                              controller.fileItems.clear();
                             } finally {
                               controller.setButtonLoading('save', false);
                             }
@@ -2640,8 +3064,31 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               // _isSubmitAttempted = true;
 
                               /// Form validation
-                              if (!_formKey.currentState!.validate()) {
+                              if (!_formKey.currentState!.validate() &&
+                                  !_validateNegativeBalance()) {
                                 setState(() {});
+                                return;
+                              }
+                              if (controller
+                                      .selectedLeaveCode
+                                      .value!
+                                      .isSupportiveDocReq &&
+                                  controller.uploadedImages.isEmpty) {
+                                Fluttertoast.showToast(
+                                  msg: "Receipt Required",
+                                  backgroundColor: const Color.fromARGB(
+                                    255,
+                                    247,
+                                    2,
+                                    2,
+                                  ),
+                                  textColor: const Color.fromARGB(
+                                    255,
+                                    253,
+                                    253,
+                                    252,
+                                  ),
+                                );
                                 return;
                               }
 
@@ -2664,9 +3111,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                   true,
                                   false,
                                 );
-
-                                controller.uploadedImages.clear();
-                                controller.fileItems.clear();
                               } finally {
                                 controller.setButtonLoading('submit', false);
                               }
@@ -2716,7 +3160,8 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                               : () async {
                                   // _isSubmitAttempted = true;
 
-                                  if (!_formKey.currentState!.validate()) {
+                                  if (!_formKey.currentState!.validate() &&
+                                      !_validateNegativeBalance()) {
                                     setState(() {});
                                     return;
                                   }
@@ -2733,9 +3178,6 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
                                       false,
                                       false,
                                     );
-
-                                    controller.uploadedImages.clear();
-                                    controller.fileItems.clear();
                                   } finally {
                                     controller.setButtonLoading(
                                       'saveDraft',
@@ -2823,6 +3265,40 @@ class _ViewEditLeavePageState extends State<ViewEditLeavePage> {
         ],
       ],
     );
+  }
+  // Helper method to add inside _ViewEditLeavePageState:
+
+  bool _validateNegativeBalance() {
+    final leaveCode = controller.selectedLeaveCode.value;
+    if (leaveCode == null) return true;
+
+    // ✅ Skip validation if negative balance is allowed
+    if (leaveCode.allowNegativeBal) return true;
+
+    final double requested = controller.totalRequestedDays.value.toDouble();
+    final double available = leaveCode.leaveBalance;
+
+    debugPrint(
+      'Balance check → leaveCode: ${leaveCode.leaveCode}, '
+      'available: $available, requested: $requested',
+    );
+    if (controller.commentsController.text.isEmpty) {
+      return false;
+    }
+    if (requested > available) {
+      Fluttertoast.showToast(
+        msg:
+            'Insufficient leave balance for "${leaveCode.leaveCode}".\n'
+            'Available: $available days | Requested: $requested days.',
+        backgroundColor: Colors.red[100],
+        textColor: Colors.red[800],
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   void _showFullCancelDialog(BuildContext context) {

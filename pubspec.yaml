@@ -98,7 +98,7 @@ dependencies:
 searchable_dropdown:
 flutter_native_splash:
   color: "#ffffff"
-  image: assets/xpense.png
+  image: assets/Xpense.png
   android: true
   ios: true
 

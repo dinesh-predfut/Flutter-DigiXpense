@@ -14,14 +14,13 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get login => 'Connexion';
   @override
-  String get punchInOut => 'Pointage Entrée/Sortie';
-
+  String get punchInOut => 'Pointage Sortie';
   @override
   String get punchInOutList => 'Liste de pointage';
 
   @override
   String get myTeamAttendance => 'Présence de mon équipe';
-
+@override String get attendance => 'Présence';
   @override
   String get timesheets => 'Feuilles de temps';
 
@@ -113,14 +112,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get selectDateFormat => 'défaut par format de date';
   @override
   String get cancel => 'Annuler';
-  @override String get example => 'Exemple';
-  @override String get add => 'Ajouter';
-@override String get reason => 'Raison';
-@override String get onlyLettersAndNumbers => 'Seules les lettres et les chiffres sont autorisés';
-@override String get zipMustIncludeNumber => 'Le code postal doit contenir au moins un chiffre';
-@override String get noMatchingStates => 'Aucun état correspondant';
-@override String get invalidPhoneNumber => 'Numéro de téléphone invalide';
-@override String get emailsForReceiptForwarding => 'E-mails pour le transfert des reçus';
+  @override
+  String get example => 'Exemple';
+  @override
+  String get add => 'Ajouter';
+  @override
+  String get reason => 'Raison';
+  @override
+  String get onlyLettersAndNumbers =>
+      'Seules les lettres et les chiffres sont autorisés';
+  @override
+  String get zipMustIncludeNumber =>
+      'Le code postal doit contenir au moins un chiffre';
+  @override
+  String get noMatchingStates => 'Aucun état correspondant';
+  @override
+  String get invalidPhoneNumber => 'Numéro de téléphone invalide';
+  @override
+  String get emailsForReceiptForwarding =>
+      'E-mails pour le transfert des reçus';
   @override
   String get submit => 'Soumettre';
   @override

@@ -90,7 +90,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get save => 'حفظ';
   @override
   String get approvedExpensesTotal => 'المصروفات المعتمدة (الإجمالي)';
-@override String get reason => 'السبب';
+  @override
+  String get reason => 'السبب';
   @override
   String get expensesInProgressTotal => 'المصروفات قيد المعالجة (الإجمالي)';
 
@@ -122,11 +123,11 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get myExpenseTrends => 'اتجاهات مصاريفي';
   @override
-  String get punchInOut => 'تسجيل الحضور/الانصراف';
-
+  String get punchInOut => 'تسجيل الانصراف';
   @override
   String get punchInOutList => 'قائمة تسجيل الحضور/الانصراف';
-
+  @override
+  String get attendance => 'الحضور';
   @override
   String get myTeamAttendance => 'حضور فريقي';
 

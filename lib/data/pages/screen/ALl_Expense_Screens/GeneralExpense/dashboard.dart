@@ -8,6 +8,7 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart'
     show PermissionHelper;
 import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
@@ -1119,14 +1120,23 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? DateFormat(
-                           controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                          ).format(item.receiptDate!.toUtc())
+                        ? (() {
+                            final correctedMs = toStartOfDayUtc(
+                              item.receiptDate!,
+                            );
+
+                            final correctedDate =
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  correctedMs,
+                                  isUtc: true,
+                                );
+
+                            return DateFormat(
+                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                            ).format(correctedDate);
+                          })()
                         : 'No date',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      // color: Color.fromARGB(255, 41, 41, 41),
-                    ),
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),

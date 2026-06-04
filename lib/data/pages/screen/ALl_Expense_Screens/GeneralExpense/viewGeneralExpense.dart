@@ -19,6 +19,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../../../../core/comman/widgets/multiselectDropdown.dart';
@@ -115,7 +116,8 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.currencyDropDown();
 
       _loadSettings();
-      final int offsetMs = int.tryParse(controller.selectedTimezonevalue!) ?? 0;
+      final int offsetMs =
+          int.tryParse(controller.selectedTimezonevalue.value!) ?? 0;
       final DateTime receiptDate = DateTime.fromMillisecondsSinceEpoch(
         widget.items.receiptDate.millisecondsSinceEpoch + offsetMs,
         isUtc: true,
@@ -172,9 +174,12 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       final savedCustomFields =
           args?['savedCustomFieldValues'] as List<dynamic>?;
       print("savedCustomFields${widget.items.expenseHeaderCustomFieldValues}");
-      controller.loadAllCustomFieldValues(
-        savedValues: widget.items.expenseHeaderCustomFieldValues,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        controller.loadAllCustomFieldValues(
+          savedValues: widget.items.expenseHeaderCustomFieldValues,
+        );
+        _initializeItemizeControllers();
+      });
       controller.isBillableCreate = widget.items.isBillable;
       if (widget.items.merchantId == null) {
         controller.manualPaidToController.text = widget.items.merchantName!;
@@ -184,7 +189,6 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       controller.currencyDropDowncontroller.text = widget.items.currency
           .toString();
 
-      _initializeItemizeControllers();
       _initializeData();
     });
     projectConfig = controller.getFieldConfig("Project Id");
@@ -478,84 +482,346 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
   }
 
   void _initializeItemizeControllers() {
+    final mainController = Get.find<Controller>();
+
+    print(
+      "Main controller customFields length: ${mainController.customFields.length}",
+    );
+    print(
+      "Main controller customFieldsItems length: ${mainController.customFieldsItems.length}",
+    );
+
     if (widget.items.expenseTrans.isEmpty) {
-      //  // print("expenseTransCalling");
-      final item = widget.items;
-      print("itemitem${item.recId}");
-      // final controller = Controller();
-      controller.recIDItem = item.recId;
-      controller.expenseId = int.tryParse(item.expenseId);
-      controller.projectDropDowncontroller.text = item.projectId ?? '';
-      controller.descriptionController.text = item.description ?? '';
-      controller.quantity.text = '1';
-      controller.unitPriceTrans.text =
-          item.totalAmountTrans?.toStringAsFixed(2) ?? '';
-      controller.lineAmount.text =
-          item.totalAmountTrans?.toStringAsFixed(2) ?? '';
-      controller.lineAmountINR.text =
-          item.totalAmountReporting?.toStringAsFixed(2) ?? '';
-      controller.taxAmount.text = item.taxAmount?.toStringAsFixed(2) ?? '';
-      controller.taxGroupController.text = item.taxGroup ?? '';
-      controller.categoryController.text = item.expenseCategoryId ?? '';
-      controller.uomId.text = '';
-      controller.isReimbursable = item.isReimbursable ?? false;
-      controller.isBillableCreate = item.isBillable ?? false;
-      if (controller.categoryController.text.isNotEmpty) {
-        final matchingCategory = controller.expenseCategory.firstWhere(
-          (e) => e.categoryId == controller.categoryController.text,
-          orElse: () => this.controller.expenseCategory.first,
+      final newController = Controller();
+      if (mainController.customFields.isNotEmpty) {
+        newController.cloneCustomFieldsFromRx(mainController.customFields);
+        print(
+          "Cloned ${newController.customFieldsItems.length} fields for empty transaction",
         );
-        print("matchingCategory$matchingCategory");
-        controller.selectedCategory = matchingCategory;
-
-        controller.itemisationMandatory.value =
-            matchingCategory.itemisationMandatory;
-
-        controller.minExpenseAmount.value =
-            (matchingCategory.minExpensesAmount ?? 0).toDouble();
-
-        controller.maxExpenseAmount.value =
-            (matchingCategory.maxExpenseAmount ?? 0).toDouble();
-
-        controller.receiptRequiredLimit.value =
-            (matchingCategory.receiptRequiredLimit ?? 0).toDouble();
       }
-      itemizeControllers = [controller];
+      itemizeControllers = [newController];
       _itemizeCount = 1;
-      _addItemize();
       return;
     }
-    itemizeControllers = widget.items.expenseTrans.map((item) {
-      final controller = Controller();
-      controller.recIDItem = item.recId;
-      controller.projectDropDowncontroller.text = item.projectId ?? '';
-      controller.descriptionController.text = item.description ?? '';
-      controller.quantity.text = item.quantity.toStringAsFixed(2);
-      controller.unitPriceTrans.text = item.unitPriceTrans.toStringAsFixed(2);
-      controller.lineAmount.text = item.lineAmountTrans.toStringAsFixed(2);
-      controller.lineAmountINR.text = item.lineAmountReporting.toStringAsFixed(
+
+    itemizeControllers = [];
+
+    for (int index = 0; index < widget.items.expenseTrans.length; index++) {
+      final item = widget.items.expenseTrans[index];
+      final newController = Controller();
+
+      // Set basic fields
+      newController.recIDItem = item.recId;
+      newController.projectDropDowncontroller.text = item.projectId ?? '';
+      newController.descriptionController.text = item.description ?? '';
+      newController.quantity.text = item.quantity.toStringAsFixed(2);
+      newController.unitPriceTrans.text = item.unitPriceTrans.toStringAsFixed(
         2,
       );
-      controller.taxAmount.text = item.taxAmount.toStringAsFixed(2);
-      controller.taxGroupController.text = item.taxGroup ?? '';
-      controller.categoryController.text = item.expenseCategoryId;
-      controller.uomId.text = item.uomId;
-      controller.isReimbursable = item.isReimbursable;
-      controller.isBillableCreate = item.isBillable;
+      newController.lineAmount.text = item.lineAmountTrans.toStringAsFixed(2);
+      newController.lineAmountINR.text = item.lineAmountReporting
+          .toStringAsFixed(2);
+      newController.taxAmount.text = item.taxAmount.toStringAsFixed(2);
+      newController.taxGroupController.text = item.taxGroup ?? '';
+      newController.categoryController.text = item.expenseCategoryId;
+      newController.uomId.text = item.uomId;
+      newController.isReimbursable = item.isReimbursable;
+      newController.isBillableCreate = item.isBillable;
 
-      if (item.accountingDistributions != null) {
-        controller.split = (item.accountingDistributions ?? []).map((dist) {
+      // ✅ CRITICAL FIX: First, make sure customFieldsItems has all fields from main controller
+      if (mainController.customFields.isNotEmpty) {
+        newController.cloneCustomFieldsFromRx(mainController.customFields);
+        print(
+          "Cloned ${newController.customFieldsItems.length} fields for item $index",
+        );
+      } else {
+        print("Main controller customFields is empty for item $index");
+        newController.customFieldsItems.value = [];
+      }
+
+      // ✅ NOW load ExpenseTrans custom fields (transaction level)
+      if (item.expenseTransCustomFieldValues != null &&
+          item.expenseTransCustomFieldValues!.isNotEmpty) {
+        print(
+          "Loading ExpenseTrans custom fields for item $index: ${item.expenseTransCustomFieldValues!.length} fields",
+        );
+
+        for (var savedField in item.expenseTransCustomFieldValues!) {
+          final savedFieldId = savedField['FieldId'];
+          final savedFieldValue = savedField['FieldValue'];
+          final savedFieldName = savedField['FieldName'];
+
+          print(
+            "Looking for ExpenseTrans field: $savedFieldId - $savedFieldName",
+          );
+
+          // Find matching field in customFieldsItems by FieldId
+          final matchingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) => f['FieldId'] == savedFieldId,
+          );
+
+          if (matchingFieldIndex != -1) {
+            final field = newController.customFieldsItems[matchingFieldIndex];
+            final fieldType = field['FieldType'];
+
+            print(
+              "✅ Found matching ExpenseTrans field: ${field['FieldName']} (${field['FieldId']})",
+            );
+            print("  → Setting value: $savedFieldValue");
+
+            _setFieldValue(field, savedFieldValue, fieldType);
+          } else {
+            print(
+              "⚠️ Could not find matching ExpenseTrans field for saved field: $savedFieldId - $savedFieldName",
+            );
+
+            // ✅ If field doesn't exist, create it dynamically
+            final newField = {
+              'FieldId': savedFieldId,
+              'FieldName': savedFieldName,
+              'FieldValue': savedFieldValue,
+              'FieldType': 'Text', // Default type
+              'ObjectName': 'ExpenseTrans',
+              'EnteredValue': savedFieldValue?.toString() ?? '',
+            };
+            newController.customFieldsItems.add(newField);
+            print("  → Created new field: $savedFieldName");
+          }
+        }
+      }
+
+      // ✅ CRITICAL FIX: Load ExpenseCategories custom fields (category level)
+      if (item.expenseTransExpensecategorycustomfieldvalues != null &&
+          item.expenseTransExpensecategorycustomfieldvalues!.isNotEmpty) {
+        print(
+          "Loading ExpenseCategories custom fields for item $index: ${item.expenseTransExpensecategorycustomfieldvalues!.length} fields",
+        );
+
+        for (var savedField
+            in item.expenseTransExpensecategorycustomfieldvalues!) {
+          final savedFieldId = savedField['FieldId'];
+          final savedFieldValue = savedField['FieldValue'];
+          final savedFieldName = savedField['FieldName'];
+
+          print(
+            "Looking for ExpenseCategories field: $savedFieldId - $savedFieldName",
+          );
+
+          // First, try to find existing field in customFieldsItems
+          int matchingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) =>
+                f['FieldId'] == savedFieldId &&
+                f['ObjectName'] == 'ExpenseCategories',
+          );
+
+          // If not found, try to find without ObjectName constraint
+          if (matchingFieldIndex == -1) {
+            matchingFieldIndex = newController.customFieldsItems.indexWhere(
+              (f) => f['FieldId'] == savedFieldId,
+            );
+          }
+
+          if (matchingFieldIndex != -1) {
+            final field = newController.customFieldsItems[matchingFieldIndex];
+            // Ensure ObjectName is set correctly
+            field['ObjectName'] = 'ExpenseCategories';
+            final fieldType = field['FieldType'] ?? 'Text';
+
+            print(
+              "✅ Found matching ExpenseCategories field: ${field['FieldName']} (${field['FieldId']})",
+            );
+            print("  → Setting value: $savedFieldValue");
+            print("  → FieldType: $fieldType");
+
+            _setFieldValue(field, savedFieldValue, fieldType);
+          } else {
+            // ✅ If field doesn't exist in customFieldsItems, create it from scratch
+            print(
+              "⚠️ Could not find matching ExpenseCategories field, creating new one",
+            );
+
+            // Find the category to get field type and options
+            final matchingCategory = controller.expenseCategory
+                .firstWhereOrNull(
+                  (cat) => cat.categoryId == item.expenseCategoryId,
+                );
+
+            String fieldType = 'Text';
+            List<CustomDropdownValue>? options;
+
+            if (matchingCategory != null &&
+                matchingCategory.customFields != null) {
+              final categoryField = matchingCategory.customFields!
+                  .firstWhereOrNull((cf) => cf['FieldId'] == savedFieldId);
+              if (categoryField != null) {
+                fieldType = categoryField['FieldType'] ?? 'Text';
+                options =
+                    categoryField['Options'] as List<CustomDropdownValue>?;
+                print("  → Found category field type: $fieldType");
+              }
+            }
+
+            final newField = {
+              'FieldId': savedFieldId,
+              'FieldName': savedFieldName,
+              'FieldLabel': savedFieldName,
+              'FieldType': fieldType,
+              'ObjectName': 'ExpenseCategories',
+              'ExpenseType': 'General Expenses',
+              'EnteredValue': savedFieldValue?.toString() ?? '',
+              'Options': options ?? [],
+              'Error': null,
+            };
+
+            // Initialize Rx based on field type
+            if (fieldType == 'List' ||
+                fieldType == 'CustomList' ||
+                fieldType == 'SystemList') {
+              CustomDropdownValue? matchedOption;
+              if (options != null &&
+                  options.isNotEmpty &&
+                  savedFieldValue != null) {
+                matchedOption = options.firstWhereOrNull(
+                  (opt) =>
+                      opt.valueName == savedFieldValue ||
+                      opt.valueId == savedFieldValue,
+                );
+              }
+              newField['SelectedValue'] = matchedOption;
+              newField['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
+                matchedOption,
+              );
+            } else if (fieldType == 'Checkbox') {
+              final boolValue =
+                  savedFieldValue == 'true' ||
+                  savedFieldValue == 'True' ||
+                  savedFieldValue == '1';
+              newField['_rxCheckboxValue'] = Rx<bool>(boolValue);
+            } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+              newField['_rxDateValue'] = Rx<DateTime?>(null);
+            } else if (fieldType == 'LongInteger') {
+              newField['_rxIntValue'] = Rx<int?>(
+                int.tryParse(savedFieldValue?.toString() ?? ''),
+              );
+            } else if (fieldType == 'Decimal') {
+              newField['_rxDoubleValue'] = Rx<double?>(
+                double.tryParse(savedFieldValue?.toString() ?? ''),
+              );
+            } else {
+              newField['_rxStringValue'] = Rx<String?>(
+                savedFieldValue?.toString() ?? '',
+              );
+            }
+
+            newController.customFieldsItems.add(newField);
+            print(
+              "  → Created new ExpenseCategories field: $savedFieldName with value: $savedFieldValue",
+            );
+          }
+        }
+      } else {
+        print("No ExpenseCategories custom fields found for item $index");
+      }
+
+      // Also load default category custom fields from the category itself
+      final matchingCategory = controller.expenseCategory.firstWhereOrNull(
+        (cat) => cat.categoryId == item.expenseCategoryId,
+      );
+
+      if (matchingCategory != null &&
+          matchingCategory.customFields != null &&
+          matchingCategory.customFields!.isNotEmpty) {
+        print(
+          "Checking default ExpenseCategories custom fields from category: ${matchingCategory.categoryId}",
+        );
+
+        for (var categoryField in matchingCategory.customFields!) {
+          final fieldId = categoryField['FieldId'];
+          final defaultValue = categoryField['DefaultValue']?.toString() ?? '';
+
+          // Check if this field already has a value (either saved or set)
+          final existingFieldIndex = newController.customFieldsItems.indexWhere(
+            (f) =>
+                f['FieldId'] == fieldId &&
+                f['ObjectName'] == 'ExpenseCategories',
+          );
+
+          if (existingFieldIndex != -1) {
+            final field = newController.customFieldsItems[existingFieldIndex];
+            final currentValue = field['EnteredValue'];
+            // Only set default if no saved value exists
+            if (currentValue == null ||
+                currentValue == '' ||
+                currentValue.toString().isEmpty) {
+              print(
+                "  → Setting default value for ${field['FieldName']}: $defaultValue",
+              );
+              _setFieldValue(field, defaultValue, field['FieldType']);
+            }
+          } else {
+            // Create new field from category if it doesn't exist
+            print(
+              "  → Creating new field from category: ${categoryField['FieldName']}",
+            );
+            final newField = Map<String, dynamic>.from(categoryField);
+            newField['ObjectName'] = 'ExpenseCategories';
+            newField['ExpenseType'] = 'General Expenses';
+
+            // Set default value
+            final defaultVal = newField['DefaultValue']?.toString() ?? '';
+            newField['EnteredValue'] = defaultVal;
+
+            // Initialize Rx based on field type
+            final fieldType = newField['FieldType'];
+            if (fieldType == 'List' ||
+                fieldType == 'CustomList' ||
+                fieldType == 'SystemList') {
+              final options = newField['Options'] as List<CustomDropdownValue>?;
+              CustomDropdownValue? matchedOption;
+              if (options != null && defaultVal.isNotEmpty) {
+                matchedOption = options.firstWhereOrNull(
+                  (opt) =>
+                      opt.valueName == defaultVal || opt.valueId == defaultVal,
+                );
+              }
+              newField['SelectedValue'] = matchedOption;
+              newField['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
+                matchedOption,
+              );
+            } else if (fieldType == 'Checkbox') {
+              final boolValue = defaultVal.toLowerCase() == 'true';
+              newField['_rxCheckboxValue'] = Rx<bool>(boolValue);
+            } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+              newField['_rxDateValue'] = Rx<DateTime?>(null);
+            } else if (fieldType == 'LongInteger') {
+              newField['_rxIntValue'] = Rx<int?>(int.tryParse(defaultVal));
+            } else if (fieldType == 'Decimal') {
+              newField['_rxDoubleValue'] = Rx<double?>(
+                double.tryParse(defaultVal),
+              );
+            } else {
+              newField['_rxStringValue'] = Rx<String?>(defaultVal);
+            }
+
+            newController.customFieldsItems.add(newField);
+          }
+        }
+      }
+
+      // Load accounting distributions
+      if (item.accountingDistributions != null &&
+          item.accountingDistributions!.isNotEmpty) {
+        newController.split = item.accountingDistributions!.map((dist) {
           return AccountingSplit(
             paidFor: dist.dimensionValueId ?? '',
             percentage: dist.allocationFactor ?? 0.0,
             amount: dist.transAmount ?? 0.0,
           );
         }).toList();
-      }
-      if (item.accountingDistributions != null) {
-        controller.accountingDistributions.clear();
-        controller.accountingDistributions.addAll(
-          item.accountingDistributions.map((dist) {
+
+        newController.accountingDistributions.clear();
+        newController.accountingDistributions.addAll(
+          item.accountingDistributions!.map((dist) {
             return AccountingDistribution(
               transAmount: dist.transAmount ?? 0.0,
               reportAmount: dist.reportAmount ?? 0.0,
@@ -565,19 +831,169 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
             );
           }),
         );
-        // print('--- AccountingDistributions Added ---');
-        for (var dist in controller.accountingDistributions) {
-          // print(
-          //   'TransAmount: ${dist?.transAmount}, ReportAmount: ${dist?.recId}, '
-          //   'AllocationFactor: ${dist?.allocationFactor}, DimensionValueId: ${dist?.dimensionValueId}',
-          // );
-        }
-        // print('--------------------------------------');
       }
 
-      return controller;
-    }).toList();
+      // Force refresh after loading all fields
+      newController.customFieldsItems.refresh();
+      itemizeControllers.add(newController);
+
+      print(
+        "Final customFieldsItems count for item $index: ${newController.customFieldsItems.length}",
+      );
+      print(
+        "ExpenseCategories fields: ${newController.customFieldsItems.where((f) => f['ObjectName'] == 'ExpenseCategories').length}",
+      );
+    }
+
     _itemizeCount = widget.items.expenseTrans.length;
+    print("Total itemize controllers created: ${itemizeControllers.length}");
+  }
+
+  // Helper method to set field value based on type
+  void _setFieldValue(
+    Map<String, dynamic> field,
+    dynamic savedFieldValue,
+    String fieldType,
+  ) {
+    if (fieldType == 'List' ||
+        fieldType == 'CustomList' ||
+        fieldType == 'SystemList') {
+      final options = field['Options'] as List<CustomDropdownValue>?;
+      CustomDropdownValue? matchedOption;
+
+      if (options != null && options.isNotEmpty && savedFieldValue != null) {
+        matchedOption = options.firstWhereOrNull(
+          (opt) =>
+              opt.valueName == savedFieldValue ||
+              opt.valueId == savedFieldValue,
+        );
+      }
+
+      field['EnteredValue'] = savedFieldValue?.toString() ?? '';
+      field['SelectedValue'] = matchedOption;
+
+      if (field['_rxSelectedValue'] == null) {
+        field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matchedOption);
+      } else {
+        (field['_rxSelectedValue'] as Rx<CustomDropdownValue?>).value =
+            matchedOption;
+      }
+    } else if (fieldType == 'Checkbox') {
+      final boolValue =
+          savedFieldValue == 'true' ||
+          savedFieldValue == 'True' ||
+          savedFieldValue == '1' ||
+          savedFieldValue == true;
+      field['EnteredValue'] = boolValue;
+
+      if (field['_rxCheckboxValue'] == null) {
+        field['_rxCheckboxValue'] = Rx<bool>(boolValue);
+      } else {
+        (field['_rxCheckboxValue'] as Rx<bool>).value = boolValue;
+      }
+    } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+      DateTime? parsedDate = _parseDateTime(
+        savedFieldValue,
+        fieldType == 'Date&Time',
+      );
+      field['EnteredValue'] = parsedDate;
+
+      if (field['_rxDateValue'] == null) {
+        field['_rxDateValue'] = Rx<DateTime?>(parsedDate);
+      } else {
+        (field['_rxDateValue'] as Rx<DateTime?>).value = parsedDate;
+      }
+    } else if (fieldType == 'LongInteger') {
+      final intValue = int.tryParse(savedFieldValue?.toString() ?? '');
+      field['EnteredValue'] = intValue;
+
+      if (field['_rxIntValue'] == null) {
+        field['_rxIntValue'] = Rx<int?>(intValue);
+      } else {
+        (field['_rxIntValue'] as Rx<int?>).value = intValue;
+      }
+
+      // Also update controller if exists
+      if (field['_controller'] != null) {
+        field['_controller'].text = intValue?.toString() ?? '';
+      }
+    } else if (fieldType == 'Decimal') {
+      final doubleValue = double.tryParse(savedFieldValue?.toString() ?? '');
+      field['EnteredValue'] = doubleValue;
+
+      if (field['_rxDoubleValue'] == null) {
+        field['_rxDoubleValue'] = Rx<double?>(doubleValue);
+      } else {
+        (field['_rxDoubleValue'] as Rx<double?>).value = doubleValue;
+      }
+
+      // Update controller if exists
+      if (field['_controller'] != null) {
+        field['_controller'].text = doubleValue?.toString() ?? '';
+      }
+    } else {
+      final stringValue = savedFieldValue?.toString() ?? '';
+      field['EnteredValue'] = stringValue;
+
+      if (field['_rxStringValue'] == null) {
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+      } else {
+        (field['_rxStringValue'] as Rx<String?>).value = stringValue;
+      }
+
+      // Update controller if exists
+      if (field['_controller'] != null) {
+        field['_controller'].text = stringValue;
+      }
+    }
+
+    field['Error'] = null;
+  }
+
+  // Helper method to parse DateTime
+  DateTime? _parseDateTime(dynamic value, bool isDateTime) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String && value.isNotEmpty) {
+      try {
+        if (value.contains('/')) {
+          final parts = value.split(' ');
+          final dateParts = parts[0].split('/');
+          if (dateParts.length == 3) {
+            if (isDateTime && parts.length >= 2) {
+              final timeParts = parts[1].split(':');
+              final isPM = parts.length > 2 && parts[2].toUpperCase() == 'PM';
+              int hour = int.parse(timeParts[0]);
+              if (isPM && hour != 12) hour += 12;
+              if (!isPM && hour == 12) hour = 0;
+              return DateTime(
+                int.parse(dateParts[2]),
+                int.parse(dateParts[1]),
+                int.parse(dateParts[0]),
+                hour,
+                int.parse(timeParts[1]),
+              );
+            } else {
+              return DateTime(
+                int.parse(dateParts[2]),
+                int.parse(dateParts[1]),
+                int.parse(dateParts[0]),
+              );
+            }
+          }
+        } else {
+          final millis = int.tryParse(value);
+          if (millis != null) {
+            return DateTime.fromMillisecondsSinceEpoch(millis);
+          }
+          return DateTime.parse(value);
+        }
+      } catch (e) {
+        print("Error parsing date: $e");
+      }
+    }
+    return null;
   }
 
   Future<void> waitForDropdownDataAndSetValues() async {
@@ -1498,338 +1914,517 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                   final bool isMandatory =
                                       field['IsMandatory'] ?? false;
                                   final String fieldKey = field['FieldName'];
+                                  final String fieldType =
+                                      field['FieldType'] ?? 'Text';
+                                  final bool isDateTime =
+                                      fieldType == 'Date&Time';
 
-                                  // ✅ Create controller once, sync value from customFields
+                                  // Create controller if it doesn't exist
                                   if (!fieldControllers.containsKey(fieldKey)) {
                                     fieldControllers[fieldKey] =
-                                        TextEditingController(
-                                          text:
-                                              field['EnteredValue']
-                                                  ?.toString() ??
-                                              '',
-                                        );
-                                  } else {
-                                    // ✅ Sync latest value into existing controller
-                                    final newText =
-                                        field['EnteredValue']?.toString() ?? '';
-                                    if (fieldControllers[fieldKey]!.text !=
-                                        newText) {
-                                      fieldControllers[fieldKey]!.text =
-                                          newText;
-                                    }
+                                        TextEditingController();
                                   }
 
                                   Widget inputField;
 
-                                  if (field['FieldType'] == 'List' ||
-                                      field['FieldType'] == 'CustomList' ||
-                                      field['FieldType'] == 'SystemList') {
-                                    inputField =
-                                        SearchableMultiColumnDropdownField<
-                                          CustomDropdownValue
-                                        >(
+                                  // List type fields - Make Reactive
+                                  if (fieldType == 'List' ||
+                                      fieldType == 'CustomList' ||
+                                      fieldType == 'SystemList') {
+                                    // Create Rx value if not exists
+                                    if (field['_rxSelectedValue'] == null) {
+                                      field['_rxSelectedValue'] =
+                                          Rx<CustomDropdownValue?>(
+                                            field['SelectedValue']
+                                                as CustomDropdownValue?,
+                                          );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxSelectedValue']
+                                              as Rx<CustomDropdownValue?>;
+                                      return SearchableMultiColumnDropdownField<
+                                        CustomDropdownValue
+                                      >(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        items:
+                                            (field['Options']
+                                                as List<
+                                                  CustomDropdownValue
+                                                >?) ??
+                                            [],
+                                        selectedValue: rxValue.value,
+                                        searchValue: (val) => val.valueName,
+                                        enabled: controller.isEnable.value,
+                                        displayText: (val) => val.valueName,
+                                        columnHeaders: const [
+                                          'Value ID',
+                                          'Value Name',
+                                        ],
+                                        rowBuilder: (val, searchQuery) =>
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 10,
+                                                    horizontal: 16,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(val.valueId),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(val.valueName),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        onChanged: (val) {
+                                          rxValue.value = val;
+                                          field['SelectedValue'] = val;
+                                          field['Error'] = null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Checkbox type - Make Reactive
+                                  else if (fieldType == 'Checkbox') {
+                                    if (field['_rxCheckboxValue'] == null) {
+                                      field['_rxCheckboxValue'] = Rx<bool>(
+                                        field['EnteredValue'] ?? false,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxCheckboxValue'] as Rx<bool>;
+                                      return CheckboxListTile(
+                                        title: Text(
+                                          '$label${isMandatory ? " *" : ""}',
+                                        ),
+                                        value: rxValue.value,
+                                        enabled: controller.isEnable.value,
+                                        controlAffinity:
+                                            ListTileControlAffinity.leading,
+                                        contentPadding: EdgeInsets.zero,
+                                        onChanged: controller.isEnable.value
+                                            ? (bool? val) {
+                                                rxValue.value = val ?? false;
+                                                field['EnteredValue'] =
+                                                    val ?? false;
+                                              }
+                                            : null,
+                                      );
+                                    });
+                                  }
+                                  // Date and DateTime types - Make Reactive
+                                  else if (fieldType == 'Date' ||
+                                      fieldType == 'Date&Time') {
+                                    // Create Rx value if not exists
+                                    if (field['_rxDateValue'] == null) {
+                                      field['_rxDateValue'] = Rx<DateTime?>(
+                                        field['EnteredValue'] as DateTime?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxDateValue =
+                                          field['_rxDateValue']
+                                              as Rx<DateTime?>;
+                                      final currentDate = rxDateValue.value;
+
+                                      // Update controller text based on Rx value
+                                      if (currentDate != null) {
+                                        if (isDateTime) {
+                                          fieldControllers[fieldKey]!.text =
+                                              DateFormat(
+                                                'dd/MM/yyyy hh:mm a',
+                                              ).format(currentDate);
+                                        } else {
+                                          fieldControllers[fieldKey]!.text =
+                                              DateFormat(
+                                                'dd/MM/yyyy',
+                                              ).format(currentDate);
+                                        }
+                                      } else {
+                                        fieldControllers[fieldKey]!.text = '';
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        readOnly: true,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
                                           labelText:
                                               '$label${isMandatory ? " *" : ""}',
-                                          items:
-                                              (field['Options']
-                                                  as List<
-                                                    CustomDropdownValue
-                                                  >?) ??
-                                              [],
-                                          selectedValue: field['SelectedValue'],
-                                          searchValue: (val) => val.valueName,
-                                          enabled: controller.isEnable.value,
-                                          displayText: (val) => val.valueName,
-                                          columnHeaders: const [
-                                            'Value ID',
-                                            'Value Name',
-                                          ],
-                                          rowBuilder: (val, searchQuery) =>
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 10,
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(val.valueId),
-                                                    ),
-                                                    Expanded(
-                                                      child: Text(
-                                                        val.valueName,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          onChanged: (val) {
-                                            field['SelectedValue'] = val;
-                                            field['Error'] = null;
-                                            controller.customFields.refresh();
-                                          },
-                                        );
-                                  } else if (field['FieldType'] == 'Checkbox') {
-                                    inputField = CheckboxListTile(
-                                      title: Text(
-                                        '$label${isMandatory ? " *" : ""}',
-                                      ),
-                                      value:
-                                          field['EnteredValue'] ??
-                                          false, // ✅ reads live from map
-                                      enabled: controller.isEnable.value,
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      contentPadding: EdgeInsets.zero,
-                                      onChanged: controller.isEnable.value
-                                          ? (bool? val) {
-                                              field['EnteredValue'] =
-                                                  val ?? false;
-                                              controller.customFields.refresh();
-                                            }
-                                          : null,
-                                    );
-                                  } else if (field['FieldType'] == 'Date' ||
-                                      field['FieldType'] == 'Date&Time') {
-                                    final bool isDateTime =
-                                        field['FieldType'] == 'Date&Time';
-
-                                    // ✅ Sync date text into controller
-                                    fieldControllers[fieldKey]!.text =
-                                        field['EnteredValue'] != null
-                                        ? isDateTime
-                                              ? DateFormat(
-                                                  'dd/MM/yyyy hh:mm a',
-                                                ).format(field['EnteredValue'])
-                                              : DateFormat(
-                                                  'dd/MM/yyyy',
-                                                ).format(field['EnteredValue'])
-                                        : '';
-
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      readOnly: true,
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.calendar_today,
-                                        ),
-                                      ),
-                                      onTap: controller.isEnable.value
-                                          ? () async {
-                                              final DateTime? pickedDate =
-                                                  await showDatePicker(
-                                                    context: context,
-                                                    initialDate:
-                                                        field['EnteredValue'] ??
-                                                        DateTime.now(),
-                                                    firstDate: DateTime(2000),
-                                                    lastDate: DateTime(2100),
-                                                  );
-                                              if (pickedDate == null) return;
-
-                                              if (isDateTime) {
-                                                final TimeOfDay?
-                                                pickedTime = await showTimePicker(
-                                                  context: context,
-                                                  initialTime:
-                                                      field['EnteredValue'] !=
-                                                          null
-                                                      ? TimeOfDay.fromDateTime(
-                                                          field['EnteredValue'],
-                                                        )
-                                                      : TimeOfDay.now(),
-                                                );
-                                                if (pickedTime == null) return;
-                                                field['EnteredValue'] =
-                                                    DateTime(
-                                                      pickedDate.year,
-                                                      pickedDate.month,
-                                                      pickedDate.day,
-                                                      pickedTime.hour,
-                                                      pickedTime.minute,
-                                                    );
-                                              } else {
-                                                field['EnteredValue'] =
-                                                    pickedDate;
-                                              }
-                                              controller.customFields.refresh();
-                                            }
-                                          : null,
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            field['EnteredValue'] == null) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'LongInteger') {
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = int.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Decimal') {
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.calendar_today,
                                           ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'^\d+\.?\d*'),
                                         ),
-                                      ],
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = double.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Email') {
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      keyboardType: TextInputType.emailAddress,
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.email_outlined,
-                                        ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final emailRegex = RegExp(
-                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                          );
-                                          if (!emailRegex.hasMatch(value)) {
-                                            return 'Enter a valid email address';
+                                        onTap: controller.isEnable.value
+                                            ? () async {
+                                                DateTime? currentDate =
+                                                    rxDateValue.value ??
+                                                    DateTime.now();
+
+                                                final DateTime? pickedDate =
+                                                    await showDatePicker(
+                                                      context: context,
+                                                      initialDate: currentDate,
+                                                      firstDate: DateTime(2000),
+                                                      lastDate: DateTime(2100),
+                                                    );
+
+                                                if (pickedDate == null) return;
+
+                                                if (isDateTime) {
+                                                  TimeOfDay initialTime =
+                                                      TimeOfDay.now();
+                                                  if (rxDateValue.value !=
+                                                      null) {
+                                                    initialTime =
+                                                        TimeOfDay.fromDateTime(
+                                                          rxDateValue.value!,
+                                                        );
+                                                  }
+
+                                                  final TimeOfDay? pickedTime =
+                                                      await showTimePicker(
+                                                        context: context,
+                                                        initialTime:
+                                                            initialTime,
+                                                      );
+
+                                                  if (pickedTime == null)
+                                                    return;
+
+                                                  final fullDateTime = DateTime(
+                                                    pickedDate.year,
+                                                    pickedDate.month,
+                                                    pickedDate.day,
+                                                    pickedTime.hour,
+                                                    pickedTime.minute,
+                                                  );
+
+                                                  rxDateValue.value =
+                                                      fullDateTime;
+                                                  field['EnteredValue'] =
+                                                      fullDateTime;
+                                                } else {
+                                                  rxDateValue.value =
+                                                      pickedDate;
+                                                  field['EnteredValue'] =
+                                                      pickedDate;
+                                                }
+
+                                                field['Error'] = null;
+                                              }
+                                            : null,
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              rxDateValue.value == null) {
+                                            return '$label is required';
                                           }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'MobileNumber') {
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      keyboardType: TextInputType.phone,
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.phone_outlined,
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // LongInteger (Integer) type - Make Reactive
+                                  else if (fieldType == 'LongInteger') {
+                                    if (field['_rxIntValue'] == null) {
+                                      field['_rxIntValue'] = Rx<int?>(
+                                        field['EnteredValue'] as int?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxIntValue'] as Rx<int?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText =
+                                          rxValue.value?.toString() ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                        ],
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
                                         ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final phoneRegex = RegExp(
-                                            r'^\+?[\d\s\-]{7,15}$',
-                                          );
-                                          if (!phoneRegex.hasMatch(value)) {
-                                            return 'Enter a valid mobile number';
+                                        onChanged: (value) {
+                                          final intValue = int.tryParse(value);
+                                          rxValue.value = intValue;
+                                          field['EnteredValue'] = intValue;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
                                           }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else {
-                                    // ✅ Default Text
-                                    inputField = TextFormField(
-                                      enabled: controller.isEnable.value,
-                                      keyboardType: TextInputType.text,
-                                      controller:
-                                          fieldControllers[fieldKey], // ✅ use controller
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Decimal type - Make Reactive
+                                  else if (fieldType == 'Decimal') {
+                                    if (field['_rxDoubleValue'] == null) {
+                                      field['_rxDoubleValue'] = Rx<double?>(
+                                        field['EnteredValue'] as double?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxDoubleValue']
+                                              as Rx<double?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText =
+                                          rxValue.value?.toString() ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'^\d+\.?\d*'),
+                                          ),
+                                        ],
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                        ),
+                                        onChanged: (value) {
+                                          final doubleValue = double.tryParse(
+                                            value,
+                                          );
+                                          rxValue.value = doubleValue;
+                                          field['EnteredValue'] = doubleValue;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Email type - Make Reactive
+                                  else if (fieldType == 'Email') {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.email_outlined,
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          if (value != null &&
+                                              value.isNotEmpty) {
+                                            final emailRegex = RegExp(
+                                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                            );
+                                            if (!emailRegex.hasMatch(value)) {
+                                              return 'Enter a valid email address';
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // MobileNumber type - Make Reactive
+                                  else if (fieldType == 'MobileNumber') {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.phone,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                          suffixIcon: const Icon(
+                                            Icons.phone_outlined,
+                                          ),
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          if (value != null &&
+                                              value.isNotEmpty) {
+                                            final phoneRegex = RegExp(
+                                              r'^\+?[\d\s\-]{7,15}$',
+                                            );
+                                            if (!phoneRegex.hasMatch(value)) {
+                                              return 'Enter a valid mobile number';
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
+                                  }
+                                  // Default Text type - Make Reactive
+                                  else {
+                                    if (field['_rxStringValue'] == null) {
+                                      field['_rxStringValue'] = Rx<String?>(
+                                        field['EnteredValue'] as String?,
+                                      );
+                                    }
+
+                                    inputField = Obx(() {
+                                      final rxValue =
+                                          field['_rxStringValue']
+                                              as Rx<String?>;
+
+                                      // Update controller without triggering rebuild during build
+                                      final newText = rxValue.value ?? '';
+                                      if (fieldControllers[fieldKey]!.text !=
+                                          newText) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              fieldControllers[fieldKey]!.text =
+                                                  newText;
+                                            });
+                                      }
+
+                                      return TextFormField(
+                                        enabled: controller.isEnable.value,
+                                        keyboardType: TextInputType.text,
+                                        controller: fieldControllers[fieldKey],
+                                        decoration: InputDecoration(
+                                          labelText:
+                                              '$label${isMandatory ? " *" : ""}',
+                                          border: const OutlineInputBorder(),
+                                          errorText: field['Error'],
+                                        ),
+                                        onChanged: (value) {
+                                          rxValue.value = value;
+                                          field['EnteredValue'] = value;
+                                          field['Error'] = null;
+                                        },
+                                        validator: (value) {
+                                          if (isMandatory &&
+                                              (value == null ||
+                                                  value.trim().isEmpty)) {
+                                            return '$label is required';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    });
                                   }
 
                                   return Padding(
@@ -2482,17 +3077,18 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 })
                                                 .toList(),
                                             Obx(() {
+                                              print(
+                                                'ontroller.customFieldsItems${controller.customFieldsItems}',
+                                              );
                                               return Column(
-                                                children: controller
-                                                    .customFields
+                                                children: itemController
+                                                    .customFieldsItems
                                                     .where(
                                                       (field) =>
                                                           field['ObjectName'] ==
-                                                              'ExpenseTrans' &&
-                                                          (field['ExpenseType'] ==
-                                                                  'General Expenses' ||
-                                                              field['ExpenseType'] ==
-                                                                  null),
+                                                              'ExpenseTrans' ||
+                                                          field['ObjectName'] ==
+                                                              'ExpenseCategories',
                                                     )
                                                     .map((field) {
                                                       final String label =
@@ -2501,465 +3097,1127 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       final bool isMandatory =
                                                           field['IsMandatory'] ??
                                                           false;
+                                                      final String fieldType =
+                                                          field['FieldType'] ??
+                                                          'Text';
 
                                                       Widget inputField;
 
-                                                      if (field['FieldType'] ==
-                                                              'List' ||
-                                                          field['FieldType'] ==
+                                                      // List type fields - Make Reactive
+                                                      if (fieldType == 'List' ||
+                                                          fieldType ==
                                                               'CustomList' ||
-                                                          field['FieldType'] ==
+                                                          fieldType ==
                                                               'SystemList') {
-                                                        // ── Dropdown / Searchable List ──
-                                                        inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          labelText:
-                                                              '$label${isMandatory ? " *" : ""}',
-                                                          items:
-                                                              (field['Options']
-                                                                  as List<
-                                                                    CustomDropdownValue
-                                                                  >?) ??
-                                                              [],
-                                                          selectedValue:
-                                                              field['SelectedValue'],
-                                                          searchValue: (val) =>
-                                                              val.valueName,
-                                                          // enabled: controller.isEditModePerdiem,
-                                                          displayText: (val) =>
-                                                              val.valueName,
-                                                          columnHeaders: const [
-                                                            'Value ID',
-                                                            'Value Name',
-                                                          ],
-                                                          rowBuilder:
-                                                              (
-                                                                val,
-                                                                searchQuery,
-                                                              ) => Padding(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      vertical:
-                                                                          10,
-                                                                      horizontal:
-                                                                          16,
-                                                                    ),
-                                                                child: Row(
-                                                                  children: [
-                                                                    Expanded(
-                                                                      child: Text(
-                                                                        val.valueId,
-                                                                      ),
-                                                                    ),
-                                                                    Expanded(
-                                                                      child: Text(
-                                                                        val.valueName,
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                          onChanged: (val) {
-                                                            field['SelectedValue'] =
-                                                                val;
-                                                            field['Error'] =
-                                                                null;
-                                                            controller
-                                                                .customFields
-                                                                .refresh();
-                                                          },
-                                                        );
-                                                      } else if (field['FieldType'] ==
-                                                          'Checkbox') {
-                                                        // ── Checkbox ──
-                                                        inputField = CheckboxListTile(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          title: Text(
-                                                            '$label${isMandatory ? " *" : ""}',
-                                                          ),
-                                                          value:
-                                                              field['EnteredValue'] ??
-                                                              false,
-                                                          // enabled: controller.isEditModePerdiem,
-                                                          controlAffinity:
-                                                              ListTileControlAffinity
-                                                                  .leading,
-                                                          contentPadding:
-                                                              EdgeInsets.zero,
-                                                          onChanged:
-                                                              controller
-                                                                  .isEnable
-                                                                  .value
-                                                              ? (bool? val) {
-                                                                  field['EnteredValue'] =
-                                                                      val ??
-                                                                      false;
-                                                                  controller
-                                                                      .customFields
-                                                                      .refresh();
-                                                                }
-                                                              : null,
-                                                        );
-                                                      } else if (field['FieldType'] ==
-                                                              'Date' ||
-                                                          field['FieldType'] ==
-                                                              'Date&Time') {
-                                                        // ── Date / Date&Time ──
-                                                        final bool isDateTime =
-                                                            field['FieldType'] ==
-                                                            'Date&Time';
+                                                        // Create Rx value if not exists
+                                                        if (field['_rxSelectedValue'] ==
+                                                            null) {
+                                                          field['_rxSelectedValue'] =
+                                                              Rx<
+                                                                CustomDropdownValue?
+                                                              >(
+                                                                field['SelectedValue']
+                                                                    as CustomDropdownValue?,
+                                                              );
+                                                        }
 
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          readOnly: true,
-                                                          controller: TextEditingController(
-                                                            text:
-                                                                field['EnteredValue'] !=
-                                                                    null
-                                                                ? isDateTime
-                                                                      ? DateFormat(
-                                                                          'dd/MM/yyyy hh:mm a',
-                                                                        ).format(
-                                                                          field['EnteredValue'],
-                                                                        )
-                                                                      : DateFormat(
-                                                                          'dd/MM/yyyy',
-                                                                        ).format(
-                                                                          field['EnteredValue'],
-                                                                        )
-                                                                : '',
-                                                          ),
-                                                          decoration: InputDecoration(
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxSelectedValue']
+                                                                  as Rx<
+                                                                    CustomDropdownValue?
+                                                                  >;
+                                                          return SearchableMultiColumnDropdownField<
+                                                            CustomDropdownValue
+                                                          >(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
                                                             labelText:
                                                                 '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                            suffixIcon: const Icon(
-                                                              Icons
-                                                                  .calendar_today,
+                                                            items:
+                                                                (field['Options']
+                                                                    as List<
+                                                                      CustomDropdownValue
+                                                                    >?) ??
+                                                                [],
+                                                            selectedValue:
+                                                                rxValue.value,
+                                                            searchValue:
+                                                                (val) => val
+                                                                    .valueName,
+                                                            displayText:
+                                                                (val) => val
+                                                                    .valueName,
+                                                            columnHeaders:
+                                                                const [
+                                                                  'Value ID',
+                                                                  'Value Name',
+                                                                ],
+                                                            rowBuilder: (val, searchQuery) => Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical:
+                                                                        10,
+                                                                    horizontal:
+                                                                        16,
+                                                                  ),
+                                                              child: Row(
+                                                                children: [
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      val.valueId,
+                                                                    ),
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      val.valueName,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
                                                             ),
-                                                          ),
-                                                          onTap:
-                                                              controller
-                                                                  .isEnable
-                                                                  .value
-                                                              ? () async {
-                                                                  final DateTime?
-                                                                  pickedDate = await showDatePicker(
-                                                                    context:
-                                                                        context,
-                                                                    initialDate:
-                                                                        field['EnteredValue'] ??
-                                                                        DateTime.now(),
-                                                                    firstDate:
-                                                                        DateTime(
-                                                                          2000,
-                                                                        ),
-                                                                    lastDate:
-                                                                        DateTime(
-                                                                          2100,
-                                                                        ),
+                                                            onChanged: (val) {
+                                                              rxValue.value =
+                                                                  val;
+                                                              field['SelectedValue'] =
+                                                                  val;
+                                                              field['Error'] =
+                                                                  null;
+                                                            },
+                                                          );
+                                                        });
+                                                      }
+                                                      // Checkbox type - Make Reactive
+                                                      else if (fieldType ==
+                                                          'Checkbox') {
+                                                        if (field['_rxCheckboxValue'] ==
+                                                            null) {
+                                                          field['_rxCheckboxValue'] =
+                                                              Rx<bool>(
+                                                                field['EnteredValue'] ??
+                                                                    false,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxCheckboxValue']
+                                                                  as Rx<bool>;
+                                                          return CheckboxListTile(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            title: Text(
+                                                              '$label${isMandatory ? " *" : ""}',
+                                                            ),
+                                                            value:
+                                                                rxValue.value,
+                                                            controlAffinity:
+                                                                ListTileControlAffinity
+                                                                    .leading,
+                                                            contentPadding:
+                                                                EdgeInsets.zero,
+                                                            onChanged:
+                                                                controller
+                                                                    .isEnable
+                                                                    .value
+                                                                ? (bool? val) {
+                                                                    rxValue.value =
+                                                                        val ??
+                                                                        false;
+                                                                    field['EnteredValue'] =
+                                                                        val ??
+                                                                        false;
+                                                                  }
+                                                                : null,
+                                                          );
+                                                        });
+                                                      }
+                                                      // Date and DateTime types - Make Reactive
+                                                      else if (fieldType ==
+                                                              'Date' ||
+                                                          fieldType ==
+                                                              'Date&Time') {
+                                                        final bool isDateTime =
+                                                            fieldType ==
+                                                            'Date&Time';
+
+                                                        // Create Rx value if not exists
+                                                        if (field['_rxDateValue'] ==
+                                                            null) {
+                                                          field['_rxDateValue'] =
+                                                              Rx<DateTime?>(
+                                                                field['EnteredValue']
+                                                                    as DateTime?,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxDateValue =
+                                                              field['_rxDateValue']
+                                                                  as Rx<
+                                                                    DateTime?
+                                                                  >;
+                                                          final currentDate =
+                                                              rxDateValue.value;
+
+                                                          // Create controller with current value
+                                                          final textEditingController =
+                                                              TextEditingController();
+                                                          if (currentDate !=
+                                                              null) {
+                                                            if (isDateTime) {
+                                                              textEditingController
+                                                                      .text =
+                                                                  DateFormat(
+                                                                    'dd/MM/yyyy hh:mm a',
+                                                                  ).format(
+                                                                    currentDate,
                                                                   );
+                                                            } else {
+                                                              textEditingController
+                                                                      .text =
+                                                                  DateFormat(
+                                                                    'dd/MM/yyyy',
+                                                                  ).format(
+                                                                    currentDate,
+                                                                  );
+                                                            }
+                                                          }
 
-                                                                  if (pickedDate ==
-                                                                      null)
-                                                                    return;
+                                                          return TextFormField(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            readOnly: true,
+                                                            controller:
+                                                                textEditingController,
+                                                            decoration: InputDecoration(
+                                                              labelText:
+                                                                  '$label${isMandatory ? " *" : ""}',
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              errorText:
+                                                                  field['Error'],
+                                                              suffixIcon:
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .calendar_today,
+                                                                  ),
+                                                            ),
+                                                            onTap:
+                                                                controller
+                                                                    .isEnable
+                                                                    .value
+                                                                ? () async {
+                                                                    DateTime?
+                                                                    currentDate =
+                                                                        rxDateValue
+                                                                            .value ??
+                                                                        DateTime.now();
 
-                                                                  if (isDateTime) {
-                                                                    final TimeOfDay?
-                                                                    pickedTime = await showTimePicker(
+                                                                    final DateTime?
+                                                                    pickedDate = await showDatePicker(
                                                                       context:
                                                                           context,
-                                                                      initialTime:
-                                                                          field['EnteredValue'] !=
-                                                                              null
-                                                                          ? TimeOfDay.fromDateTime(
-                                                                              field['EnteredValue'],
-                                                                            )
-                                                                          : TimeOfDay.now(),
+                                                                      initialDate:
+                                                                          currentDate,
+                                                                      firstDate:
+                                                                          DateTime(
+                                                                            2000,
+                                                                          ),
+                                                                      lastDate:
+                                                                          DateTime(
+                                                                            2100,
+                                                                          ),
                                                                     );
 
-                                                                    if (pickedTime ==
+                                                                    if (pickedDate ==
                                                                         null)
                                                                       return;
 
-                                                                    field['EnteredValue'] = DateTime(
-                                                                      pickedDate
-                                                                          .year,
-                                                                      pickedDate
-                                                                          .month,
-                                                                      pickedDate
-                                                                          .day,
-                                                                      pickedTime
-                                                                          .hour,
-                                                                      pickedTime
-                                                                          .minute,
-                                                                    );
-                                                                  } else {
-                                                                    field['EnteredValue'] =
-                                                                        pickedDate;
-                                                                  }
+                                                                    if (isDateTime) {
+                                                                      TimeOfDay
+                                                                      initialTime =
+                                                                          TimeOfDay.now();
+                                                                      if (rxDateValue
+                                                                              .value !=
+                                                                          null) {
+                                                                        initialTime = TimeOfDay.fromDateTime(
+                                                                          rxDateValue
+                                                                              .value!,
+                                                                        );
+                                                                      }
 
-                                                                  controller
-                                                                      .customFields
-                                                                      .refresh();
-                                                                }
-                                                              : null,
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                field['EnteredValue'] ==
-                                                                    null) {
-                                                              return '$label is required';
-                                                            }
-                                                            return null;
-                                                          },
-                                                        );
-                                                      } else if (field['FieldType'] ==
+                                                                      final TimeOfDay?
+                                                                      pickedTime = await showTimePicker(
+                                                                        context:
+                                                                            context,
+                                                                        initialTime:
+                                                                            initialTime,
+                                                                      );
+
+                                                                      if (pickedTime ==
+                                                                          null)
+                                                                        return;
+
+                                                                      final fullDateTime = DateTime(
+                                                                        pickedDate
+                                                                            .year,
+                                                                        pickedDate
+                                                                            .month,
+                                                                        pickedDate
+                                                                            .day,
+                                                                        pickedTime
+                                                                            .hour,
+                                                                        pickedTime
+                                                                            .minute,
+                                                                      );
+
+                                                                      rxDateValue
+                                                                              .value =
+                                                                          fullDateTime;
+                                                                      field['EnteredValue'] =
+                                                                          fullDateTime;
+                                                                      textEditingController
+                                                                              .text =
+                                                                          DateFormat(
+                                                                            'dd/MM/yyyy hh:mm a',
+                                                                          ).format(
+                                                                            fullDateTime,
+                                                                          );
+                                                                    } else {
+                                                                      rxDateValue
+                                                                              .value =
+                                                                          pickedDate;
+                                                                      field['EnteredValue'] =
+                                                                          pickedDate;
+                                                                      textEditingController
+                                                                              .text =
+                                                                          DateFormat(
+                                                                            'dd/MM/yyyy',
+                                                                          ).format(
+                                                                            pickedDate,
+                                                                          );
+                                                                    }
+
+                                                                    field['Error'] =
+                                                                        null;
+                                                                  }
+                                                                : null,
+                                                            validator: (value) {
+                                                              if (isMandatory &&
+                                                                  rxDateValue
+                                                                          .value ==
+                                                                      null) {
+                                                                return '$label is required';
+                                                              }
+                                                              return null;
+                                                            },
+                                                          );
+                                                        });
+                                                      }
+                                                      // LongInteger (Integer) type - Make Reactive
+                                                      else if (fieldType ==
                                                           'LongInteger') {
-                                                        // ── Integer Number ──
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .number,
-                                                          inputFormatters: [
-                                                            FilteringTextInputFormatter
-                                                                .digitsOnly,
-                                                          ],
-                                                          initialValue:
-                                                              field['EnteredValue']
-                                                                  ?.toString() ??
-                                                              '',
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                          ),
-                                                          onChanged: (value) {
-                                                            field['EnteredValue'] =
-                                                                int.tryParse(
-                                                                  value,
-                                                                );
-                                                          },
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                (value ==
-                                                                        null ||
-                                                                    value
-                                                                        .trim()
-                                                                        .isEmpty)) {
-                                                              return '$label is required';
+                                                        if (field['_rxIntValue'] ==
+                                                            null) {
+                                                          field['_rxIntValue'] =
+                                                              Rx<int?>(
+                                                                field['EnteredValue']
+                                                                    as int?,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxIntValue']
+                                                                  as Rx<int?>;
+                                                          final textEditingController =
+                                                              TextEditingController(
+                                                                text:
+                                                                    rxValue
+                                                                        .value
+                                                                        ?.toString() ??
+                                                                    '',
+                                                              );
+
+                                                          textEditingController.addListener(() {
+                                                            final value =
+                                                                textEditingController
+                                                                    .text;
+                                                            if (value.isEmpty) {
+                                                              if (rxValue
+                                                                      .value !=
+                                                                  null) {
+                                                                rxValue.value =
+                                                                    null;
+                                                                field['EnteredValue'] =
+                                                                    null;
+                                                              }
+                                                            } else {
+                                                              final intValue =
+                                                                  int.tryParse(
+                                                                    value,
+                                                                  );
+                                                              if (intValue !=
+                                                                  rxValue
+                                                                      .value) {
+                                                                rxValue.value =
+                                                                    intValue;
+                                                                field['EnteredValue'] =
+                                                                    intValue;
+                                                              }
                                                             }
-                                                            return null;
-                                                          },
-                                                        );
-                                                      } else if (field['FieldType'] ==
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+
+                                                          return TextFormField(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            keyboardType:
+                                                                TextInputType
+                                                                    .number,
+                                                            inputFormatters: [
+                                                              FilteringTextInputFormatter
+                                                                  .digitsOnly,
+                                                            ],
+                                                            controller:
+                                                                textEditingController,
+                                                            decoration: InputDecoration(
+                                                              labelText:
+                                                                  '$label${isMandatory ? " *" : ""}',
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              errorText:
+                                                                  field['Error'],
+                                                            ),
+                                                            validator: (value) {
+                                                              if (isMandatory &&
+                                                                  (value ==
+                                                                          null ||
+                                                                      value
+                                                                          .trim()
+                                                                          .isEmpty)) {
+                                                                return '$label is required';
+                                                              }
+                                                              return null;
+                                                            },
+                                                          );
+                                                        });
+                                                      }
+                                                      // Decimal type - Make Reactive
+                                                      else if (fieldType ==
                                                           'Decimal') {
-                                                        // ── Decimal Number ──
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          keyboardType:
-                                                              const TextInputType.numberWithOptions(
-                                                                decimal: true,
-                                                              ),
-                                                          inputFormatters: [
-                                                            FilteringTextInputFormatter.allow(
-                                                              RegExp(
-                                                                r'^\d+\.?\d*',
-                                                              ),
-                                                            ),
-                                                          ],
-                                                          initialValue:
-                                                              field['EnteredValue']
-                                                                  ?.toString() ??
-                                                              '',
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                          ),
-                                                          onChanged: (value) {
-                                                            field['EnteredValue'] =
-                                                                double.tryParse(
-                                                                  value,
-                                                                );
-                                                          },
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                (value ==
-                                                                        null ||
-                                                                    value
-                                                                        .trim()
-                                                                        .isEmpty)) {
-                                                              return '$label is required';
+                                                        if (field['_rxDoubleValue'] ==
+                                                            null) {
+                                                          field['_rxDoubleValue'] =
+                                                              Rx<double?>(
+                                                                field['EnteredValue']
+                                                                    as double?,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxDoubleValue']
+                                                                  as Rx<
+                                                                    double?
+                                                                  >;
+                                                          final textEditingController =
+                                                              TextEditingController(
+                                                                text:
+                                                                    rxValue
+                                                                        .value
+                                                                        ?.toString() ??
+                                                                    '',
+                                                              );
+
+                                                          textEditingController.addListener(() {
+                                                            final value =
+                                                                textEditingController
+                                                                    .text;
+                                                            if (value.isEmpty) {
+                                                              if (rxValue
+                                                                      .value !=
+                                                                  null) {
+                                                                rxValue.value =
+                                                                    null;
+                                                                field['EnteredValue'] =
+                                                                    null;
+                                                              }
+                                                            } else {
+                                                              final doubleValue =
+                                                                  double.tryParse(
+                                                                    value,
+                                                                  );
+                                                              if (doubleValue !=
+                                                                  rxValue
+                                                                      .value) {
+                                                                rxValue.value =
+                                                                    doubleValue;
+                                                                field['EnteredValue'] =
+                                                                    doubleValue;
+                                                              }
                                                             }
-                                                            return null;
-                                                          },
-                                                        );
-                                                      } else if (field['FieldType'] ==
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+
+                                                          return TextFormField(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            keyboardType:
+                                                                const TextInputType.numberWithOptions(
+                                                                  decimal: true,
+                                                                ),
+                                                            inputFormatters: [
+                                                              FilteringTextInputFormatter.allow(
+                                                                RegExp(
+                                                                  r'^\d+\.?\d*',
+                                                                ),
+                                                              ),
+                                                            ],
+                                                            controller:
+                                                                textEditingController,
+                                                            decoration: InputDecoration(
+                                                              labelText:
+                                                                  '$label${isMandatory ? " *" : ""}',
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              errorText:
+                                                                  field['Error'],
+                                                            ),
+                                                            validator: (value) {
+                                                              if (isMandatory &&
+                                                                  (value ==
+                                                                          null ||
+                                                                      value
+                                                                          .trim()
+                                                                          .isEmpty)) {
+                                                                return '$label is required';
+                                                              }
+                                                              return null;
+                                                            },
+                                                          );
+                                                        });
+                                                      }
+                                                      // Email type - Make Reactive
+                                                      else if (fieldType ==
                                                           'Email') {
-                                                        // ── Email ──
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .emailAddress,
-                                                          initialValue:
-                                                              field['EnteredValue'] ??
-                                                              '',
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                            suffixIcon: const Icon(
-                                                              Icons
-                                                                  .email_outlined,
+                                                        if (field['_rxStringValue'] ==
+                                                            null) {
+                                                          field['_rxStringValue'] =
+                                                              Rx<String?>(
+                                                                field['EnteredValue']
+                                                                    as String?,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxStringValue']
+                                                                  as Rx<
+                                                                    String?
+                                                                  >;
+                                                          final textEditingController =
+                                                              TextEditingController(
+                                                                text:
+                                                                    rxValue
+                                                                        .value ??
+                                                                    '',
+                                                              );
+
+                                                          textEditingController
+                                                              .addListener(() {
+                                                                final value =
+                                                                    textEditingController
+                                                                        .text;
+                                                                if (value !=
+                                                                    rxValue
+                                                                        .value) {
+                                                                  rxValue.value =
+                                                                      value;
+                                                                  field['EnteredValue'] =
+                                                                      value;
+                                                                }
+                                                                field['Error'] =
+                                                                    null;
+                                                              });
+
+                                                          return TextFormField(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            keyboardType:
+                                                                TextInputType
+                                                                    .emailAddress,
+                                                            controller:
+                                                                textEditingController,
+                                                            decoration: InputDecoration(
+                                                              labelText:
+                                                                  '$label${isMandatory ? " *" : ""}',
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              errorText:
+                                                                  field['Error'],
+                                                              suffixIcon:
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .email_outlined,
+                                                                  ),
                                                             ),
-                                                          ),
-                                                          onChanged: (value) {
-                                                            field['EnteredValue'] =
-                                                                value;
-                                                          },
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                (value ==
-                                                                        null ||
-                                                                    value
-                                                                        .trim()
-                                                                        .isEmpty)) {
-                                                              return '$label is required';
-                                                            }
-                                                            if (value != null &&
-                                                                value
-                                                                    .isNotEmpty) {
-                                                              final emailRegex =
-                                                                  RegExp(
-                                                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                                                  );
-                                                              if (!emailRegex
-                                                                  .hasMatch(
-                                                                    value,
-                                                                  )) {
-                                                                return 'Enter a valid email address';
+                                                            validator: (value) {
+                                                              if (isMandatory &&
+                                                                  (value ==
+                                                                          null ||
+                                                                      value
+                                                                          .trim()
+                                                                          .isEmpty)) {
+                                                                return '$label is required';
                                                               }
-                                                            }
-                                                            return null;
-                                                          },
-                                                        );
-                                                      } else if (field['FieldType'] ==
+                                                              if (value !=
+                                                                      null &&
+                                                                  value
+                                                                      .isNotEmpty) {
+                                                                final emailRegex =
+                                                                    RegExp(
+                                                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                                                    );
+                                                                if (!emailRegex
+                                                                    .hasMatch(
+                                                                      value,
+                                                                    )) {
+                                                                  return 'Enter a valid email address';
+                                                                }
+                                                              }
+                                                              return null;
+                                                            },
+                                                          );
+                                                        });
+                                                      }
+                                                      // MobileNumber type - Make Reactive
+                                                      else if (fieldType ==
                                                           'MobileNumber') {
-                                                        // ── Mobile Number ──
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .phone,
-                                                          initialValue:
-                                                              field['EnteredValue'] ??
-                                                              '',
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                            suffixIcon: const Icon(
-                                                              Icons
-                                                                  .phone_outlined,
-                                                            ),
-                                                          ),
-                                                          onChanged: (value) {
-                                                            field['EnteredValue'] =
-                                                                value;
-                                                          },
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                (value ==
-                                                                        null ||
-                                                                    value
-                                                                        .trim()
-                                                                        .isEmpty)) {
-                                                              return '$label is required';
-                                                            }
-                                                            if (value != null &&
-                                                                value
-                                                                    .isNotEmpty) {
-                                                              final phoneRegex =
-                                                                  RegExp(
-                                                                    r'^\+?[\d\s\-]{7,15}$',
+                                                        // Create unique key for this field
+                                                        final String
+                                                        mobileFieldKey =
+                                                            '${field['FieldId']}_${field['FieldName']}';
+
+                                                        // Initialize persistent controllers and values if not exists
+                                                        if (field['_phoneController'] ==
+                                                            null) {
+                                                          final defaultValue =
+                                                              field['DefaultValue']
+                                                                  ?.toString() ??
+                                                              '';
+                                                          final existingValue =
+                                                              field['EnteredValue']
+                                                                  as String?;
+                                                          final initialValue =
+                                                              existingValue ??
+                                                              defaultValue;
+
+                                                          // Parse existing phone number to extract country code and number
+                                                          String countryCode =
+                                                              '+91'; // Default India
+                                                          String phoneNumber =
+                                                              '';
+
+                                                          if (initialValue
+                                                              .isNotEmpty) {
+                                                            // Try to parse the existing number
+                                                            if (initialValue
+                                                                .startsWith(
+                                                                  '+',
+                                                                )) {
+                                                              final RegExp
+                                                              regex = RegExp(
+                                                                r'^\+(\d+)\s*(.*)$',
+                                                              );
+                                                              final match = regex
+                                                                  .firstMatch(
+                                                                    initialValue,
                                                                   );
-                                                              if (!phoneRegex
-                                                                  .hasMatch(
-                                                                    value,
-                                                                  )) {
-                                                                return 'Enter a valid mobile number';
+                                                              if (match !=
+                                                                  null) {
+                                                                countryCode =
+                                                                    '+${match.group(1)}';
+                                                                phoneNumber =
+                                                                    match.group(
+                                                                      2,
+                                                                    ) ??
+                                                                    '';
+                                                              } else {
+                                                                phoneNumber =
+                                                                    initialValue;
                                                               }
+                                                            } else {
+                                                              phoneNumber =
+                                                                  initialValue;
                                                             }
-                                                            return null;
-                                                          },
-                                                        );
-                                                      } else {
-                                                        // ── Default Text ──
-                                                        inputField = TextFormField(
-                                                          enabled: controller
-                                                              .isEnable
-                                                              .value,
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .text,
-                                                          initialValue:
-                                                              field['EnteredValue'] ??
-                                                              '',
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                '$label${isMandatory ? " *" : ""}',
-                                                            border:
-                                                                const OutlineInputBorder(),
-                                                            errorText:
-                                                                field['Error'],
-                                                          ),
-                                                          onChanged: (value) {
-                                                            field['EnteredValue'] =
-                                                                value;
-                                                          },
-                                                          validator: (value) {
-                                                            if (isMandatory &&
-                                                                (value ==
-                                                                        null ||
-                                                                    value
-                                                                        .trim()
-                                                                        .isEmpty)) {
-                                                              return '$label is required';
+                                                          }
+
+                                                          // Create controllers
+                                                          field['_countryCodeController'] =
+                                                              TextEditingController(
+                                                                text:
+                                                                    countryCode,
+                                                              );
+                                                          field['_phoneController'] =
+                                                              TextEditingController(
+                                                                text:
+                                                                    phoneNumber,
+                                                              );
+                                                          field['_rxStringValue'] =
+                                                              Rx<String?>(
+                                                                initialValue,
+                                                              );
+                                                          field['_focusNode'] =
+                                                              FocusNode();
+                                                          field['EnteredValue'] =
+                                                              initialValue;
+
+                                                          // Update EnteredValue when phone number changes
+                                                          field['_phoneController'].addListener(() {
+                                                            final phoneVal =
+                                                                field['_phoneController']
+                                                                    .text;
+                                                            final codeVal =
+                                                                field['_countryCodeController']
+                                                                    .text;
+                                                            final fullNumber =
+                                                                phoneVal
+                                                                    .isNotEmpty
+                                                                ? '$codeVal $phoneVal'
+                                                                : '';
+
+                                                            if (fullNumber !=
+                                                                field['_rxStringValue']
+                                                                    .value) {
+                                                              field['_rxStringValue']
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
                                                             }
-                                                            return null;
-                                                          },
-                                                        );
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+
+                                                          // Update EnteredValue when country code changes
+                                                          field['_countryCodeController'].addListener(() {
+                                                            final phoneVal =
+                                                                field['_phoneController']
+                                                                    .text;
+                                                            final codeVal =
+                                                                field['_countryCodeController']
+                                                                    .text;
+                                                            final fullNumber =
+                                                                phoneVal
+                                                                    .isNotEmpty
+                                                                ? '$codeVal $phoneVal'
+                                                                : '';
+
+                                                            if (fullNumber !=
+                                                                field['_rxStringValue']
+                                                                    .value) {
+                                                              field['_rxStringValue']
+                                                                      .value =
+                                                                  fullNumber;
+                                                              field['EnteredValue'] =
+                                                                  fullNumber;
+                                                            }
+                                                            field['Error'] =
+                                                                null;
+                                                          });
+                                                        }
+
+                                                        // Helper function to convert dial code to ISO code
+                                                        String
+                                                        getIsoCodeFromDialCode(
+                                                          String dialCode,
+                                                        ) {
+                                                          final Map<
+                                                            String,
+                                                            String
+                                                          >
+                                                          dialCodeToIso = {
+                                                            '+93': 'AF',
+                                                            '+355': 'AL',
+                                                            '+213': 'DZ',
+                                                            '+1': 'US',
+                                                            '+376': 'AD',
+                                                            '+244': 'AO',
+                                                            '+54': 'AR',
+                                                            '+374': 'AM',
+                                                            '+61': 'AU',
+                                                            '+43': 'AT',
+                                                            '+994': 'AZ',
+                                                            '+973': 'BH',
+                                                            '+880': 'BD',
+                                                            '+375': 'BY',
+                                                            '+32': 'BE',
+                                                            '+501': 'BZ',
+                                                            '+229': 'BJ',
+                                                            '+975': 'BT',
+                                                            '+591': 'BO',
+                                                            '+387': 'BA',
+                                                            '+267': 'BW',
+                                                            '+55': 'BR',
+                                                            '+673': 'BN',
+                                                            '+359': 'BG',
+                                                            '+226': 'BF',
+                                                            '+257': 'BI',
+                                                            '+855': 'KH',
+                                                            '+237': 'CM',
+                                                            '+1': 'CA',
+                                                            '+238': 'CV',
+                                                            '+236': 'CF',
+                                                            '+235': 'TD',
+                                                            '+56': 'CL',
+                                                            '+86': 'CN',
+                                                            '+57': 'CO',
+                                                            '+269': 'KM',
+                                                            '+243': 'CD',
+                                                            '+242': 'CG',
+                                                            '+506': 'CR',
+                                                            '+385': 'HR',
+                                                            '+53': 'CU',
+                                                            '+357': 'CY',
+                                                            '+420': 'CZ',
+                                                            '+45': 'DK',
+                                                            '+253': 'DJ',
+                                                            '+1': 'DO',
+                                                            '+593': 'EC',
+                                                            '+20': 'EG',
+                                                            '+503': 'SV',
+                                                            '+240': 'GQ',
+                                                            '+291': 'ER',
+                                                            '+372': 'EE',
+                                                            '+251': 'ET',
+                                                            '+679': 'FJ',
+                                                            '+358': 'FI',
+                                                            '+33': 'FR',
+                                                            '+241': 'GA',
+                                                            '+220': 'GM',
+                                                            '+995': 'GE',
+                                                            '+49': 'DE',
+                                                            '+233': 'GH',
+                                                            '+30': 'GR',
+                                                            '+299': 'GL',
+                                                            '+502': 'GT',
+                                                            '+224': 'GN',
+                                                            '+245': 'GW',
+                                                            '+592': 'GY',
+                                                            '+509': 'HT',
+                                                            '+504': 'HN',
+                                                            '+36': 'HU',
+                                                            '+354': 'IS',
+                                                            '+91': 'IN',
+                                                            '+62': 'ID',
+                                                            '+98': 'IR',
+                                                            '+964': 'IQ',
+                                                            '+353': 'IE',
+                                                            '+972': 'IL',
+                                                            '+39': 'IT',
+                                                            '+1': 'JM',
+                                                            '+81': 'JP',
+                                                            '+962': 'JO',
+                                                            '+7': 'KZ',
+                                                            '+254': 'KE',
+                                                            '+686': 'KI',
+                                                            '+850': 'KP',
+                                                            '+82': 'KR',
+                                                            '+965': 'KW',
+                                                            '+996': 'KG',
+                                                            '+856': 'LA',
+                                                            '+371': 'LV',
+                                                            '+961': 'LB',
+                                                            '+266': 'LS',
+                                                            '+231': 'LR',
+                                                            '+218': 'LY',
+                                                            '+423': 'LI',
+                                                            '+370': 'LT',
+                                                            '+352': 'LU',
+                                                            '+261': 'MG',
+                                                            '+265': 'MW',
+                                                            '+60': 'MY',
+                                                            '+960': 'MV',
+                                                            '+223': 'ML',
+                                                            '+356': 'MT',
+                                                            '+692': 'MH',
+                                                            '+222': 'MR',
+                                                            '+230': 'MU',
+                                                            '+52': 'MX',
+                                                            '+691': 'FM',
+                                                            '+373': 'MD',
+                                                            '+377': 'MC',
+                                                            '+976': 'MN',
+                                                            '+382': 'ME',
+                                                            '+212': 'MA',
+                                                            '+258': 'MZ',
+                                                            '+95': 'MM',
+                                                            '+264': 'NA',
+                                                            '+674': 'NR',
+                                                            '+977': 'NP',
+                                                            '+31': 'NL',
+                                                            '+64': 'NZ',
+                                                            '+505': 'NI',
+                                                            '+227': 'NE',
+                                                            '+234': 'NG',
+                                                            '+389': 'MK',
+                                                            '+47': 'NO',
+                                                            '+968': 'OM',
+                                                            '+92': 'PK',
+                                                            '+680': 'PW',
+                                                            '+970': 'PS',
+                                                            '+507': 'PA',
+                                                            '+675': 'PG',
+                                                            '+595': 'PY',
+                                                            '+51': 'PE',
+                                                            '+63': 'PH',
+                                                            '+48': 'PL',
+                                                            '+351': 'PT',
+                                                            '+1': 'PR',
+                                                            '+974': 'QA',
+                                                            '+40': 'RO',
+                                                            '+7': 'RU',
+                                                            '+250': 'RW',
+                                                            '+685': 'WS',
+                                                            '+378': 'SM',
+                                                            '+239': 'ST',
+                                                            '+966': 'SA',
+                                                            '+221': 'SN',
+                                                            '+381': 'RS',
+                                                            '+248': 'SC',
+                                                            '+232': 'SL',
+                                                            '+65': 'SG',
+                                                            '+421': 'SK',
+                                                            '+386': 'SI',
+                                                            '+677': 'SB',
+                                                            '+252': 'SO',
+                                                            '+27': 'ZA',
+                                                            '+211': 'SS',
+                                                            '+34': 'ES',
+                                                            '+94': 'LK',
+                                                            '+249': 'SD',
+                                                            '+597': 'SR',
+                                                            '+46': 'SE',
+                                                            '+41': 'CH',
+                                                            '+963': 'SY',
+                                                            '+886': 'TW',
+                                                            '+992': 'TJ',
+                                                            '+255': 'TZ',
+                                                            '+66': 'TH',
+                                                            '+670': 'TL',
+                                                            '+228': 'TG',
+                                                            '+676': 'TO',
+                                                            '+216': 'TN',
+                                                            '+90': 'TR',
+                                                            '+993': 'TM',
+                                                            '+688': 'TV',
+                                                            '+256': 'UG',
+                                                            '+380': 'UA',
+                                                            '+971': 'AE',
+                                                            '+44': 'GB',
+                                                            '+1': 'US',
+                                                            '+598': 'UY',
+                                                            '+998': 'UZ',
+                                                            '+678': 'VU',
+                                                            '+58': 'VE',
+                                                            '+84': 'VN',
+                                                            '+967': 'YE',
+                                                            '+260': 'ZM',
+                                                            '+263': 'ZW',
+                                                          };
+                                                          return dialCodeToIso[dialCode] ??
+                                                              'IN';
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final phoneController =
+                                                              field['_phoneController']
+                                                                  as TextEditingController;
+                                                          final countryCodeController =
+                                                              field['_countryCodeController']
+                                                                  as TextEditingController;
+                                                          final focusNode =
+                                                              field['_focusNode']
+                                                                  as FocusNode;
+                                                          final currentCountryCode =
+                                                              countryCodeController
+                                                                  .text;
+
+                                                          return SizedBox(
+                                                            child: IntlPhoneField(
+                                                              key: ValueKey(
+                                                                currentCountryCode,
+                                                              ),
+                                                              controller:
+                                                                  phoneController,
+                                                              focusNode:
+                                                                  focusNode,
+                                                              keyboardType:
+                                                                  TextInputType
+                                                                      .phone,
+                                                              enabled:
+                                                                  controller
+                                                                      .isEnable
+                                                                      .value,
+                                                              decoration: InputDecoration(
+                                                                labelText:
+                                                                    '$label${isMandatory ? " *" : ""}',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.primary,
+                                                                ),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        10,
+                                                                      ),
+                                                                ),
+                                                                errorText:
+                                                                    field['Error'],
+                                                                counterText: "",
+                                                              ),
+                                                              initialCountryCode:
+                                                                  getIsoCodeFromDialCode(
+                                                                    currentCountryCode,
+                                                                  ),
+                                                              onChanged: (phone) {
+                                                                countryCodeController
+                                                                        .text =
+                                                                    '+${phone.countryCode}';
+                                                                phoneController
+                                                                        .text =
+                                                                    phone
+                                                                        .number;
+                                                              },
+                                                              onCountryChanged: (country) {
+                                                                countryCodeController
+                                                                        .text =
+                                                                    '+${country.dialCode}';
+                                                              },
+                                                              inputFormatters: [
+                                                                FilteringTextInputFormatter.allow(
+                                                                  RegExp(
+                                                                    r'[0-9\s\-]+',
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                              validator: (phone) {
+                                                                if (isMandatory) {
+                                                                  if (phone ==
+                                                                          null ||
+                                                                      phone
+                                                                          .number
+                                                                          .trim()
+                                                                          .isEmpty) {
+                                                                    return '$label is required';
+                                                                  }
+                                                                  // Remove spaces and dashes for validation
+                                                                  final cleanNumber = phone
+                                                                      .number
+                                                                      .replaceAll(
+                                                                        RegExp(
+                                                                          r'[\s\-]',
+                                                                        ),
+                                                                        '',
+                                                                      );
+                                                                  if (cleanNumber
+                                                                              .length <
+                                                                          6 ||
+                                                                      cleanNumber
+                                                                              .length >
+                                                                          15) {
+                                                                    return 'Enter a valid mobile number (6-15 digits)';
+                                                                  }
+                                                                }
+                                                                return null;
+                                                              },
+                                                            ),
+                                                          );
+                                                        });
+                                                      }
+                                                      // Default Text type - Make Reactive
+                                                      else {
+                                                        if (field['_rxStringValue'] ==
+                                                            null) {
+                                                          field['_rxStringValue'] =
+                                                              Rx<String?>(
+                                                                field['EnteredValue']
+                                                                    as String?,
+                                                              );
+                                                        }
+
+                                                        inputField = Obx(() {
+                                                          final rxValue =
+                                                              field['_rxStringValue']
+                                                                  as Rx<
+                                                                    String?
+                                                                  >;
+                                                          final textEditingController =
+                                                              TextEditingController(
+                                                                text:
+                                                                    rxValue
+                                                                        .value ??
+                                                                    '',
+                                                              );
+
+                                                          textEditingController
+                                                              .addListener(() {
+                                                                final value =
+                                                                    textEditingController
+                                                                        .text;
+                                                                if (value !=
+                                                                    rxValue
+                                                                        .value) {
+                                                                  rxValue.value =
+                                                                      value;
+                                                                  field['EnteredValue'] =
+                                                                      value;
+                                                                }
+                                                                field['Error'] =
+                                                                    null;
+                                                              });
+
+                                                          return TextFormField(
+                                                            enabled: controller
+                                                                .isEnable
+                                                                .value,
+                                                            keyboardType:
+                                                                TextInputType
+                                                                    .text,
+                                                            controller:
+                                                                textEditingController,
+                                                            decoration: InputDecoration(
+                                                              labelText:
+                                                                  '$label${isMandatory ? " *" : ""}',
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              errorText:
+                                                                  field['Error'],
+                                                            ),
+                                                            validator: (value) {
+                                                              if (isMandatory &&
+                                                                  (value ==
+                                                                          null ||
+                                                                      value
+                                                                          .trim()
+                                                                          .isEmpty)) {
+                                                                return '$label is required';
+                                                              }
+                                                              return null;
+                                                            },
+                                                          );
+                                                        });
                                                       }
 
                                                       return Padding(
@@ -3007,13 +4265,16 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     true,
                                                   ),
                                               onChanged: (p) {
+                                                if (p == null) return;
+
                                                 setState(() {
+                                                  // Update basic category info
                                                   itemController
                                                           .selectedCategory =
                                                       p;
                                                   itemController
                                                           .selectedCategoryId =
-                                                      p!.categoryId;
+                                                      p.categoryId;
                                                   widget
                                                           .items
                                                           .expenseTrans[index] =
@@ -3043,6 +4304,188 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                           .value =
                                                       (p.maxExpenseAmount ?? 0)
                                                           .toDouble();
+
+                                                  // ✅ CRITICAL: Load custom fields from the selected category
+                                                  // Remove existing ExpenseCategories custom fields
+                                                  itemController
+                                                      .customFieldsItems
+                                                      .removeWhere(
+                                                        (field) =>
+                                                            field['ObjectName'] ==
+                                                            'ExpenseCategories',
+                                                      );
+
+                                                  // Add new custom fields from the selected category
+                                                  if (p.customFields != null &&
+                                                      p
+                                                          .customFields!
+                                                          .isNotEmpty) {
+                                                    print(
+                                                      "Loading ${p.customFields!.length} custom fields for category: ${p.categoryId}",
+                                                    );
+
+                                                    for (var categoryField
+                                                        in p.customFields!) {
+                                                      final Map<String, dynamic>
+                                                      field =
+                                                          Map<
+                                                            String,
+                                                            dynamic
+                                                          >.from(categoryField);
+
+                                                      // Set required properties
+                                                      field['ObjectName'] =
+                                                          'ExpenseCategories';
+                                                      field['ExpenseType'] =
+                                                          'General Expenses';
+
+                                                      // Get default value
+                                                      final defaultVal =
+                                                          field['DefaultValue']
+                                                              ?.toString() ??
+                                                          '';
+                                                      print(
+                                                        "  Field: ${field['FieldName']}, DefaultValue: '$defaultVal', Type: ${field['FieldType']}",
+                                                      );
+
+                                                      // Store entered value
+                                                      field['EnteredValue'] =
+                                                          defaultVal;
+
+                                                      // Initialize Rx based on field type
+                                                      final fieldType =
+                                                          field['FieldType'];
+
+                                                      if (fieldType == 'List' ||
+                                                          fieldType ==
+                                                              'CustomList' ||
+                                                          fieldType ==
+                                                              'SystemList') {
+                                                        final options =
+                                                            field['Options']
+                                                                as List<
+                                                                  CustomDropdownValue
+                                                                >?;
+                                                        CustomDropdownValue?
+                                                        matchedOption;
+                                                        if (options != null &&
+                                                            defaultVal
+                                                                .isNotEmpty) {
+                                                          matchedOption = options
+                                                              .firstWhereOrNull(
+                                                                (opt) =>
+                                                                    opt.valueName ==
+                                                                        defaultVal ||
+                                                                    opt.valueId ==
+                                                                        defaultVal,
+                                                              );
+                                                        }
+                                                        field['SelectedValue'] =
+                                                            matchedOption;
+                                                        field['_rxSelectedValue'] =
+                                                            Rx<
+                                                              CustomDropdownValue?
+                                                            >(matchedOption);
+                                                      } else if (fieldType ==
+                                                          'Checkbox') {
+                                                        final boolValue =
+                                                            defaultVal
+                                                                .toLowerCase() ==
+                                                            'true';
+                                                        field['_rxCheckboxValue'] =
+                                                            Rx<bool>(boolValue);
+                                                      } else if (fieldType ==
+                                                              'Date' ||
+                                                          fieldType ==
+                                                              'Date&Time') {
+                                                        DateTime? dateValue;
+                                                        if (defaultVal
+                                                            .isNotEmpty) {
+                                                          try {
+                                                            dateValue =
+                                                                DateTime.parse(
+                                                                  defaultVal,
+                                                                );
+                                                          } catch (e) {
+                                                            print(
+                                                              "Error parsing date: $e",
+                                                            );
+                                                          }
+                                                        }
+                                                        field['_rxDateValue'] =
+                                                            Rx<DateTime?>(
+                                                              dateValue,
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'LongInteger') {
+                                                        field['_rxIntValue'] =
+                                                            Rx<int?>(
+                                                              int.tryParse(
+                                                                defaultVal,
+                                                              ),
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'Decimal') {
+                                                        field['_rxDoubleValue'] =
+                                                            Rx<double?>(
+                                                              double.tryParse(
+                                                                defaultVal,
+                                                              ),
+                                                            );
+                                                      } else if (fieldType ==
+                                                          'Email') {
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        // Also create controller for better focus handling
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      } else if (fieldType ==
+                                                          'MobileNumber') {
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      } else {
+                                                        // Default Text type
+                                                        field['_rxStringValue'] =
+                                                            Rx<String?>(
+                                                              defaultVal,
+                                                            );
+                                                        field['_controller'] =
+                                                            TextEditingController(
+                                                              text: defaultVal,
+                                                            );
+                                                        field['_focusNode'] =
+                                                            FocusNode();
+                                                      }
+
+                                                      field['Error'] = null;
+                                                      itemController
+                                                          .customFieldsItems
+                                                          .add(field);
+                                                    }
+                                                  } else {
+                                                    print(
+                                                      "No custom fields for category: ${p.categoryId}",
+                                                    );
+                                                  }
+
+                                                  // Refresh to update UI
+                                                  itemController
+                                                      .customFieldsItems
+                                                      .refresh();
                                                 });
                                               },
                                               controller: itemController
@@ -3069,25 +4512,6 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     ],
                                                   ),
                                                 );
-                                              },
-                                            ),
-                                            const SizedBox(height: 16),
-                                            _buildTextField(
-                                              label: AppLocalizations.of(
-                                                context,
-                                              )!.comments,
-                                              controller: itemController
-                                                  .descriptionController,
-                                              isReadOnly:
-                                                  controller.isEnable.value,
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  widget
-                                                          .items
-                                                          .expenseTrans[index] =
-                                                      itemController
-                                                          .toExpenseItemUpdateModel();
-                                                });
                                               },
                                             ),
                                             const SizedBox(height: 16),

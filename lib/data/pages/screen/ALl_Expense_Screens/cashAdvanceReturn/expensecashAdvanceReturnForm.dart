@@ -40,11 +40,20 @@ class CashAdvanceReturnForm extends StatefulWidget {
 class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     with TickerProviderStateMixin {
   final controller = Get.find<Controller>();
+  final Map<String, TextEditingController> fieldControllers = {};
   final controllerItems = Get.find<Controller>();
   // final _formKey = GlobalKey<FormState>();
   List<Controller> itemizeControllers = [];
   RxList<CashAdvanceDropDownModel> cashAdvanceList =
       <CashAdvanceDropDownModel>[].obs;
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value);
+  }
+
+  bool _isValidPhone(String value) {
+    return RegExp(r'^\+?[\d\s\-]{7,15}$').hasMatch(value);
+  }
+
   int _currentStep = 0;
   int _itemizeCount = 1;
   int _selectedItemizeIndex = 0;
@@ -79,7 +88,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-
     controller.selectedDate ??= DateTime.now();
     _focusNode.addListener(() {
       setState(() {
@@ -87,25 +95,515 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       });
     });
     _featureFuture = controller.getAllFeatureStates();
-
-    // controller.clearFormFields();
-
-    controller.selectedDate ??= DateTime.now();
-
-    // controller.fetchPaidto();
-
     controller.isManualEntryMerchant = false;
-    itemizeControllers.add(Controller());
-    _initializeUnits();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      controller.isLoadingGE2.value = true;
 
-      // Safe to update observables here
+    // ✅ Use cloned controller for first itemize (same as ExpenseCreationForm)
+    final firstController = Controller();
+    itemizeControllers.add(firstController);
+    bool _validateCustomFieldFormats({
+      required List fields,
+      required dynamic controller,
+      required bool isItemize,
+    }) {
+      bool isValid = true;
+
+      for (final field in fields) {
+        final fieldType = field['FieldType'];
+        final value = field['EnteredValue']?.toString() ?? '';
+
+        if (fieldType == 'Email' && value.isNotEmpty) {
+          if (!_isValidEmail(value)) {
+            field['Error'] = 'Enter a valid email address';
+            isValid = false;
+          }
+        }
+
+        if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+          if (!_isValidPhone(value)) {
+            field['Error'] = 'Enter a valid mobile number';
+            isValid = false;
+          }
+        }
+      }
+
+      if (isItemize) {
+        (controller as Controller).customFieldsItems.refresh();
+      } else {
+        (controller as Controller).customFields.refresh();
+      }
+
+      return isValid;
+    }
+
+    bool _validateCustomFields({
+      required String objectName,
+      String? expenseType,
+    }) {
+      bool isValid = true;
+
+      final fields = controller.customFields.where((field) {
+        if (field['ObjectName'] != objectName) return false;
+        if (expenseType != null && field['ExpenseType'] != expenseType) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      for (final field in fields) {
+        final isMandatory = field['IsMandatory'] ?? false;
+        final fieldType = field['FieldType'];
+        final value = field['EnteredValue']?.toString() ?? '';
+
+        // ── Mandatory check ──
+        if (isMandatory) {
+          bool isEmpty = false;
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            isEmpty = field['SelectedValue'] == null;
+          } else if (fieldType == 'Checkbox') {
+            isEmpty = false;
+          } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+            isEmpty = field['EnteredValue'] == null;
+          } else {
+            isEmpty = value.trim().isEmpty;
+          }
+
+          if (isEmpty) {
+            field['Error'] =
+                '${field['FieldLabel'] ?? field['FieldName']} is required';
+            isValid = false;
+            continue; // skip format check if empty
+          }
+        }
+
+        // ── Format check (runs even if not mandatory, when value exists) ──
+        if (fieldType == 'Email' && value.isNotEmpty) {
+          if (!_isValidEmail(value)) {
+            field['Error'] = 'Enter a valid email address';
+            isValid = false;
+            continue;
+          }
+        }
+
+        if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+          if (!_isValidPhone(value)) {
+            field['Error'] = 'Enter a valid mobile number';
+            isValid = false;
+            continue;
+          }
+        }
+
+        // ── All passed ──
+        field['Error'] = null;
+      }
+
+      controller.customFields.refresh();
+      return isValid;
+    }
+
+    int _getFirstInvalidItemizeIndex() {
+      for (int i = 0; i < itemizeControllers.length; i++) {
+        final c = itemizeControllers[i];
+
+        if (c.selectedCategoryId.isEmpty) return i;
+        if (c.quantity.text.isEmpty) return i;
+        if (c.unitAmount.text.isEmpty) return i;
+
+        final value = double.tryParse(c.lineAmountINR.text);
+        if (value == null || value <= 0) return i;
+
+        final min = c.minExpenseAmount.value;
+        final max = c.maxExpenseAmount.value;
+        if (value < min) return i;
+        if (value > max && max != 0.0) return i;
+
+        if (c.selectedunit == null) return i;
+
+        if (isFieldMandatory('Tax Amount') && c.taxAmount.text.isEmpty)
+          return i;
+        if (isFieldMandatory('Project Id') && c.selectedProject == null)
+          return i;
+
+        // ✅ Check mandatory + format custom fields
+        final hasInvalidCustomField = c.customFieldsItems
+            .where(
+              (field) =>
+                  field['ObjectName'] == 'ExpenseTrans' &&
+                  (field['ExpenseType'] == 'General Expenses' ||
+                      field['ExpenseType'] == null),
+            )
+            .any((field) {
+              final isMandatory = field['IsMandatory'] ?? false;
+              final fieldType = field['FieldType'];
+              final value = field['EnteredValue']?.toString() ?? '';
+
+              // Mandatory empty check
+              if (isMandatory) {
+                if (fieldType == 'List' ||
+                    fieldType == 'CustomList' ||
+                    fieldType == 'SystemList') {
+                  if (field['SelectedValue'] == null) return true;
+                } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+                  if (field['EnteredValue'] == null) return true;
+                } else if (fieldType != 'Checkbox') {
+                  if (value.trim().isEmpty) return true;
+                }
+              }
+
+              // Format check
+              if (fieldType == 'Email' && value.isNotEmpty) {
+                if (!RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                ).hasMatch(value))
+                  return true;
+              }
+              if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+                if (!RegExp(r'^\+?[\d\s\-]{7,15}$').hasMatch(value))
+                  return true;
+              }
+
+              return false;
+            });
+
+        if (hasInvalidCustomField) return i;
+      }
+      return -1;
+    }
+
+    bool _validateHeaderCustomFields() {
+      bool isValid = true;
+
+      final fields = controller.customFields
+          .where(
+            (field) =>
+                field['ObjectName'] == 'ExpenseHeader' &&
+                field['ExpenseType'] == 'CashAdvanceReturn',
+          )
+          .toList();
+
+      for (final field in fields) {
+        final isMandatory = field['IsMandatory'] ?? false;
+        final fieldType = field['FieldType'];
+        final value = field['EnteredValue']?.toString() ?? '';
+
+        if (isMandatory) {
+          bool isEmpty = false;
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            isEmpty = field['SelectedValue'] == null;
+          } else if (fieldType == 'Checkbox') {
+            isEmpty = false;
+          } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+            isEmpty = field['EnteredValue'] == null;
+          } else {
+            isEmpty = value.trim().isEmpty;
+          }
+          if (isEmpty) {
+            field['Error'] =
+                '${field['FieldLabel'] ?? field['FieldName']} is required';
+            isValid = false;
+            continue;
+          }
+        }
+
+        // Format checks
+        if (fieldType == 'Email' && value.isNotEmpty) {
+          if (!_isValidEmail(value)) {
+            field['Error'] = 'Enter a valid email address';
+            isValid = false;
+            continue;
+          }
+        }
+        if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+          if (!_isValidPhone(value)) {
+            field['Error'] = 'Enter a valid mobile number (7-15 digits)';
+            isValid = false;
+            continue;
+          }
+        }
+
+        field['Error'] = null;
+      }
+
+      controller.customFields.refresh();
+      return isValid;
+    }
+
+    bool _validateItemizeCustomFields(Controller itemizeController) {
+      bool isValid = true;
+
+      final fields = itemizeController.customFieldsItems
+          .where((field) => field['ObjectName'] == 'ExpenseTrans')
+          .toList();
+
+      for (final field in fields) {
+        final isMandatory = field['IsMandatory'] ?? false;
+        final fieldType = field['FieldType'];
+        final value = field['EnteredValue']?.toString() ?? '';
+
+        // ── Mandatory check ──
+        if (isMandatory) {
+          bool isEmpty = false;
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            isEmpty = field['SelectedValue'] == null;
+          } else if (fieldType == 'Checkbox') {
+            isEmpty = false;
+          } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+            isEmpty = field['EnteredValue'] == null;
+          } else {
+            isEmpty = value.trim().isEmpty;
+          }
+
+          if (isEmpty) {
+            field['Error'] =
+                '${field['FieldLabel'] ?? field['FieldName']} is required';
+            isValid = false;
+            continue;
+          }
+        }
+
+        // ── Format check ──
+        if (fieldType == 'Email' && value.isNotEmpty) {
+          if (!_isValidEmail(value)) {
+            field['Error'] = 'Enter a valid email address';
+            isValid = false;
+            continue;
+          }
+        }
+
+        if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+          if (!_isValidPhone(value)) {
+            field['Error'] = 'Enter a valid mobile number';
+            isValid = false;
+            continue;
+          }
+        }
+
+        // ── All passed ──
+        field['Error'] = null;
+      }
+
+      itemizeController.customFieldsItems.refresh();
+      return isValid;
+    }
+
+    bool _validateAllBeforeSubmit() {
+      // Step 1 validation
+      final step1Valid = validateDropdowns();
+      if (!step1Valid) {
+        setState(() => _currentStep = 0);
+        _pageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        Fluttertoast.showToast(
+          msg: "Please fill all required fields in Payment Info",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return false;
+      }
+
+      // Header custom fields validation
+      final headerValid = _validateHeaderCustomFields();
+      if (!headerValid) {
+        setState(() => _currentStep = 0);
+        _pageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        Fluttertoast.showToast(
+          msg: "Please fill all required fields in Payment Info",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return false;
+      }
+
+      // Step 2: validate all itemize tabs
+      bool allItemizeValid = true;
+      for (int i = 0; i < itemizeControllers.length; i++) {
+        final c = itemizeControllers[i];
+
+        if (c.selectedCategoryId.isEmpty) {
+          c.showPaidForError.value = true;
+          allItemizeValid = false;
+        }
+        if (c.quantity.text.trim().isEmpty) {
+          c.showQuantityError.value = true;
+          allItemizeValid = false;
+        }
+        if (c.unitAmount.text.trim().isEmpty) {
+          c.showUnitAmountError.value = true;
+          allItemizeValid = false;
+        }
+        if (c.selectedunit == null) {
+          allItemizeValid = false;
+        }
+        if (isFieldMandatory('Tax Amount') && c.taxAmount.text.trim().isEmpty) {
+          c.showTaxAmountError.value = true;
+          allItemizeValid = false;
+        }
+        if (isFieldMandatory('Tax Group') && c.selectedTax == null) {
+          c.showTaxGroupError.value = true;
+          allItemizeValid = false;
+        }
+        if (isFieldMandatory('Project Id') && c.selectedProject == null) {
+          c.showProjectError.value = true;
+          allItemizeValid = false;
+        }
+
+        final customValid = _validateItemizeCustomFields(c);
+        if (!customValid) allItemizeValid = false;
+      }
+
+      if (!allItemizeValid) {
+        final invalidIndex = _getFirstInvalidItemizeIndex();
+        if (invalidIndex != -1) {
+          setState(() {
+            _currentStep = 1;
+            _selectedItemizeIndex = invalidIndex;
+          });
+          _pageController.animateToPage(
+            1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          Future.delayed(const Duration(milliseconds: 150), () {
+            Fluttertoast.showToast(
+              msg:
+                  "Please fill all required fields in item ${invalidIndex + 1}",
+              toastLength: Toast.LENGTH_LONG,
+              gravity: ToastGravity.BOTTOM,
+              backgroundColor: Colors.red,
+              textColor: Colors.white,
+              fontSize: 16.0,
+            );
+          });
+        }
+        return false;
+      }
+
+      return true;
+    }
+
+    bool _validateCurrentItemizeForm() {
+      final currentController = itemizeControllers[_selectedItemizeIndex];
+      bool isValid = true;
+
+      setState(() {
+        currentController.showQuantityError.value = false;
+        currentController.showUnitAmountError.value = false;
+        _showUnitError = false;
+        currentController.showTaxAmountError.value = false;
+        currentController.showProjectError.value = false;
+        currentController.showPaidForError.value = false;
+        currentController.enableNextBtn.value = false;
+        currentController.showTaxGroupError.value = false;
+      });
+
+      if (currentController.selectedCategoryId.isEmpty) {
+        setState(() => currentController.showPaidForError.value = true);
+        isValid = false;
+      }
+
+      if (currentController.quantity.text.isEmpty) {
+        setState(() => currentController.showQuantityError.value = true);
+        isValid = false;
+      }
+
+      if (currentController.unitAmount.text.isEmpty) {
+        currentController.showUnitAmountError.value = true;
+        currentController.unitAmountErrorText.value = AppLocalizations.of(
+          context,
+        )!.fieldRequired;
+        isValid = false;
+      } else {
+        final value = double.tryParse(currentController.lineAmountINR.text);
+        if (value == null || value <= 0) {
+          currentController.showUnitAmountError.value = true;
+          currentController.unitAmountErrorText.value = AppLocalizations.of(
+            context,
+          )!.enterValidAmount;
+          isValid = false;
+        } else {
+          final min = currentController.minExpenseAmount.value;
+          final max = currentController.maxExpenseAmount.value;
+          final receiptLimit = controller.receiptRequiredLimit.value;
+          controller.isReceiptRequired.value = receiptLimit < value;
+          if (value < min) {
+            currentController.showUnitAmountError.value = true;
+            currentController.unitAmountErrorText.value = AppLocalizations.of(
+              context,
+            )!.reportedAmountNotWithinRange;
+            isValid = false;
+          } else if (value > max && max != 0.0) {
+            currentController.showUnitAmountError.value = true;
+            currentController.unitAmountErrorText.value = AppLocalizations.of(
+              context,
+            )!.reportedAmountNotWithinRange;
+            isValid = false;
+          } else {
+            currentController.showUnitAmountError.value = false;
+            currentController.unitAmountErrorText.value = '';
+          }
+        }
+      }
+
+      if (currentController.selectedunit == null) {
+        setState(() => _showUnitError = true);
+        isValid = false;
+      }
+
+      final taxAmountMandatory = isFieldMandatory('Tax Amount');
+      if (currentController.taxAmount.text.isEmpty && taxAmountMandatory) {
+        setState(() => currentController.showTaxAmountError.value = true);
+        isValid = false;
+      }
+
+      final taxGroupMandatory = isFieldMandatory('Tax Group');
+      if (currentController.selectedTax == null && taxGroupMandatory) {
+        setState(() => currentController.showTaxGroupError.value = true);
+        isValid = false;
+      }
+
+      final projectIdMandatory = isFieldMandatory('Project Id');
+      if (projectIdMandatory && currentController.selectedProject == null) {
+        setState(() => currentController.showProjectError.value = true);
+        isValid = false;
+      }
+
+      // ✅ Validate custom fields for this itemize tab
+      final customValid = _validateItemizeCustomFields(currentController);
+      if (!customValid) isValid = false;
+
+      currentController.enableNextBtn.value = isValid;
+      return isValid;
+    }
+
+  
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+        _initializeUnits();
+      controller.isLoadingGE2.value = true;
       controller.configuration();
       controller.fetchPaidto();
       controller.fetchPaidwith();
       controller.fetchEmployeesID();
-         controller.loadAllCustomFieldValues();
+      controller.loadAllCustomFieldValues();
       controller.fetchProjectName();
       controller.fetchTaxGroup();
       controller.fetchUnit();
@@ -116,8 +614,10 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       loadAndAppendCashAdvanceList();
       controller.isLoadingGE2.value = false;
 
-      // controller.isLoadingGE2.value = false
-      // controller.fetchExchangeRate();
+      // ✅ After custom fields are loaded, clone into first controller
+      if (controller.customFields.isNotEmpty) {
+        itemizeControllers[0].cloneCustomFieldsFromRx(controller.customFields);
+      }
     });
   }
 
@@ -272,25 +772,17 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     Colors.pink.shade200,
   ];
   Future<void> _initializeUnits() async {
-    await controller.fetchUnit();
-
+    await controller.fetchUnit(); // Wait for units to be fetched
     Timer(const Duration(seconds: 5), () {
-      print("controller.unit ${controller.unit}");
-      print("controller.selectedunit ${controller.selectedunit}");
-
-      if (controller.unit.isEmpty) {
-        print("Unit list is empty. Cannot assign default.");
-        return;
-      }
-
+      print("controller.unit${controller.selectedunit}");
       if (controller.selectedunit == null) {
         final defaultUnit = controller.unit.firstWhere(
           (unit) => unit.code == 'Uom-004' && unit.name == 'Each',
           orElse: () => controller.unit.first,
         );
-
         setState(() {
-          controller.selectedunit = defaultUnit;
+          controller.selectedunit ??= defaultUnit;
+          controller.selectedunit ??= defaultUnit;
         });
       }
     });
@@ -298,7 +790,6 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
   void _addItemize() {
     if (!showItemizeDetails) {
-      print("Check$showItemizeDetails");
       setState(() {
         showItemizeDetails = true;
       });
@@ -306,7 +797,14 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       if (_validateCurrentItemizeForm()) {
         if (_itemizeCount < 5) {
           setState(() {
-            itemizeControllers.add(Controller());
+            final newController = Controller();
+            // ✅ Clone custom fields from master controller
+            if (controllerItems.customFields.isNotEmpty) {
+              newController.cloneCustomFieldsFromRx(
+                controllerItems.customFields,
+              );
+            }
+            itemizeControllers.add(newController);
             _itemizeCount++;
             _selectedItemizeIndex = _itemizeCount - 1;
             showItemizeDetails = true;
@@ -640,6 +1138,271 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
     });
   }
 
+  bool _validateItemizeCustomFields(Controller itemizeController) {
+    bool isValid = true;
+
+    final fields = itemizeController.customFieldsItems
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseTrans' &&
+              (field['ExpenseType'] == 'General Expenses' ||
+                  field['ExpenseType'] == null),
+        )
+        .toList();
+
+    for (final field in fields) {
+      final isMandatory = field['IsMandatory'] ?? false;
+      final fieldType = field['FieldType'];
+      final value = field['EnteredValue']?.toString() ?? '';
+
+      // ── Mandatory check ──
+      if (isMandatory) {
+        bool isEmpty = false;
+
+        if (fieldType == 'List' ||
+            fieldType == 'CustomList' ||
+            fieldType == 'SystemList') {
+          isEmpty = field['SelectedValue'] == null;
+        } else if (fieldType == 'Checkbox') {
+          isEmpty = false; // always has a value
+        } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+          isEmpty = field['EnteredValue'] == null;
+        } else {
+          isEmpty = value.trim().isEmpty;
+        }
+
+        if (isEmpty) {
+          field['Error'] =
+              '${field['FieldLabel'] ?? field['FieldName']} is required';
+          isValid = false;
+          continue; // skip format check when empty
+        }
+      }
+
+      // ── Format check (runs even when not mandatory if value exists) ──
+      if (fieldType == 'Email' && value.isNotEmpty) {
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+          field['Error'] = 'Enter a valid email';
+          isValid = false;
+          continue;
+        }
+      }
+
+      if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+        if (!RegExp(r'^\+?[\d\s\-]{7,15}$').hasMatch(value)) {
+          field['Error'] = 'Enter a valid mobile number (7-15 digits)';
+          isValid = false;
+          continue;
+        }
+      }
+
+      // ── All passed ──
+      field['Error'] = null;
+    }
+
+    itemizeController.customFieldsItems.refresh();
+    return isValid;
+  }
+
+  bool _validateAllBeforeSubmit() {
+    bool isValid = true;
+
+    // ── 1. Validate all itemize tabs ──
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      final c = itemizeControllers[i];
+
+      // Category
+      if (c.selectedCategoryId.isEmpty) {
+        c.showPaidForError.value = true;
+        isValid = false;
+      }
+
+      // Quantity
+      if (c.quantity.text.trim().isEmpty) {
+        c.showQuantityError.value = true;
+        isValid = false;
+      }
+
+      // Unit amount
+      if (c.unitAmount.text.trim().isEmpty) {
+        c.showUnitAmountError.value = true;
+        c.unitAmountErrorText.value = AppLocalizations.of(
+          context,
+        )!.fieldRequired;
+        isValid = false;
+      } else {
+        final value = double.tryParse(c.lineAmountINR.text);
+        if (value == null || value <= 0) {
+          c.showUnitAmountError.value = true;
+          c.unitAmountErrorText.value = AppLocalizations.of(
+            context,
+          )!.enterValidAmount;
+          isValid = false;
+        } else {
+          final min = c.minExpenseAmount.value;
+          final max = c.maxExpenseAmount.value;
+          if (value < min) {
+            c.showUnitAmountError.value = true;
+            c.unitAmountErrorText.value = AppLocalizations.of(
+              context,
+            )!.reportedAmountNotWithinRange;
+            isValid = false;
+          } else if (value > max && max != 0.0) {
+            c.showUnitAmountError.value = true;
+            c.unitAmountErrorText.value = AppLocalizations.of(
+              context,
+            )!.reportedAmountNotWithinRange;
+            isValid = false;
+          }
+        }
+      }
+
+      // Unit
+      if (c.selectedunit == null) {
+        isValid = false;
+      }
+
+      // Tax amount if mandatory
+      if (isFieldMandatory('Tax Amount') && c.taxAmount.text.trim().isEmpty) {
+        c.showTaxAmountError.value = true;
+        isValid = false;
+      }
+
+      // Tax group if mandatory
+      if (isFieldMandatory('Tax Group') && c.selectedTax == null) {
+        c.showTaxGroupError.value = true;
+        isValid = false;
+      }
+
+      // Project if mandatory
+      if (isFieldMandatory('Project Id') && c.selectedProject == null) {
+        c.showProjectError.value = true;
+        isValid = false;
+      }
+
+      // ── Custom fields for this itemize tab ──
+      final customValid = _validateItemizeCustomFields(c);
+      if (!customValid) isValid = false;
+    }
+
+    // ── 2. Validate header-level custom fields (ExpenseHeader) ──
+    final headerCustomValid = _validateHeaderCustomFields();
+    if (!headerCustomValid) isValid = false;
+
+    // ── 3. If any itemize tab is invalid, navigate to first invalid one ──
+    if (!isValid) {
+      final invalidIndex = _getFirstInvalidItemizeIndex();
+      if (invalidIndex != -1) {
+        // Navigate back to itemize step
+        setState(() {
+          _currentStep = 1;
+          _selectedItemizeIndex = invalidIndex;
+        });
+        _pageController.animateToPage(
+          1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+
+        Future.delayed(const Duration(milliseconds: 150), () {
+          Fluttertoast.showToast(
+            msg: "Please fill all required fields in item ${invalidIndex + 1}",
+            toastLength: Toast.LENGTH_LONG,
+            gravity: ToastGravity.BOTTOM,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+        });
+      }
+    }
+
+    return isValid;
+  }
+
+  /// Validates ExpenseHeader custom fields (Step 1 fields)
+  bool _validateHeaderCustomFields() {
+    bool isValid = true;
+
+    final fields = controllerItems.customFields
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseHeader' &&
+              field['ExpenseType'] == 'General Expenses',
+        )
+        .toList();
+
+    for (final field in fields) {
+      final isMandatory = field['IsMandatory'] ?? false;
+      final fieldType = field['FieldType'];
+      final value = field['EnteredValue']?.toString() ?? '';
+
+      if (isMandatory) {
+        bool isEmpty = false;
+
+        if (fieldType == 'List' ||
+            fieldType == 'CustomList' ||
+            fieldType == 'SystemList') {
+          isEmpty = field['SelectedValue'] == null;
+        } else if (fieldType == 'Checkbox') {
+          isEmpty = false;
+        } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
+          isEmpty = field['EnteredValue'] == null;
+        } else {
+          isEmpty = value.trim().isEmpty;
+        }
+
+        if (isEmpty) {
+          field['Error'] =
+              '${field['FieldLabel'] ?? field['FieldName']} is required';
+          isValid = false;
+          continue;
+        }
+      }
+
+      // Format checks
+      if (fieldType == 'Email' && value.isNotEmpty) {
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+          field['Error'] = 'Enter a valid email';
+          isValid = false;
+          continue;
+        }
+      }
+
+      if (fieldType == 'MobileNumber' && value.isNotEmpty) {
+        if (!RegExp(r'^\+?[\d\s\-]{7,15}$').hasMatch(value)) {
+          field['Error'] = 'Enter a valid mobile number (7-15 digits)';
+          isValid = false;
+          continue;
+        }
+      }
+
+      field['Error'] = null;
+    }
+
+    controllerItems.customFields.refresh();
+
+    // If header fields invalid, navigate back to step 1
+    if (!isValid) {
+      setState(() => _currentStep = 0);
+      _pageController.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      Fluttertoast.showToast(
+        msg: "Please fill all required fields in Payment Info",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
+
+    return isValid;
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -696,7 +1459,10 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                 children: [
                   expenseCreationFormStep1(context),
                   _buildItemizePage(),
-                  CreateExpensePage(backButton: backButton),
+                  CreateExpensePage(
+                    backButton: backButton,
+                    onValidateBeforeSubmit: _validateAllBeforeSubmit,
+                  ),
                 ],
               ),
             ),
@@ -758,6 +1524,15 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       if (controller.quantity.text.isEmpty) {
         controller.quantity.text = '1.00';
       }
+    }
+    final currentCustomFields = controller.customFieldsItems;
+
+    // If this controller doesn't have its own custom fields yet,
+    // initialize them from the master
+    if (currentCustomFields.isEmpty && controller.customFields.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.cloneCustomFieldsFromRx(controller.customFields);
+      });
     }
     if (clearField) {
       controller.quantity.clear();
@@ -967,350 +1742,443 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                     );
                   })
                   .toList(),
-                  const SizedBox(height: 8),
-                     Obx(() {
-                          return Column(
-                            children: controllerItems.customFields
-                                .where(
-                                  (field) =>
-                                      field['ObjectName'] == 'ExpenseTrans'
-                                )
-                                .map((field) {
-                                  final String label =
-                                      field['FieldLabel'] ?? field['FieldName'];
-                                  final bool isMandatory =
-                                      field['IsMandatory'] ?? false;
+              const SizedBox(height: 8),
+              Obx(() {
+                return Column(
+                  children: currentCustomFields.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final field = entry.value;
 
-                                  Widget inputField;
+                    if (!(field['ObjectName'] == 'ExpenseTrans' &&
+                        (field['ExpenseType'] == 'General Expenses' ||
+                            field['ExpenseType'] == null))) {
+                      return const SizedBox.shrink();
+                    }
 
-                                  if (field['FieldType'] == 'List' ||
-                                      field['FieldType'] == 'CustomList' ||
-                                      field['FieldType'] == 'SystemList') {
-                                    // ── Dropdown / Searchable List ──
-                                    inputField =
-                                        SearchableMultiColumnDropdownField<
-                                          CustomDropdownValue
-                                        >(
-                                          labelText:
-                                              '$label${isMandatory ? " *" : ""}',
-                                          items:
-                                              (field['Options']
-                                                  as List<
-                                                    CustomDropdownValue
-                                                  >?) ??
-                                              [],
-                                          selectedValue: field['SelectedValue'],
-                                          searchValue: (val) => val.valueName,
-                                          // enabled: controller.isEditModePerdiem,
-                                          displayText: (val) => val.valueName,
-                                          columnHeaders: const [
-                                            'Value ID',
-                                            'Value Name',
-                                          ],
-                                          rowBuilder: (val, searchQuery) =>
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 10,
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(val.valueId),
-                                                    ),
-                                                    Expanded(
-                                                      child: Text(
-                                                        val.valueName,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          onChanged: (val) {
-                                            field['SelectedValue'] = val;
-                                            field['Error'] = null;
-                                            controller.customFields.refresh();
-                                          },
-                                        );
-                                  } else if (field['FieldType'] == 'Checkbox') {
-                                    // ── Checkbox ──
-                                    inputField = CheckboxListTile(
-                                      title: Text(
-                                        '$label${isMandatory ? " *" : ""}',
-                                      ),
-                                      value: field['EnteredValue'] ?? false,
-                                      // enabled: controller.isEditModePerdiem,
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      contentPadding: EdgeInsets.zero,
-                                      onChanged: (bool? val) {
-                                              field['EnteredValue'] =
-                                                  val ?? false;
-                                              controller.customFields.refresh();
-                                            }
-                                         
-                                    );
-                                  } else if (field['FieldType'] == 'Date' ||
-                                      field['FieldType'] == 'Date&Time') {
-                                    // ── Date / Date&Time ──
-                                    final bool isDateTime =
-                                        field['FieldType'] == 'Date&Time';
+                    final String label =
+                        field['FieldLabel'] ?? field['FieldName'];
+                    final bool isMandatory = field['IsMandatory'] ?? false;
 
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      readOnly: true,
-                                      controller: TextEditingController(
-                                        text: field['EnteredValue'] != null
-                                            ? isDateTime
-                                                  ? DateFormat(
-                                                      'dd/MM/yyyy hh:mm a',
-                                                    ).format(
-                                                      field['EnteredValue'],
-                                                    )
-                                                  : DateFormat(
-                                                      'dd/MM/yyyy',
-                                                    ).format(
-                                                      field['EnteredValue'],
-                                                    )
-                                            : '',
-                                      ),
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.calendar_today,
-                                        ),
-                                      ),
-                                      onTap:() async {
-                                              final DateTime? pickedDate =
-                                                  await showDatePicker(
-                                                    context: context,
-                                                    initialDate:
-                                                        field['EnteredValue'] ??
-                                                        DateTime.now(),
-                                                    firstDate: DateTime(2000),
-                                                    lastDate: DateTime(2100),
-                                                  );
+                    // ── Unique key per field per controller ──
+                    final String fieldKey =
+                        '${controller.hashCode}_${field['FieldName']}_${field['LineId'] ?? index}';
 
-                                              if (pickedDate == null) return;
+                    // ── Create TextEditingController only once ──
+                    fieldControllers.putIfAbsent(fieldKey, () {
+                      dynamic initialValue;
 
-                                              if (isDateTime) {
-                                                final TimeOfDay?
-                                                pickedTime = await showTimePicker(
-                                                  context: context,
-                                                  initialTime:
-                                                      field['EnteredValue'] !=
-                                                          null
-                                                      ? TimeOfDay.fromDateTime(
-                                                          field['EnteredValue'],
-                                                        )
-                                                      : TimeOfDay.now(),
-                                                );
+                      if (field['EnteredValue'] != null &&
+                          field['EnteredValue'].toString().isNotEmpty) {
+                        initialValue = field['EnteredValue'];
+                      } else {
+                        initialValue = field['DefaultValue'];
+                      }
 
-                                                if (pickedTime == null) return;
+                      final fieldType = field['FieldType'];
 
-                                                field['EnteredValue'] =
-                                                    DateTime(
-                                                      pickedDate.year,
-                                                      pickedDate.month,
-                                                      pickedDate.day,
-                                                      pickedTime.hour,
-                                                      pickedTime.minute,
-                                                    );
-                                              } else {
-                                                field['EnteredValue'] =
-                                                    pickedDate;
-                                              }
+                      try {
+                        // ── DROPDOWN ──
+                        if (fieldType == 'List' ||
+                            fieldType == 'CustomList' ||
+                            fieldType == 'SystemList') {
+                          if (field['SelectedValue'] == null &&
+                              initialValue != null) {
+                            final options =
+                                field['Options'] as List<CustomDropdownValue>?;
+                            if (options != null) {
+                              final match = options.firstWhereOrNull(
+                                (opt) =>
+                                    opt.valueName == initialValue.toString() ||
+                                    opt.valueId == initialValue.toString(),
+                              );
+                              if (match != null) field['SelectedValue'] = match;
+                            }
+                          }
+                          return TextEditingController();
+                        }
 
-                                              controller.customFields.refresh();
-                                            },
-                                         
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            field['EnteredValue'] == null) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'LongInteger') {
-                                    // ── Integer Number ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      initialValue:
-                                          field['EnteredValue']?.toString() ??
-                                          '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = int.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Decimal') {
-                                    // ── Decimal Number ──
-                                    inputField = TextFormField(
-                                      //  enabled: controller.isEditModePerdiem,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'^\d+\.?\d*'),
-                                        ),
-                                      ],
-                                      initialValue:
-                                          field['EnteredValue']?.toString() ??
-                                          '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = double.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Email') {
-                                    // ── Email ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.emailAddress,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.email_outlined,
-                                        ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final emailRegex = RegExp(
-                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                          );
-                                          if (!emailRegex.hasMatch(value)) {
-                                            return 'Enter a valid email address';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'MobileNumber') {
-                                    // ── Mobile Number ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.phone,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.phone_outlined,
-                                        ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final phoneRegex = RegExp(
-                                            r'^\+?[\d\s\-]{7,15}$',
-                                          );
-                                          if (!phoneRegex.hasMatch(value)) {
-                                            return 'Enter a valid mobile number';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else {
-                                    // ── Default Text ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.text,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
-                                    ),
-                                    child: inputField,
-                                  );
-                                })
-                                .toList(),
+                        // ── DATE / DATETIME ──
+                        if (fieldType == 'Date' || fieldType == 'Date&Time') {
+                          DateTime? parsedDate;
+                          if (initialValue is DateTime) {
+                            parsedDate = initialValue;
+                          } else if (initialValue is String &&
+                              initialValue.isNotEmpty) {
+                            final millis = int.tryParse(initialValue);
+                            parsedDate = millis != null
+                                ? DateTime.fromMillisecondsSinceEpoch(millis)
+                                : DateTime.tryParse(initialValue);
+                          } else if (initialValue is int) {
+                            parsedDate = DateTime.fromMillisecondsSinceEpoch(
+                              initialValue,
+                            );
+                          }
+                          field['EnteredValue'] = parsedDate;
+                          return TextEditingController(
+                            text: parsedDate != null
+                                ? fieldType == 'Date&Time'
+                                      ? DateFormat(
+                                          'dd/MM/yyyy hh:mm a',
+                                        ).format(parsedDate)
+                                      : DateFormat(
+                                          'dd/MM/yyyy',
+                                        ).format(parsedDate)
+                                : '',
                           );
-                        }),
+                        }
+
+                        // ── CHECKBOX ──
+                        if (fieldType == 'Checkbox') {
+                          bool boolValue = false;
+                          if (initialValue is bool) {
+                            boolValue = initialValue;
+                          } else if (initialValue is String) {
+                            boolValue = initialValue.toLowerCase() == 'true';
+                          }
+                          field['EnteredValue'] = boolValue;
+                          return TextEditingController(
+                            text: boolValue.toString(),
+                          );
+                        }
+
+                        // ── DECIMAL / AMOUNT / PERCENT ──
+                        if (fieldType == 'Decimal' ||
+                            fieldType == 'Amount' ||
+                            fieldType == 'Percent') {
+                          final parsed = double.tryParse(
+                            initialValue.toString(),
+                          );
+                          field['EnteredValue'] = parsed;
+                          return TextEditingController(
+                            text: parsed?.toString() ?? '',
+                          );
+                        }
+
+                        // ── INTEGER ──
+                        if (fieldType == 'Integer' ||
+                            fieldType == 'LongInteger') {
+                          final parsed = int.tryParse(initialValue.toString());
+                          field['EnteredValue'] = parsed;
+                          return TextEditingController(
+                            text: parsed?.toString() ?? '',
+                          );
+                        }
+
+                        // ── DEFAULT TEXT ──
+                        field['EnteredValue'] = initialValue;
+                        return TextEditingController(
+                          text: initialValue?.toString() ?? '',
+                        );
+                      } catch (e) {
+                        debugPrint("Custom field parse error: $e");
+                        return TextEditingController(
+                          text: initialValue?.toString() ?? '',
+                        );
+                      }
+                    });
+
+                    Widget inputField;
+
+                    // ── DROPDOWN ──
+                    if (field['FieldType'] == 'List' ||
+                        field['FieldType'] == 'CustomList' ||
+                        field['FieldType'] == 'SystemList') {
+                      inputField = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SearchableMultiColumnDropdownField<
+                            CustomDropdownValue
+                          >(
+                            key: ValueKey(fieldKey),
+                            labelText: '$label${isMandatory ? " *" : ""}',
+                            items:
+                                (field['Options']
+                                    as List<CustomDropdownValue>?) ??
+                                [],
+                            selectedValue: field['SelectedValue'],
+                            searchValue: (val) => val.valueName,
+                            displayText: (val) => val.valueName,
+                            columnHeaders: const ['Value ID', 'Value Name'],
+                            dropdownMaxHeight: 300,
+                            rowBuilder: (val, searchQuery) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      val.valueId,
+                                      style: const TextStyle(fontSize: 8),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      val.valueName,
+                                      style: const TextStyle(fontSize: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            onChanged: (val) {
+                              field['SelectedValue'] = val;
+                              // ✅ Clear error when value selected
+                              field['Error'] = null;
+                              controllerItems.customFields.refresh();
+                            },
+                          ),
+                          // ✅ Error shown below dropdown
+                          if (field['Error'] != null &&
+                              field['Error'].toString().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              child: Text(
+                                field['Error'].toString(),
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+
+                      // ── CHECKBOX ──
+                    } else if (field['FieldType'] == 'Checkbox') {
+                      inputField = CheckboxListTile(
+                        key: ValueKey(fieldKey),
+                        title: Text('$label${isMandatory ? " *" : ""}'),
+                        value: field['EnteredValue'] ?? false,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (bool? val) {
+                          field['EnteredValue'] = val ?? false;
+                          field['Error'] = null;
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── DATE / DATETIME ──
+                    } else if (field['FieldType'] == 'Date' ||
+                        field['FieldType'] == 'Date&Time') {
+                      final bool isDateTime = field['FieldType'] == 'Date&Time';
+
+                      // Sync display text
+                      fieldControllers[fieldKey]!.text =
+                          field['EnteredValue'] != null
+                          ? isDateTime
+                                ? DateFormat(
+                                    'dd/MM/yyyy hh:mm a',
+                                  ).format(field['EnteredValue'])
+                                : DateFormat(
+                                    'dd/MM/yyyy',
+                                  ).format(field['EnteredValue'])
+                          : '';
+
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        readOnly: true,
+                        controller: fieldControllers[fieldKey],
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields
+                          errorText: field['Error'],
+                          suffixIcon: const Icon(Icons.calendar_today),
+                        ),
+                        onTap: () async {
+                          final DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate:
+                                field['EnteredValue'] ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (pickedDate == null) return;
+
+                          if (isDateTime) {
+                            final TimeOfDay? pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: field['EnteredValue'] != null
+                                  ? TimeOfDay.fromDateTime(
+                                      field['EnteredValue'],
+                                    )
+                                  : TimeOfDay.now(),
+                            );
+                            if (pickedTime == null) return;
+                            field['EnteredValue'] = DateTime(
+                              pickedDate.year,
+                              pickedDate.month,
+                              pickedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                          } else {
+                            field['EnteredValue'] = pickedDate;
+                          }
+                          // ✅ Clear error when date picked
+                          field['Error'] = null;
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── LONG INTEGER ──
+                    } else if (field['FieldType'] == 'LongInteger') {
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        controller: fieldControllers[fieldKey],
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields
+                          errorText: field['Error'],
+                        ),
+                        onChanged: (value) {
+                          field['EnteredValue'] = int.tryParse(value);
+                          // ✅ Live mandatory check
+                          if (isMandatory && value.trim().isEmpty) {
+                            field['Error'] = '$label is required';
+                          } else {
+                            field['Error'] = null;
+                          }
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── DECIMAL ──
+                    } else if (field['FieldType'] == 'Decimal') {
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        controller: fieldControllers[fieldKey],
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d*'),
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields
+                          errorText: field['Error'],
+                        ),
+                        onChanged: (value) {
+                          field['EnteredValue'] = double.tryParse(value);
+                          // ✅ Live mandatory check
+                          if (isMandatory && value.trim().isEmpty) {
+                            field['Error'] = '$label is required';
+                          } else {
+                            field['Error'] = null;
+                          }
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── EMAIL ──
+                    } else if (field['FieldType'] == 'Email') {
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        controller: fieldControllers[fieldKey],
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields or live check
+                          errorText: field['Error'],
+                          suffixIcon: const Icon(Icons.email_outlined),
+                        ),
+                        onChanged: (value) {
+                          field['EnteredValue'] = value;
+                          // ✅ Live validation
+                          if (isMandatory && value.trim().isEmpty) {
+                            field['Error'] = '$label is required';
+                          } else if (value.isNotEmpty &&
+                              !RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              ).hasMatch(value)) {
+                            field['Error'] = 'Enter a valid email';
+                          } else {
+                            field['Error'] = null;
+                          }
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── MOBILE NUMBER ──
+                    } else if (field['FieldType'] == 'MobileNumber') {
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        controller: fieldControllers[fieldKey],
+                        keyboardType: TextInputType.phone,
+                        // ✅ Only allow valid phone characters
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[\d\s\-\+]'),
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields or live check
+                          errorText: field['Error'],
+                          suffixIcon: const Icon(Icons.phone_outlined),
+                        ),
+                        onChanged: (value) {
+                          field['EnteredValue'] = value;
+                          // ✅ Live validation
+                          if (isMandatory && value.trim().isEmpty) {
+                            field['Error'] = '$label is required';
+                          } else if (value.isNotEmpty &&
+                              !RegExp(r'^\+?[\d\s\-]{7,15}$').hasMatch(value)) {
+                            field['Error'] =
+                                'Enter a valid mobile number (7-15 digits)';
+                          } else {
+                            field['Error'] = null;
+                          }
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+
+                      // ── DEFAULT TEXT ──
+                    } else {
+                      inputField = TextFormField(
+                        key: ValueKey(fieldKey),
+                        controller: fieldControllers[fieldKey],
+                        keyboardType: TextInputType.text,
+                        decoration: InputDecoration(
+                          labelText: '$label${isMandatory ? " *" : ""}',
+                          border: const OutlineInputBorder(),
+                          // ✅ Shows error set by _validateItemizeCustomFields
+                          errorText: field['Error'],
+                        ),
+                        onChanged: (value) {
+                          field['EnteredValue'] = value;
+                          // ✅ Live mandatory check
+                          if (isMandatory && value.trim().isEmpty) {
+                            field['Error'] = '$label is required';
+                          } else {
+                            field['Error'] = null;
+                          }
+                          controllerItems.customFields.refresh();
+                        },
+                      );
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: inputField,
+                    );
+                  }).toList(),
+                );
+              }),
               const SizedBox(height: 8),
               Text("${loc.paidFor} *"),
               const SizedBox(height: 20),
@@ -1729,18 +2597,18 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           return OutlinedButton.icon(
                             onPressed: () {
                               // Validate current form before adding new itemize
-                              if (validateDropdowns()) {
+                              if (validateDropdowns() && _validateAllBeforeSubmit()) {
                                 _addItemize();
                               } else {
                                 // Optional: Show error message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      loc.pleaseFillAllRequiredFields,
-                                    ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                // ScaffoldMessenger.of(context).showSnackBar(
+                                //   SnackBar(
+                                //     content: Text(
+                                //       loc.pleaseFillAllRequiredFields,
+                                //     ),
+                                //     backgroundColor: Colors.red,
+                                //   ),
+                                // );
                               }
                             },
                             style: OutlinedButton.styleFrom(
@@ -1793,7 +2661,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ElevatedButton(
                           onPressed: () {
                             if (showItemizeDetails) {
-                              if (_validateCurrentItemizeForm()) {
+                              if (_validateCurrentItemizeForm()&& _validateAllBeforeSubmit()) {
                                 final invalidIndex =
                                     _getFirstInvalidItemizeIndex();
 
@@ -1889,12 +2757,13 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
                                 print('isValid$isValid');
                                 print('isValid${itemizeControllers.length}');
-                                if (isValid) {
+                                if (isValid ) {
                                   if (showItemizeDetails) {
                                     controllerItems.finalItems =
                                         itemizeControllers
                                             .map((c) => c.toExpenseItemModel())
                                             .toList();
+
                                     _nextStep();
                                     FocusScope.of(context).unfocus();
                                   } else {
@@ -2308,7 +3177,12 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                                       Text(
                                         controller.selectedDate == null
                                             ? '${loc.selectDate} '
-                                            : DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
+                                            : DateFormat(
+                                                controller
+                                                        .selectedFormat
+                                                        ?.key ??
+                                                    'dd/MM/yyyy',
+                                              ).format(
                                                 controller.selectedDate!,
                                               ),
                                         style: TextStyle(
@@ -2329,7 +3203,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           );
                         },
                       ),
-                       const SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       if (PermissionHelper.canRead("User Delegates") == true)
                         const SizedBox(height: 6),
                       if (PermissionHelper.canRead("User Delegates") == true)
@@ -2598,351 +3472,341 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ],
                       ),
                       const SizedBox(height: 7),
-                       Obx(() {
-                          return Column(
-                            children: controller.customFields
-                                .where(
-                                  (field) =>
-                                      field['ObjectName'] == 'ExpenseHeader' &&
-                                      field['ExpenseType'] ==
-                                          'CashAdvanceReturn',
-                                )
-                                .map((field) {
-                                  final String label =
-                                      field['FieldLabel'] ?? field['FieldName'];
-                                  final bool isMandatory =
-                                      field['IsMandatory'] ?? false;
+                      Obx(() {
+                        return Column(
+                          children: controller.customFields
+                              .where(
+                                (field) =>
+                                    field['ObjectName'] == 'ExpenseHeader' &&
+                                    field['ExpenseType'] == 'CashAdvanceReturn',
+                              )
+                              .map((field) {
+                                final String label =
+                                    field['FieldLabel'] ?? field['FieldName'];
+                                final bool isMandatory =
+                                    field['IsMandatory'] ?? false;
 
-                                  Widget inputField;
+                                Widget inputField;
 
-                                  if (field['FieldType'] == 'List' ||
-                                      field['FieldType'] == 'CustomList' ||
-                                      field['FieldType'] == 'SystemList') {
-                                    // ── Dropdown / Searchable List ──
-                                    inputField =
-                                        SearchableMultiColumnDropdownField<
-                                          CustomDropdownValue
-                                        >(
-                                          labelText:
-                                              '$label${isMandatory ? " *" : ""}',
-                                          items:
-                                              (field['Options']
-                                                  as List<
-                                                    CustomDropdownValue
-                                                  >?) ??
-                                              [],
-                                          selectedValue: field['SelectedValue'],
-                                          searchValue: (val) => val.valueName,
-                                          // enabled: controller.isEditModePerdiem,
-                                          displayText: (val) => val.valueName,
-                                          columnHeaders: const [
-                                            'Value ID',
-                                            'Value Name',
-                                          ],
-                                          rowBuilder: (val, searchQuery) =>
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 10,
-                                                      horizontal: 16,
-                                                    ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(val.valueId),
-                                                    ),
-                                                    Expanded(
-                                                      child: Text(
-                                                        val.valueName,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                if (field['FieldType'] == 'List' ||
+                                    field['FieldType'] == 'CustomList' ||
+                                    field['FieldType'] == 'SystemList') {
+                                  // ── Dropdown / Searchable List ──
+                                  inputField =
+                                      SearchableMultiColumnDropdownField<
+                                        CustomDropdownValue
+                                      >(
+                                        labelText:
+                                            '$label${isMandatory ? " *" : ""}',
+                                        items:
+                                            (field['Options']
+                                                as List<
+                                                  CustomDropdownValue
+                                                >?) ??
+                                            [],
+                                        selectedValue: field['SelectedValue'],
+                                        searchValue: (val) => val.valueName,
+                                        // enabled: controller.isEditModePerdiem,
+                                        displayText: (val) => val.valueName,
+                                        columnHeaders: const [
+                                          'Value ID',
+                                          'Value Name',
+                                        ],
+                                        rowBuilder: (val, searchQuery) =>
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 10,
+                                                    horizontal: 16,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(val.valueId),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(val.valueName),
+                                                  ),
+                                                ],
                                               ),
-                                          onChanged: (val) {
-                                            field['SelectedValue'] = val;
-                                            field['Error'] = null;
-                                            controller.customFields.refresh();
-                                          },
-                                        );
-                                  } else if (field['FieldType'] == 'Checkbox') {
-                                    // ── Checkbox ──
-                                    inputField = CheckboxListTile(
-                                      title: Text(
-                                        '$label${isMandatory ? " *" : ""}',
-                                      ),
-                                      value: field['EnteredValue'] ?? false,
-                                      // enabled: controller.isEditModePerdiem,
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      contentPadding: EdgeInsets.zero,
-                                      onChanged: (bool? val) {
-                                              field['EnteredValue'] =
-                                                  val ?? false;
-                                              controller.customFields.refresh();
-                                            }
-                                         
-                                    );
-                                  } else if (field['FieldType'] == 'Date' ||
-                                      field['FieldType'] == 'Date&Time') {
-                                    // ── Date / Date&Time ──
-                                    final bool isDateTime =
-                                        field['FieldType'] == 'Date&Time';
-
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      readOnly: true,
-                                      controller: TextEditingController(
-                                        text: field['EnteredValue'] != null
-                                            ? isDateTime
-                                                  ? DateFormat(
-                                                      'dd/MM/yyyy hh:mm a',
-                                                    ).format(
-                                                      field['EnteredValue'],
-                                                    )
-                                                  : DateFormat(
-                                                      'dd/MM/yyyy',
-                                                    ).format(
-                                                      field['EnteredValue'],
-                                                    )
-                                            : '',
-                                      ),
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.calendar_today,
-                                        ),
-                                      ),
-                                      onTap:() async {
-                                              final DateTime? pickedDate =
-                                                  await showDatePicker(
-                                                    context: context,
-                                                    initialDate:
-                                                        field['EnteredValue'] ??
-                                                        DateTime.now(),
-                                                    firstDate: DateTime(2000),
-                                                    lastDate: DateTime(2100),
-                                                  );
-
-                                              if (pickedDate == null) return;
-
-                                              if (isDateTime) {
-                                                final TimeOfDay?
-                                                pickedTime = await showTimePicker(
-                                                  context: context,
-                                                  initialTime:
-                                                      field['EnteredValue'] !=
-                                                          null
-                                                      ? TimeOfDay.fromDateTime(
-                                                          field['EnteredValue'],
-                                                        )
-                                                      : TimeOfDay.now(),
-                                                );
-
-                                                if (pickedTime == null) return;
-
-                                                field['EnteredValue'] =
-                                                    DateTime(
-                                                      pickedDate.year,
-                                                      pickedDate.month,
-                                                      pickedDate.day,
-                                                      pickedTime.hour,
-                                                      pickedTime.minute,
-                                                    );
-                                              } else {
-                                                field['EnteredValue'] =
-                                                    pickedDate;
-                                              }
-
-                                              controller.customFields.refresh();
-                                            },
-                                         
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            field['EnteredValue'] == null) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'LongInteger') {
-                                    // ── Integer Number ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      initialValue:
-                                          field['EnteredValue']?.toString() ??
-                                          '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = int.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Decimal') {
-                                    // ── Decimal Number ──
-                                    inputField = TextFormField(
-                                      //  enabled: controller.isEditModePerdiem,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'^\d+\.?\d*'),
-                                        ),
-                                      ],
-                                      initialValue:
-                                          field['EnteredValue']?.toString() ??
-                                          '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = double.tryParse(
-                                          value,
-                                        );
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] == 'Email') {
-                                    // ── Email ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.emailAddress,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.email_outlined,
-                                        ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final emailRegex = RegExp(
-                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                          );
-                                          if (!emailRegex.hasMatch(value)) {
-                                            return 'Enter a valid email address';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else if (field['FieldType'] ==
-                                      'MobileNumber') {
-                                    // ── Mobile Number ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.phone,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                        suffixIcon: const Icon(
-                                          Icons.phone_outlined,
-                                        ),
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        if (value != null && value.isNotEmpty) {
-                                          final phoneRegex = RegExp(
-                                            r'^\+?[\d\s\-]{7,15}$',
-                                          );
-                                          if (!phoneRegex.hasMatch(value)) {
-                                            return 'Enter a valid mobile number';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  } else {
-                                    // ── Default Text ──
-                                    inputField = TextFormField(
-                                      // enabled: controller.isEditModePerdiem,
-                                      keyboardType: TextInputType.text,
-                                      initialValue: field['EnteredValue'] ?? '',
-                                      decoration: InputDecoration(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        border: const OutlineInputBorder(),
-                                        errorText: field['Error'],
-                                      ),
-                                      onChanged: (value) {
-                                        field['EnteredValue'] = value;
-                                      },
-                                      validator: (value) {
-                                        if (isMandatory &&
-                                            (value == null ||
-                                                value.trim().isEmpty)) {
-                                          return '$label is required';
-                                        }
-                                        return null;
-                                      },
-                                    );
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 8,
+                                            ),
+                                        onChanged: (val) {
+                                          field['SelectedValue'] = val;
+                                          field['Error'] = null;
+                                          controller.customFields.refresh();
+                                        },
+                                      );
+                                } else if (field['FieldType'] == 'Checkbox') {
+                                  // ── Checkbox ──
+                                  inputField = CheckboxListTile(
+                                    title: Text(
+                                      '$label${isMandatory ? " *" : ""}',
                                     ),
-                                    child: inputField,
+                                    value: field['EnteredValue'] ?? false,
+                                    // enabled: controller.isEditModePerdiem,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                    contentPadding: EdgeInsets.zero,
+                                    onChanged: (bool? val) {
+                                      field['EnteredValue'] = val ?? false;
+                                      controller.customFields.refresh();
+                                    },
                                   );
-                                })
-                                .toList(),
-                          );
-                        }),
+                                } else if (field['FieldType'] == 'Date' ||
+                                    field['FieldType'] == 'Date&Time') {
+                                  // ── Date / Date&Time ──
+                                  final bool isDateTime =
+                                      field['FieldType'] == 'Date&Time';
+
+                                  inputField = TextFormField(
+                                    // enabled: controller.isEditModePerdiem,
+                                    readOnly: true,
+                                    controller: TextEditingController(
+                                      text: field['EnteredValue'] != null
+                                          ? isDateTime
+                                                ? DateFormat(
+                                                    'dd/MM/yyyy hh:mm a',
+                                                  ).format(
+                                                    field['EnteredValue'],
+                                                  )
+                                                : DateFormat(
+                                                    'dd/MM/yyyy',
+                                                  ).format(
+                                                    field['EnteredValue'],
+                                                  )
+                                          : '',
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                      suffixIcon: const Icon(
+                                        Icons.calendar_today,
+                                      ),
+                                    ),
+                                    onTap: () async {
+                                      final DateTime? pickedDate =
+                                          await showDatePicker(
+                                            context: context,
+                                            initialDate:
+                                                field['EnteredValue'] ??
+                                                DateTime.now(),
+                                            firstDate: DateTime(2000),
+                                            lastDate: DateTime(2100),
+                                          );
+
+                                      if (pickedDate == null) return;
+
+                                      if (isDateTime) {
+                                        final TimeOfDay? pickedTime =
+                                            await showTimePicker(
+                                              context: context,
+                                              initialTime:
+                                                  field['EnteredValue'] != null
+                                                  ? TimeOfDay.fromDateTime(
+                                                      field['EnteredValue'],
+                                                    )
+                                                  : TimeOfDay.now(),
+                                            );
+
+                                        if (pickedTime == null) return;
+
+                                        field['EnteredValue'] = DateTime(
+                                          pickedDate.year,
+                                          pickedDate.month,
+                                          pickedDate.day,
+                                          pickedTime.hour,
+                                          pickedTime.minute,
+                                        );
+                                      } else {
+                                        field['EnteredValue'] = pickedDate;
+                                      }
+
+                                      controller.customFields.refresh();
+                                    },
+
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          field['EnteredValue'] == null) {
+                                        return '$label is required';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                } else if (field['FieldType'] ==
+                                    'LongInteger') {
+                                  // ── Integer Number ──
+                                  inputField = TextFormField(
+                                    // enabled: controller.isEditModePerdiem,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    initialValue:
+                                        field['EnteredValue']?.toString() ?? '',
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                    ),
+                                    onChanged: (value) {
+                                      field['EnteredValue'] = int.tryParse(
+                                        value,
+                                      );
+                                    },
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          (value == null ||
+                                              value.trim().isEmpty)) {
+                                        return '$label is required';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                } else if (field['FieldType'] == 'Decimal') {
+                                  // ── Decimal Number ──
+                                  inputField = TextFormField(
+                                    //  enabled: controller.isEditModePerdiem,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d+\.?\d*'),
+                                      ),
+                                    ],
+                                    initialValue:
+                                        field['EnteredValue']?.toString() ?? '',
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                    ),
+                                    onChanged: (value) {
+                                      field['EnteredValue'] = double.tryParse(
+                                        value,
+                                      );
+                                    },
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          (value == null ||
+                                              value.trim().isEmpty)) {
+                                        return '$label is required';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                } else if (field['FieldType'] == 'Email') {
+                                  // ── Email ──
+                                  inputField = TextFormField(
+                                    // enabled: controller.isEditModePerdiem,
+                                    keyboardType: TextInputType.emailAddress,
+                                    initialValue: field['EnteredValue'] ?? '',
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                      suffixIcon: const Icon(
+                                        Icons.email_outlined,
+                                      ),
+                                    ),
+                                    onChanged: (value) {
+                                      field['EnteredValue'] = value;
+                                    },
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          (value == null ||
+                                              value.trim().isEmpty)) {
+                                        return '$label is required';
+                                      }
+                                      if (value != null && value.isNotEmpty) {
+                                        final emailRegex = RegExp(
+                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                        );
+                                        if (!emailRegex.hasMatch(value)) {
+                                          return 'Enter a valid email address';
+                                        }
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                } else if (field['FieldType'] ==
+                                    'MobileNumber') {
+                                  // ── Mobile Number ──
+                                  inputField = TextFormField(
+                                    // enabled: controller.isEditModePerdiem,
+                                    keyboardType: TextInputType.phone,
+                                    initialValue: field['EnteredValue'] ?? '',
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                      suffixIcon: const Icon(
+                                        Icons.phone_outlined,
+                                      ),
+                                    ),
+                                    onChanged: (value) {
+                                      field['EnteredValue'] = value;
+                                    },
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          (value == null ||
+                                              value.trim().isEmpty)) {
+                                        return '$label is required';
+                                      }
+                                      if (value != null && value.isNotEmpty) {
+                                        final phoneRegex = RegExp(
+                                          r'^\+?[\d\s\-]{7,15}$',
+                                        );
+                                        if (!phoneRegex.hasMatch(value)) {
+                                          return 'Enter a valid mobile number';
+                                        }
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                } else {
+                                  // ── Default Text ──
+                                  inputField = TextFormField(
+                                    // enabled: controller.isEditModePerdiem,
+                                    keyboardType: TextInputType.text,
+                                    initialValue: field['EnteredValue'] ?? '',
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '$label${isMandatory ? " *" : ""}',
+                                      border: const OutlineInputBorder(),
+                                      errorText: field['Error'],
+                                    ),
+                                    onChanged: (value) {
+                                      field['EnteredValue'] = value;
+                                    },
+                                    validator: (value) {
+                                      if (isMandatory &&
+                                          (value == null ||
+                                              value.trim().isEmpty)) {
+                                        return '$label is required';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: inputField,
+                                );
+                              })
+                              .toList(),
+                        );
+                      }),
                       const SizedBox(height: 7),
                       Text(
                         '${loc.paidWith}',
@@ -3186,7 +4050,11 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
 class CreateExpensePage extends StatefulWidget {
   final VoidCallback backButton;
-  const CreateExpensePage({super.key, required this.backButton});
+  const CreateExpensePage({
+    super.key,
+    required this.backButton,
+    required onValidateBeforeSubmit,
+  });
 
   @override
   _CreateExpensePageState createState() => _CreateExpensePageState();

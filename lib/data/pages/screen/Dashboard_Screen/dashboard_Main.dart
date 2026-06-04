@@ -78,15 +78,30 @@ class _DashboardPageState extends State<DashboardPage>
       _loadProfileImage();
       controller.fetchFileTypes();
       _loadDashboards();
+      controller.getUserPref(context);
     });
     controller.updateFeatureVisibility();
-      controller.loadAllCustomFieldValues(); 
-       controller.fetchCustomFields();
+    controller.loadAllCustomFieldValues();
+    controller.fetchCustomFields();
     //  controller.loadDashboards();
 
     // controller.initializeWizardConfigs(); // Initialize wizard configs
     _initializeAsync();
     PermissionHelper.loadPermissions();
+    if (controller.selectedTimezonevalue.value.isEmpty) {
+      print("Timezone value is null, loading from SharedPreferences...");
+      loadTimezoneValue();
+    }
+  }
+
+  Future<void> loadTimezoneValue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? timezoneValue = prefs.getString('defaultTimeZone');
+
+    controller.selectedTimezonevalue.value = timezoneValue!;
+    print(
+      "controller.selectedTimezonevalue.value${controller.selectedTimezonevalue.value}",
+    );
   }
 
   void _onUserScroll() {
@@ -109,7 +124,6 @@ class _DashboardPageState extends State<DashboardPage>
     try {
       /// 1️⃣ FIRST: fetch reference / user token (blocking)
       await controller.getPersonalDetails(context); // if this gives token
-      await controller.getUserPref(context);
 
       await controller.fetchAndCombineData().then((_) {
         if (controller.manageExpensesCards.isNotEmpty && mounted) {
@@ -1030,7 +1044,7 @@ class _DashboardPageState extends State<DashboardPage>
         return PendingApprovalTableWidget(controller: controller);
       case 'MultiBarChart':
         return _buildMultiBarChart(item, data!);
-          case 'MultiBarChartSinglebar':
+      case 'MultiBarChartSinglebar':
         return _buildMultiBarChartsingleLinebar(item, data!);
       case 'mypendingleaves':
         return PendingApprovalTableWidgetLeave(controller: controller);
@@ -1042,53 +1056,56 @@ class _DashboardPageState extends State<DashboardPage>
         return _buildGenericWidgetContent(item, data!);
     }
   }
-Widget _buildMultiBarChartsingleLinebar(DashboardDataItem item, WidgetDataResponse widgetDataResponse) {
-  // final multiSeries = controller.convertMultiSeriesChartSingle(widget.data!.raw);
-final multiSeries = controller.convertMultiSeriesChartSingle(widgetDataResponse.raw);
-  if (multiSeries.isEmpty) {
-    return const Center(child: Text("No chart data"));
+
+  Widget _buildMultiBarChartsingleLinebar(
+    DashboardDataItem item,
+    WidgetDataResponse widgetDataResponse,
+  ) {
+    // final multiSeries = controller.convertMultiSeriesChartSingle(widget.data!.raw);
+    final multiSeries = controller.convertMultiSeriesChartSingle(
+      widgetDataResponse.raw,
+    );
+    if (multiSeries.isEmpty) {
+      return const Center(child: Text("No chart data"));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: SfCartesianChart(
+        legend: const Legend(
+          isVisible: true,
+          position: LegendPosition.bottom,
+          textStyle: TextStyle(fontSize: 10),
+        ),
+
+        tooltipBehavior: TooltipBehavior(enable: true),
+
+        plotAreaBorderWidth: 0,
+
+        primaryXAxis: CategoryAxis(
+          // majorGridLines: const MajorGridLines(width: 0),
+          labelStyle: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+
+        primaryYAxis: NumericAxis(
+          numberFormat: NumberFormat.currency(locale: 'en_IN', symbol: ''),
+          // majorGridLines: const MajorGridLines(
+          //   width: 0.6,
+
+          //   color: Color(0xFFE0E0E0),
+          // ),
+          // axisLine: const AxisLine(width: 0),
+          labelStyle: const TextStyle(fontSize: 9, color: Colors.black87),
+        ),
+
+        series: multiSeries,
+      ),
+    );
   }
 
-  return Padding(
-    padding: const EdgeInsets.all(12.0),
-    child: SfCartesianChart(
-      legend: const Legend(
-        isVisible: true,
-        position: LegendPosition.bottom,
-        textStyle: TextStyle(fontSize: 10),
-      ),
-
-      tooltipBehavior: TooltipBehavior(enable: true),
-
-      plotAreaBorderWidth: 0,
-
-      primaryXAxis: CategoryAxis(
-        // majorGridLines: const MajorGridLines(width: 0),
-        
-        labelStyle: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-
-      primaryYAxis: NumericAxis(
-        numberFormat: NumberFormat.currency(
-          locale: 'en_IN',
-          symbol: '',
-        ),
-        // majorGridLines: const MajorGridLines(
-        //   width: 0.6,
-          
-        //   color: Color(0xFFE0E0E0),
-        // ),
-        // axisLine: const AxisLine(width: 0),
-        labelStyle: const TextStyle(fontSize: 9, color: Colors.black87),
-      ),
-
-      series: multiSeries,
-    ),
-  );
-}
   Widget _buildCalendarViewContent(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),

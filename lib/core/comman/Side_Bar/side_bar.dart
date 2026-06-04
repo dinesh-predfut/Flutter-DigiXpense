@@ -153,6 +153,7 @@ class _MyDrawerState extends State<MyDrawer>
       loc.punchInOut,
       loc.punchInOutList,
       loc.myTeamAttendance,
+      'Attendance Reports',
     ].contains(selectedMenu);
     isPayRoles = [loc.myPayslips, loc.allPayslips].contains(selectedMenu);
     isReportsExpanded = ['Reports', 'Expenses Reports'].contains(selectedMenu);
@@ -718,6 +719,17 @@ class _MyDrawerState extends State<MyDrawer>
                       Navigator.pushNamed(
                         context,
                         AppRoutes.myTeamPunchInOutList,
+                      ),
+                    },
+                  ),
+                  _buildDrawerItem(
+                    title: loc.report,
+                    icon: Icons.arrow_right,
+                    menuKey: "Attendance Reports",
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.attanceReportDashboards,
                       ),
                     },
                   ),
