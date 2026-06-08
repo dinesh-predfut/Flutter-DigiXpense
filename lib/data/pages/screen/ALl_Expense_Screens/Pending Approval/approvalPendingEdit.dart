@@ -1910,67 +1910,82 @@ class _ApprovalViewEditExpensePageState
                                   Widget inputField;
 
                                   // List type fields - Make Reactive
-                                  if (fieldType == 'List' ||
-                                      fieldType == 'CustomList' ||
-                                      fieldType == 'SystemList') {
-                                    // Create Rx value if not exists
-                                    if (field['_rxSelectedValue'] == null) {
-                                      field['_rxSelectedValue'] =
-                                          Rx<CustomDropdownValue?>(
-                                            field['SelectedValue']
-                                                as CustomDropdownValue?,
-                                          );
-                                    }
+                                 if (field['FieldType'] == 'List' ||
+    field['FieldType'] == 'CustomList' ||
+    field['FieldType'] == 'SystemList') {
+  
+  List<CustomDropdownValue> options = [];
+  if (field['Options'] != null && field['Options'] is List) {
+    options = List<CustomDropdownValue>.from(field['Options']);
+  }
 
-                                    inputField = Obx(() {
-                                      final rxValue =
-                                          field['_rxSelectedValue']
-                                              as Rx<CustomDropdownValue?>;
-                                      return SearchableMultiColumnDropdownField<
-                                        CustomDropdownValue
-                                      >(
-                                        labelText:
-                                            '$label${isMandatory ? " *" : ""}',
-                                        items:
-                                            (field['Options']
-                                                as List<
-                                                  CustomDropdownValue
-                                                >?) ??
-                                            [],
-                                        selectedValue: rxValue.value,
-                                        searchValue: (val) => val.valueName,
-                                        enabled: controller.isEnable.value,
-                                        displayText: (val) => val.valueName,
-                                        columnHeaders: const [
-                                          'Value ID',
-                                          'Value Name',
-                                        ],
-                                        rowBuilder: (val, searchQuery) =>
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 10,
-                                                    horizontal: 16,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(val.valueId),
-                                                  ),
-                                                  Expanded(
-                                                    child: Text(val.valueName),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                        onChanged: (val) {
-                                          rxValue.value = val;
-                                          field['SelectedValue'] = val;
-                                          field['Error'] = null;
-                                        },
-                                      );
-                                    });
-                                  }
+  field['_controller'] ??= TextEditingController();
+  final TextEditingController fieldController = field['_controller'];
+
+  CustomDropdownValue? selectedValue = field['SelectedValue'];
+
+  if (selectedValue == null && field['DefaultValue'] != null) {
+    final matches = options.where(
+      (opt) =>
+          opt.valueId == field['DefaultValue'] ||
+          opt.valueName == field['DefaultValue'],
+    );
+    selectedValue = matches.isNotEmpty ? matches.first : null;
+
+    if (selectedValue != null) {
+      field['SelectedValue'] = selectedValue;
+      field['EnteredValue'] = selectedValue.valueId;
+    }
+  }
+
+  // ✅ Show selectedValue name OR fallback to raw DefaultValue string
+  fieldController.text = selectedValue?.valueName ?? 
+                         field['DefaultValue']?.toString() ?? '';
+
+  // ✅ If no matched selectedValue but DefaultValue exists,
+  // create a placeholder CustomDropdownValue so dropdown shows it
+  if (selectedValue == null && field['DefaultValue'] != null) {
+    selectedValue = CustomDropdownValue(
+      valueId: field['DefaultValue'].toString(),
+      valueName: field['DefaultValue'].toString(),
+    );
+    // ✅ Add to options if not already present (so it renders in list too)
+    final alreadyExists = options.any(
+      (opt) => opt.valueId == selectedValue!.valueId,
+    );
+    if (!alreadyExists) {
+      options = [selectedValue, ...options];
+    }
+    field['SelectedValue'] = selectedValue;
+    field['EnteredValue'] = selectedValue.valueId;
+  }
+
+  inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
+    labelText: '$label${isMandatory ? " *" : ""}',
+    items: options,
+    selectedValue: selectedValue,
+    searchValue: (val) => val.valueName,
+    displayText: (val) => val.valueName,
+    controller: fieldController,
+    columnHeaders: const ['Value ID', 'Value Name'],
+    rowBuilder: (val, searchQuery) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(child: Text(val.valueId)),
+          Expanded(child: Text(val.valueName)),
+        ],
+      ),
+    ),
+    onChanged: (val) {
+      field['SelectedValue'] = val;
+      field['EnteredValue'] = val?.valueId;
+      field['Error'] = null;
+      fieldController.text = val?.valueName ?? '';
+      controller.customFields.refresh();
+    },
+  );
+}
                                   // Checkbox type - Make Reactive
                                   else if (fieldType == 'Checkbox') {
                                     if (field['_rxCheckboxValue'] == null) {

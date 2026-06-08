@@ -704,73 +704,73 @@ class _PersonalDetailsPageState extends State<PersonalDetailsPage> {
                                 // const SizedBox(height: 20),
                                 // Obx(() {
                                 //   return
-                                SizedBox(
-                                  child: IntlPhoneField(
-                                    key: ValueKey(
-                                      controller.countryCodeController.text,
-                                    ), // 🔥 forces rebuild
-                                    controller: controller.phoneController,
-                                    keyboardType: TextInputType.phone,
+                                  SizedBox(
+                                    child: IntlPhoneField(
+                                      key: ValueKey(
+                                        controller.countryCodeController.text,
+                                      ), // 🔥 forces rebuild
+                                      controller: controller.phoneController,
+                                      keyboardType: TextInputType.phone,
 
-                                    decoration: InputDecoration(
-                                      labelText: loc.phoneNumber,
-                                      labelStyle: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
+                                      decoration: InputDecoration(
+                                        labelText: loc.phoneNumber,
+                                        labelStyle: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        counterText: "",
                                       ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      counterText: "",
-                                    ),
 
-                                    // ✅ Dynamic country code from API
-                                    initialCountryCode: getIsoCodeFromDialCode(
-                                      controller
-                                              .countryCodeController
-                                              .text
-                                              .isNotEmpty
-                                          ? controller
+                                      // ✅ Dynamic country code from API
+                                      initialCountryCode: getIsoCodeFromDialCode(
+                                        controller
                                                 .countryCodeController
                                                 .text
-                                          : '+91', // fallback
+                                                .isNotEmpty
+                                            ? controller
+                                                  .countryCodeController
+                                                  .text
+                                            : '+91', // fallback
+                                      ),
+
+                                      onChanged: (phone) {
+                                        controller.countryCodeController.text =
+                                            phone.countryCode;
+                                        controller.phoneController.text =
+                                            phone.number; // keep synced
+                                      },
+
+                                      onCountryChanged: (country) {
+                                        controller.countryCodeController.text =
+                                            "+${country.dialCode}";
+                                      },
+
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+
+                                      validator: (phone) async {
+                                        if (phone == null ||
+                                            phone.number.trim().isEmpty) {
+                                          return loc.enterPhoneNumber;
+                                        }
+
+                                        isButtonDisabled.value = true;
+
+                                        // ✅ Better validation
+                                        if (phone.number.length < 6) {
+                                          isButtonDisabled.value = false;
+                                          return '${loc.invalidPhoneNumber} ${phone.countryCode}';
+                                        }
+
+                                        return null;
+                                      },
                                     ),
-
-                                    onChanged: (phone) {
-                                      controller.countryCodeController.text =
-                                          phone.countryCode;
-                                      controller.phoneController.text =
-                                          phone.number; // keep synced
-                                    },
-
-                                    onCountryChanged: (country) {
-                                      controller.countryCodeController.text =
-                                          "+${country.dialCode}";
-                                    },
-
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-
-                                    validator: (phone) async {
-                                      if (phone == null ||
-                                          phone.number.trim().isEmpty) {
-                                        return loc.enterPhoneNumber;
-                                      }
-
-                                      isButtonDisabled.value = true;
-
-                                      // ✅ Better validation
-                                      if (phone.number.length < 6) {
-                                        isButtonDisabled.value = false;
-                                        return '${loc.invalidPhoneNumber} ${phone.countryCode}';
-                                      }
-
-                                      return null;
-                                    },
                                   ),
-                                ),
 
                                 const SizedBox(height: 8),
                                 _textField(

@@ -4,9 +4,12 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:diginexa/core/utils.dart';
+import 'package:diginexa/data/service.dart';
+import 'package:get/get.dart';
 import 'package:get/get_connect/http/src/response/response.dart'
     as http
     show Response;
+import 'package:get/get_core/src/get_main.dart' show Get;
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http hide Response;
@@ -6031,10 +6034,10 @@ class PrefferedPaymentMethod {
 }
 
 class CustomFieldValue {
-  String customFieldEntity;
-  String fieldId;
-  String fieldValue;
-  String fieldName;
+  final String customFieldEntity;
+  final String fieldId;
+  final String fieldValue;
+  final String fieldName;
 
   CustomFieldValue({
     required this.customFieldEntity,
@@ -6043,19 +6046,21 @@ class CustomFieldValue {
     required this.fieldName,
   });
 
-  Map<String, dynamic> toJson() => {
-    "CustomFieldEntity": customFieldEntity,
-    "FieldId": fieldId,
-    "FieldValue": fieldValue,
-    "FieldName": fieldName,
-  };
+  Map<String, dynamic> toJson() {
+    return {
+      'customFieldEntity': customFieldEntity,
+      'fieldId': fieldId,
+      'fieldValue': fieldValue,
+      'fieldName': fieldName,
+    };
+  }
 
   factory CustomFieldValue.fromJson(Map<String, dynamic> json) {
     return CustomFieldValue(
-      customFieldEntity: json['CustomFieldEntity'] ?? '',
-      fieldId: json['FieldId'] ?? '',
-      fieldValue: json['FieldValue'] ?? '',
-      fieldName: json['FieldName'] ?? '',
+      customFieldEntity: json['customFieldEntity'] ?? '',
+      fieldId: json['fieldId'] ?? '',
+      fieldValue: json['fieldValue'] ?? '',
+      fieldName: json['fieldName'] ?? '',
     );
   }
 }
@@ -6565,6 +6570,7 @@ class LineItemModel {
   RxBool lineProject = false.obs;
   Timer? timer;
   int? timerStartMillis;
+  
 
   LineItemModel({
     this.project,
@@ -6780,7 +6786,7 @@ class TimeSheetRangeModel {
   final DateTime entryDate;
   final bool weekend;
   final bool holiday;
-  final String? dayDescription; // 👈 nullable
+  final String? dayDescription;
 
   TimeSheetRangeModel({
     required this.employeeId,
@@ -6791,12 +6797,24 @@ class TimeSheetRangeModel {
   });
 
   factory TimeSheetRangeModel.fromJson(Map<String, dynamic> json) {
+    final int offsetMs =
+        int.tryParse(
+          Get.find<Controller>().selectedTimezonevalue.value ?? '0',
+        ) ??
+        0;
+
+    // Apply org timezone offset to raw UTC ms from server
+    final int rawMs = json['EntryDate'] as int;
+    final DateTime entryDateLocal = DateTime.fromMillisecondsSinceEpoch(
+      rawMs + offsetMs,
+    );
+
     return TimeSheetRangeModel(
       employeeId: json['EmployeeId'] as String,
-      entryDate: DateTime.fromMillisecondsSinceEpoch(json['EntryDate']),
+      entryDate: entryDateLocal,
       weekend: json['Weekend'] ?? false,
       holiday: json['Holiday'] ?? false,
-      dayDescription: json['DayDescription'], // can be null safely
+      dayDescription: json['DayDescription'],
     );
   }
 }

@@ -29,6 +29,7 @@ import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:diginexa/core/comman/widgets/multiselectDropdown.dart';
 import 'package:dio/dio.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../../../core/comman/widgets/pageLoaders.dart'; // Add this for API calls
@@ -237,7 +238,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       "EmployeeId": employeeId,
       "ApplicationDate": toMillisecondsWithTimezone(DateTime.now()),
-      "Source": "mobile",
+      "Source": "Mobile",
       "CaptureMethod": controller.timerClicked ? "TimeTracker" : "Manual",
       "FromDate": toMillisecondsWithTimezone(controller.dateRange!.start),
       "ToDate": toMillisecondsWithTimezone(controller.dateRange!.end),
@@ -482,8 +483,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
       controller.fetchTasksTimeSheet(
-        fromDate: toMillisecondsWithTimezone(controller.dateRange!.start),
-        toDate: toMillisecondsWithTimezone(controller.dateRange!.end),
+        fromDate: toStartOfDayUtc(controller.dateRange!.start),
+        toDate: toEndOfDayUtc(controller.dateRange!.end),
       );
       final start = controller.dateRange!.start;
       final end = controller.dateRange!.end;
@@ -516,11 +517,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       print("FIXED START: $safeStart");
       print("FIXED START millis: ${safeStart.millisecondsSinceEpoch}");
-
       controller.loadTimeSheetRange(
-        fromDate: toMillisecondsWithTimezone(safeStart),
-        toDate: toMillisecondsWithTimezone(safeEnd),
+        fromDate: toStartOfDayUtc(safeStart),
+        toDate: toEndOfDayUtc(safeEnd),
       );
+      // controller.loadTimeSheetRange(
+      //   fromDate: toMillisecondsWithTimezone(safeStart),
+      //   toDate: toMillisecondsWithTimezone(safeEnd),
+      // );
       // print("fromDate: $fromDate");
       // print("fromDate millis: ${fromDate.millisecondsSinceEpoch}");
       print("Expected:          ${start.toLocal().millisecondsSinceEpoch}");
@@ -529,22 +533,12 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       //   toDate: toDate.millisecondsSinceEpoch,
       // );
       print("LOCAL Start: $start");
-      print("UTC Start: ${toStartOfDayUTC(start)}");
+      // print("UTC Start: ${toStartOfDayUTC(start)}");
 
       // print("FROM millis: ${fromDate.millisecondsSinceEpoch}");
       // print("TO millis: ${fromTo.millisecondsSinceEpoch}");
       controller.isLoading.value = false;
     });
-  }
-
-  DateTime toStartOfDayUTC(DateTime date) {
-    final local = date; // ensure we use local date fields
-    return DateTime(local.year, local.month, local.day);
-  }
-
-  DateTime toEndOfDayUTC(DateTime date) {
-    final local = date; // ensure we use local date fields
-    return DateTime(local.year, local.month, local.day, 23, 59, 59, 999);
   }
 
   // In your controller's initialization
@@ -605,7 +599,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       controller.dateRange = _getDateRangeByPeriod(
         controller.periodType.value,
-        controller.dateRange!.start,
+        DateTime.now(),
         weekStart: config?.dayWeekStarts ?? "Monday",
         monthStart: config?.dayMonthStarts ?? "1st",
       );
@@ -618,7 +612,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
       controller.dateRange = _getDateRangeByPeriod(
         controller.periodType.value,
-        controller.dateRange!.start,
+        DateTime.now(),
       );
 
       print("Widget status is true");
@@ -961,16 +955,18 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              /// Timesheet ID
               Obx(() {
                 final hideField = controller.hasModule("TimeSheetManagement");
+
                 if (controller.isSequenceLoading.value) {
-                  return const SizedBox(); // or loader
+                  return const SizedBox();
                 }
-                if (controller.timeSheetID.text.isEmpty) {
-                  if (hideField) {
-                    return const SizedBox.shrink(); // ✅ hide
-                  }
+
+                if (controller.timeSheetID.text.isEmpty && hideField) {
+                  return const SizedBox.shrink();
                 }
 
                 return Column(
@@ -981,94 +977,88 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                       decoration: InputDecoration(
                         labelText:
                             '${AppLocalizations.of(context)!.timesheetRequisitionId} *',
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
                 );
               }),
-              Row(
-                children: [
-                  controller.buildConfigurableField(
-                    fieldName: 'Project Id',
-                    builder: (isEnabled, isMandatory) {
-                      return Expanded(
-                        child: SearchableMultiColumnDropdownField<Project>(
-                          labelText: ' ',
-                          enabled: controller.sheetEnable.value,
-                          columnHeaders: [
-                            AppLocalizations.of(context)!.projectName,
-                            AppLocalizations.of(context)!.projectId,
+
+              /// Project Dropdown
+              controller.buildConfigurableField(
+                fieldName: 'Project Id',
+                builder: (isEnabled, isMandatory) {
+                  return SearchableMultiColumnDropdownField<Project>(
+                    labelText: '',
+                    enabled: controller.sheetEnable.value,
+                    columnHeaders: [
+                      AppLocalizations.of(context)!.projectName,
+                      AppLocalizations.of(context)!.projectId,
+                    ],
+                    items: controller.project,
+                    controller: controller.projectDropDowncontroller,
+                    selectedValue: controller.selectedProject,
+                    inputDecoration: InputDecoration(
+                      labelText:
+                          '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""}',
+                      border: const OutlineInputBorder(),
+                      errorText: controller.showProjectError.value
+                          ? '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}'
+                          : null,
+                    ),
+                    validator: (value) {
+                      if (controller.projectDropDowncontroller.text.isEmpty &&
+                          isMandatory) {
+                        return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
+                      }
+                      return null;
+                    },
+                    searchValue: (proj) => '${proj.name} ${proj.code}',
+                    displayText: (proj) => proj.code,
+                    onChanged: (proj) {
+                      if (proj != null) {
+                        controller.projectDropDowncontroller.text = proj.code;
+
+                        setState(() {
+                          controller.selectedProject = proj;
+                          controller.showProjectError.value = false;
+                        });
+                      }
+                    },
+                    rowBuilder: (proj, searchQuery) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(proj.name)),
+                            Expanded(child: Text(proj.code)),
                           ],
-                          items: controller.project,
-                          // dropdownWidth: 300,
-                          controller: controller.projectDropDowncontroller,
-                          selectedValue: controller.selectedProject,
-                          inputDecoration: InputDecoration(
-                            labelText:
-                                '${AppLocalizations.of(context)!.projectId} ${isMandatory ? "*" : ""} ',
-
-                            errorText: controller.showProjectError.value
-                                ? '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}'
-                                : null,
-                          ),
-
-                          validator: (value) {
-                            if (controller
-                                    .projectDropDowncontroller
-                                    .text
-                                    .isEmpty &&
-                                isMandatory) {
-                              return '${AppLocalizations.of(context)!.projectId} ${AppLocalizations.of(context)!.fieldRequired}';
-                            }
-                            return null;
-                          },
-                          searchValue: (proj) => '${proj.name} ${proj.code}',
-                          displayText: (proj) => proj.code,
-                          onChanged: (proj) {
-                            controller.projectDropDowncontroller.text =
-                                proj!.code;
-                            setState(() {
-                              controller.selectedProject = proj;
-                              controller.showProjectError.value = false;
-                            });
-                          },
-                          rowBuilder: (proj, searchQuery) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                                horizontal: 16,
-                              ),
-                              child: Row(
-                                children: [
-                                  SizedBox(width: 10),
-                                  Expanded(child: Text(proj.name)),
-                                  Expanded(child: Text(proj.code)),
-                                ],
-                              ),
-                            );
-                          },
                         ),
                       );
                     },
-                  ),
-                  controller.buildConfigurableField(
-                    fieldName: 'Project Id',
-                    builder: (isEnabled, isMandatory) {
-                      return const SizedBox(width: 12);
-                    },
-                  ),
-                  Expanded(child: _periodDropdown()),
-                ],
+                  );
+                },
               ),
+
+              const SizedBox(height: 16),
+
+              /// Period Dropdown
+              _periodDropdown(),
+
               const SizedBox(height: 20),
+
+              /// Date Range
               InkWell(
                 onTap: !controller.sheetEnable.value ? null : _pickDateRange,
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: '${AppLocalizations.of(context)!.dateRange} *',
                     enabled: controller.sheetEnable.value,
-
                     border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(10)),
                     ),
@@ -1085,6 +1075,10 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 20),
+
+              /// Header Custom Fields
               Obx(() => _buildHeaderCustomFields()),
             ],
           ),
@@ -1351,10 +1345,8 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           );
 
           controller.loadTimeSheetRange(
-            fromDate: controller.getStartOfDayMillis(
-              controller.dateRange!.start,
-            ),
-            toDate: controller.getEndOfDayMillis(controller.dateRange!.end),
+            fromDate: toStartOfDayUtc(controller.dateRange!.start),
+            toDate: toEndOfDayUtc(controller.dateRange!.end),
           );
         },
 
@@ -1516,73 +1508,118 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   /// =======================
   /// ACTION BUTTONS
   /// =======================
-  Widget _actionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+  /// =======================
+/// ACTION BUTTONS
+/// =======================
+Widget _actionButtons() {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-
-          onPressed: () {
-            if (controller.sheetEnable.value) {
-              final newIndex = controller.lineItems.length;
-
-              setState(() {
-                controller.lineItems.add(LineItemModel());
-
-                controller.lineCustomFields[newIndex] = controller
-                    .masterLineCustomFields
-                    .map((field) {
-                      return {
-                        ...field,
-                        "FieldValue": "", // ensure empty
-                      };
-                    })
-                    .toList();
-              });
-
-              controller.lineCustomFields.refresh();
-            }
-          },
-          icon: const Icon(Icons.add),
-          label: Text(AppLocalizations.of(context)!.addLine),
         ),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+        onPressed: () {
+          if (controller.sheetEnable.value) {
+            final newIndex = controller.lineItems.length;
+
+            setState(() {
+              controller.lineItems.add(LineItemModel());
+              controller.lineCustomFields[newIndex] = controller
+                  .masterLineCustomFields
+                  .map((field) {
+                    return {
+                      ...field,
+                      "FieldValue": "", // ensure empty
+                    };
+                  })
+                  .toList();
+            });
+
+            controller.lineCustomFields.refresh();
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: Text(AppLocalizations.of(context)!.addLine),
+      ),
+      const SizedBox(width: 12),
+      ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-          onPressed: () {
-            final line = controller.lineItems[controller.lineItems.length - 1];
-            if (controller.sheetEnable.value && !line.timerRunning.value
-            // &&
-            // controller.enableTimerButton.value
-            ) {
-              setState(() {
-                // line.timerRunning.value = true;
-                controller.showCancelIcon.value = true;
-                controller.lineItems.add(LineItemModel());
-              });
-
-              final today = DateTime.now();
-              controller.startTimer(controller.lineItems.length - 1, today);
-            }
-          },
-          icon: const Icon(Icons.timer),
-          label: Text(AppLocalizations.of(context)!.addTimer),
         ),
-      ],
-    );
-  }
-
+        onPressed: () {
+          if (controller.sheetEnable.value) {
+            // ✅ FIX: Create new line item with timer functionality
+            final newIndex = controller.lineItems.length;
+            
+            // Add new line item
+            setState(() {
+              controller.lineItems.add(LineItemModel());
+              controller.lineCustomFields[newIndex] = controller
+                  .masterLineCustomFields
+                  .map((field) {
+                    return {
+                      ...field,
+                      "FieldValue": "",
+                    };
+                  })
+                  .toList();
+            });
+            
+            // ✅ Start timer for the newly added line item on today's date
+            final today = DateTime.now();
+            final todayKey = toMillisecondsWithTimezone(
+              DateTime(today.year, today.month, today.day)
+            );
+            
+            // Initialize time entry for today
+            if (controller.timeEntries[newIndex] == null) {
+              controller.timeEntries[newIndex] = {};
+            }
+            
+            // Check if timer is already running for another line
+            bool anyTimerRunning = controller.lineItems.any(
+              (line) => line.timerRunning.value
+            );
+            
+            if (!anyTimerRunning) {
+              // Start timer for this line
+              controller.startTimer(newIndex, today);
+              
+              // Show toast to indicate timer started
+              Fluttertoast.showToast(
+                msg: "Timer started for Line Item ${newIndex + 1}",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                backgroundColor: Colors.green,
+                textColor: Colors.white,
+              );
+            } else {
+              // Show warning if another timer is running
+              Fluttertoast.showToast(
+                msg: "Please stop the running timer first",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+              );
+            }
+            
+            controller.lineCustomFields.refresh();
+          }
+        },
+        icon: const Icon(Icons.timer),
+        label: Text(AppLocalizations.of(context)!.addTimer),
+      ),
+    ],
+  );
+}
   /// =======================
   /// LINE ITEMS
   /// =======================
@@ -1814,113 +1851,557 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }
 
   Widget _lineCustomFields(int lineIndex) {
-    return Obx(() {
-      final lineFields = controller.lineCustomFields[lineIndex] ?? [];
-      print("lineFieldsss$lineFields");
-      if (lineFields.isEmpty) {
-        return const SizedBox.shrink();
+  return Obx(() {
+    final lineFields = controller.lineCustomFields[lineIndex] ?? [];
+    final isEnabled = controller.sheetEnable.value; // ✅ track in Obx
+    if (lineFields.isEmpty) return const SizedBox.shrink();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: lineFields.map((field) {
+          final isVisible = field['IsVisible'] as bool? ?? true;
+          if (!isVisible) return const SizedBox.shrink();
+
+          return Container(
+            key: ValueKey(                          // ✅ unique key per field+mode
+              'field_${field['FieldId']}_${lineIndex}_$isEnabled',
+            ),
+            width: 180,
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  field['FieldLabel'] ?? field['FieldName'] ?? 'Field',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                                 _buildInlineCustomField(lineIndex, field),
+
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  });
+}
+  DateTime? parseCustomDate(dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      // Timestamp in milliseconds
+      if (RegExp(r'^\d+$').hasMatch(value.toString())) {
+        return DateTime.fromMillisecondsSinceEpoch(int.parse(value.toString()));
       }
 
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: lineFields.map((field) {
-            final fieldName = field['FieldName'] as String? ?? 'Unnamed Field';
-            final fieldType = (field['FieldType'] as String? ?? 'text')
-                .toLowerCase();
-            final fieldValue = field['FieldValue'];
-            final isVisible = field['IsVisible'] as bool? ?? true;
-            final options = field['Options'] as List<String>? ?? [];
+      // ISO Date
+      return DateTime.parse(value.toString());
+    } catch (_) {
+      return null;
+    }
+  }
 
-            // Skip if not visible
-            if (!isVisible) return const SizedBox.shrink();
+  // ─── Resolve what to show in the card ─────────────────────────────────────────
+  Widget _buildInlineCustomField(int lineIndex, Map<String, dynamic> field) {
+    final String fieldType = (field['FieldType'] ?? '')
+        .toString()
+        .toLowerCase();
 
-            // Format value based on field type
-            String displayValue = _formatFieldValue(
-              fieldValue,
-              fieldType,
-              options,
+    void updateFieldValue(dynamic newValue, {bool needsRefresh = true}) {
+      field['EnteredValue'] = newValue;
+      field['FieldValue'] = newValue;
+      if (needsRefresh) controller.lineCustomFields.refresh();
+    }
+
+    dynamic value = field['EnteredValue'] ?? field['FieldValue'];
+    final parsedDate = parseCustomDate(value);
+
+    if (value == null || (value is String && value.trim().isEmpty)) {
+      value = field['DefaultValue'];
+      updateFieldValue(value, needsRefresh: false);
+    }
+
+    // ─── shared decoration ───────────────────────────────────────────
+    InputDecoration fieldDecoration({
+      String? label,
+      Widget? suffix,
+      String? errorText,
+      String? hint,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        hintText: hint,
+        suffixIcon: suffix,
+        errorText: errorText,
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+        counterText: '',
+      );
+    }
+
+    // ─── wrapper that forces field to fill available width ────────────
+    Widget expand(Widget child) =>
+        SizedBox(width: double.infinity, child: child);
+
+    switch (fieldType) {
+      // ── TEXT / TEXTAREA / EMAIL / URL ────────────────────────────────
+      case 'text':
+      case 'textarea':
+      case 'email':
+      case 'url':
+        final tc = TextEditingController(text: value?.toString() ?? '');
+        tc.addListener(() {
+          if (tc.text != field['EnteredValue']) {
+            field['EnteredValue'] = tc.text;
+            field['FieldValue'] = tc.text;
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: tc,
+            enabled: controller.sheetEnable.value,
+            maxLines: fieldType == 'textarea' ? 3 : 1,
+            decoration: fieldDecoration(),
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+
+      // ── MOBILE NUMBER ────────────────────────────────────────────────
+     // ── MOBILE NUMBER ────────────────────────────────────────────────
+case 'mobilenumber':
+  final label =
+      field['FieldLabel'] ?? field['FieldName'] ?? 'Mobile Number';
+  final phoneKey = ValueKey(
+    'phone_${field['FieldId']}_${lineIndex}_${controller.sheetEnable.value}',
+  );
+  return SizedBox(
+    width: double.infinity,
+    child: IntlPhoneField(
+      key: phoneKey,                          // ✅ force rebuild on mode switch
+      // enabled: controller.sheetEnable.value,
+      initialValue: value?.toString() ?? '',
+      decoration: fieldDecoration(
+        label: '$label${(field['IsMandatory'] ?? false) ? " *" : ""}',
+        errorText: field['Error'],
+      ),
+      initialCountryCode: controller.getIsoCodeFromDialCode(
+        field['CountryCode']?.toString() ?? '+91',
+      ),
+      keyboardType: TextInputType.phone,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      onChanged: (phone) {
+        field['CountryCode'] = phone.countryCode;
+        updateFieldValue(phone.number, needsRefresh: false);
+        field['Error'] = null;
+      },
+      onCountryChanged: (c) => field['CountryCode'] = '+${c.dialCode}',
+      validator: (phone) {
+        if ((field['IsMandatory'] ?? false) &&
+            (phone == null || phone.number.trim().isEmpty)) {
+          return '$label is required';
+        }
+        if (phone != null &&
+            phone.number.isNotEmpty &&
+            phone.number.length < 6) {
+          return 'Enter a valid mobile number';
+        }
+        return null;
+      },
+    ),
+  );
+
+// ── DATE ─────────────────────────────────────────────────────────
+case 'date':
+  final isEnabled = controller.sheetEnable.value;   // ✅ capture once
+  return expand(
+    InkWell(
+      key: ValueKey('date_${field['FieldId']}_$lineIndex'),
+      onTap: !isEnabled                              // ✅ use captured value
+          ? null
+          : () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate:
+                    DateTime.tryParse(value?.toString() ?? '') ??
+                    DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                updateFieldValue(
+                  DateFormat('yyyy-MM-dd').format(picked),
+                  needsRefresh: true,
+                );
+              }
+            },
+      child: InputDecorator(
+        decoration: fieldDecoration(
+          suffix: Icon(
+            Icons.calendar_today,
+            size: 18,
+            color: isEnabled ? null : Colors.grey,  // ✅ visual hint
+          ),
+        ),
+        child: Text(
+          parsedDate != null
+              ? DateFormat('dd/MM/yyyy').format(parsedDate)
+              : 'Select Date',
+          style: TextStyle(
+            fontSize: 14,
+            color: parsedDate != null
+                ? (isEnabled
+                    ? null
+                    : Colors.grey)
+                : Theme.of(context).hintColor,
+          ),
+        ),
+      ),
+    ),
+  );
+
+// ── DATE & TIME ──────────────────────────────────────────────────
+case 'date&time':
+  final isEnabled = controller.sheetEnable.value;   // ✅ capture once
+  return expand(
+    InkWell(
+      key: ValueKey('datetime_${field['FieldId']}_$lineIndex'),
+      onTap: !isEnabled
+          ? null
+          : () async {
+              final base =
+                  DateTime.tryParse(value?.toString() ?? '') ??
+                  DateTime.now();
+              final date = await showDatePicker(
+                context: context,
+                initialDate: base,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (date == null) return;
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay.fromDateTime(base),
+              );
+              if (time == null) return;
+              final dt = DateTime(
+                date.year, date.month, date.day,
+                time.hour, time.minute,
+              );
+              updateFieldValue(dt.toIso8601String(), needsRefresh: true);
+            },
+      child: InputDecorator(
+        decoration: fieldDecoration(
+          suffix: Icon(
+            Icons.access_time,
+            size: 18,
+            color: isEnabled ? null : Colors.grey,
+          ),
+        ),
+        child: Text(
+          value == null || value.toString().isEmpty
+              ? 'Select Date & Time'
+              : DateFormat('dd/MM/yyyy HH:mm')
+                  .format(DateTime.parse(value.toString())),
+          style: TextStyle(
+            fontSize: 14,
+            color: (value == null || value.toString().isEmpty)
+                ? Theme.of(context).hintColor
+                : (isEnabled ? null : Colors.grey),
+          ),
+        ),
+      ),
+    ),
+  );
+
+      // ── INTEGER / NUMBER ─────────────────────────────────────────────
+      case 'longinteger':
+      case 'number':
+        final nc = TextEditingController(text: value?.toString() ?? '');
+        nc.addListener(() {
+          if (nc.text != field['EnteredValue']) {
+            field['EnteredValue'] = nc.text;
+            field['FieldValue'] = nc.text;
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: nc,
+            enabled: controller.sheetEnable.value,
+            keyboardType: TextInputType.number,
+            decoration: fieldDecoration(),
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+
+      // ── DECIMAL / AMOUNT / PERCENTAGE ────────────────────────────────
+      case 'decimal':
+      case 'amount':
+      case 'percentage':
+        final dc = TextEditingController(text: value?.toString() ?? '');
+        dc.addListener(() {
+          if (dc.text != field['EnteredValue']) {
+            field['EnteredValue'] = dc.text;
+            field['FieldValue'] = dc.text;
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: dc,
+            enabled: controller.sheetEnable.value,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: fieldDecoration(),
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+
+      // ── CHECKBOX ─────────────────────────────────────────────────────
+      case 'checkbox':
+        final checked =
+            value == true || value?.toString().toLowerCase() == 'true';
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Checkbox(
+            value: checked,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: controller.sheetEnable.value
+                ? (val) => updateFieldValue(val, needsRefresh: true)
+                : null,
+          ),
+        );
+
+      
+
+      // ── LIST / DROPDOWN ──────────────────────────────────────────────
+      case 'list':
+      case 'customlist':
+      case 'systemlist':
+        final options = List<CustomDropdownValue>.from(field['Options'] ?? []);
+        CustomDropdownValue? selected = field['SelectedValue'];
+
+        if (selected == null && field['DefaultValue'] != null) {
+          try {
+            selected = options.firstWhere(
+              (e) =>
+                  e.valueId == field['DefaultValue'].toString() ||
+                  e.valueName == field['DefaultValue'].toString(),
             );
+            field['SelectedValue'] = selected;
+            updateFieldValue(selected.valueId, needsRefresh: false);
+          } catch (_) {}
+        }
 
-            return Container(
-              width: 190,
-              height: 200,
-              margin: const EdgeInsets.only(right: 8),
+        return expand(
+          SearchableMultiColumnDropdownField<CustomDropdownValue>(
+            labelText: '',
+            items: options,
+            selectedValue: selected,
+            searchValue: (v) => v.valueName,
+            displayText: (v) => v.valueName,
+            columnHeaders: const ['Value ID', 'Value Name'],
+            rowBuilder: (v, _) => Padding(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade500, width: 1),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
                 children: [
-                  // Field Name
-                  Text(
-                    fieldName,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.blueGrey,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Field Value with type-specific styling
-                  GestureDetector(
-                    onTap: controller.sheetEnable.value
-                        ? () => _openLineCustomFieldPopup(
-                            context,
-                            lineIndex,
-                            field,
-                          )
-                        : null,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color:
-                              fieldValue == null ||
-                                  fieldValue.toString().isEmpty
-                              ? Colors.grey.shade300
-                              : Colors.blue.shade100,
-                          width: 1,
-                        ),
-                      ),
-                      child: _buildFieldValueDisplay(
-                        displayValue,
-                        fieldType,
-                        fieldValue,
-                      ),
-                    ),
-                  ),
-
-                  // Field type indicator
-                  // const SizedBox(height: 4),
-                  // Text(
-                  //   _getFieldTypeLabel(fieldType),
-                  //   style: TextStyle(
-                  //     fontSize: 9,
-                  //     color: Colors.grey.shade600,
-                  //     fontStyle: FontStyle.italic,
-                  //   ),
-                  // ),
+                  Expanded(child: Text(v.valueId)),
+                  Expanded(child: Text(v.valueName)),
                 ],
               ),
-            );
-          }).toList(),
+            ),
+            onChanged: (val) {
+              field['SelectedValue'] = val;
+              updateFieldValue(val?.valueId ?? '', needsRefresh: true);
+            },
+          ),
+        );
+
+      // ── DEFAULT ──────────────────────────────────────────────────────
+      default:
+        final def = TextEditingController(text: value?.toString() ?? '');
+        def.addListener(() {
+          if (def.text != field['EnteredValue']) {
+            field['EnteredValue'] = def.text;
+            field['FieldValue'] = def.text;
+          }
+        });
+        return expand(
+          TextFormField(
+            controller: def,
+            enabled: controller.sheetEnable.value,
+            decoration: fieldDecoration(),
+            onEditingComplete: () => controller.lineCustomFields.refresh(),
+            onTapOutside: (_) => controller.lineCustomFields.refresh(),
+          ),
+        );
+    }
+  }
+
+  // ─── Inline card value widget ─────────────────────────────────────────────────
+
+  Widget _buildInlineValueDisplay(
+    String displayText,
+    String fieldType,
+    dynamic rawValue,
+  ) {
+    if (displayText.isEmpty) {
+      return Text(
+        'Not set',
+        style: TextStyle(
+          fontSize: 11,
+          color: Colors.grey.shade400,
+          fontStyle: FontStyle.italic,
         ),
       );
-    });
+    }
+
+    switch (fieldType) {
+      case 'date':
+      case 'date&time':
+        return Row(
+          children: [
+            Icon(Icons.calendar_today, size: 10, color: Colors.blue.shade400),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                displayText,
+                style: TextStyle(fontSize: 10, color: Colors.blue.shade700),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+
+      case 'checkbox':
+        final isTrue = displayText == 'Yes';
+        return Row(
+          children: [
+            Icon(
+              isTrue ? Icons.check_circle : Icons.cancel,
+              size: 12,
+              color: isTrue ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              displayText,
+              style: TextStyle(
+                fontSize: 11,
+                color: isTrue ? Colors.green : Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        );
+
+      case 'mobilenumber':
+        return Row(
+          children: [
+            const Text('📱', style: TextStyle(fontSize: 10)),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                displayText,
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+
+      case 'email':
+        return Row(
+          children: [
+            Icon(Icons.email_outlined, size: 10, color: Colors.blue.shade400),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                displayText,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.blue.shade600,
+                  decoration: TextDecoration.underline,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+
+      case 'url':
+        return Row(
+          children: [
+            Icon(Icons.link, size: 10, color: Colors.blue.shade400),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                displayText,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.blue.shade600,
+                  decoration: TextDecoration.underline,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+
+      case 'amount':
+        return Text(
+          displayText,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.green,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+
+      case 'percentage':
+        return Text(
+          displayText,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.orange.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        );
+
+      case 'list':
+      case 'customlist':
+      case 'systemlist':
+        return Text(
+          displayText,
+          style: TextStyle(fontSize: 11, color: Colors.purple.shade700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+
+      default:
+        return Text(
+          displayText,
+          style: const TextStyle(fontSize: 11),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        );
+    }
   }
 
   // Helper method to format field value based on type
@@ -3427,27 +3908,14 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
         controller.dateRange = result;
       });
       controller.fetchTasksTimeSheet(
-        fromDate: controller.getStartOfDayMillis(result.start),
-        toDate: controller.getEndOfDayMillis(result.end),
+        fromDate: toStartOfDayUtc(result.start),
+        toDate: toEndOfDayUtc(result.end),
       );
       controller.loadTimeSheetRange(
-        fromDate: controller.getStartOfDayMillis(result.start),
-        toDate: controller.getEndOfDayMillis(result.end),
+        fromDate: toStartOfDayUtc(result.start),
+        toDate: toEndOfDayUtc(result.end),
       );
     }
-  }
-
-  DateTime getStartOfWeek(DateTime date, String weekStart) {
-    final startWeekday = getWeekdayFromString(weekStart);
-    print("Start Weekday: $startWeekday");
-    int diff = date.weekday - startWeekday;
-    if (diff < 0) diff += 7;
-
-    return DateTime(date.year, date.month, date.day - diff);
-  }
-
-  DateTime getEndOfWeek(DateTime start) {
-    return DateTime(start.year, start.month, start.day + 6);
   }
 
   DateTimeRange _getDateRangeByPeriod(
@@ -3458,8 +3926,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   }) {
     date = DateTime(date.year, date.month, date.day);
     type = type.replaceAll("-", "").toLowerCase();
-
-    print("type: $type, weekStart: $weekStart, monthStart: $monthStart");
 
     int getWeekdayFromString(String day) {
       const map = {
@@ -3476,8 +3942,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
     int extractDay(String value) {
       final trimmed = value.trim().toLowerCase();
-
-      /// ✅ Handle named values
       if (trimmed == "firstday") return 1;
       if (trimmed == "lastday") return 31;
       final digits = value.replaceAll(RegExp(r'[^0-9]'), '').trim();
@@ -3495,7 +3959,6 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
     // ================= WEEK =================
     if (type == "week" || type == "weekly") {
       if (weekStart.trim().isEmpty) {
-        /// ✅ No config: tapped date IS the start
         startDate = date;
       } else {
         int startWeekday = getWeekdayFromString(weekStart);
@@ -3506,41 +3969,35 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       endDate = startDate.add(const Duration(days: 6));
     }
     // ================= BIWEEKLY =================
+    // FIX (Bug #90): Split month into two fixed halves (1–15, 16–end).
+    // Removed the old week-offset logic entirely.
+    // ================= BIWEEKLY =================
     else if (type == "biweekly") {
-      if (weekStart.trim().isEmpty) {
-        /// ✅ No config: tapped date IS the start
-        startDate = date;
+      if (date.day <= 14) {
+        startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month, 14);
       } else {
-        int startWeekday = getWeekdayFromString(weekStart);
-        int diff = date.weekday - startWeekday;
-        if (diff < 0) diff += 7;
-        DateTime currentWeekStart = date.subtract(Duration(days: diff));
-        startDate = currentWeekStart.subtract(const Duration(days: 7));
+        startDate = DateTime(date.year, date.month, 15);
+        endDate = DateTime(date.year, date.month + 1, 0); // last day of month
       }
-      endDate = startDate.add(const Duration(days: 13));
     }
     // ================= MONTHLY =================
     else if (type == "monthly") {
       if (monthStart.trim().isEmpty) {
-        /// ✅ No config: tapped date IS the start, end = last day of same month
+        // No config: tapped date IS the start; end = 30 days later (day - 1 of next month)
+        // FIX (Bug #89): Use rolling 30-day window instead of end-of-calendar-month.
         startDate = date;
-        endDate = DateTime(
-          date.year,
-          date.month + 1,
-          0,
-        ); // last day of current month
+        endDate = DateTime(date.year, date.month + 1, date.day - 1);
       } else {
         int startDay = extractDay(monthStart);
 
         if (startDay <= 0) {
-          /// ✅ Fallback if extractDay fails
+          // Fallback
           startDate = date;
-          endDate = DateTime(
-            date.year,
-            date.month + 1,
-            0,
-          ); // last day of current month
+          endDate = DateTime(date.year, date.month + 1, date.day - 1);
         } else if (date.day >= startDay) {
+          // FIX (Bug #89): Cycle starts this month on startDay,
+          // ends on (startDay - 1) of next month.
           startDate = DateTime(
             date.year,
             date.month,
@@ -3549,9 +4006,11 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           endDate = DateTime(
             date.year,
             date.month + 1,
-            0,
-          ); // last day of current month
+            getSafeDay(date.year, date.month + 1, startDay - 1),
+          );
         } else {
+          // FIX (Bug #89): Cycle started last month on startDay,
+          // ends on (startDay - 1) of this month.
           startDate = DateTime(
             date.year,
             date.month - 1,
@@ -3559,22 +4018,22 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
           );
           endDate = DateTime(
             date.year,
-            date.month + 1,
-            0,
-          ); // last day of current month
+            date.month,
+            getSafeDay(date.year, date.month, startDay - 1),
+          );
         }
       }
     }
     // ================= SEMI-MONTHLY =================
+    // ================= SEMI-MONTHLY =================
     else if (type == "semimonth" || type == "semimonthly") {
-      if (date.day <= 15) {
+      if (date.day <= 14) {
         startDate = DateTime(date.year, date.month, 1);
-        endDate = DateTime(date.year, date.month, 15);
+        endDate = DateTime(date.year, date.month, 14);
       } else {
-        startDate = DateTime(date.year, date.month, 16);
+        startDate = DateTime(date.year, date.month, 15);
         endDate = DateTime(date.year, date.month + 1, 0);
       }
-      // ℹ️ SemiMonth has fixed halves — weekStart/monthStart don't apply
     }
     // ================= DEFAULT =================
     else {
@@ -3700,7 +4159,7 @@ class _HourItem extends StatelessWidget {
         controller.ruleConfig?.isHolidaysAllowed ?? false;
 
     print(
-      "weekendsAllowed: $weekendsAllowed, holidaysAllowed: $holidaysAllowed, item.weekend: ${item.weekend}, item.holiday: ${item.holiday}",
+      "controller.lineItems[lineIndex].timerRunning.value: ${controller.lineItems[lineIndex].timerRunning.value}, holidaysAllowed: $holidaysAllowed, item.weekend: ${item.weekend}, item.holiday: ${item.holiday}",
     );
 
     /// 🚫 FINAL DISABLE CONDITION
@@ -3714,7 +4173,7 @@ class _HourItem extends StatelessWidget {
     // (isToday && anyTimerRunning && runningLineIndex != lineIndex);
 
     /// ▶️ TIMER BUTTON (ONLY TODAY)
-    final bool showTimerButton = isToday && controller.sheetEnable.value;
+    final bool showTimerButton = isToday && controller.sheetEnable.value && controller.lineItems[lineIndex].timerRunning.value;
 
     /// 🔍 DEBUG LOGS
     print("------------ DEBUG ------------");
@@ -3820,7 +4279,7 @@ class _HourItem extends StatelessWidget {
 
                 /// ▶️ Timer Button
                 /// ▶️ Timer Button
-                if (showTimerButton && !isDisabled)
+                if (showTimerButton )
                   Obx(() {
                     final isRunning =
                         controller.lineItems[lineIndex].timerRunning.value;
@@ -3829,11 +4288,11 @@ class _HourItem extends StatelessWidget {
 
                     return GestureDetector(
                       onTap: () {
-                        if (isRunning) {
-                          controller.stopTimer(lineIndex, item.entryDate);
-                        } else {
-                          controller.startTimer(lineIndex, item.entryDate);
-                        }
+                        // if (isRunning) {
+                        //   controller.stopTimer(lineIndex, item.entryDate);
+                        // } else {
+                        //   controller.startTimer(lineIndex, item.entryDate);
+                        // }
                       },
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4),
@@ -4150,11 +4609,13 @@ String _formatSeconds(int seconds) {
 class LineCustomFieldSheet extends StatefulWidget {
   final int lineIndex;
   final Map<String, dynamic> field;
+  final VoidCallback? onSaved; // ✅ NEW
 
   const LineCustomFieldSheet({
     super.key,
     required this.lineIndex,
     required this.field,
+    this.onSaved, // ✅ NEW
   });
 
   @override
@@ -4163,170 +4624,651 @@ class LineCustomFieldSheet extends StatefulWidget {
 
 class _LineCustomFieldSheetState extends State<LineCustomFieldSheet> {
   late TextEditingController _controller;
-  final controller = Get.put(Controller());
+  final controller = Get.find<Controller>(); // ✅ find not put
+  final _formKey = GlobalKey<FormState>();
+
+  CustomDropdownValue? _selectedDropdownValue;
+  late bool _checkboxValue;
+  DateTime? _selectedDateTime;
+
+  String _selectedCountryCode = '+91';
+  String _selectedCountryFlag = '🇮🇳';
+
+  final List<Map<String, String>> _countryCodes = [
+    {'flag': '🇮🇳', 'code': '+91', 'name': 'India'},
+    {'flag': '🇺🇸', 'code': '+1', 'name': 'USA'},
+    {'flag': '🇬🇧', 'code': '+44', 'name': 'UK'},
+    {'flag': '🇦🇪', 'code': '+971', 'name': 'UAE'},
+    {'flag': '🇸🇦', 'code': '+966', 'name': 'Saudi Arabia'},
+    {'flag': '🇦🇺', 'code': '+61', 'name': 'Australia'},
+    {'flag': '🇨🇦', 'code': '+1', 'name': 'Canada'},
+    {'flag': '🇸🇬', 'code': '+65', 'name': 'Singapore'},
+    {'flag': '🇩🇪', 'code': '+49', 'name': 'Germany'},
+    {'flag': '🇫🇷', 'code': '+33', 'name': 'France'},
+    {'flag': '🇯🇵', 'code': '+81', 'name': 'Japan'},
+    {'flag': '🇨🇳', 'code': '+86', 'name': 'China'},
+    {'flag': '🇧🇷', 'code': '+55', 'name': 'Brazil'},
+    {'flag': '🇲🇾', 'code': '+60', 'name': 'Malaysia'},
+    {'flag': '🇵🇭', 'code': '+63', 'name': 'Philippines'},
+  ];
+
+  String get _fieldType => widget.field['FieldType']?.toString() ?? 'Text';
+  String get _label =>
+      widget.field['FieldLabel'] ?? widget.field['FieldName'] ?? '';
+  bool get _isMandatory => widget.field['IsMandatory'] ?? false;
 
   @override
   void initState() {
     super.initState();
+    _initializeValues();
+  }
 
-    final fieldType =
-        widget.field['FieldType']?.toString().toLowerCase() ?? 'text';
+  void _initializeValues() {
+    dynamic effectiveValue =
+        widget.field['EnteredValue'] ?? widget.field['FieldValue'];
+    if (effectiveValue == null ||
+        (effectiveValue is String && effectiveValue.trim().isEmpty)) {
+      effectiveValue = widget.field['DefaultValue'];
+    }
 
-    String value = widget.field['FieldValue']?.toString() ?? '';
-
-    /// ✅ If date field and value exists → convert millis to formatted date
-    if (fieldType == 'date') {
-      try {
-        int millis = int.parse(value);
-
-        /// If API sends seconds (10 digits)
-        if (millis.toString().length == 10) {
-          millis *= 1000;
+    switch (_fieldType) {
+      case 'List':
+      case 'CustomList':
+      case 'SystemList':
+        _selectedDropdownValue = widget.field['SelectedValue'];
+        if (_selectedDropdownValue == null && effectiveValue != null) {
+          final options = (widget.field['Options'] as List<dynamic>? ?? [])
+              .whereType<CustomDropdownValue>()
+              .toList();
+          try {
+            _selectedDropdownValue = options.firstWhere(
+              (o) =>
+                  o.valueId == effectiveValue.toString() ||
+                  o.valueName == effectiveValue.toString(),
+            );
+          } catch (_) {}
         }
+        _controller = TextEditingController(
+          text: _selectedDropdownValue?.valueName ?? '',
+        );
+        break;
 
-        value = DateFormat(
-          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-        ).format(DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true));
-      } catch (e) {
-        print("Invalid date millis");
+      case 'Checkbox':
+        _checkboxValue =
+            effectiveValue == true ||
+            effectiveValue == 'true' ||
+            effectiveValue == 1;
+        _controller = TextEditingController();
+        break;
+      case 'Date':
+      case 'Date&Time':
+        _controller = TextEditingController();
+        _selectedDateTime = _parseDateTime(effectiveValue);
+        _controller.text = _formatDateDisplay(_selectedDateTime);
+        break;
+
+      case 'MobileNumber':
+        // ✅ Fix Bug 3: strip country code if already stored with it
+        String rawPhone = effectiveValue?.toString() ?? '';
+        for (final c in _countryCodes) {
+          if (rawPhone.startsWith(c['code']!)) {
+            _selectedCountryCode = c['code']!;
+            _selectedCountryFlag = c['flag']!;
+            rawPhone = rawPhone.substring(c['code']!.length).trim();
+            break;
+          }
+        }
+        _controller = TextEditingController(text: rawPhone);
+        break;
+
+      default:
+        _controller = TextEditingController(
+          text: effectiveValue?.toString() ?? '',
+        );
+    }
+  }
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+
+    // If it's already a DateTime
+    if (value is DateTime) {
+      return value;
+    }
+
+    // If it's an int (milliseconds)
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+    }
+
+    // If it's a String
+    if (value is String && value.isNotEmpty) {
+      // Try to parse as milliseconds (numeric string)
+      final millis = int.tryParse(value);
+      if (millis != null) {
+        return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+      }
+
+      // Try to parse as ISO string
+      try {
+        return DateTime.parse(value);
+      } catch (_) {}
+
+      // Try common date formats
+      for (final fmt in [
+        'yyyy-MM-dd',
+        'dd/MM/yyyy',
+        'MM/dd/yyyy',
+        'dd-MM-yyyy',
+        'yyyy-MM-dd HH:mm:ss',
+        'yyyy-MM-ddTHH:mm:ss',
+      ]) {
+        try {
+          return DateFormat(fmt).parse(value);
+        } catch (_) {}
       }
     }
 
-    _controller = TextEditingController(text: value);
+    return null;
+  }
+
+  DateTime? _tryParseDate(String value) {
+    for (final fmt in [
+      'yyyy-MM-dd',
+      'dd/MM/yyyy',
+      'MM/dd/yyyy',
+      'dd-MM-yyyy',
+      'yyyy-MM-ddTHH:mm:ss',
+    ]) {
+      try {
+        return DateFormat(fmt).parse(value);
+      } catch (_) {}
+    }
+    try {
+      return DateTime.parse(value);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatDateDisplay(DateTime? dt) {
+    if (dt == null) return '';
+    // ✅ Always convert to local before displaying
+    final local = dt.toLocal();
+    final fmt = controller.selectedFormat?.key ?? 'dd/MM/yyyy';
+    if (_fieldType == "Date&Time") {
+      return DateFormat('$fmt hh:mm a').format(local);
+    }
+    return DateFormat(fmt).format(local);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String? _validate(String? value) {
+    final v = value?.trim() ?? '';
+    if (_isMandatory && v.isEmpty) return '$_label is required';
+    if (v.isEmpty) return null;
+
+    switch (_fieldType) {
+      case 'Email':
+        if (!RegExp(
+          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+        ).hasMatch(v)) {
+          return 'Enter a valid email (e.g. user@example.com)';
+        }
+        break;
+      case 'MobileNumber':
+        // ✅ Fix Bug 3: only digits, 6–12 length
+        if (!RegExp(r'^\d{6,12}$').hasMatch(v)) {
+          return 'Enter a valid mobile number (6–12 digits, no spaces)';
+        }
+        break;
+      case 'URL':
+        if (!RegExp(
+          r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
+          caseSensitive: false,
+        ).hasMatch(v)) {
+          return 'Enter a valid URL (e.g. https://example.com)';
+        }
+        break;
+      case 'Decimal':
+        if (double.tryParse(v) == null) return 'Enter a valid decimal number';
+        break;
+      case 'LongInteger':
+        if (int.tryParse(v) == null) return 'Enter a valid whole number';
+        break;
+      case 'Amount':
+        final a = double.tryParse(v);
+        if (a == null || a < 0) return 'Enter a valid positive amount';
+        break;
+      case 'Percentage':
+        final p = double.tryParse(v);
+        if (p == null || p < 0 || p > 100) {
+          return 'Enter a percentage between 0 and 100';
+        }
+        break;
+    }
+    return null;
+  }
+
+  void _save() {
+    // ── Checkbox ────────────────────────────────────────────────────────────
+    if (_fieldType == 'Checkbox') {
+      if (_isMandatory && !_checkboxValue) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$_label is required')));
+        return;
+      }
+      final value = _checkboxValue.toString();
+      widget.field['EnteredValue'] = value;
+      widget.field['FieldValue'] = value; // ✅ Also update FieldValue
+      controller.updateCustomFieldValue(
+        widget.lineIndex,
+        widget.field['FieldId'],
+        value,
+      );
+      widget.onSaved?.call();
+      Navigator.pop(context);
+      return;
+    }
+
+    // ── Date / DateTime ──────────────────────────────────────────────────────
+    if (_fieldType == 'Date' || _fieldType == 'Date&Time') {
+      if (_isMandatory && _selectedDateTime == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$_label is required')));
+        return;
+      }
+      if (_selectedDateTime != null) {
+        final value = toMillisecondsWithTimezone(_selectedDateTime!).toString();
+        widget.field['EnteredValue'] = value;
+        widget.field['FieldValue'] = value; // ✅ Also update FieldValue
+        controller.updateCustomFieldValue(
+          widget.lineIndex,
+          widget.field['FieldId'],
+          value,
+        );
+      }
+      widget.onSaved?.call();
+      Navigator.pop(context);
+      return;
+    }
+
+    // ── Dropdown ─────────────────────────────────────────────────────────────
+    if (_fieldType == 'List' ||
+        _fieldType == 'CustomList' ||
+        _fieldType == 'SystemList') {
+      if (_isMandatory && _selectedDropdownValue == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$_label is required')));
+        return;
+      }
+      final value = _selectedDropdownValue?.valueId ?? '';
+      widget.field['SelectedValue'] = _selectedDropdownValue;
+      widget.field['EnteredValue'] = value;
+      widget.field['FieldValue'] = value; // ✅ Also update FieldValue
+      controller.updateCustomFieldValue(
+        widget.lineIndex,
+        widget.field['FieldId'],
+        value,
+      );
+      widget.onSaved?.call();
+      Navigator.pop(context);
+      return;
+    }
+
+    // ── All text-based ────────────────────────────────────────────────────────
+    if (!_formKey.currentState!.validate()) return;
+
+    String finalValue = _controller.text.trim();
+
+    if (_fieldType == 'MobileNumber') {
+      finalValue = '$_selectedCountryCode $finalValue';
+    }
+
+    widget.field['EnteredValue'] = finalValue;
+    widget.field['FieldValue'] = finalValue; // ✅ Also update FieldValue
+
+    controller.updateCustomFieldValue(
+      widget.lineIndex,
+      widget.field['FieldId'],
+      finalValue,
+    );
+    widget.onSaved?.call();
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final fieldType =
-        widget.field['FieldType']?.toString().toLowerCase() ?? 'text';
-    final isMandatory = widget.field['IsMandatory'] ?? false;
-    final label = '${widget.field['FieldName']}${isMandatory ? ' *' : ''}';
-    // final initialDate = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').parse(_controller.text);
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.field['FieldName'],
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-
-            if (fieldType == 'dropdown' || fieldType == 'select')
-              DropdownButtonFormField<String>(
-                value: _controller.text.isEmpty ? null : _controller.text,
-                decoration: InputDecoration(
-                  labelText: label,
-                  border: const OutlineInputBorder(),
-                ),
-                items: (widget.field['Options'] as List<dynamic>?)
-                    ?.map((option) => option.toString())
-                    .map((option) {
-                      return DropdownMenuItem(
-                        value: option,
-                        child: Text(option),
-                      );
-                    })
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _controller.text = value;
-                  }
-                },
-              )
-            else if (fieldType == 'date')
-              TextFormField(
-                controller: _controller,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: label,
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    onPressed: () async {
-                      DateTime initialDate = DateTime.now();
-
-                      if (_controller.text.isNotEmpty) {
-                        try {
-                          initialDate = DateFormat(
-                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                          ).parse(_controller.text);
-                        } catch (_) {}
-                      }
-
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: initialDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-
-                      if (date != null) {
-                        _controller.text = DateFormat(
-                          'yyyy-MM-dd',
-                        ).format(date);
-                      }
-                    },
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              )
-            else
-              TextFormField(
-                controller: _controller,
-                decoration: InputDecoration(
-                  labelText: label,
-                  border: const OutlineInputBorder(),
-                ),
-                maxLines: fieldType == 'textarea' ? 3 : 1,
-                keyboardType: fieldType == 'number'
-                    ? TextInputType.number
-                    : TextInputType.text,
               ),
+              Text(
+                _label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildInput(),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(onPressed: _save, child: const Text('Save')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+  Widget _buildInput() {
+    switch (_fieldType) {
+      case 'List':
+      case 'CustomList':
+      case 'SystemList':
+        final options = (widget.field['Options'] as List<dynamic>? ?? [])
+            .whereType<CustomDropdownValue>()
+            .toList();
+        return SearchableMultiColumnDropdownField<CustomDropdownValue>(
+          labelText: '$_label${_isMandatory ? " *" : ""}',
+          items: options,
+          selectedValue: _selectedDropdownValue,
+          searchValue: (val) => val.valueName,
+          displayText: (val) => val.valueName,
+          columnHeaders: const ['ID', 'Name'],
+          rowBuilder: (val, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            child: Row(
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    String finalValue = _controller.text;
-
-                    if (fieldType == 'date' && finalValue.isNotEmpty) {
-                      try {
-                        final parsedDate = DateFormat(
-                          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                        ).parse(finalValue);
-
-                        finalValue = toMillisecondsWithTimezone(
-                          parsedDate,
-                        ).toString();
-                      } catch (_) {}
-                    }
-
-                    controller.updateCustomFieldValue(
-                      widget.lineIndex,
-                      widget.field['FieldId'],
-                      finalValue,
-                    );
-
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Save'),
-                ),
+                Expanded(child: Text(val.valueId)),
+                Expanded(child: Text(val.valueName)),
               ],
             ),
+          ),
+          onChanged: (val) {
+            setState(() {
+              _selectedDropdownValue = val;
+              _controller.text = val?.valueName ?? '';
+            });
+          },
+        );
+
+      case 'Checkbox':
+        return StatefulBuilder(
+          builder: (_, inner) => CheckboxListTile(
+            title: Text('$_label${_isMandatory ? " *" : ""}'),
+            value: _checkboxValue,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) {
+              inner(() => _checkboxValue = val ?? false);
+              setState(() => _checkboxValue = val ?? false);
+            },
+          ),
+        );
+
+      // ✅ Fix Bug 3: Date — readOnly, only date picker allowed
+      case 'Date':
+      case 'Date&Time':
+        final isDateTime = _fieldType == 'Date&Time';
+        return TextFormField(
+          controller: _controller,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            suffixIcon: const Icon(Icons.calendar_today),
+            errorText: _isMandatory && _selectedDateTime == null
+                ? '$_label is required'
+                : null,
+          ),
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedDateTime?.toLocal() ?? DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+              // ✅ Add these for better UX
+              initialEntryMode: DatePickerEntryMode.calendarOnly,
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Colors.blue,
+                      onPrimary: Colors.white,
+                      onSurface: Colors.black,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (picked == null) return;
+            DateTime result = picked;
+            if (isDateTime) {
+              final time = await showTimePicker(
+                context: context,
+                initialTime: _selectedDateTime != null
+                    ? TimeOfDay.fromDateTime(_selectedDateTime!.toLocal())
+                    : TimeOfDay.now(),
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(alwaysUse24HourFormat: false),
+                    child: child!,
+                  );
+                },
+              );
+              if (time == null) return;
+              result = DateTime(
+                picked.year,
+                picked.month,
+                picked.day,
+                time.hour,
+                time.minute,
+              );
+            }
+            setState(() {
+              _selectedDateTime = result;
+              _controller.text = _formatDateDisplay(result);
+            });
+          },
+        );
+      // ✅ Fix Bug 3: Mobile — digitsOnly, country flag prefix
+      case 'MobileNumber':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly, // ✅ numbers only
           ],
-        ),
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            prefixIcon: GestureDetector(
+              onTap: _showCountryPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    Text(
+                      _selectedCountryFlag,
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _selectedCountryCode,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 100),
+          ),
+          validator: _validate,
+        );
+
+      case 'Email':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            suffixIcon: const Icon(Icons.email_outlined),
+          ),
+          validator: _validate,
+        );
+
+      case 'URL':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            suffixIcon: const Icon(Icons.link_outlined),
+          ),
+          validator: _validate,
+        );
+
+      case 'Decimal':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+          ],
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+          ),
+          validator: _validate,
+        );
+
+      case 'LongInteger':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+          ),
+          validator: _validate,
+        );
+
+      case 'Amount':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            prefixText: '\$ ',
+          ),
+          validator: _validate,
+        );
+
+      case 'Percentage':
+        return TextFormField(
+          controller: _controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+            suffixText: '%',
+          ),
+          validator: _validate,
+        );
+
+      default:
+        return TextFormField(
+          controller: _controller,
+          decoration: InputDecoration(
+            labelText: '$_label${_isMandatory ? " *" : ""}',
+            border: const OutlineInputBorder(),
+          ),
+          maxLines: _fieldType == 'TextArea' ? 3 : 1,
+          validator: _validate,
+        );
+    }
+  }
+
+  void _showCountryPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => ListView.builder(
+        itemCount: _countryCodes.length,
+        itemBuilder: (_, i) {
+          final c = _countryCodes[i];
+          return ListTile(
+            leading: Text(c['flag']!, style: const TextStyle(fontSize: 24)),
+            title: Text(c['name']!),
+            trailing: Text(
+              c['code']!,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            onTap: () {
+              setState(() {
+                _selectedCountryCode = c['code']!;
+                _selectedCountryFlag = c['flag']!;
+              });
+              Navigator.pop(context);
+            },
+          );
+        },
       ),
     );
   }
@@ -4578,7 +5520,7 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                   readOnly: true,
                   enabled: controller.sheetEnable.value,
                   decoration: InputDecoration(
-                    labelText: "${AppLocalizations.of(context)!.startTime} *",
+                    labelText: "${AppLocalizations.of(context)!.startTime} ${isMandatory ? '*' : ''}",
                     suffixIcon: Icon(Icons.access_time),
                   ),
                   onTap: () => _pickTime(timeFromCtrl, true),
@@ -4597,8 +5539,9 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                   controller: timeToCtrl,
                   readOnly: true,
                   enabled: controller.sheetEnable.value,
+                  cursorErrorColor: isTimerCompleted ? Colors.grey : Colors.red,
                   decoration: InputDecoration(
-                    labelText: "${AppLocalizations.of(context)!.endTime} *",
+                    labelText: "${AppLocalizations.of(context)!.endTime} ${isMandatory ? '*' : ''}",
                     suffixIcon: Icon(Icons.access_time),
                   ),
                   onTap: () => _pickTime(timeToCtrl, false),
@@ -4667,6 +5610,11 @@ class _TimeDetailsSheetState extends State<TimeDetailsSheet> {
                             widget.entryDate,
                           );
                           _calculateTotalHours();
+                          if(timeFromCtrl.text.isEmpty || timeToCtrl.text.isEmpty){
+                            _showErrorToast("Start Time and End Time are required");
+                            return;
+                          }
+                           
                           controller.updateEntry(
                             widget.lineIndex,
                             key,
@@ -4706,7 +5654,7 @@ class TimeTrackerView extends StatefulWidget {
 }
 
 class _TimeTrackerViewState extends State<TimeTrackerView> {
-    final Controller controller = Get.find<Controller>();
+  final Controller controller = Get.find<Controller>();
   late final GlobalKey<FormState> _formKey;
 
   @override
@@ -4743,8 +5691,6 @@ class _TimeTrackerViewState extends State<TimeTrackerView> {
       );
     });
   }
-
- 
 
   @override
   Widget build(BuildContext context) {
