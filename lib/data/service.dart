@@ -994,7 +994,7 @@ class Controller extends GetxController {
   RxBool setQuality = true.obs;
   RxBool leaveField = false.obs;
   RxBool sheetEnable = false.obs;
-String getIsoCodeFromDialCode(String dialCode) {
+  String getIsoCodeFromDialCode(String dialCode) {
     final Map<String, String> dialCodeToIso = {
       '+1': 'US',
       '+7': 'RU',
@@ -1204,6 +1204,7 @@ String getIsoCodeFromDialCode(String dialCode) {
 
     return dialCodeToIso[dialCode] ?? 'IN';
   }
+
   // Define this at the class level
   Set<int> skippedWorkItems = {};
   var expenseChartData = <ExpenseAmountByStatus>[].obs;
@@ -1907,35 +1908,37 @@ String getIsoCodeFromDialCode(String dialCode) {
   void setFullPageLoading(bool loading) {
     isFullPageLoading.value = loading;
   }
-DateTime? _parseToDateTime(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is String) {
-    try {
-      // Try common date formats
-      final formats = [
-        'yyyy-MM-dd',
-        'dd/MM/yyyy',
-        'MM/dd/yyyy',
-        'yyyy-MM-ddTHH:mm:ss',
-        'yyyy-MM-dd HH:mm:ss',
-        'dd/MM/yyyy HH:mm:ss',
-        'MM/dd/yyyy HH:mm:ss',
-      ];
-      for (var format in formats) {
-        try {
-          return DateFormat(format).parse(value);
-        } catch (_) {}
+
+  DateTime? _parseToDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      try {
+        // Try common date formats
+        final formats = [
+          'yyyy-MM-dd',
+          'dd/MM/yyyy',
+          'MM/dd/yyyy',
+          'yyyy-MM-ddTHH:mm:ss',
+          'yyyy-MM-dd HH:mm:ss',
+          'dd/MM/yyyy HH:mm:ss',
+          'MM/dd/yyyy HH:mm:ss',
+        ];
+        for (var format in formats) {
+          try {
+            return DateFormat(format).parse(value);
+          } catch (_) {}
+        }
+        // Fallback to DateTime.parse
+        return DateTime.parse(value);
+      } catch (e) {
+        print("Error parsing date string: $value, error: $e");
+        return null;
       }
-      // Fallback to DateTime.parse
-      return DateTime.parse(value);
-    } catch (e) {
-      print("Error parsing date string: $value, error: $e");
-      return null;
     }
+    return null;
   }
-  return null;
-}
+
   Future<void> submitLeaveRequest(
     BuildContext context,
     bool submit,
@@ -1968,17 +1971,16 @@ DateTime? _parseToDateTime(dynamic value) {
             fieldValue = (raw ?? false)
                 .toString(); // true → "true", false → "false"
           } else if (field['FieldType'] == 'Date') {
-  final dateTime = _parseToDateTime(field['EnteredValue']);
-  fieldValue = dateTime != null
-      ? DateFormat('dd/MM/yyyy').format(dateTime)
-      : '';
-} else if (field['FieldType'] == 'Date&Time') {
-  final dateTime = _parseToDateTime(field['EnteredValue']);
-  fieldValue = dateTime != null
-      ? DateFormat('dd/MM/yyyy hh:mm a').format(dateTime)
-      : '';
-}
-          else {
+            final dateTime = _parseToDateTime(field['EnteredValue']);
+            fieldValue = dateTime != null
+                ? DateFormat('dd/MM/yyyy').format(dateTime)
+                : '';
+          } else if (field['FieldType'] == 'Date&Time') {
+            final dateTime = _parseToDateTime(field['EnteredValue']);
+            fieldValue = dateTime != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(dateTime)
+                : '';
+          } else {
             fieldValue = field['EnteredValue']?.toString() ?? '';
           }
 
@@ -3410,7 +3412,9 @@ DateTime? _parseToDateTime(dynamic value) {
 
   Future<void> fetchEmployeesID() async {
     isLoadingGE1.value = true;
-    final int transactionDate = toStartOfDayUtc(DateTime.now());
+    final int transactionDate = toStartOfDayUtc(
+      DateTime.now().add(Duration(days: 1)),
+    );
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/expenseregistration/expenseregistration/employeeid'
       '?TrackingContext=ExpenseRequisition'
@@ -4008,14 +4012,17 @@ DateTime? _parseToDateTime(dynamic value) {
                 (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
                 false;
           } else if (field['FieldType'] == 'Date') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
-                : field['DefaultValue'] ?? '';
-          } else if (field['FieldType'] == 'Date&Time') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
-                : field['DefaultValue'] ?? '';
-          } else if (field['FieldType'] == 'Email') {
+  fieldValue = formatFieldDate(
+    field['EnteredValue'],
+    'dd/MM/yyyy',
+  );
+}
+else if (field['FieldType'] == 'Date&Time') {
+  fieldValue = formatFieldDate(
+    field['EnteredValue'],
+    'dd/MM/yyyy hh:mm a',
+  );
+}else if (field['FieldType'] == 'Email') {
             // ✅ CRITICAL: For Email type, get from EnteredValue or Rx observable
             final rxValue = field['_rxStringValue'] as Rx<String?>?;
             fieldValue =
@@ -4109,7 +4116,22 @@ DateTime? _parseToDateTime(dynamic value) {
           expenseTransCategoryCustomFields,
     );
   }
+String formatFieldDate(
+  dynamic value,
+  String pattern,
+) {
+  if (value == null) return '';
 
+  if (value is DateTime) {
+    return DateFormat(pattern).format(value);
+  }
+
+  if (value is String) {
+    return value;
+  }
+
+  return '';
+}
   void calculateLineAmounts(
     Controller itemController, [
     ExpenseItemUpdate? expenseTran,
@@ -4475,7 +4497,7 @@ DateTime? _parseToDateTime(dynamic value) {
   DateTimeRange? dateRange;
   String? stepType;
   String? statusApproval;
- void _appendExistingTimesheetData(
+  void _appendExistingTimesheetData(
     Map<String, dynamic> data,
     BuildContext context,
     String page,
@@ -4536,17 +4558,21 @@ DateTime? _parseToDateTime(dynamic value) {
 
       /// ✅ FIX: Properly map custom fields with all required fields
       final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
-      
+
       // Map to the expected structure with proper field names
       lineCustomFields[index] = customFields.map((field) {
         return {
           "FieldId": field["FieldId"],
           "FieldName": field["FieldName"],
-          "FieldLabel": field["FieldLabel"] ?? field["FieldName"], // ✅ Add label
+          "FieldLabel":
+              field["FieldLabel"] ?? field["FieldName"], // ✅ Add label
           "FieldValue": field["FieldValue"] ?? "",
-          "EnteredValue": field["FieldValue"] ?? "", // ✅ Add EnteredValue for UI
+          "EnteredValue":
+              field["FieldValue"] ?? "", // ✅ Add EnteredValue for UI
           "CustomFieldEntity": field["CustomFieldEntity"],
-          "FieldType": _mapFieldType(field["FieldType"] ?? "text"), // ✅ Map type properly
+          "FieldType": _mapFieldType(
+            field["FieldType"] ?? "text",
+          ), // ✅ Map type properly
           "IsMandatory": field["IsMandatory"] ?? false,
           "IsVisible": field["IsVisible"] ?? true, // ✅ Add visibility flag
           "Options": _mapOptions(field["Options"]), // ✅ Map options properly
@@ -4580,9 +4606,11 @@ DateTime? _parseToDateTime(dynamic value) {
           accountingDistributions: () {
             final rawList = daily['AccountingDistributions'] as List? ?? [];
             return rawList
-                .map((dist) => AccountingDistribution.fromJson(
-                      dist as Map<String, dynamic>,
-                    ))
+                .map(
+                  (dist) => AccountingDistribution.fromJson(
+                    dist as Map<String, dynamic>,
+                  ),
+                )
                 .toList();
           }(),
         );
@@ -4613,91 +4641,94 @@ DateTime? _parseToDateTime(dynamic value) {
     update();
   }
 
-// Helper method to map field types
-String _mapFieldType(dynamic type) {
-  if (type == null) return 'text';
-  
-  final typeStr = type.toString().toLowerCase();
-  
-  // Map your backend types to UI expected types
-  switch (typeStr) {
-    case 'dropdown':
-    case 'select':
-    case 'list':
-    case 'customlist':
-    case 'systemlist':
-      return 'dropdown';
-    case 'checkbox':
-    case 'boolean':
-      return 'checkbox';
-    case 'date':
-      return 'date';
-    case 'datetime':
-    case 'date&time':
-      return 'date&time';
-    case 'number':
-    case 'integer':
-    case 'longinteger':
-      return 'number';
-    case 'decimal':
-    case 'amount':
-      return 'decimal';
-    case 'percentage':
-      return 'percentage';
-    case 'email':
-      return 'email';
-    case 'mobile':
-    case 'mobilenumber':
-    case 'phone':
-      return 'mobilenumber';
-    case 'url':
-    case 'link':
-      return 'url';
-    case 'textarea':
-    case 'multiline':
-      return 'textarea';
-    default:
-      return 'text';
-  }
-}
+  // Helper method to map field types
+  String _mapFieldType(dynamic type) {
+    if (type == null) return 'text';
 
-// Helper method to map options
-List<dynamic> _mapOptions(dynamic options) {
-  if (options == null) return [];
-  
-  if (options is List) {
-    // Check if options are already CustomDropdownValue objects
-    if (options.isNotEmpty && options.first is CustomDropdownValue) {
-      return options;
+    final typeStr = type.toString().toLowerCase();
+
+    // Map your backend types to UI expected types
+    switch (typeStr) {
+      case 'dropdown':
+      case 'select':
+      case 'list':
+      case 'customlist':
+      case 'systemlist':
+        return 'dropdown';
+      case 'checkbox':
+      case 'boolean':
+        return 'checkbox';
+      case 'date':
+        return 'date';
+      case 'datetime':
+      case 'date&time':
+        return 'date&time';
+      case 'number':
+      case 'integer':
+      case 'longinteger':
+        return 'number';
+      case 'decimal':
+      case 'amount':
+        return 'decimal';
+      case 'percentage':
+        return 'percentage';
+      case 'email':
+        return 'email';
+      case 'mobile':
+      case 'mobilenumber':
+      case 'phone':
+        return 'mobilenumber';
+      case 'url':
+      case 'link':
+        return 'url';
+      case 'textarea':
+      case 'multiline':
+        return 'textarea';
+      default:
+        return 'text';
     }
-    
-    // Convert string options to CustomDropdownValue
-    return options.map((opt) {
-      if (opt is Map) {
-        return CustomDropdownValue(
-          valueId: opt['ValueId']?.toString() ?? opt['Id']?.toString() ?? '',
-          valueName: opt['ValueName']?.toString() ?? opt['Name']?.toString() ?? opt.toString(),
-        );
-      }
-      return CustomDropdownValue(
-        valueId: opt.toString(),
-        valueName: opt.toString(),
-      );
-    }).toList();
   }
-  
-  return [];
-}
 
-// Method to load master line custom fields structure
-void _loadMasterLineCustomFields() {
-  // This should load the configuration for what custom fields should exist on new lines
-  // You might need to call an API or use existing configuration
-  if (masterLineCustomFields.isEmpty && lineCustomFields.isNotEmpty) {
-    // Use first line's custom fields as template for new lines
-    masterLineCustomFields.assignAll(lineCustomFields[0] ?? []);
+  // Helper method to map options
+  List<dynamic> _mapOptions(dynamic options) {
+    if (options == null) return [];
+
+    if (options is List) {
+      // Check if options are already CustomDropdownValue objects
+      if (options.isNotEmpty && options.first is CustomDropdownValue) {
+        return options;
+      }
+
+      // Convert string options to CustomDropdownValue
+      return options.map((opt) {
+        if (opt is Map) {
+          return CustomDropdownValue(
+            valueId: opt['ValueId']?.toString() ?? opt['Id']?.toString() ?? '',
+            valueName:
+                opt['ValueName']?.toString() ??
+                opt['Name']?.toString() ??
+                opt.toString(),
+          );
+        }
+        return CustomDropdownValue(
+          valueId: opt.toString(),
+          valueName: opt.toString(),
+        );
+      }).toList();
+    }
+
+    return [];
   }
-}
+
+  // Method to load master line custom fields structure
+  void _loadMasterLineCustomFields() {
+    // This should load the configuration for what custom fields should exist on new lines
+    // You might need to call an API or use existing configuration
+    if (masterLineCustomFields.isEmpty && lineCustomFields.isNotEmpty) {
+      // Use first line's custom fields as template for new lines
+      masterLineCustomFields.assignAll(lineCustomFields[0] ?? []);
+    }
+  }
 
   Future<void> fetchSpecificTimesheetApprvalDetails({
     required int recId,
@@ -5230,7 +5261,7 @@ void _loadMasterLineCustomFields() {
 
   Future<void> fetchExpenseCategory() async {
     expenseCategory.clear();
-    final dateToUse = selectedDate ?? DateTime.now();
+    final dateToUse = selectedDate ?? DateTime.now().add(Duration(days: 1));
     //  // print("fetchExpenseCategory${selectedProject?.code}");
     //  // print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
@@ -8841,169 +8872,163 @@ void _loadMasterLineCustomFields() {
   }
 
   List<dynamic> lineItemControllers = [];
-  void addToFinalItems(GESpeficExpense expense) {
-    finalItemsSpecific.clear();
-    print("lineItemControllers length => ${lineItemControllers.length}");
+ void addToFinalItems(GESpeficExpense expense) {
+  finalItemsSpecific.clear();
 
-    print("expense.expenseTrans length => ${expense.expenseTrans.length}");
+  print("lineItemControllers length => ${lineItemControllers.length}");
+  print("expense.expenseTrans length => ${expense.expenseTrans.length}");
 
-    print("lineItemControllers => $lineItemControllers");
-    for (int i = 0; i < expense.expenseTrans.length; i++) {
-      final trans = expense.expenseTrans[i];
+  for (int i = 0; i < expense.expenseTrans.length; i++) {
+    final trans = expense.expenseTrans[i];
+    final dynamic itemCtrl = (i < lineItemControllers.length)
+        ? lineItemControllers[i]
+        : null;
 
-      // ✅ Access via lineItemControllers with dynamic cast
-      final dynamic itemCtrl = (i < lineItemControllers.length)
-          ? lineItemControllers[i]
-          : null;
+    final taxGroupValue =
+        (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
+            ? trans.taxGroup
+            : null;
 
-      final taxGroupValue =
-          (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
-          ? trans.taxGroup
-          : null;
+    final mappedDistributions =
+        trans.accountingDistributions?.map((dist) {
+          return AccountingDistribution(
+            transAmount: dist.transAmount,
+            reportAmount: dist.reportAmount,
+            dimensionValueId: dist.dimensionValueId,
+            allocationFactor: dist.allocationFactor,
+            recId: dist.recId,
+          );
+        }).toList() ?? [];
 
-      final mappedDistributions =
-          trans.accountingDistributions?.map((dist) {
-            return AccountingDistribution(
-              transAmount: dist.transAmount,
-              reportAmount: dist.reportAmount,
-              dimensionValueId: dist.dimensionValueId,
-              allocationFactor: dist.allocationFactor,
-              recId: dist.recId,
-            );
-          }).toList() ??
-          [];
+    final List<Map<String, dynamic>> transCustomFieldValues = [];
+    final List<Map<String, dynamic>> transCategoryCustomFieldValues = [];
 
-      final List<Map<String, dynamic>> transCustomFieldValues = [];
-      final List<Map<String, dynamic>> transCategoryCustomFieldValues = [];
-      print("itemCtrl$itemCtrl");
-      if (itemCtrl != null) {
-        print("================================");
-        print("DEBUG ITEM CTRL INDEX => $i");
-        print("itemCtrl => $itemCtrl");
+    if (itemCtrl != null) {
+      print("=== Processing item $i, customFieldsItems count: ${itemCtrl.customFieldsItems?.length} ===");
 
-        print("customFieldsItems => ${itemCtrl.customFieldsItems}");
+      final List<dynamic> customFields = itemCtrl.customFieldsItems ?? [];
 
-        print(
-          "customFieldsItems length => ${itemCtrl.customFieldsItems?.length}",
-        );
+      for (var field in customFields) {
+        final fieldId = field['FieldId'];
+        final fieldName = field['FieldName'];
+        final fieldType = field['FieldType'] ?? 'Text';
+        final objectName = field['ObjectName'] ?? '';
 
-        final List<dynamic> customFields = itemCtrl.customFieldsItems ?? [];
+        dynamic enteredValue;
 
-        print("FINAL customFields length => ${customFields.length}");
+        if (fieldType == 'List' ||
+            fieldType == 'CustomList' ||
+            fieldType == 'SystemList') {
+          final selected = field['SelectedValue'];
+          enteredValue = selected?.valueId
+              ?? field['EnteredValue']?.toString()
+              ?? '';
 
-        for (var field in customFields) {
-          print("--------------------------------");
-          print("FULL FIELD => $field");
+        } else if (fieldType == 'Checkbox') {
+          enteredValue =
+              field['EnteredValue'] ??
+              (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
+              false;
 
-          final fieldId = field['FieldId'];
-          final fieldName = field['FieldName'];
-          final fieldType = field['FieldType'] ?? 'Text';
-          final objectName = field['ObjectName'] ?? '';
+        } else if (fieldType == 'Date') {
+          final date = field['EnteredValue'];
+          enteredValue = date != null
+              ? DateFormat('dd/MM/yyyy').format(date as DateTime)
+              : '';
 
-          print("fieldId => $fieldId");
-          print("fieldName => $fieldName");
-          print("fieldType => $fieldType");
-          print("objectName => $objectName");
+        } else if (fieldType == 'Date&Time') {
+          final date = field['EnteredValue'];
+          enteredValue = date != null
+              ? DateFormat('dd/MM/yyyy hh:mm a').format(date as DateTime)
+              : '';
 
-          print("EnteredValue => ${field['EnteredValue']}");
+        } else if (fieldType == 'Email' || fieldType == 'MobileNumber') {
+          final rxValue = field['_rxStringValue'] as Rx<String?>?;
+          enteredValue =
+              rxValue?.value ??
+              field['EnteredValue']?.toString() ??
+              field['DefaultValue']?.toString() ??
+              '';
 
-          print("SelectedValue => ${field['SelectedValue']}");
+        } else if (fieldType == 'LongInteger') {
+          final rxValue = field['_rxIntValue'] as Rx<int?>?;
+          enteredValue =
+              rxValue?.value?.toString() ??
+              field['EnteredValue']?.toString() ??
+              field['DefaultValue']?.toString() ??
+              '';
 
-          dynamic enteredValue;
+        } else if (fieldType == 'Decimal') {
+          final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
+          enteredValue =
+              rxValue?.value?.toString() ??
+              field['EnteredValue']?.toString() ??
+              field['DefaultValue']?.toString() ??
+              '';
 
-          /// Dropdown
-          if (fieldType == 'List' ||
-              fieldType == 'CustomList' ||
-              fieldType == 'SystemList') {
-            final selected = field['SelectedValue'];
-
-            print("selected => $selected");
-
-            enteredValue = selected?.valueId ?? field['EnteredValue'];
-
-            print("FINAL dropdown value => $enteredValue");
-          }
-          /// Checkbox
-          else if (fieldType == 'Checkbox') {
-            enteredValue = field['EnteredValue'] ?? false;
-
-            print("FINAL checkbox value => $enteredValue");
-          }
-          /// Date
-          else if (fieldType == 'Date' || fieldType == 'Date&Time') {
-            final date = field['EnteredValue'];
-
-            print("DATE RAW => $date");
-
-            enteredValue = date != null
-                ? (date as DateTime).millisecondsSinceEpoch
-                : null;
-
-            print("FINAL date value => $enteredValue");
-          }
-          /// Default
-          else {
-            enteredValue = field['EnteredValue'];
-
-            print("FINAL normal value => $enteredValue");
-          }
-
-          final fieldMap = {
-            "FieldId": fieldId,
-
-            "FieldName": fieldName,
-
-            "FieldValue": enteredValue?.toString() ?? '',
-          };
-
-          print("FINAL fieldMap => $fieldMap");
-
-          if (objectName == 'ExpenseTrans') {
-            transCustomFieldValues.add(fieldMap);
-
-            print("✅ Added to transCustomFieldValues");
-          } else if (objectName ==
-              'ExpenseTransExpensecategorycustomfieldvalues') {
-            transCategoryCustomFieldValues.add(fieldMap);
-
-            print("✅ Added to transCategoryCustomFieldValues");
-          }
+        } else {
+          // Text, Amount, and all others
+          final rxValue = field['_rxStringValue'] as Rx<String?>?;
+          enteredValue =
+              rxValue?.value ??
+              field['EnteredValue']?.toString() ??
+              field['DefaultValue']?.toString() ??
+              '';
         }
 
-        print("================================");
+     final fieldMap = {
+  "CustomFieldEntity": (objectName == 'ExpenseCategories' ||
+          objectName == 'ExpenseTransExpensecategorycustomfieldvalues')
+      ? 'ExpenseCategories'
+      : 'ExpenseTrans',
+  "FieldId": fieldId,
+  "FieldName": fieldName,
+  "FieldValue": enteredValue?.toString() ?? '',
+  "FieldType": fieldType,
+};
 
-        print("FINAL ExpenseTrans Custom Fields => $transCustomFieldValues");
 
-        print(
-          "FINAL ExpenseCategory Custom Fields => $transCategoryCustomFieldValues",
-        );
+        print("Field: $fieldName | Type: $fieldType | Object: $objectName | Value: $enteredValue");
+
+     if (objectName == 'ExpenseTrans') {
+  transCustomFieldValues.add(fieldMap);
+  print("✅ Added to transCustomFieldValues");
+} else if (objectName == 'ExpenseCategories' ||
+    objectName == 'ExpenseTransExpensecategorycustomfieldvalues') {
+  transCategoryCustomFieldValues.add(fieldMap);
+  print("✅ Added to transCategoryCustomFieldValues");
+}
       }
 
-      final item = ExpenseItemUpdate(
-        recId: trans.recId,
-        expenseId: trans.expenseId,
-        expenseCategoryId: trans.expenseCategoryId,
-        uomId: trans.uomId,
-        quantity: trans.quantity,
-        unitPriceTrans: trans.unitPriceTrans,
-        taxAmount: trans.taxAmount,
-        taxGroup: taxGroupValue,
-        lineAmountTrans: trans.lineAmountTrans,
-        lineAmountReporting: trans.lineAmountReporting,
-        projectId: trans.projectId,
-        description: trans.description ?? '',
-        isReimbursable: trans.isReimbursable,
-        isBillable: trans.isBillable,
-        accountingDistributions: mappedDistributions,
-        expenseTransCustomFieldValues: transCustomFieldValues,
-        expenseTransExpensecategorycustomfieldvalues:
-            transCategoryCustomFieldValues,
-      );
-
-      finalItemsSpecific.add(item);
+      print("transCustomFieldValues count: ${transCustomFieldValues.length}");
+      print("transCategoryCustomFieldValues count: ${transCategoryCustomFieldValues.length}");
+    } else {
+      print("⚠️ No itemCtrl found for index $i — lineItemControllers not synced!");
     }
-  }
 
+    final item = ExpenseItemUpdate(
+      recId: trans.recId,
+      expenseId: trans.expenseId,
+      expenseCategoryId: trans.expenseCategoryId,
+      uomId: itemCtrl?.uomId.text ?? trans.uomId,
+      quantity: double.tryParse(itemCtrl?.quantity.text ?? '') ?? trans.quantity,
+      unitPriceTrans: double.tryParse(itemCtrl?.unitPriceTrans.text ?? '') ?? trans.unitPriceTrans,
+      taxAmount: double.tryParse(itemCtrl?.taxAmount.text ?? '') ?? trans.taxAmount,
+      taxGroup: itemCtrl?.selectedTax?.taxGroupId ?? taxGroupValue,
+      lineAmountTrans: double.tryParse(itemCtrl?.lineAmount.text ?? '') ?? trans.lineAmountTrans,
+      lineAmountReporting: double.tryParse(itemCtrl?.lineAmountINR.text ?? '') ?? trans.lineAmountReporting,
+      projectId: itemCtrl?.selectedProject?.code ?? trans.projectId,
+      description: itemCtrl?.descriptionController.text ?? trans.description ?? '',
+      isReimbursable: itemCtrl?.isReimbursable ?? trans.isReimbursable,
+      isBillable: itemCtrl?.isBillableCreate ?? trans.isBillable,
+      accountingDistributions: mappedDistributions,
+      expenseTransCustomFieldValues: transCustomFieldValues,
+      expenseTransExpensecategorycustomfieldvalues: transCategoryCustomFieldValues,
+    );
+
+    finalItemsSpecific.add(item);
+  }
+}
   void addToFinalItemsUnProcess(UnprocessExpenseModels expense) {
     finalItemsSpecific.clear(); // Clear previous items first
 
@@ -9444,6 +9469,9 @@ void _loadMasterLineCustomFields() {
         isGESubmitBTNLoading.value = false;
       }
     }
+    finally {
+  setButtonLoading('submit', false);
+}
   }
 
   String formatCashAdvanceIds(List<String> ids) {
@@ -9780,657 +9808,683 @@ void _loadMasterLineCustomFields() {
   }
 
   CashAdvanceRequestItemizeFornew toCashAdvanceRequestItemize() {
-  print("🔍 Debug - selectedCategoryId: $selectedCategoryId");
-  print("🔍 Debug - quantity: ${quantity.text}");
-  print("🔍 Debug - unitAmount: ${unitAmount.text}");
-  print("🔍 Debug - paidAmountCA1: ${paidAmountCA1.text}");
-  print("🔍 Debug - totalRequestedAmount: ${totalRequestedAmount.text}");
-  print("🔍 Debug - requestedPercentage: ${requestedPercentage.text}");
-  print("🔍 Debug - selectedProject: ${selectedProject?.code}");
+    print("🔍 Debug - selectedCategoryId: $selectedCategoryId");
+    print("🔍 Debug - quantity: ${quantity.text}");
+    print("🔍 Debug - unitAmount: ${unitAmount.text}");
+    print("🔍 Debug - paidAmountCA1: ${paidAmountCA1.text}");
+    print("🔍 Debug - totalRequestedAmount: ${totalRequestedAmount.text}");
+    print("🔍 Debug - requestedPercentage: ${requestedPercentage.text}");
+    print("🔍 Debug - selectedProject: ${selectedProject?.code}");
 
-  // ✅ Helper to safely extract string value from any field type
-  String extractValue(Map<String, dynamic> field) {
-    try {
-      final fieldType = field['FieldType']?.toString() ?? 'Text';
-      final enteredValue = field['EnteredValue'];
-      final selectedValue = field['SelectedValue'];
-      
-      print("🔍 Extracting field: ${field['FieldName']}, type: $fieldType, value: $enteredValue");
-      
-      if (fieldType == 'List' ||
-          fieldType == 'CustomList' ||
-          fieldType == 'SystemList') {
-        // Handle dropdown selections
-        if (selectedValue != null) {
-          if (selectedValue is CustomDropdownValue) {
-            return selectedValue.valueId;
-          } else if (selectedValue is String) {
-            return selectedValue;
+    // ✅ Helper to safely extract string value from any field type
+    String extractValue(Map<String, dynamic> field) {
+      try {
+        final fieldType = field['FieldType']?.toString() ?? 'Text';
+        final enteredValue = field['EnteredValue'];
+        final selectedValue = field['SelectedValue'];
+
+        print(
+          "🔍 Extracting field: ${field['FieldName']}, type: $fieldType, value: $enteredValue",
+        );
+
+        if (fieldType == 'List' ||
+            fieldType == 'CustomList' ||
+            fieldType == 'SystemList') {
+          // Handle dropdown selections
+          if (selectedValue != null) {
+            if (selectedValue is CustomDropdownValue) {
+              return selectedValue.valueId;
+            } else if (selectedValue is String) {
+              return selectedValue;
+            }
           }
-        }
-        if (enteredValue != null) {
-          if (enteredValue is CustomDropdownValue) {
-            return enteredValue.valueId;
+          if (enteredValue != null) {
+            if (enteredValue is CustomDropdownValue) {
+              return enteredValue.valueId;
+            }
+            return enteredValue.toString();
           }
-          return enteredValue.toString();
-        }
-        return '';
-      } 
-      else if (fieldType == 'Checkbox') {
-        if (enteredValue is bool) {
-          return enteredValue.toString();
-        }
-        return (enteredValue ?? false).toString();
-      } 
-      else if (fieldType == 'Date') {
-        // Handle Date type - convert to ISO string
-        if (enteredValue is DateTime) {
-          return DateFormat('yyyy-MM-dd').format(enteredValue);
-        } else if (enteredValue is String) {
-          // If it's already a string, validate it's a proper date format
-          try {
-            DateTime.parse(enteredValue);
+          return '';
+        } else if (fieldType == 'Checkbox') {
+          if (enteredValue is bool) {
+            return enteredValue.toString();
+          }
+          return (enteredValue ?? false).toString();
+        } else if (fieldType == 'Date') {
+          // Handle Date type - convert to ISO string
+          if (enteredValue is DateTime) {
+            return DateFormat('yyyy-MM-dd').format(enteredValue);
+          } else if (enteredValue is String) {
+            // If it's already a string, validate it's a proper date format
+            try {
+              DateTime.parse(enteredValue);
+              return enteredValue;
+            } catch (_) {
+              return '';
+            }
+          }
+          return '';
+        } else if (fieldType == 'Date&Time') {
+          // Handle DateTime type
+          if (enteredValue is DateTime) {
+            return DateFormat('yyyy-MM-dd HH:mm:ss').format(enteredValue);
+          } else if (enteredValue is String) {
             return enteredValue;
-          } catch (_) {
-            return '';
           }
+          return '';
+        } else if (fieldType == 'Integer' || fieldType == 'LongInteger') {
+          // Handle integer types
+          if (enteredValue is int) {
+            return enteredValue.toString();
+          } else if (enteredValue is double) {
+            return enteredValue.toInt().toString();
+          } else if (enteredValue is String) {
+            final parsed = int.tryParse(enteredValue);
+            return parsed?.toString() ?? '';
+          }
+          return enteredValue?.toString() ?? '';
+        } else if (fieldType == 'Decimal' ||
+            fieldType == 'Amount' ||
+            fieldType == 'Percentage') {
+          // Handle decimal types
+          if (enteredValue is double) {
+            return enteredValue.toString();
+          } else if (enteredValue is int) {
+            return enteredValue.toDouble().toString();
+          } else if (enteredValue is String) {
+            final parsed = double.tryParse(enteredValue);
+            return parsed?.toString() ?? '';
+          }
+          return enteredValue?.toString() ?? '';
+        } else {
+          // Default text handling
+          return enteredValue?.toString() ?? '';
         }
+      } catch (e) {
+        print("❌ Error extracting value for field ${field['FieldName']}: $e");
         return '';
-      } 
-      else if (fieldType == 'Date&Time') {
-        // Handle DateTime type
-        if (enteredValue is DateTime) {
-          return DateFormat('yyyy-MM-dd HH:mm:ss').format(enteredValue);
-        } else if (enteredValue is String) {
-          return enteredValue;
-        }
-        return '';
-      } 
-      else if (fieldType == 'Integer' || fieldType == 'LongInteger') {
-        // Handle integer types
-        if (enteredValue is int) {
-          return enteredValue.toString();
-        } else if (enteredValue is double) {
-          return enteredValue.toInt().toString();
-        } else if (enteredValue is String) {
-          final parsed = int.tryParse(enteredValue);
-          return parsed?.toString() ?? '';
-        }
-        return enteredValue?.toString() ?? '';
       }
-      else if (fieldType == 'Decimal' || fieldType == 'Amount' || fieldType == 'Percentage') {
-        // Handle decimal types
-        if (enteredValue is double) {
-          return enteredValue.toString();
-        } else if (enteredValue is int) {
-          return enteredValue.toDouble().toString();
-        } else if (enteredValue is String) {
-          final parsed = double.tryParse(enteredValue);
-          return parsed?.toString() ?? '';
+    }
+
+    // ✅ Build cashadvancetrans custom fields with error handling
+    final List<CustomFieldValue> transFields = [];
+    try {
+      final transFieldsRaw = customFieldsItems
+          .where((f) => f['ObjectName'] == 'cashadvancetrans')
+          .toList();
+
+      print("🔍 Found ${transFieldsRaw.length} cashadvancetrans fields");
+
+      for (var field in transFieldsRaw) {
+        final value = extractValue(field);
+        final fieldId =
+            field['FieldId']?.toString() ??
+            field['FieldName']?.toString() ??
+            '';
+        final fieldName = field['FieldName']?.toString() ?? '';
+
+        if (fieldId.isNotEmpty && value.isNotEmpty) {
+          transFields.add(
+            CustomFieldValue(
+              customFieldEntity: 'cashadvancetrans',
+              fieldId: fieldId,
+              fieldValue: value,
+              fieldName: fieldName,
+            ),
+          );
+          print("✅ Added trans field: $fieldName = $value");
         }
-        return enteredValue?.toString() ?? '';
-      }
-      else {
-        // Default text handling
-        return enteredValue?.toString() ?? '';
       }
     } catch (e) {
-      print("❌ Error extracting value for field ${field['FieldName']}: $e");
-      return '';
-    }
-  }
-
-  // ✅ Build cashadvancetrans custom fields with error handling
-  final List<CustomFieldValue> transFields = [];
-  try {
-    final transFieldsRaw = customFieldsItems
-        .where((f) => f['ObjectName'] == 'cashadvancetrans')
-        .toList();
-    
-    print("🔍 Found ${transFieldsRaw.length} cashadvancetrans fields");
-    
-    for (var field in transFieldsRaw) {
-      final value = extractValue(field);
-      final fieldId = field['FieldId']?.toString() ?? 
-                      field['FieldName']?.toString() ?? 
-                      '';
-      final fieldName = field['FieldName']?.toString() ?? '';
-      
-      if (fieldId.isNotEmpty && value.isNotEmpty) {
-        transFields.add(CustomFieldValue(
-          customFieldEntity: 'cashadvancetrans',
-          fieldId: fieldId,
-          fieldValue: value,
-          fieldName: fieldName,
-        ));
-        print("✅ Added trans field: $fieldName = $value");
-      }
-    }
-  } catch (e) {
-    print("❌ Error building trans fields: $e");
-  }
-
-  // ✅ Build ExpenseCategories custom fields with error handling
-  final List<CustomFieldValue> categoryFields = [];
-  try {
-    final categoryFieldsRaw = customFieldsItems
-        .where((f) => f['ObjectName'] == 'ExpenseCategories')
-        .toList();
-    
-    print("🔍 Found ${categoryFieldsRaw.length} ExpenseCategories fields");
-    
-    for (var field in categoryFieldsRaw) {
-      final value = extractValue(field);
-      final fieldId = field['FieldId']?.toString() ?? 
-                      field['FieldName']?.toString() ?? 
-                      '';
-      final fieldName = field['FieldName']?.toString() ?? '';
-      
-      if (fieldId.isNotEmpty && value.isNotEmpty) {
-        categoryFields.add(CustomFieldValue(
-          customFieldEntity: 'ExpenseCategories',
-          fieldId: fieldId,
-          fieldValue: value,
-          fieldName: fieldName,
-        ));
-        print("✅ Added category field: $fieldName = $value");
-      }
-    }
-  } catch (e) {
-    print("❌ Error building category fields: $e");
-  }
-
-  print("🔍 Trans fields count: ${transFields.length}");
-  print("🔍 Category fields count: ${categoryFields.length}");
-
-  // ✅ Safely parse numeric values with fallbacks
-  final double unitEstimatedAmount = () {
-    final fromUnitAmount = double.tryParse(unitAmount.text) ?? 0.0;
-    if (fromUnitAmount > 0) return fromUnitAmount;
-    return double.tryParse(paidAmountCA1.text) ?? 0.0;
-  }();
-
-  final int percentageValue = () {
-    final perc = double.tryParse(requestedPercentage.text) ?? 1.0;
-    return perc.toInt();
-  }();
-
-  final double exchRateValue = () {
-    final rate = double.tryParse(unitRateCA1.text) ?? 0.0;
-    return rate > 0 ? rate : 1.0;
-  }();
-
-  final double userExchRateValue = () {
-    final rate = double.tryParse(unitRateCA1.text) ?? 0.0;
-    return rate > 0 ? rate : 1.0;
-  }();
-
-  return CashAdvanceRequestItemizeFornew(
-    expenseCategoryId: selectedCategoryId?.isNotEmpty == true
-        ? selectedCategoryId
-        : '',
-    quantity: (double.tryParse(quantity.text) ?? 0.0).toInt(),
-    uomId: selectedunit?.code ?? "Uom-004",
-
-    unitEstimatedAmount: unitEstimatedAmount,
-    lineEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
-    lineEstimatedAmountInReporting: double.tryParse(amountINRCA1.text) ?? 0.0,
-
-    taxAmount: double.tryParse(taxAmount.text) ?? 0.0,
-    taxGroup: selectedTax?.taxGroupId,
-
-    projectId: selectedProject?.code?.isNotEmpty == true ? selectedProject!.code : null,
-    location: selectedLocation?.city ?? '',
-    description: descriptionController.text,
-    isReimbursable: isReimbursite,
-    isBillable: isBillableCreate,
-
-    createdBy: Params.userId ?? '',
-    createdDatetime: toStartOfDayUtc(DateTime.now()),
-    requestDate: toStartOfDayUtc(DateTime.now()),
-    employeeId: Params.employeeId ?? '',
-    lineEstimatedCurrency: currencyDropDowncontrollerCA3.text,
-
-    estimatedCurrency: currencyDropDowncontrollerCA3.text,
-    exchRate: exchRateValue,
-    userExchRate: userExchRateValue,
-
-    totalRequestedAmount: double.tryParse(totalRequestedAmount.text) ?? 0.0,
-    totalRequestedAmountInReporting: double.tryParse(amountINRCA2.text) ?? 0.0,
-
-    lineAdvanceRequested: double.tryParse(totalRequestedAmount.text) ?? 0.0,
-    lineRequestedAdvanceInReporting: double.tryParse(amountINRCA2.text) ?? 0.0,
-    lineRequestedCurrency: currencyDropDowncontrollerCA2.text,
-    lineRequestedExchangerate: double.tryParse(unitRateCA2.text) ?? 0.0,
-
-    maxAllowedPercentage: percentageValue,
-    percentage: percentageValue,
-
-    accountingDistributions: (accountingDistributions ?? []).where((c) => c != null).map((c) {
-      return AccountingDistribution(
-        transAmount: double.tryParse(c!.transAmount.toStringAsFixed(2).toString()) ?? 0.0,
-        reportAmount: double.tryParse(c.reportAmount.toStringAsFixed(2).toString()) ?? 0.0,
-        allocationFactor: c.allocationFactor ?? 0.0,
-        dimensionValueId: c.dimensionValueId ?? 'Branch001',
-      );
-    }).toList(),
-
-    // ✅ Only add if there are values
-    cshHeaderCategoryCustomFieldValues: categoryFields.isNotEmpty ? categoryFields : null,
-    cshHeaderCustomFieldValues: transFields.isNotEmpty ? transFields : null,
-  );
-}
-
- Future<void> saveCashAdvance(
-  BuildContext context,
-  bool submit,
-  bool? reSubmit,
-  int? recId, [
-  String? reqID,
-]) async {
-  try {
-    isPageLoading.value = true;
-
-    /// Request Date
-    final formattedDate = DateFormat(
-      selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(selectedDate ?? DateTime.now());
-
-    final parsedDate = DateFormat(
-      selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).parse(formattedDate);
-
-    final requestDate = toStartOfDayUtc(selectedDate!);
-
-    /// Attachments
-    final attachmentPayload = await buildDocumentAttachment(imageFiles);
-    
-    final expenseHeaderCustomFields = customFields
-        .where(
-          (field) => field['ObjectName'] == 'ExpenseHeader',
-        )
-        .map((field) {
-          dynamic fieldValue;
-
-          if (field['FieldType'] == 'List' ||
-              field['FieldType'] == 'CustomList' ||
-              field['FieldType'] == 'SystemList') {
-            fieldValue = field['SelectedValue']?.valueId ?? '';
-          } else if (field['FieldType'] == 'Checkbox') {
-            fieldValue = field['EnteredValue'] ?? false;
-          } else if (field['FieldType'] == 'Date') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
-                : '';
-          } else if (field['FieldType'] == 'Date&Time') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat(
-                    'dd/MM/yyyy hh:mm a',
-                  ).format(field['EnteredValue'])
-                : '';
-          } else {
-            fieldValue = field['EnteredValue']?.toString() ?? '';
-          }
-
-          return {
-            "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
-            "FieldId": field['FieldId'] ?? '',
-            "FieldValue": fieldValue,
-            "FieldName": field['FieldName'] ?? '',
-            "FieldType": field['FieldType'] ?? '',
-          };
-        })
-        .toList();
-
-    /// ✅ FIX: Build Cash Advance Trans with custom fields
-    final cashAdvTransPayload = finalItemsCashAdvanceNew.map((item) {
-      final json = item.toJson();
-      
-      // ✅ Get transaction-level custom fields (cashadvancetrans)
-      final transCustomFields = item.cshHeaderCustomFieldValues ?? [];
-      
-      // ✅ Get category-level custom fields (ExpenseCategories)
-      final categoryCustomFields = item.cshHeaderCategoryCustomFieldValues ?? [];
-      
-      // ✅ Add them to the transaction JSON
-      json["CSHTransCustomFieldValues"] = transCustomFields.map((field) {
-        return {
-          "CustomFieldEntity": field.customFieldEntity,
-          "FieldId": field.fieldId,
-          "FieldValue": field.fieldValue,
-          "FieldName": field.fieldName,
-          "FieldType": "",
-        };
-      }).toList();
-      
-      json["CSHTransCategoryCustomFieldValues"] = categoryCustomFields.map((field) {
-        return {
-          "CustomFieldEntity": field.customFieldEntity,
-          "FieldId": field.fieldId,
-          "FieldValue": field.fieldValue,
-          "FieldName": field.fieldName,
-          "FieldType": "",
-        };
-      }).toList();
-      
-      print("🔍 Transaction ${item.expenseCategoryId}:");
-      print("  - Trans Custom Fields: ${json["CSHTransCustomFieldValues"].length}");
-      print("  - Category Custom Fields: ${json["CSHTransCategoryCustomFieldValues"].length}");
-      
-      // Avoid empty string issue
-      json["ExpenseCategoryId"] =
-          (json["ExpenseCategoryId"]?.toString().trim().isEmpty ?? true)
-          ? null
-          : json["ExpenseCategoryId"];
-
-      /// IMPORTANT: Use full precision exchange rate for backend
-      if (json["LineRequestedExchangerate"] != null) {
-        json["LineRequestedExchangerate"] = double.parse(
-          json["LineRequestedExchangerate"].toString(),
-        );
-      }
-
-      if (json["LineEstimatedExchangerate"] != null) {
-        json["LineEstimatedExchangerate"] = double.parse(
-          json["LineEstimatedExchangerate"].toString(),
-        );
-      }
-
-      return json;
-    }).toList();
-
-    /// Totals
-    double totalRequested = 0;
-    double totalEstimated = 0;
-
-    for (var item in cashAdvTransPayload) {
-      totalRequested +=
-          double.tryParse(item["LineAdvanceRequested"]?.toString() ?? "0") ??
-          0;
-
-      totalEstimated +=
-          double.tryParse(item["LineEstimatedAmount"]?.toString() ?? "0") ??
-          0;
+      print("❌ Error building trans fields: $e");
     }
 
-    /// Root Exchange Rates
-    double requestedExchangeRate = cashAdvTransPayload.isNotEmpty
-        ? double.tryParse(
-                cashAdvTransPayload.first["LineRequestedExchangerate"]
-                    .toString(),
-              ) ??
-            1.0
-        : 1.0;
+    // ✅ Build ExpenseCategories custom fields with error handling
+    final List<CustomFieldValue> categoryFields = [];
+    try {
+      final categoryFieldsRaw = customFieldsItems
+          .where((f) => f['ObjectName'] == 'ExpenseCategories')
+          .toList();
 
-    double estimatedExchangeRate = cashAdvTransPayload.isNotEmpty
-        ? double.tryParse(
-                cashAdvTransPayload.first["LineEstimatedExchangerate"]
-                    .toString(),
-              ) ??
-            1.0
-        : 1.0;
+      print("🔍 Found ${categoryFieldsRaw.length} ExpenseCategories fields");
 
-    /// Request Body
-    final Map<String, dynamic> requestBody = {
-      "RequisitionId": cashAdvanceRequisitionID.text.trim(),
+      for (var field in categoryFieldsRaw) {
+        final value = extractValue(field);
+        final fieldId =
+            field['FieldId']?.toString() ??
+            field['FieldName']?.toString() ??
+            '';
+        final fieldName = field['FieldName']?.toString() ?? '';
 
-      "EmployeeId": employeeDropDownController.text.trim().isEmpty
-          ? null
-          : employeeDropDownController.text.trim(),
-
-      "EmployeeName": employeeName.text.trim().isEmpty
-          ? null
-          : employeeName.text.trim(),
-
-      "RequestDate": requestDate,
-
-      /// REQUIRED ROOT TOTALS
-      "TotalRequestedAmount": totalRequested,
-
-      "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
-          ? double.tryParse(requestamountINR.text) ?? 0
-          : 0,
-
-      "TotalEstimatedAmount": totalEstimated,
-
-      "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
-          ? double.tryParse(estimatedamountINR.text) ?? 0
-          : 0,
-
-      /// REQUIRED ROOT FIELDS
-      "Description": "",
-
-      "ExpenseCategoryId": null,
-
-      "EstimatedCurrency": cashAdvTransPayload.isNotEmpty
-          ? cashAdvTransPayload.first["LineEstimatedCurrency"]
-          : "USD",
-
-      "RequestedCurrency": cashAdvTransPayload.isNotEmpty
-          ? cashAdvTransPayload.first["LineRequestedCurrency"]
-          : "USD",
-
-      /// IMPORTANT: DO NOT ROUND FOR BACKEND
-      "RequestedExchangerate": requestedExchangeRate,
-
-      "EstimatedExchangerate": estimatedExchangeRate,
-
-      "Percentage": 100,
-
-      "PrefferedPaymentMethod": paidWithCashAdvance.value!.isEmpty
-          ? null
-          : paidWithCashAdvance.value,
-
-      "BusinessJustification": justificationController.text.trim(),
-
-      "ReferenceId": referenceID.text.trim(),
-
-      "CashAdvTrans": cashAdvTransPayload,
-
-      /// REQUIRED EMPTY ARRAYS
-      "CSHHeaderCustomFieldValues": expenseHeaderCustomFields,
-
-      "CSHHeaderCategoryCustomFieldValues": [],
-
-      "AccountingDistributions": [],
-
-      "DocumentAttachment": {"File": attachmentPayload},
-    };
-
-    print("========== CASH ADVANCE REQUEST ==========");
-    print(jsonEncode(requestBody));
-
-    /// API CALL
-    final response = await ApiService.post(
-      Uri.parse(
-        "${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance"
-        "?functionalentity=CashAdvanceRequisition"
-        "&submit=$submit"
-        "&resubmit=${reSubmit ?? false}"
-        "&screen_name=MyCshAdv",
-      ),
-      body: jsonEncode(requestBody),
-    );
-
-    print("========== RESPONSE ==========");
-    print(response.statusCode);
-    print(response.body);
-
-    /// SUCCESS
-    if (response.statusCode == 201 || response.statusCode == 280) {
-      final data = jsonDecode(response.body);
-
-      final message = data['detail']['message'] ?? 'Cash advance created';
-
-      isPageLoading.value = false;
-
-      clearFormFields();
-
-      Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
-
-      Fluttertoast.showToast(
-        msg: message,
-        backgroundColor: Colors.green[100],
-        textColor: Colors.green[800],
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
-    /// POLICY WARNING
-    else if (response.statusCode == 430) {
-      final data = jsonDecode(response.body);
-
-      final message = data['detail']['message'];
-
-      isPageLoading.value = false;
-
-      clearFormFields();
-
-      Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
-
-      Fluttertoast.showToast(
-        msg: message,
-        backgroundColor: Colors.orange[100],
-        textColor: Colors.orange[800],
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
-    /// VALIDATION ERROR
-    else if (response.statusCode == 406) {
-      final data = jsonDecode(response.body);
-
-      final message = data['detail']['message'] ?? response.body;
-
-      isPageLoading.value = false;
-
-      Fluttertoast.showToast(
-        msg: message,
-        backgroundColor: Colors.red[800],
-        textColor: Colors.white,
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
-    /// JUSTIFICATION REQUIRED
-    else if (response.statusCode == 428) {
-      clearFormFields();
-
-      final data = jsonDecode(response.body);
-
-      final detail = data['detail'];
-
-      isPageLoading.value = false;
-
-      final List<String> justificationReq = List<String>.from(
-        detail['message'] ?? [],
-      );
-
-      final String policyId = detail['policyid'] ?? '';
-
-      final String versionNumber = detail['version_number'] ?? '';
-
-      final int refRecId = detail['refrecid'] ?? 0;
-
-      final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
-
-      final justificationNote = await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          final controller = TextEditingController();
-
-          return AlertDialog(
-            title: Text(
-              AppLocalizations.of(context)!.justificationRequired,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+        if (fieldId.isNotEmpty && value.isNotEmpty) {
+          categoryFields.add(
+            CustomFieldValue(
+              customFieldEntity: 'ExpenseCategories',
+              fieldId: fieldId,
+              fieldValue: value,
+              fieldName: fieldName,
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (justificationReq.isNotEmpty)
-                  Text(justificationReq.join("\n\n")),
+          );
+          print("✅ Added category field: $fieldName = $value");
+        }
+      }
+    } catch (e) {
+      print("❌ Error building category fields: $e");
+    }
 
-                const SizedBox(height: 16),
+    print("🔍 Trans fields count: ${transFields.length}");
+    print("🔍 Category fields count: ${categoryFields.length}");
 
-                TextField(
-                  controller: controller,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    labelText: AppLocalizations.of(
-                      context,
-                    )!.enterJustification,
+    // ✅ Safely parse numeric values with fallbacks
+    final double unitEstimatedAmount = () {
+      final fromUnitAmount = double.tryParse(unitAmount.text) ?? 0.0;
+      if (fromUnitAmount > 0) return fromUnitAmount;
+      return double.tryParse(paidAmountCA1.text) ?? 0.0;
+    }();
+
+    final int percentageValue = () {
+      final perc = double.tryParse(requestedPercentage.text) ?? 1.0;
+      return perc.toInt();
+    }();
+
+    final double exchRateValue = () {
+      final rate = double.tryParse(unitRateCA1.text) ?? 0.0;
+      return rate > 0 ? rate : 1.0;
+    }();
+
+    final double userExchRateValue = () {
+      final rate = double.tryParse(unitRateCA1.text) ?? 0.0;
+      return rate > 0 ? rate : 1.0;
+    }();
+
+    return CashAdvanceRequestItemizeFornew(
+      expenseCategoryId: selectedCategoryId?.isNotEmpty == true
+          ? selectedCategoryId
+          : '',
+      quantity: (double.tryParse(quantity.text) ?? 0.0).toInt(),
+      uomId: selectedunit?.code ?? "Uom-004",
+
+      unitEstimatedAmount: unitEstimatedAmount,
+      lineEstimatedAmount: double.tryParse(paidAmountCA1.text) ?? 0.0,
+      lineEstimatedAmountInReporting: double.tryParse(amountINRCA1.text) ?? 0.0,
+
+      taxAmount: double.tryParse(taxAmount.text) ?? 0.0,
+      taxGroup: selectedTax?.taxGroupId,
+
+      projectId: selectedProject?.code?.isNotEmpty == true
+          ? selectedProject!.code
+          : null,
+      location: selectedLocation?.city ?? '',
+      description: descriptionController.text,
+      isReimbursable: isReimbursite,
+      isBillable: isBillableCreate,
+
+      createdBy: Params.userId ?? '',
+      createdDatetime: toStartOfDayUtc(DateTime.now()),
+      requestDate: toStartOfDayUtc(DateTime.now()),
+      employeeId: Params.employeeId ?? '',
+      lineEstimatedCurrency: currencyDropDowncontrollerCA3.text,
+
+      estimatedCurrency: currencyDropDowncontrollerCA3.text,
+      exchRate: exchRateValue,
+      userExchRate: userExchRateValue,
+
+      totalRequestedAmount: double.tryParse(totalRequestedAmount.text) ?? 0.0,
+      totalRequestedAmountInReporting:
+          double.tryParse(amountINRCA2.text) ?? 0.0,
+
+      lineAdvanceRequested: double.tryParse(totalRequestedAmount.text) ?? 0.0,
+      lineRequestedAdvanceInReporting:
+          double.tryParse(amountINRCA2.text) ?? 0.0,
+      lineRequestedCurrency: currencyDropDowncontrollerCA2.text,
+      lineRequestedExchangerate: double.tryParse(unitRateCA2.text) ?? 0.0,
+
+      maxAllowedPercentage: percentageValue,
+      percentage: percentageValue,
+
+      accountingDistributions: (accountingDistributions ?? [])
+          .where((c) => c != null)
+          .map((c) {
+            return AccountingDistribution(
+              transAmount:
+                  double.tryParse(
+                    c!.transAmount.toStringAsFixed(2).toString(),
+                  ) ??
+                  0.0,
+              reportAmount:
+                  double.tryParse(
+                    c.reportAmount.toStringAsFixed(2).toString(),
+                  ) ??
+                  0.0,
+              allocationFactor: c.allocationFactor ?? 0.0,
+              dimensionValueId: c.dimensionValueId ?? 'Branch001',
+            );
+          })
+          .toList(),
+
+      // ✅ Only add if there are values
+      cshHeaderCategoryCustomFieldValues: categoryFields.isNotEmpty
+          ? categoryFields
+          : null,
+      cshHeaderCustomFieldValues: transFields.isNotEmpty ? transFields : null,
+    );
+  }
+
+  Future<void> saveCashAdvance(
+    BuildContext context,
+    bool submit,
+    bool? reSubmit,
+    int? recId, [
+    String? reqID,
+  ]) async {
+    try {
+      isPageLoading.value = true;
+
+      /// Request Date
+      final formattedDate = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).format(selectedDate ?? DateTime.now());
+
+      final parsedDate = DateFormat(
+        selectedFormat?.key ?? 'dd/MM/yyyy',
+      ).parse(formattedDate);
+
+      final requestDate = toStartOfDayUtc(selectedDate!);
+
+      /// Attachments
+      final attachmentPayload = await buildDocumentAttachment(imageFiles);
+
+      final expenseHeaderCustomFields = customFields
+          .where((field) => field['ObjectName'] == 'ExpenseHeader')
+          .map((field) {
+            dynamic fieldValue;
+
+            if (field['FieldType'] == 'List' ||
+                field['FieldType'] == 'CustomList' ||
+                field['FieldType'] == 'SystemList') {
+              fieldValue = field['SelectedValue']?.valueId ?? '';
+            } else if (field['FieldType'] == 'Checkbox') {
+              fieldValue = field['EnteredValue'] ?? false;
+            } else if (field['FieldType'] == 'Date') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                  : '';
+            } else if (field['FieldType'] == 'Date&Time') {
+              fieldValue = field['EnteredValue'] != null
+                  ? DateFormat(
+                      'dd/MM/yyyy hh:mm a',
+                    ).format(field['EnteredValue'])
+                  : '';
+            } else {
+              fieldValue = field['EnteredValue']?.toString() ?? '';
+            }
+
+            return {
+              "CustomFieldEntity": field['ObjectName'] ?? 'ExpenseHeader',
+              "FieldId": field['FieldId'] ?? '',
+              "FieldValue": fieldValue,
+              "FieldName": field['FieldName'] ?? '',
+              "FieldType": field['FieldType'] ?? '',
+            };
+          })
+          .toList();
+
+      /// ✅ FIX: Build Cash Advance Trans with custom fields
+      final cashAdvTransPayload = finalItemsCashAdvanceNew.map((item) {
+        final json = item.toJson();
+
+        // ✅ Get transaction-level custom fields (cashadvancetrans)
+        final transCustomFields = item.cshHeaderCustomFieldValues ?? [];
+
+        // ✅ Get category-level custom fields (ExpenseCategories)
+        final categoryCustomFields =
+            item.cshHeaderCategoryCustomFieldValues ?? [];
+
+        // ✅ Add them to the transaction JSON
+        json["CSHTransCustomFieldValues"] = transCustomFields.map((field) {
+          return {
+            "CustomFieldEntity": field.customFieldEntity,
+            "FieldId": field.fieldId,
+            "FieldValue": field.fieldValue,
+            "FieldName": field.fieldName,
+            "FieldType": "",
+          };
+        }).toList();
+
+        json["CSHTransCategoryCustomFieldValues"] = categoryCustomFields.map((
+          field,
+        ) {
+          return {
+            "CustomFieldEntity": field.customFieldEntity,
+            "FieldId": field.fieldId,
+            "FieldValue": field.fieldValue,
+            "FieldName": field.fieldName,
+            "FieldType": "",
+          };
+        }).toList();
+
+        print("🔍 Transaction ${item.expenseCategoryId}:");
+        print(
+          "  - Trans Custom Fields: ${json["CSHTransCustomFieldValues"].length}",
+        );
+        print(
+          "  - Category Custom Fields: ${json["CSHTransCategoryCustomFieldValues"].length}",
+        );
+
+        // Avoid empty string issue
+        json["ExpenseCategoryId"] =
+            (json["ExpenseCategoryId"]?.toString().trim().isEmpty ?? true)
+            ? null
+            : json["ExpenseCategoryId"];
+
+        /// IMPORTANT: Use full precision exchange rate for backend
+        if (json["LineRequestedExchangerate"] != null) {
+          json["LineRequestedExchangerate"] = double.parse(
+            json["LineRequestedExchangerate"].toString(),
+          );
+        }
+
+        if (json["LineEstimatedExchangerate"] != null) {
+          json["LineEstimatedExchangerate"] = double.parse(
+            json["LineEstimatedExchangerate"].toString(),
+          );
+        }
+
+        return json;
+      }).toList();
+
+      /// Totals
+      double totalRequested = 0;
+      double totalEstimated = 0;
+
+      for (var item in cashAdvTransPayload) {
+        totalRequested +=
+            double.tryParse(item["LineAdvanceRequested"]?.toString() ?? "0") ??
+            0;
+
+        totalEstimated +=
+            double.tryParse(item["LineEstimatedAmount"]?.toString() ?? "0") ??
+            0;
+      }
+
+      /// Root Exchange Rates
+      double requestedExchangeRate = cashAdvTransPayload.isNotEmpty
+          ? double.tryParse(
+                  cashAdvTransPayload.first["LineRequestedExchangerate"]
+                      .toString(),
+                ) ??
+                1.0
+          : 1.0;
+
+      double estimatedExchangeRate = cashAdvTransPayload.isNotEmpty
+          ? double.tryParse(
+                  cashAdvTransPayload.first["LineEstimatedExchangerate"]
+                      .toString(),
+                ) ??
+                1.0
+          : 1.0;
+
+      /// Request Body
+      final Map<String, dynamic> requestBody = {
+        "RequisitionId": cashAdvanceRequisitionID.text.trim(),
+
+        "EmployeeId": employeeDropDownController.text.trim().isEmpty
+            ? null
+            : employeeDropDownController.text.trim(),
+
+        "EmployeeName": employeeName.text.trim().isEmpty
+            ? null
+            : employeeName.text.trim(),
+
+        "RequestDate": requestDate,
+
+        /// REQUIRED ROOT TOTALS
+        "TotalRequestedAmount": totalRequested,
+
+        "TotalRequestedAmountInReporting": requestamountINR.text.isNotEmpty
+            ? double.tryParse(requestamountINR.text) ?? 0
+            : 0,
+
+        "TotalEstimatedAmount": totalEstimated,
+
+        "TotalEstimatedAmountInReporting": estimatedamountINR.text.isNotEmpty
+            ? double.tryParse(estimatedamountINR.text) ?? 0
+            : 0,
+
+        /// REQUIRED ROOT FIELDS
+        "Description": "",
+
+        "ExpenseCategoryId": null,
+
+        "EstimatedCurrency": cashAdvTransPayload.isNotEmpty
+            ? cashAdvTransPayload.first["LineEstimatedCurrency"]
+            : "USD",
+
+        "RequestedCurrency": cashAdvTransPayload.isNotEmpty
+            ? cashAdvTransPayload.first["LineRequestedCurrency"]
+            : "USD",
+
+        /// IMPORTANT: DO NOT ROUND FOR BACKEND
+        "RequestedExchangerate": requestedExchangeRate,
+
+        "EstimatedExchangerate": estimatedExchangeRate,
+
+        "Percentage": 100,
+
+        "PrefferedPaymentMethod": paidWithCashAdvance.value!.isEmpty
+            ? null
+            : paidWithCashAdvance.value,
+
+        "BusinessJustification": justificationController.text.trim(),
+
+        "ReferenceId": referenceID.text.trim(),
+
+        "CashAdvTrans": cashAdvTransPayload,
+
+        /// REQUIRED EMPTY ARRAYS
+        "CSHHeaderCustomFieldValues": expenseHeaderCustomFields,
+
+        "CSHHeaderCategoryCustomFieldValues": [],
+
+        "AccountingDistributions": [],
+
+        "DocumentAttachment": {"File": attachmentPayload},
+      };
+
+      print("========== CASH ADVANCE REQUEST ==========");
+      print(jsonEncode(requestBody));
+
+      /// API CALL
+      final response = await ApiService.post(
+        Uri.parse(
+          "${Urls.baseURL}/api/v1/cashadvancerequisition/cashadvanceregistration/registercashadvance"
+          "?functionalentity=CashAdvanceRequisition"
+          "&submit=$submit"
+          "&resubmit=${reSubmit ?? false}"
+          "&screen_name=MyCshAdv",
+        ),
+        body: jsonEncode(requestBody),
+      );
+
+      print("========== RESPONSE ==========");
+      print(response.statusCode);
+      print(response.body);
+
+      /// SUCCESS
+      if (response.statusCode == 201 || response.statusCode == 280) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'] ?? 'Cash advance created';
+
+        isPageLoading.value = false;
+
+        clearFormFields();
+
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.green[100],
+          textColor: Colors.green[800],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      }
+      /// POLICY WARNING
+      else if (response.statusCode == 430) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'];
+
+        isPageLoading.value = false;
+
+        clearFormFields();
+
+        Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard);
+
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.orange[100],
+          textColor: Colors.orange[800],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      }
+      /// VALIDATION ERROR
+      else if (response.statusCode == 406) {
+        final data = jsonDecode(response.body);
+
+        final message = data['detail']['message'] ?? response.body;
+
+        isPageLoading.value = false;
+
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[800],
+          textColor: Colors.white,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      }
+      /// JUSTIFICATION REQUIRED
+      else if (response.statusCode == 428) {
+        clearFormFields();
+
+        final data = jsonDecode(response.body);
+
+        final detail = data['detail'];
+
+        isPageLoading.value = false;
+
+        final List<String> justificationReq = List<String>.from(
+          detail['message'] ?? [],
+        );
+
+        final String policyId = detail['policyid'] ?? '';
+
+        final String versionNumber = detail['version_number'] ?? '';
+
+        final int refRecId = detail['refrecid'] ?? 0;
+
+        final List<dynamic> refRecLineId = detail['refreclineid'] ?? [];
+
+        final justificationNote = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            final controller = TextEditingController();
+
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(context)!.justificationRequired,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (justificationReq.isNotEmpty)
+                    Text(justificationReq.join("\n\n")),
+
+                  const SizedBox(height: 16),
+
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: AppLocalizations.of(
+                        context,
+                      )!.enterJustification,
+                    ),
                   ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+
+                    if (text.isNotEmpty) {
+                      Navigator.pop(context, text);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: AppLocalizations.of(
+                          context,
+                        )!.pleaseEnterJustification,
+                      );
+                    }
+                  },
+                  child: Text(AppLocalizations.of(context)!.save),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(AppLocalizations.of(context)!.cancel),
-              ),
+            );
+          },
+        );
 
-              ElevatedButton(
-                onPressed: () {
-                  final text = controller.text.trim();
-
-                  if (text.isNotEmpty) {
-                    Navigator.pop(context, text);
-                  } else {
-                    Fluttertoast.showToast(
-                      msg: AppLocalizations.of(
-                        context,
-                      )!.pleaseEnterJustification,
-                    );
-                  }
-                },
-                child: Text(AppLocalizations.of(context)!.save),
-              ),
-            ],
+        if (justificationNote != null && justificationNote.isNotEmpty) {
+          await cashAdvanceRequestDashboard(
+            justificationNote,
+            justificationReq,
+            refRecId,
+            refRecLineId,
+            policyId,
+            versionNumber,
+            context,
           );
-        },
-      );
+        }
+      }
+      /// UNKNOWN ERROR
+      else {
+        isPageLoading.value = false;
 
-      if (justificationNote != null && justificationNote.isNotEmpty) {
-        await cashAdvanceRequestDashboard(
-          justificationNote,
-          justificationReq,
-          refRecId,
-          refRecLineId,
-          policyId,
-          versionNumber,
-          context,
+        Fluttertoast.showToast(
+          msg: "Error ${response.statusCode}\n${response.body}",
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
         );
       }
-    }
-    /// UNKNOWN ERROR
-    else {
+    } catch (e, stackTrace) {
       isPageLoading.value = false;
 
+      print("❌ API Exception: $e");
+      print(stackTrace);
+
       Fluttertoast.showToast(
-        msg: "Error ${response.statusCode}\n${response.body}",
+        msg: "Something went wrong: $e",
         backgroundColor: Colors.redAccent,
         textColor: Colors.white,
         toastLength: Toast.LENGTH_LONG,
         gravity: ToastGravity.BOTTOM,
       );
     }
-  } catch (e, stackTrace) {
-    isPageLoading.value = false;
-
-    print("❌ API Exception: $e");
-    print(stackTrace);
-
-    Fluttertoast.showToast(
-      msg: "Something went wrong: $e",
-      backgroundColor: Colors.redAccent,
-      textColor: Colors.white,
-      toastLength: Toast.LENGTH_LONG,
-      gravity: ToastGravity.BOTTOM,
-    );
   }
-}
 
   Future<void> saveinEditCashAdvance(
     BuildContext context,
@@ -10641,8 +10695,9 @@ void _loadMasterLineCustomFields() {
         );
         finalItemsCashAdvance = [];
       }
-    } catch (e) {
-      //  //  // print("❌ API Exception: $e");
+    } catch (e, stackTrace) {
+      print("❌ API Exception: $e");
+      print("Stack Trace: $stackTrace");
       Fluttertoast.showToast(
         msg: "Something went wrong: $e",
         backgroundColor: Colors.redAccent,
@@ -11150,7 +11205,7 @@ void _loadMasterLineCustomFields() {
         }
       }
     } catch (e) {
-      //  //  // print("❌ Exception: $e");
+    print("❌ Exception: $e");
 
       if (!bool) {
         isUploading.value = false;
@@ -12565,8 +12620,6 @@ void _loadMasterLineCustomFields() {
       isLoading.value = false;
     }
   }
-
- 
 
   Future<List<TimeSheetRangeModel>> fetchTimeSheetRange({
     required int fromDate,
@@ -14614,7 +14667,9 @@ void _loadMasterLineCustomFields() {
       final body = {
         "LeaveReqId": leaveReqId,
         "CancellationType": cancellationType,
-        "CancellationDate": toStartOfDayUtc(DateTime.now()),
+        "CancellationDate": toStartOfDayUtc(
+          DateTime.now().add(Duration(days: 1)),
+        ),
         "ReasonForCancellation": reason,
         "LeaveCancellationTrans": buildPartialCancelTrans(),
       };
@@ -14667,7 +14722,9 @@ void _loadMasterLineCustomFields() {
       final payload = {
         "LeaveReqId": leaveReqId,
         "CancellationType": "Partial",
-        "CancellationDate": toStartOfDayUtc(DateTime.now()),
+        "CancellationDate": toStartOfDayUtc(
+          DateTime.now().add(Duration(days: 1)),
+        ),
         "ReasonForCancellation": reason,
         "LeaveCancellationTrans": buildPartialCancelTrans(),
       };
@@ -15250,8 +15307,9 @@ void _loadMasterLineCustomFields() {
         expenseTrans = [];
         expenseTrans.clear();
       }
-    } catch (e) {
-      //  //  // print("🔥 Exception during API call: $e");
+    } catch (e, stackTrace) {
+      print("🔥 Exception during API call: $e");
+      print("🔥 Stack Trace: $stackTrace");
     }
   }
 
@@ -16354,11 +16412,60 @@ void _loadMasterLineCustomFields() {
 
     double? parsedAmount = double.tryParse(amount!);
     final String amounts = parsedAmount != null
-        ? parsedAmount.toInt().toStringAsFixed(2)
+        ? parsedAmount.toInt().toString()
         : '0';
 
     final url = Uri.parse(
       '${Urls.exchangeRateCA}/$amounts/$currencyValue/$fromDate',
+    );
+
+    try {
+      final response = await ApiService.get(url);
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final String message =
+          responseData['detail']?['message'] ?? 'No message found';
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['ExchangeRate'] != null && data['BaseUnit'] != null) {
+          return ExchangeRateResponse.fromJson(data);
+        }
+      } else {
+        Fluttertoast.showToast(
+          msg: message,
+          backgroundColor: Colors.red[200],
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          textColor: Colors.red[800],
+          fontSize: 16.0,
+        );
+      }
+    } catch (e) {
+      //  //  // print('Error fetching exchange rate: $e');
+    }
+    return null;
+  }
+
+  Future<ExchangeRateResponse?> fetchExchangeRateCAEstimated(
+    String? currencyCode,
+    String? amount,
+  ) async {
+    final dateToUse = selectedDate ?? DateTime.now();
+    final formatted = DateFormat(
+      selectedFormat?.key ?? 'dd/MM/yyyy',
+    ).format(dateToUse);
+    final fromDate = parseDateToEpoch(formatted);
+    String? currencyCodes = currencyCode;
+    final currencyValue = currencyCodes ?? "INR";
+
+    double? parsedAmount = double.tryParse(amount!);
+    final String amounts = parsedAmount != null
+        ? parsedAmount.toInt().toString()
+        : '0';
+
+    final url = Uri.parse(
+      '$Urls.exchangeRate/$amounts/$currencyValue/$fromDate',
     );
 
     try {
@@ -16861,40 +16968,43 @@ void _loadMasterLineCustomFields() {
       return null;
     }
   }
-String _formatDate(DateTime date) {
-  // Get user's preferred date format from settings
-  String dateFormat = getUserDateFormat(); // Implement this based on user settings
-  switch (dateFormat) {
-    case 'MM/dd/yyyy':
-      return DateFormat('MM/dd/yyyy').format(date);
-    case 'yyyy-MM-dd':
-      return DateFormat('yyyy-MM-dd').format(date);
-    case 'dd-MM-yyyy':
-      return DateFormat('dd-MM-yyyy').format(date);
-    default:
-      return DateFormat('dd/MM/yyyy').format(date);
-  }
-}
 
-String formatDateTime(DateTime dateTime) {
-  String dateFormat = getUserDateFormat();
-  switch (dateFormat) {
-    case 'MM/dd/yyyy':
-      return DateFormat('MM/dd/yyyy hh:mm a').format(dateTime);
-    case 'yyyy-MM-dd':
-      return DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
-    case 'dd-MM-yyyy':
-      return DateFormat('dd-MM-yyyy hh:mm a').format(dateTime);
-    default:
-      return DateFormat('dd/MM/yyyy hh:mm a').format(dateTime);
+  String _formatDate(DateTime date) {
+    // Get user's preferred date format from settings
+    String dateFormat =
+        getUserDateFormat(); // Implement this based on user settings
+    switch (dateFormat) {
+      case 'MM/dd/yyyy':
+        return DateFormat('MM/dd/yyyy').format(date);
+      case 'yyyy-MM-dd':
+        return DateFormat('yyyy-MM-dd').format(date);
+      case 'dd-MM-yyyy':
+        return DateFormat('dd-MM-yyyy').format(date);
+      default:
+        return DateFormat('dd/MM/yyyy').format(date);
+    }
   }
-}
 
-String getUserDateFormat() {
-  // Implement this to get user's date format preference from settings
-  // For now, return default
-  return 'dd/MM/yyyy';
-}
+  String formatDateTime(DateTime dateTime) {
+    String dateFormat = getUserDateFormat();
+    switch (dateFormat) {
+      case 'MM/dd/yyyy':
+        return DateFormat('MM/dd/yyyy hh:mm a').format(dateTime);
+      case 'yyyy-MM-dd':
+        return DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
+      case 'dd-MM-yyyy':
+        return DateFormat('dd-MM-yyyy hh:mm a').format(dateTime);
+      default:
+        return DateFormat('dd/MM/yyyy hh:mm a').format(dateTime);
+    }
+  }
+
+  String getUserDateFormat() {
+    // Implement this to get user's date format preference from settings
+    // For now, return default
+    return 'dd/MM/yyyy';
+  }
+
   Future<SequenceNumber?> fetchCashAdvanceSequence() async {
     final url = Uri.parse(Urls.cashadvancerequisition);
 
@@ -18291,15 +18401,15 @@ String getUserDateFormat() {
     lineItemFields.refresh();
   }
 
- void loadAllCustomFieldValues({
+  Future<void> loadAllCustomFieldValues({
     List<Map<String, dynamic>>? savedValues,
   }) async {
     /// Step 1: Fetch custom field definitions
     await fetchCustomFields();
     print("customFields after fetch: ${customFields.length}");
-    
+
     if (customFields.isEmpty) {
-      print("No custom fields found for LeaveRequisition");
+      print("No custom fields found");
       return;
     }
 
@@ -18332,55 +18442,71 @@ String getUserDateFormat() {
 
       /// Try to find a matching saved value
       Map<String, dynamic>? match;
+      dynamic rawValue;
+
       if (savedValues != null && savedValues.isNotEmpty) {
         match = savedValues.firstWhereOrNull(
           (sv) => sv['FieldName'] == field['FieldName'],
         );
-        print("Matching $fieldName with saved: $match");
+
+        if (match != null && match['FieldValue'] != null) {
+          // Don't convert to string - keep the original type
+          rawValue = match['FieldValue'];
+          print(
+            "Found saved value for $fieldName: $rawValue (${rawValue.runtimeType})",
+          );
+        }
       }
 
-      final rawValue =
-          (match != null && match['FieldValue']?.toString().isNotEmpty == true)
-          ? match['FieldValue'].toString()
-          : null;
-
-      final defaultValue =
-          (field['DefaultValue']?.toString().isNotEmpty == true)
-          ? field['DefaultValue'].toString()
-          : null;
-
-      /// Priority: savedValue > defaultValue
-      final effectiveValue = rawValue ?? defaultValue;
+      // If no saved value, use default value
+      if (rawValue == null && field['DefaultValue'] != null) {
+        rawValue = field['DefaultValue'];
+        print(
+          "Using default value for $fieldName: $rawValue (${rawValue.runtimeType})",
+        );
+      }
 
       print(
-        "Field: $fieldName | Type: $fieldType | raw: $rawValue | default: $defaultValue | effective: $effectiveValue",
+        "Field: $fieldName | Type: $fieldType | Raw Value Type: ${rawValue?.runtimeType} | Raw Value: $rawValue",
       );
 
       /// ================= INITIALIZE REACTIVE VALUES FOR EACH FIELD TYPE =================
-      
+
       // DROPDOWN
-      if (fieldType == 'list' || fieldType == 'customlist' || fieldType == 'systemlist') {
+      if (fieldType == 'list' ||
+          fieldType == 'customlist' ||
+          fieldType == 'systemlist') {
         final options = (field['Options'] as List<CustomDropdownValue>?) ?? [];
-        
+
         CustomDropdownValue? matched;
-        if (effectiveValue != null) {
+        if (rawValue != null) {
+          final valueStr = rawValue.toString().toLowerCase();
           matched = options.firstWhereOrNull(
-            (opt) => opt.valueId.toLowerCase() == effectiveValue.toLowerCase(),
-          ) ?? options.firstWhereOrNull(
-            (opt) => opt.valueName.toLowerCase() == effectiveValue.toLowerCase(),
+            (opt) =>
+                opt.valueId.toLowerCase() == valueStr ||
+                opt.valueName.toLowerCase() == valueStr,
           );
         }
-        
-        // Initialize reactive value
+
         field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matched);
         field['SelectedValue'] = matched;
         field['EnteredValue'] = matched?.valueId;
-        
-        print("✅ Dropdown $fieldName initialized with: ${matched?.valueName ?? 'null'}");
+        print(
+          "✅ Dropdown $fieldName initialized with: ${matched?.valueName ?? 'null'}",
+        );
       }
       // CHECKBOX
       else if (fieldType == 'checkbox') {
-        final boolValue = effectiveValue == 'true' || effectiveValue == '1';
+        bool boolValue = false;
+        if (rawValue is bool) {
+          boolValue = rawValue;
+        } else if (rawValue is String) {
+          boolValue = rawValue.toLowerCase() == 'true';
+        } else if (rawValue is int) {
+          boolValue = rawValue == 1;
+        } else if (rawValue is double) {
+          boolValue = rawValue == 1.0;
+        }
         field['_rxCheckboxValue'] = Rx<bool>(boolValue);
         field['EnteredValue'] = boolValue;
         print("✅ Checkbox $fieldName initialized with: $boolValue");
@@ -18388,17 +18514,25 @@ String getUserDateFormat() {
       // DATE
       else if (fieldType == 'date') {
         DateTime? dateValue;
-        if (effectiveValue != null) {
-          try {
-            final millis = int.tryParse(effectiveValue);
-            dateValue = millis != null
-                ? DateTime.fromMillisecondsSinceEpoch(millis)
-                : DateTime.tryParse(effectiveValue);
-            if (dateValue == null) {
-              dateValue = DateFormat('dd/MM/yyyy').tryParse(effectiveValue);
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateValue = rawValue;
+          } else if (rawValue is int) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateValue = DateTime.fromMillisecondsSinceEpoch(rawValue.toInt());
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateValue == null) {
+                dateValue = DateFormat('dd/MM/yyyy').tryParse(rawValue);
+              }
+            } catch (e) {
+              print("Date parse error for $fieldName: $e");
             }
-          } catch (e) {
-            print("Date parse error for $fieldName: $e");
           }
         }
         field['_rxDateValue'] = Rx<DateTime?>(dateValue);
@@ -18408,17 +18542,29 @@ String getUserDateFormat() {
       // DATE & TIME
       else if (fieldType == 'date&time') {
         DateTime? dateTimeValue;
-        if (effectiveValue != null) {
-          try {
-            final millis = int.tryParse(effectiveValue);
-            dateTimeValue = millis != null
-                ? DateTime.fromMillisecondsSinceEpoch(millis)
-                : DateTime.tryParse(effectiveValue);
-            if (dateTimeValue == null) {
-              dateTimeValue = DateFormat('dd/MM/yyyy hh:mm a').tryParse(effectiveValue);
+        if (rawValue != null) {
+          if (rawValue is DateTime) {
+            dateTimeValue = rawValue;
+          } else if (rawValue is int) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(rawValue);
+          } else if (rawValue is double) {
+            dateTimeValue = DateTime.fromMillisecondsSinceEpoch(
+              rawValue.toInt(),
+            );
+          } else if (rawValue is String && rawValue.isNotEmpty) {
+            try {
+              final millis = int.tryParse(rawValue);
+              dateTimeValue = millis != null
+                  ? DateTime.fromMillisecondsSinceEpoch(millis)
+                  : DateTime.tryParse(rawValue);
+              if (dateTimeValue == null) {
+                dateTimeValue = DateFormat(
+                  'dd/MM/yyyy hh:mm a',
+                ).tryParse(rawValue);
+              }
+            } catch (e) {
+              print("DateTime parse error for $fieldName: $e");
             }
-          } catch (e) {
-            print("DateTime parse error for $fieldName: $e");
           }
         }
         field['_rxDateValue'] = Rx<DateTime?>(dateTimeValue);
@@ -18427,45 +18573,76 @@ String getUserDateFormat() {
       }
       // INTEGER / LONG INTEGER
       else if (fieldType == 'integer' || fieldType == 'longinteger') {
-        int? intValue = int.tryParse(effectiveValue ?? '');
+        int? intValue;
+        if (rawValue is int) {
+          intValue = rawValue;
+        } else if (rawValue is double) {
+          intValue = rawValue.toInt();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          intValue = int.tryParse(rawValue);
+        }
         field['_rxIntValue'] = Rx<int?>(intValue);
         field['EnteredValue'] = intValue;
         print("✅ Integer $fieldName initialized with: $intValue");
       }
       // DECIMAL / AMOUNT / PERCENTAGE
-      else if (fieldType == 'decimal' || fieldType == 'amount' || fieldType == 'percentage') {
-        double? doubleValue = double.tryParse(effectiveValue ?? '');
+      else if (fieldType == 'decimal' ||
+          fieldType == 'amount' ||
+          fieldType == 'percent' ||
+          fieldType == 'percentage') {
+        double? doubleValue;
+        if (rawValue is double) {
+          doubleValue = rawValue;
+        } else if (rawValue is int) {
+          doubleValue = rawValue.toDouble();
+        } else if (rawValue is String && rawValue.isNotEmpty) {
+          doubleValue = double.tryParse(rawValue);
+        }
         field['_rxDoubleValue'] = Rx<double?>(doubleValue);
         field['EnteredValue'] = doubleValue;
-        print("✅ Decimal $fieldName initialized with: $doubleValue");
+        print(
+          "✅ Decimal/Amount/Percent $fieldName initialized with: $doubleValue",
+        );
       }
       // EMAIL
       else if (fieldType == 'email') {
-        field['_rxStringValue'] = Rx<String?>(effectiveValue);
-        field['EnteredValue'] = effectiveValue;
-        print("✅ Email $fieldName initialized with: $effectiveValue");
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Email $fieldName initialized with: $stringValue");
       }
       // MOBILE NUMBER
       else if (fieldType == 'mobilenumber') {
-        field['_rxStringValue'] = Rx<String?>(effectiveValue);
-        field['EnteredValue'] = effectiveValue;
-        print("✅ Mobile $fieldName initialized with: $effectiveValue");
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Mobile $fieldName initialized with: $stringValue");
       }
-      // TEXT / TEXTAREA / URL / DEFAULT
+      // URL
+      else if (fieldType == 'url') {
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ URL $fieldName initialized with: $stringValue");
+      }
+      // TEXT / TEXTAREA / DEFAULT
       else {
-        field['_rxStringValue'] = Rx<String?>(effectiveValue);
-        field['EnteredValue'] = effectiveValue;
-        print("✅ Text $fieldName initialized with: $effectiveValue");
+        final stringValue = rawValue?.toString() ?? '';
+        field['_rxStringValue'] = Rx<String?>(stringValue);
+        field['EnteredValue'] = stringValue;
+        print("✅ Text $fieldName initialized with: $stringValue");
       }
-      
+
       // Clear any errors
       field['Error'] = null;
     }
 
-    // Force refresh the UI
-    customFields.refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      customFields.refresh();
+    });
     print("Custom fields refresh called. Total fields: ${customFields.length}");
   }
+
   Future<void> fetchCustomFieldValues(String fieldId) async {
     print("Fetching options for fieldId: $fieldId");
 

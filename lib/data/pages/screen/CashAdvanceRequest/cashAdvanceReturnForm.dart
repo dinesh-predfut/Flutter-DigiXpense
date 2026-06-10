@@ -191,42 +191,40 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     Controller controller,
     int index,
   ) async {
-    final percentage = double.tryParse(value) ?? 0.0;
+    final percentage1 = double.tryParse(value) ?? 0.0;
 
     final maxPercentage =
         double.tryParse(controller.allowedPercentage.text) ?? 0.0;
 
     setState(() {
-      _showPercentageError = percentage > maxPercentage || percentage <= 0;
+      _showPercentageError = percentage1 > maxPercentage || percentage1 <= 0;
     });
 
-    if (_showPercentageError) return;
+    if (_showPercentageError) {
+      controller.totalRequestedAmount.text = '0.00';
+      controller.amountINRCA2.text = '0.00';
+      return;
+    }
 
-    final paidAmount = double.tryParse(controller.amountINRCA1.text) ?? 0.0;
+    final paidAmount1 = double.tryParse(controller.amountINRCA1.text) ?? 0.0;
+    final totalRequestedAmount =
+        double.tryParse(controller.paidAmountCA1.text) ?? 0.0;
+    if (paidAmount1 > 0 && percentage1 > 0) {
+      final requestedAmount = (paidAmount1 * percentage1) / 100;
+      final double paidAmount =
+          double.tryParse(controller.amountINRCA1.text) ?? 0.0;
 
-    if (paidAmount > 0 && percentage > 0) {
-      /// ✅ STEP 1: Calculate requested amount
-      final requestedAmount = (paidAmount * percentage) / 100;
+      final double unitRateCA2 =
+          double.tryParse(controller.unitRateCA2.text) ?? 0.0;
 
-      controller.totalRequestedAmount.text = requestedAmount.toStringAsFixed(2);
+      final double percentage =
+          double.tryParse(controller.requestedPercentage.text) ?? 0.0;
 
-      /// ✅ STEP 2: Get exchange rate only
-      final reqCurrency = controller.currencyDropDowncontrollerCA2.text.trim();
+      final double result = (paidAmount * unitRateCA2) * percentage / 100;
 
-      if (reqCurrency.isNotEmpty) {
-        final exchangeRate = await controller.fetchExchangeRatecalculatedCA2(
-          reqCurrency,
-        );
+      controller.totalRequestedAmount.text = result.toStringAsFixed(2);
 
-        if (exchangeRate != null) {
-          /// ✅ Store rate
-          controller.unitRateCA2.text = exchangeRate.toString();
-
-          /// ✅ STEP 3: Manual conversion (IMPORTANT CHANGE)
-          controller.amountINRCA2.text = (requestedAmount * exchangeRate)
-              .toStringAsFixed(2);
-        }
-      }
+      controller.amountINRCA2.text = requestedAmount.toStringAsFixed(2);
     } else {
       controller.totalRequestedAmount.text = '0.00';
       controller.amountINRCA2.text = '0.00';
@@ -860,174 +858,177 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
     // NEW: Custom fields validation method
     bool _validateCustomFields() {
-  bool isValid = true;
+      bool isValid = true;
 
-  // Get all cash advance transaction fields
-  final customFields = controller.customFieldsItems
-      .where((field) => field['ObjectName'] == 'cashadvancetrans')
-      .toList();
+      // Get all cash advance transaction fields
+      final customFields = controller.customFieldsItems
+          .where((field) => field['ObjectName'] == 'cashadvancetrans')
+          .toList();
 
-  for (var field in customFields) {
-    final bool isMandatory = field['IsMandatory'] ?? false;
-    final String fieldType = field['FieldType'] ?? '';
-    final String label = field['FieldLabel'] ?? field['FieldName'];
-    dynamic enteredValue = field['EnteredValue'];
+      for (var field in customFields) {
+        final bool isMandatory = field['IsMandatory'] ?? false;
+        final String fieldType = field['FieldType'] ?? '';
+        final String label = field['FieldLabel'] ?? field['FieldName'];
+        dynamic enteredValue = field['EnteredValue'];
 
-    // Check if value is provided based on field type
-    bool hasValue = false;
+        // Check if value is provided based on field type
+        bool hasValue = false;
 
-    switch (fieldType) {
-      case 'Checkbox':
-        hasValue = enteredValue == true;
-        break;
+        switch (fieldType) {
+          case 'Checkbox':
+            hasValue = enteredValue == true;
+            break;
 
-      case 'List':
-      case 'CustomList':
-      case 'SystemList':
-        hasValue = enteredValue != null && enteredValue.toString().isNotEmpty;
-        if (!hasValue && field['SelectedValue'] != null) {
-          hasValue = true;
+          case 'List':
+          case 'CustomList':
+          case 'SystemList':
+            hasValue =
+                enteredValue != null && enteredValue.toString().isNotEmpty;
+            if (!hasValue && field['SelectedValue'] != null) {
+              hasValue = true;
+            }
+            break;
+
+          case 'Date':
+          case 'Date&Time':
+            hasValue = enteredValue != null;
+            break;
+
+          case 'LongInteger':
+          case 'Decimal':
+          case 'Percentage':
+          case 'Amount':
+            if (enteredValue != null) {
+              if (enteredValue is num) {
+                hasValue = enteredValue > 0;
+              } else if (enteredValue is String) {
+                final parsed = double.tryParse(enteredValue);
+                hasValue = parsed != null && parsed > 0;
+              }
+            }
+            break;
+
+          case 'Email':
+          case 'MobileNumber':
+          case 'URL':
+          default:
+            hasValue =
+                enteredValue != null &&
+                enteredValue.toString().trim().isNotEmpty;
+            break;
         }
-        break;
 
-      case 'Date':
-      case 'Date&Time':
-        hasValue = enteredValue != null;
-        break;
+        if (isMandatory && !hasValue) {
+          field['Error'] = '$label is required';
+          isValid = false;
+          continue; // Skip further validation for this field if no value
+        }
 
-      case 'LongInteger':
-      case 'Decimal':
-      case 'Percentage':
-      case 'Amount':
-        if (enteredValue != null) {
-          if (enteredValue is num) {
-            hasValue = enteredValue > 0;
-          } else if (enteredValue is String) {
-            final parsed = double.tryParse(enteredValue);
-            hasValue = parsed != null && parsed > 0;
+        // Additional validation based on field type (only if has value)
+        if (hasValue) {
+          switch (fieldType) {
+            case 'Email':
+              final email = enteredValue.toString();
+              final emailRegex = RegExp(
+                r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+              );
+              if (!emailRegex.hasMatch(email)) {
+                field['Error'] = 'Enter a valid email address for $label';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            case 'MobileNumber':
+              final phone = enteredValue.toString();
+              final phoneRegex = RegExp(r'^[\+]?[0-9]{1,4}[\s\-]?[0-9]{6,12}$');
+              if (!phoneRegex.hasMatch(phone.trim())) {
+                field['Error'] = 'Enter a valid mobile number for $label';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            case 'URL':
+              final url = enteredValue.toString();
+              final urlRegex = RegExp(
+                r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
+                caseSensitive: false,
+              );
+              if (!urlRegex.hasMatch(url)) {
+                field['Error'] = 'Enter a valid URL for $label';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            case 'Percentage':
+              double percentage;
+              if (enteredValue is num) {
+                percentage = enteredValue.toDouble();
+              } else if (enteredValue is String) {
+                percentage = double.tryParse(enteredValue) ?? -1;
+              } else {
+                break;
+              }
+              if (percentage < 0 || percentage > 100) {
+                field['Error'] = '$label must be between 0 and 100';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            case 'Decimal':
+            case 'Amount':
+              double amount;
+              if (enteredValue is num) {
+                amount = enteredValue.toDouble();
+              } else if (enteredValue is String) {
+                amount = double.tryParse(enteredValue) ?? -1;
+              } else {
+                break;
+              }
+              if (amount < 0) {
+                field['Error'] = '$label cannot be negative';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            case 'LongInteger':
+              int intValue;
+              if (enteredValue is int) {
+                intValue = enteredValue;
+              } else if (enteredValue is String) {
+                intValue = int.tryParse(enteredValue) ?? -1;
+              } else {
+                break;
+              }
+              if (intValue < 0) {
+                field['Error'] = '$label cannot be negative';
+                isValid = false;
+              } else {
+                field['Error'] = null;
+              }
+              break;
+
+            default:
+              field['Error'] = null;
+              break;
           }
         }
-        break;
-
-      case 'Email':
-      case 'MobileNumber':
-      case 'URL':
-      default:
-        hasValue = enteredValue != null && enteredValue.toString().trim().isNotEmpty;
-        break;
-    }
-
-    if (isMandatory && !hasValue) {
-      field['Error'] = '$label is required';
-      isValid = false;
-      continue; // Skip further validation for this field if no value
-    }
-
-    // Additional validation based on field type (only if has value)
-    if (hasValue) {
-      switch (fieldType) {
-        case 'Email':
-          final email = enteredValue.toString();
-          final emailRegex = RegExp(
-            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-          );
-          if (!emailRegex.hasMatch(email)) {
-            field['Error'] = 'Enter a valid email address for $label';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        case 'MobileNumber':
-          final phone = enteredValue.toString();
-          final phoneRegex = RegExp(r'^[\+]?[0-9]{1,4}[\s\-]?[0-9]{6,12}$');
-          if (!phoneRegex.hasMatch(phone.trim())) {
-            field['Error'] = 'Enter a valid mobile number for $label';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        case 'URL':
-          final url = enteredValue.toString();
-          final urlRegex = RegExp(
-            r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
-            caseSensitive: false,
-          );
-          if (!urlRegex.hasMatch(url)) {
-            field['Error'] = 'Enter a valid URL for $label';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        case 'Percentage':
-          double percentage;
-          if (enteredValue is num) {
-            percentage = enteredValue.toDouble();
-          } else if (enteredValue is String) {
-            percentage = double.tryParse(enteredValue) ?? -1;
-          } else {
-            break;
-          }
-          if (percentage < 0 || percentage > 100) {
-            field['Error'] = '$label must be between 0 and 100';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        case 'Decimal':
-        case 'Amount':
-          double amount;
-          if (enteredValue is num) {
-            amount = enteredValue.toDouble();
-          } else if (enteredValue is String) {
-            amount = double.tryParse(enteredValue) ?? -1;
-          } else {
-            break;
-          }
-          if (amount < 0) {
-            field['Error'] = '$label cannot be negative';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        case 'LongInteger':
-          int intValue;
-          if (enteredValue is int) {
-            intValue = enteredValue;
-          } else if (enteredValue is String) {
-            intValue = int.tryParse(enteredValue) ?? -1;
-          } else {
-            break;
-          }
-          if (intValue < 0) {
-            field['Error'] = '$label cannot be negative';
-            isValid = false;
-          } else {
-            field['Error'] = null;
-          }
-          break;
-
-        default:
-          field['Error'] = null;
-          break;
       }
+
+      // Refresh the UI to show errors
+      controller.customFields.refresh();
+
+      return isValid;
     }
-  }
-
-  // Refresh the UI to show errors
-  controller.customFields.refresh();
-
-  return isValid;
-}
     // Helper method for field-specific validation
 
     bool _validateForm({required bool isItemizeButton}) {
@@ -1174,6 +1175,10 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     // ─────────────────────────────────────────────
     // EXCHANGE CALCULATION
     // ─────────────────────────────────────────────
+    double round2(double value) {
+      return double.parse(value.toStringAsFixed(2));
+    }
+
     Future<void> calculateAndFetchExchange() async {
       try {
         final unitText = controller.unitAmount.text.trim();
@@ -1220,8 +1225,8 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
             controller.unitRateCA1.text = exchangeRate1.toStringAsFixed(2);
             controller.amountINRCA1.text =
                 (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
-            controller.amountINRCA2.text =
-                (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
+            // controller.amountINRCA2.text =
+            //     (calculatedLineAmount * exchangeRate1).toStringAsFixed(2);
 
             final double requestedAmount =
                 ((calculatedLineAmount * exchangeRate1) * requestedPercentage) /
@@ -1239,13 +1244,45 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
               if (exchangeResponse != null) {
                 controller.unitRateCA2.text = exchangeResponse.exchangeRate
                     .toStringAsFixed(2);
-                controller.amountINRCA2.text = exchangeResponse.totalAmount
-                    .toStringAsFixed(2);
-                controller.totalRequestedAmount.text = exchangeResponse
-                    .totalAmount
-                    .toStringAsFixed(2);
+                // controller.amountINRCA2.text = exchangeResponse.totalAmount
+                //     .toStringAsFixed(2);
+                // controller.totalRequestedAmount.text = exchangeResponse
+                //     .totalAmount
+                //     .toStringAsFixed(2);
               }
             }
+            final double amountINRCA1 =
+                double.tryParse(controller.amountINRCA1.text) ?? 0.0;
+
+            final double unitRateCA2 =
+                double.tryParse(controller.unitRateCA2.text) ?? 0.0;
+
+            final double percentage =
+                double.tryParse(
+                  controller.requestedPercentage.text
+                      .replaceAll('%', '')
+                      .trim(),
+                ) ??
+                0.0;
+
+            final double result =
+                ((amountINRCA1 * unitRateCA2) * percentage) / 100;
+
+            final double percentage2 =
+                double.tryParse(
+                  controller.requestedPercentage.text
+                      .replaceAll('%', '')
+                      .trim(),
+                ) ??
+                0.0;
+
+            final double amountINRCA12 =
+                double.tryParse(controller.amountINRCA1.text) ?? 0.0;
+
+            final double result2 = (amountINRCA12 * percentage2) / 100;
+
+            controller.amountINRCA2.text = result2.toStringAsFixed(2);
+            controller.totalRequestedAmount.text = result.toStringAsFixed(2);
           }
         }
       } catch (e) {
@@ -1354,81 +1391,97 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
 
                         // Bug #76: Handle SystemList along with List and CustomList
                         if (field['FieldType'] == 'List' ||
-    field['FieldType'] == 'CustomList' ||
-    field['FieldType'] == 'SystemList') {
-  
-  List<CustomDropdownValue> options = [];
-  if (field['Options'] != null && field['Options'] is List) {
-    options = List<CustomDropdownValue>.from(field['Options']);
-  }
+                            field['FieldType'] == 'CustomList' ||
+                            field['FieldType'] == 'SystemList') {
+                          List<CustomDropdownValue> options = [];
+                          if (field['Options'] != null &&
+                              field['Options'] is List) {
+                            options = List<CustomDropdownValue>.from(
+                              field['Options'],
+                            );
+                          }
 
-  field['_controller'] ??= TextEditingController();
-  final TextEditingController fieldController = field['_controller'];
+                          field['_controller'] ??= TextEditingController();
+                          final TextEditingController fieldController =
+                              field['_controller'];
 
-  CustomDropdownValue? selectedValue = field['SelectedValue'];
+                          CustomDropdownValue? selectedValue =
+                              field['SelectedValue'];
 
-  if (selectedValue == null && field['DefaultValue'] != null) {
-    final matches = options.where(
-      (opt) =>
-          opt.valueId == field['DefaultValue'] ||
-          opt.valueName == field['DefaultValue'],
-    );
-    selectedValue = matches.isNotEmpty ? matches.first : null;
+                          if (selectedValue == null &&
+                              field['DefaultValue'] != null) {
+                            final matches = options.where(
+                              (opt) =>
+                                  opt.valueId == field['DefaultValue'] ||
+                                  opt.valueName == field['DefaultValue'],
+                            );
+                            selectedValue = matches.isNotEmpty
+                                ? matches.first
+                                : null;
 
-    if (selectedValue != null) {
-      field['SelectedValue'] = selectedValue;
-      field['EnteredValue'] = selectedValue.valueId;
-    }
-  }
+                            if (selectedValue != null) {
+                              field['SelectedValue'] = selectedValue;
+                              field['EnteredValue'] = selectedValue.valueId;
+                            }
+                          }
 
-  // ✅ Show selectedValue name OR fallback to raw DefaultValue string
-  fieldController.text = selectedValue?.valueName ?? 
-                         field['DefaultValue']?.toString() ?? '';
+                          // ✅ Show selectedValue name OR fallback to raw DefaultValue string
+                          fieldController.text =
+                              selectedValue?.valueName ??
+                              field['DefaultValue']?.toString() ??
+                              '';
 
-  // ✅ If no matched selectedValue but DefaultValue exists,
-  // create a placeholder CustomDropdownValue so dropdown shows it
-  if (selectedValue == null && field['DefaultValue'] != null) {
-    selectedValue = CustomDropdownValue(
-      valueId: field['DefaultValue'].toString(),
-      valueName: field['DefaultValue'].toString(),
-    );
-    // ✅ Add to options if not already present (so it renders in list too)
-    final alreadyExists = options.any(
-      (opt) => opt.valueId == selectedValue!.valueId,
-    );
-    if (!alreadyExists) {
-      options = [selectedValue, ...options];
-    }
-    field['SelectedValue'] = selectedValue;
-    field['EnteredValue'] = selectedValue.valueId;
-  }
+                          // ✅ If no matched selectedValue but DefaultValue exists,
+                          // create a placeholder CustomDropdownValue so dropdown shows it
+                          if (selectedValue == null &&
+                              field['DefaultValue'] != null) {
+                            selectedValue = CustomDropdownValue(
+                              valueId: field['DefaultValue'].toString(),
+                              valueName: field['DefaultValue'].toString(),
+                            );
+                            // ✅ Add to options if not already present (so it renders in list too)
+                            final alreadyExists = options.any(
+                              (opt) => opt.valueId == selectedValue!.valueId,
+                            );
+                            if (!alreadyExists) {
+                              options = [selectedValue, ...options];
+                            }
+                            field['SelectedValue'] = selectedValue;
+                            field['EnteredValue'] = selectedValue.valueId;
+                          }
 
-  inputField = SearchableMultiColumnDropdownField<CustomDropdownValue>(
-    labelText: '$label${isMandatory ? " *" : ""}',
-    items: options,
-    selectedValue: selectedValue,
-    searchValue: (val) => val.valueName,
-    displayText: (val) => val.valueName,
-    controller: fieldController,
-    columnHeaders: const ['Value ID', 'Value Name'],
-    rowBuilder: (val, searchQuery) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(child: Text(val.valueId)),
-          Expanded(child: Text(val.valueName)),
-        ],
-      ),
-    ),
-    onChanged: (val) {
-      field['SelectedValue'] = val;
-      field['EnteredValue'] = val?.valueId;
-      field['Error'] = null;
-      fieldController.text = val?.valueName ?? '';
-      controller.customFields.refresh();
-    },
-  );
-}
+                          inputField =
+                              SearchableMultiColumnDropdownField<
+                                CustomDropdownValue
+                              >(
+                                labelText: '$label${isMandatory ? " *" : ""}',
+                                items: options,
+                                selectedValue: selectedValue,
+                                searchValue: (val) => val.valueName,
+                                displayText: (val) => val.valueName,
+                                controller: fieldController,
+                                columnHeaders: const ['Value ID', 'Value Name'],
+                                rowBuilder: (val, searchQuery) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text(val.valueId)),
+                                      Expanded(child: Text(val.valueName)),
+                                    ],
+                                  ),
+                                ),
+                                onChanged: (val) {
+                                  field['SelectedValue'] = val;
+                                  field['EnteredValue'] = val?.valueId;
+                                  field['Error'] = null;
+                                  fieldController.text = val?.valueName ?? '';
+                                  controller.customFields.refresh();
+                                },
+                              );
+                        }
                         // Bug #79 & #84: Fix Date and DateTime rendering with proper type handling
                         else if (field['FieldType'] == 'Date' ||
                             field['FieldType'] == 'Date&Time') {
@@ -3076,98 +3129,109 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                               Obx(
                                 () => SizedBox(
                                   width: 90,
-                                  child:
-                                      SearchableMultiColumnDropdownField<
-                                        Currency
-                                      >(
-                                        labelText: AppLocalizations.of(
-                                          context,
-                                        )!.currency,
-                                        alignLeft: -110,
-                                        dropdownWidth: 200,
-                                        columnHeaders: [
-                                          AppLocalizations.of(context)!.code,
-                                          AppLocalizations.of(context)!.name,
-                                          AppLocalizations.of(context)!.symbol,
-                                        ],
-                                        controller: controller
-                                            .currencyDropDowncontrollerCA2,
-                                        items: controllerItems.currencies,
-                                        selectedValue: controller
-                                            .selectedCurrencyCA2
-                                            .value,
-                                        backgroundColor: Colors.white,
-                                        searchValue: (c) =>
-                                            '${c.code} ${c.name} ${c.symbol}',
-                                        displayText: (c) => c.code,
-                                        inputDecoration: const InputDecoration(
-                                          isDense: true,
-                                          suffixIcon: Icon(
-                                            Icons.arrow_drop_down_outlined,
-                                          ),
-                                          contentPadding: EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 8,
-                                          ),
-                                          filled: true,
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.only(
-                                              topRight: Radius.circular(10),
-                                              bottomRight: Radius.circular(10),
-                                            ),
-                                          ),
-                                        ),
-                                        validator: (c) => c == null
-                                            ? AppLocalizations.of(
-                                                context,
-                                              )!.pleaseSelectCurrency
-                                            : null,
-                                        onChanged: (c) async {
-                                          controller.selectedCurrencyCA2.value =
-                                              c;
-                                          controller
-                                                  .currencyDropDowncontrollerCA2
-                                                  .text =
-                                              c?.code ?? '';
-                                          calculateAndFetchExchange();
-                                        },
-                                        rowBuilder: (c, searchQuery) {
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 10,
-                                              horizontal: 14,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    c.code,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Text(
-                                                    c.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: Text(
-                                                    c.symbol,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
+                                  child: SearchableMultiColumnDropdownField<Currency>(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.currency,
+                                    alignLeft: -110,
+                                    dropdownWidth: 200,
+                                    columnHeaders: [
+                                      AppLocalizations.of(context)!.code,
+                                      AppLocalizations.of(context)!.name,
+                                      AppLocalizations.of(context)!.symbol,
+                                    ],
+                                    controller: controller
+                                        .currencyDropDowncontrollerCA2,
+                                    items: controllerItems.currencies,
+                                    selectedValue:
+                                        controller.selectedCurrencyCA2.value,
+                                    backgroundColor: Colors.white,
+                                    searchValue: (c) =>
+                                        '${c.code} ${c.name} ${c.symbol}',
+                                    displayText: (c) => c.code,
+                                    inputDecoration: const InputDecoration(
+                                      isDense: true,
+                                      suffixIcon: Icon(
+                                        Icons.arrow_drop_down_outlined,
                                       ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 8,
+                                      ),
+                                      filled: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(10),
+                                          bottomRight: Radius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                    validator: (c) => c == null
+                                        ? AppLocalizations.of(
+                                            context,
+                                          )!.pleaseSelectCurrency
+                                        : null,
+                                    onChanged: (value) {
+                                      // if (value?.isNotEmpty) {
+                                      setState(
+                                        () => _showPaidAmountError = false,
+                                      );
+                                      if (_debounce?.isActive ?? false)
+                                        _debounce!.cancel();
+                                      _debounce = Timer(
+                                        const Duration(seconds: 3),
+                                        () async {
+                                          await calculateAndFetchExchange();
+                                        },
+                                      );
+                                      // }
+                                    },
+                                    // onChanged: (c) async {
+                                    //   controller.selectedCurrencyCA2.value =
+                                    //       c;
+                                    //   controller
+                                    //           .currencyDropDowncontrollerCA2
+                                    //           .text =
+                                    //       c?.code ?? '';
+                                    //   calculateAndFetchExchange();
+                                    // },
+                                    rowBuilder: (c, searchQuery) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                          horizontal: 14,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                c.code,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                c.name,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                c.symbol,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -3207,7 +3271,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                           const SizedBox(height: 10),
                           // ── FIX: this should show amountINRCA2, not CA1 again ──
                           TextFormField(
-                            controller: controller.amountINRCA1,
+                            controller: controller.amountINRCA2,
                             enabled: false,
                             decoration: InputDecoration(
                               isDense: true,
@@ -3450,7 +3514,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         total += amount;
       }
     }
-    controller.estimatedamountINR.text = total.toString();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.estimatedamountINR.text = total.toString();
+    });
     print("total$total");
     return total;
   }
@@ -3468,8 +3534,9 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
         total += amount;
       }
     }
-    controller.requestamountINR.text = total.toString();
-    print("total222$total");
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.requestamountINR.text = total.toStringAsFixed(2);
+    });
     return total;
   }
 

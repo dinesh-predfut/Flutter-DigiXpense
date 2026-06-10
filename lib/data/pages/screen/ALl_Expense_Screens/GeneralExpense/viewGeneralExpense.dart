@@ -174,12 +174,12 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
       final savedCustomFields =
           args?['savedCustomFieldValues'] as List<dynamic>?;
       print("savedCustomFields${widget.items.expenseHeaderCustomFieldValues}");
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        controller.loadAllCustomFieldValues(
-          savedValues: widget.items.expenseHeaderCustomFieldValues,
-        );
-        _initializeItemizeControllers();
-      });
+     WidgetsBinding.instance.addPostFrameCallback((_) async {
+   controller.loadAllCustomFieldValues(
+    savedValues: widget.items.expenseHeaderCustomFieldValues,
+  );
+  _initializeItemizeControllers();  // ✅ now runs AFTER customFields is populated
+});
       controller.isBillableCreate = widget.items.isBillable;
       if (widget.items.merchantId == null) {
         controller.manualPaidToController.text = widget.items.merchantName!;
@@ -3159,6 +3159,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
     items: options,
     selectedValue: selectedValue,
     searchValue: (val) => val.valueName,
+      enabled: controller.isEnable.value,
     displayText: (val) => val.valueName,
     controller: fieldController,
     columnHeaders: const ['Value ID', 'Value Name'],
@@ -3647,451 +3648,280 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                         });
                                                       }
                                                       // MobileNumber type - Make Reactive
-                                                      else if (fieldType ==
-                                                          'MobileNumber') {
-                                                        // Create unique key for this field
-                                                        final String
-                                                        mobileFieldKey =
-                                                            '${field['FieldId']}_${field['FieldName']}';
+                                                       // MobileNumber type - Make Reactive
+// MobileNumber type - Make Reactive
+else if (fieldType == 'MobileNumber') {
+   String getIsoCodeFromDialCode(String dialCode) {
+    final Map<String, String> dialCodeToIso = {
+      '+93': 'AF', '+355': 'AL', '+213': 'DZ', '+1': 'US', '+376': 'AD',
+      '+244': 'AO', '+54': 'AR', '+374': 'AM', '+61': 'AU', '+43': 'AT',
+      '+994': 'AZ', '+973': 'BH', '+880': 'BD', '+375': 'BY', '+32': 'BE',
+      '+501': 'BZ', '+229': 'BJ', '+975': 'BT', '+591': 'BO', '+387': 'BA',
+      '+267': 'BW', '+55': 'BR', '+673': 'BN', '+359': 'BG', '+226': 'BF',
+      '+257': 'BI', '+855': 'KH', '+237': 'CM', '+1': 'CA', '+238': 'CV',
+      '+236': 'CF', '+235': 'TD', '+56': 'CL', '+86': 'CN', '+57': 'CO',
+      '+269': 'KM', '+243': 'CD', '+242': 'CG', '+506': 'CR', '+385': 'HR',
+      '+53': 'CU', '+357': 'CY', '+420': 'CZ', '+45': 'DK', '+253': 'DJ',
+      '+1': 'DO', '+593': 'EC', '+20': 'EG', '+503': 'SV', '+240': 'GQ',
+      '+291': 'ER', '+372': 'EE', '+251': 'ET', '+679': 'FJ', '+358': 'FI',
+      '+33': 'FR', '+241': 'GA', '+220': 'GM', '+995': 'GE', '+49': 'DE',
+      '+233': 'GH', '+30': 'GR', '+299': 'GL', '+502': 'GT', '+224': 'GN',
+      '+245': 'GW', '+592': 'GY', '+509': 'HT', '+504': 'HN', '+36': 'HU',
+      '+354': 'IS', '+91': 'IN', '+62': 'ID', '+98': 'IR', '+964': 'IQ',
+      '+353': 'IE', '+972': 'IL', '+39': 'IT', '+1': 'JM', '+81': 'JP',
+      '+962': 'JO', '+7': 'KZ', '+254': 'KE', '+686': 'KI', '+850': 'KP',
+      '+82': 'KR', '+965': 'KW', '+996': 'KG', '+856': 'LA', '+371': 'LV',
+      '+961': 'LB', '+266': 'LS', '+231': 'LR', '+218': 'LY', '+423': 'LI',
+      '+370': 'LT', '+352': 'LU', '+261': 'MG', '+265': 'MW', '+60': 'MY',
+      '+960': 'MV', '+223': 'ML', '+356': 'MT', '+692': 'MH', '+222': 'MR',
+      '+230': 'MU', '+52': 'MX', '+691': 'FM', '+373': 'MD', '+377': 'MC',
+      '+976': 'MN', '+382': 'ME', '+212': 'MA', '+258': 'MZ', '+95': 'MM',
+      '+264': 'NA', '+674': 'NR', '+977': 'NP', '+31': 'NL', '+64': 'NZ',
+      '+505': 'NI', '+227': 'NE', '+234': 'NG', '+389': 'MK', '+47': 'NO',
+      '+968': 'OM', '+92': 'PK', '+680': 'PW', '+970': 'PS', '+507': 'PA',
+      '+675': 'PG', '+595': 'PY', '+51': 'PE', '+63': 'PH', '+48': 'PL',
+      '+351': 'PT', '+1': 'PR', '+974': 'QA', '+40': 'RO', '+7': 'RU',
+      '+250': 'RW', '+685': 'WS', '+378': 'SM', '+239': 'ST', '+966': 'SA',
+      '+221': 'SN', '+381': 'RS', '+248': 'SC', '+232': 'SL', '+65': 'SG',
+      '+421': 'SK', '+386': 'SI', '+677': 'SB', '+252': 'SO', '+27': 'ZA',
+      '+211': 'SS', '+34': 'ES', '+94': 'LK', '+249': 'SD', '+597': 'SR',
+      '+46': 'SE', '+41': 'CH', '+963': 'SY', '+886': 'TW', '+992': 'TJ',
+      '+255': 'TZ', '+66': 'TH', '+670': 'TL', '+228': 'TG', '+676': 'TO',
+      '+216': 'TN', '+90': 'TR', '+993': 'TM', '+688': 'TV', '+256': 'UG',
+      '+380': 'UA', '+971': 'AE', '+44': 'GB', '+1': 'US', '+598': 'UY',
+      '+998': 'UZ', '+678': 'VU', '+58': 'VE', '+84': 'VN', '+967': 'YE',
+      '+260': 'ZM', '+263': 'ZW',
+    };
+    return dialCodeToIso[dialCode] ?? 'IN';
+  }
+  // Create unique key for this field
+  final String mobileFieldKey = '${field['FieldId']}_${field['FieldName']}';
 
-                                                        // Initialize persistent controllers and values if not exists
-                                                        if (field['_phoneController'] ==
-                                                            null) {
-                                                          final defaultValue =
-                                                              field['DefaultValue']
-                                                                  ?.toString() ??
-                                                              '';
-                                                          final existingValue =
-                                                              field['EnteredValue']
-                                                                  as String?;
-                                                          final initialValue =
-                                                              existingValue ??
-                                                              defaultValue;
+  // Initialize persistent controllers and values if not exists
+  if (field['_phoneController'] == null) {
+    final defaultValue = field['DefaultValue']?.toString() ?? '';
+    final existingValue = field['EnteredValue'] as String?;
+    final initialValue = existingValue ?? defaultValue;
 
-                                                          // Parse existing phone number to extract country code and number
-                                                          String countryCode =
-                                                              '+91'; // Default India
-                                                          String phoneNumber =
-                                                              '';
+    // Parse existing phone number to extract country code and number
+    String countryCode = '+91'; // Default India
+    String phoneNumber = '';
 
-                                                          if (initialValue
-                                                              .isNotEmpty) {
-                                                            // Try to parse the existing number
-                                                            if (initialValue
-                                                                .startsWith(
-                                                                  '+',
-                                                                )) {
-                                                              final RegExp
-                                                              regex = RegExp(
-                                                                r'^\+(\d+)\s*(.*)$',
-                                                              );
-                                                              final match = regex
-                                                                  .firstMatch(
-                                                                    initialValue,
-                                                                  );
-                                                              if (match !=
-                                                                  null) {
-                                                                countryCode =
-                                                                    '+${match.group(1)}';
-                                                                phoneNumber =
-                                                                    match.group(
-                                                                      2,
-                                                                    ) ??
-                                                                    '';
-                                                              } else {
-                                                                phoneNumber =
-                                                                    initialValue;
-                                                              }
-                                                            } else {
-                                                              phoneNumber =
-                                                                  initialValue;
-                                                            }
-                                                          }
+    if (initialValue.isNotEmpty) {
+      // Clean the phone number - remove extra plus signs
+      String cleanedValue = initialValue.trim();
+      
+      // Handle cases like "++93 85555 000" (double plus)
+      while (cleanedValue.startsWith('++')) {
+        cleanedValue = '+' + cleanedValue.substring(2);
+      }
+      
+      // Parse the phone number
+      if (cleanedValue.startsWith('+')) {
+        // Extract country code (everything after + until first space or digit)
+        final RegExp regex = RegExp(r'^\+(\d+)\s*(.*)$');
+        final match = regex.firstMatch(cleanedValue);
+        if (match != null) {
+          countryCode = '+${match.group(1)}';
+          phoneNumber = match.group(2)?.trim() ?? '';
+        } else {
+          // If regex doesn't match, try to extract first digits after +
+          final String afterPlus = cleanedValue.substring(1);
+          final RegExp digitsOnly = RegExp(r'^\d+');
+          final matchDigits = digitsOnly.firstMatch(afterPlus);
+          if (matchDigits != null) {
+            countryCode = '+${matchDigits.group(0)}';
+            phoneNumber = afterPlus.substring(matchDigits.group(0)!.length).trim();
+          } else {
+            phoneNumber = cleanedValue;
+          }
+        }
+      } else {
+        phoneNumber = cleanedValue;
+      }
+      
+      print("Parsed phone - Country Code: $countryCode, Number: $phoneNumber");
+    }
 
-                                                          // Create controllers
-                                                          field['_countryCodeController'] =
-                                                              TextEditingController(
-                                                                text:
-                                                                    countryCode,
-                                                              );
-                                                          field['_phoneController'] =
-                                                              TextEditingController(
-                                                                text:
-                                                                    phoneNumber,
-                                                              );
-                                                          field['_rxStringValue'] =
-                                                              Rx<String?>(
-                                                                initialValue,
-                                                              );
-                                                          field['_focusNode'] =
-                                                              FocusNode();
-                                                          field['EnteredValue'] =
-                                                              initialValue;
+    // Create controllers
+    field['_countryCodeController'] = TextEditingController(text: countryCode);
+    field['_phoneController'] = TextEditingController(text: phoneNumber);
+    field['_rxStringValue'] = Rx<String?>(initialValue);
+    field['_focusNode'] = FocusNode();
+    field['_selectedCountryCode'] = getIsoCodeFromDialCode(countryCode);
+    field['EnteredValue'] = initialValue;
 
-                                                          // Update EnteredValue when phone number changes
-                                                          field['_phoneController'].addListener(() {
-                                                            final phoneVal =
-                                                                field['_phoneController']
-                                                                    .text;
-                                                            final codeVal =
-                                                                field['_countryCodeController']
-                                                                    .text;
-                                                            final fullNumber =
-                                                                phoneVal
-                                                                    .isNotEmpty
-                                                                ? '$codeVal $phoneVal'
-                                                                : '';
+    // Update EnteredValue when phone number changes
+    field['_phoneController'].addListener(() {
+      final phoneVal = field['_phoneController'].text;
+      final codeVal = field['_countryCodeController'].text;
+      String fullNumber = '';
+      
+      if (phoneVal.isNotEmpty) {
+        fullNumber = '$codeVal $phoneVal';
+      } else if (codeVal.isNotEmpty) {
+        fullNumber = codeVal;
+      }
+      
+      if (fullNumber != field['_rxStringValue'].value) {
+        field['_rxStringValue'].value = fullNumber;
+        field['EnteredValue'] = fullNumber;
+      }
+      field['Error'] = null;
+    });
 
-                                                            if (fullNumber !=
-                                                                field['_rxStringValue']
-                                                                    .value) {
-                                                              field['_rxStringValue']
-                                                                      .value =
-                                                                  fullNumber;
-                                                              field['EnteredValue'] =
-                                                                  fullNumber;
-                                                            }
-                                                            field['Error'] =
-                                                                null;
-                                                          });
+    // Update EnteredValue when country code changes
+    field['_countryCodeController'].addListener(() {
+      final phoneVal = field['_phoneController'].text;
+      final codeVal = field['_countryCodeController'].text;
+      String fullNumber = '';
+      
+      if (phoneVal.isNotEmpty) {
+        fullNumber = '$codeVal $phoneVal';
+      } else if (codeVal.isNotEmpty) {
+        fullNumber = codeVal;
+      }
+      
+      if (fullNumber != field['_rxStringValue'].value) {
+        field['_rxStringValue'].value = fullNumber;
+        field['EnteredValue'] = fullNumber;
+      }
+      field['Error'] = null;
+    });
+  }
 
-                                                          // Update EnteredValue when country code changes
-                                                          field['_countryCodeController'].addListener(() {
-                                                            final phoneVal =
-                                                                field['_phoneController']
-                                                                    .text;
-                                                            final codeVal =
-                                                                field['_countryCodeController']
-                                                                    .text;
-                                                            final fullNumber =
-                                                                phoneVal
-                                                                    .isNotEmpty
-                                                                ? '$codeVal $phoneVal'
-                                                                : '';
+  // Helper function to convert dial code to ISO code
+ 
 
-                                                            if (fullNumber !=
-                                                                field['_rxStringValue']
-                                                                    .value) {
-                                                              field['_rxStringValue']
-                                                                      .value =
-                                                                  fullNumber;
-                                                              field['EnteredValue'] =
-                                                                  fullNumber;
-                                                            }
-                                                            field['Error'] =
-                                                                null;
-                                                          });
-                                                        }
+  // Create a reactive variable for the current country code
+  if (field['_currentCountryCode'] == null) {
+    field['_currentCountryCode'] = Rx<String>(field['_selectedCountryCode'] ?? 'IN');
+  }
 
-                                                        // Helper function to convert dial code to ISO code
-                                                        String
-                                                        getIsoCodeFromDialCode(
-                                                          String dialCode,
-                                                        ) {
-                                                          final Map<
-                                                            String,
-                                                            String
-                                                          >
-                                                          dialCodeToIso = {
-                                                            '+93': 'AF',
-                                                            '+355': 'AL',
-                                                            '+213': 'DZ',
-                                                            '+1': 'US',
-                                                            '+376': 'AD',
-                                                            '+244': 'AO',
-                                                            '+54': 'AR',
-                                                            '+374': 'AM',
-                                                            '+61': 'AU',
-                                                            '+43': 'AT',
-                                                            '+994': 'AZ',
-                                                            '+973': 'BH',
-                                                            '+880': 'BD',
-                                                            '+375': 'BY',
-                                                            '+32': 'BE',
-                                                            '+501': 'BZ',
-                                                            '+229': 'BJ',
-                                                            '+975': 'BT',
-                                                            '+591': 'BO',
-                                                            '+387': 'BA',
-                                                            '+267': 'BW',
-                                                            '+55': 'BR',
-                                                            '+673': 'BN',
-                                                            '+359': 'BG',
-                                                            '+226': 'BF',
-                                                            '+257': 'BI',
-                                                            '+855': 'KH',
-                                                            '+237': 'CM',
-                                                            '+1': 'CA',
-                                                            '+238': 'CV',
-                                                            '+236': 'CF',
-                                                            '+235': 'TD',
-                                                            '+56': 'CL',
-                                                            '+86': 'CN',
-                                                            '+57': 'CO',
-                                                            '+269': 'KM',
-                                                            '+243': 'CD',
-                                                            '+242': 'CG',
-                                                            '+506': 'CR',
-                                                            '+385': 'HR',
-                                                            '+53': 'CU',
-                                                            '+357': 'CY',
-                                                            '+420': 'CZ',
-                                                            '+45': 'DK',
-                                                            '+253': 'DJ',
-                                                            '+1': 'DO',
-                                                            '+593': 'EC',
-                                                            '+20': 'EG',
-                                                            '+503': 'SV',
-                                                            '+240': 'GQ',
-                                                            '+291': 'ER',
-                                                            '+372': 'EE',
-                                                            '+251': 'ET',
-                                                            '+679': 'FJ',
-                                                            '+358': 'FI',
-                                                            '+33': 'FR',
-                                                            '+241': 'GA',
-                                                            '+220': 'GM',
-                                                            '+995': 'GE',
-                                                            '+49': 'DE',
-                                                            '+233': 'GH',
-                                                            '+30': 'GR',
-                                                            '+299': 'GL',
-                                                            '+502': 'GT',
-                                                            '+224': 'GN',
-                                                            '+245': 'GW',
-                                                            '+592': 'GY',
-                                                            '+509': 'HT',
-                                                            '+504': 'HN',
-                                                            '+36': 'HU',
-                                                            '+354': 'IS',
-                                                            '+91': 'IN',
-                                                            '+62': 'ID',
-                                                            '+98': 'IR',
-                                                            '+964': 'IQ',
-                                                            '+353': 'IE',
-                                                            '+972': 'IL',
-                                                            '+39': 'IT',
-                                                            '+1': 'JM',
-                                                            '+81': 'JP',
-                                                            '+962': 'JO',
-                                                            '+7': 'KZ',
-                                                            '+254': 'KE',
-                                                            '+686': 'KI',
-                                                            '+850': 'KP',
-                                                            '+82': 'KR',
-                                                            '+965': 'KW',
-                                                            '+996': 'KG',
-                                                            '+856': 'LA',
-                                                            '+371': 'LV',
-                                                            '+961': 'LB',
-                                                            '+266': 'LS',
-                                                            '+231': 'LR',
-                                                            '+218': 'LY',
-                                                            '+423': 'LI',
-                                                            '+370': 'LT',
-                                                            '+352': 'LU',
-                                                            '+261': 'MG',
-                                                            '+265': 'MW',
-                                                            '+60': 'MY',
-                                                            '+960': 'MV',
-                                                            '+223': 'ML',
-                                                            '+356': 'MT',
-                                                            '+692': 'MH',
-                                                            '+222': 'MR',
-                                                            '+230': 'MU',
-                                                            '+52': 'MX',
-                                                            '+691': 'FM',
-                                                            '+373': 'MD',
-                                                            '+377': 'MC',
-                                                            '+976': 'MN',
-                                                            '+382': 'ME',
-                                                            '+212': 'MA',
-                                                            '+258': 'MZ',
-                                                            '+95': 'MM',
-                                                            '+264': 'NA',
-                                                            '+674': 'NR',
-                                                            '+977': 'NP',
-                                                            '+31': 'NL',
-                                                            '+64': 'NZ',
-                                                            '+505': 'NI',
-                                                            '+227': 'NE',
-                                                            '+234': 'NG',
-                                                            '+389': 'MK',
-                                                            '+47': 'NO',
-                                                            '+968': 'OM',
-                                                            '+92': 'PK',
-                                                            '+680': 'PW',
-                                                            '+970': 'PS',
-                                                            '+507': 'PA',
-                                                            '+675': 'PG',
-                                                            '+595': 'PY',
-                                                            '+51': 'PE',
-                                                            '+63': 'PH',
-                                                            '+48': 'PL',
-                                                            '+351': 'PT',
-                                                            '+1': 'PR',
-                                                            '+974': 'QA',
-                                                            '+40': 'RO',
-                                                            '+7': 'RU',
-                                                            '+250': 'RW',
-                                                            '+685': 'WS',
-                                                            '+378': 'SM',
-                                                            '+239': 'ST',
-                                                            '+966': 'SA',
-                                                            '+221': 'SN',
-                                                            '+381': 'RS',
-                                                            '+248': 'SC',
-                                                            '+232': 'SL',
-                                                            '+65': 'SG',
-                                                            '+421': 'SK',
-                                                            '+386': 'SI',
-                                                            '+677': 'SB',
-                                                            '+252': 'SO',
-                                                            '+27': 'ZA',
-                                                            '+211': 'SS',
-                                                            '+34': 'ES',
-                                                            '+94': 'LK',
-                                                            '+249': 'SD',
-                                                            '+597': 'SR',
-                                                            '+46': 'SE',
-                                                            '+41': 'CH',
-                                                            '+963': 'SY',
-                                                            '+886': 'TW',
-                                                            '+992': 'TJ',
-                                                            '+255': 'TZ',
-                                                            '+66': 'TH',
-                                                            '+670': 'TL',
-                                                            '+228': 'TG',
-                                                            '+676': 'TO',
-                                                            '+216': 'TN',
-                                                            '+90': 'TR',
-                                                            '+993': 'TM',
-                                                            '+688': 'TV',
-                                                            '+256': 'UG',
-                                                            '+380': 'UA',
-                                                            '+971': 'AE',
-                                                            '+44': 'GB',
-                                                            '+1': 'US',
-                                                            '+598': 'UY',
-                                                            '+998': 'UZ',
-                                                            '+678': 'VU',
-                                                            '+58': 'VE',
-                                                            '+84': 'VN',
-                                                            '+967': 'YE',
-                                                            '+260': 'ZM',
-                                                            '+263': 'ZW',
-                                                          };
-                                                          return dialCodeToIso[dialCode] ??
-                                                              'IN';
-                                                        }
+  inputField = Obx(() {
+    final phoneController = field['_phoneController'] as TextEditingController;
+    final countryCodeController = field['_countryCodeController'] as TextEditingController;
+    final focusNode = field['_focusNode'] as FocusNode;
+    final currentCountryCode = field['_currentCountryCode'] as Rx<String>;
+    
+    // Get the current country code and clean it if necessary
+    String currentDialCode = countryCodeController.text;
+    
+    // Handle case where country code might have extra spaces or characters
+    if (currentDialCode.isNotEmpty && !currentDialCode.startsWith('+')) {
+      currentDialCode = '+$currentDialCode';
+    }
+    
+    // Clean up the country code (remove any extra spaces)
+    currentDialCode = currentDialCode.trim();
+    
+    // Extract just the digits for ISO lookup
+    String cleanDialCode = currentDialCode;
+    final dialCodeMatch = RegExp(r'^\+(\d+)').firstMatch(currentDialCode);
+    if (dialCodeMatch != null) {
+      cleanDialCode = '+${dialCodeMatch.group(1)}';
+    }
 
-                                                        inputField = Obx(() {
-                                                          final phoneController =
-                                                              field['_phoneController']
-                                                                  as TextEditingController;
-                                                          final countryCodeController =
-                                                              field['_countryCodeController']
-                                                                  as TextEditingController;
-                                                          final focusNode =
-                                                              field['_focusNode']
-                                                                  as FocusNode;
-                                                          final currentCountryCode =
-                                                              countryCodeController
-                                                                  .text;
+    // Get the ISO code for the current dial code
+    final isoCode = getIsoCodeFromDialCode(cleanDialCode);
+    
+    // Update the stored country code if changed
+    if (currentCountryCode.value != isoCode) {
+      currentCountryCode.value = isoCode;
+    }
 
-                                                          return SizedBox(
-                                                            child: IntlPhoneField(
-                                                              key: ValueKey(
-                                                                currentCountryCode,
-                                                              ),
-                                                              controller:
-                                                                  phoneController,
-                                                              focusNode:
-                                                                  focusNode,
-                                                              keyboardType:
-                                                                  TextInputType
-                                                                      .phone,
-                                                              enabled:
-                                                                  controller
-                                                                      .isEnable
-                                                                      .value,
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    '$label${isMandatory ? " *" : ""}',
-                                                                labelStyle: TextStyle(
-                                                                  color: Theme.of(
-                                                                    context,
-                                                                  ).colorScheme.primary,
-                                                                ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        10,
-                                                                      ),
-                                                                ),
-                                                                errorText:
-                                                                    field['Error'],
-                                                                counterText: "",
-                                                              ),
-                                                              initialCountryCode:
-                                                                  getIsoCodeFromDialCode(
-                                                                    currentCountryCode,
-                                                                  ),
-                                                              onChanged: (phone) {
-                                                                countryCodeController
-                                                                        .text =
-                                                                    '+${phone.countryCode}';
-                                                                phoneController
-                                                                        .text =
-                                                                    phone
-                                                                        .number;
-                                                              },
-                                                              onCountryChanged: (country) {
-                                                                countryCodeController
-                                                                        .text =
-                                                                    '+${country.dialCode}';
-                                                              },
-                                                              inputFormatters: [
-                                                                FilteringTextInputFormatter.allow(
-                                                                  RegExp(
-                                                                    r'[0-9\s\-]+',
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                              validator: (phone) {
-                                                                if (isMandatory) {
-                                                                  if (phone ==
-                                                                          null ||
-                                                                      phone
-                                                                          .number
-                                                                          .trim()
-                                                                          .isEmpty) {
-                                                                    return '$label is required';
-                                                                  }
-                                                                  // Remove spaces and dashes for validation
-                                                                  final cleanNumber = phone
-                                                                      .number
-                                                                      .replaceAll(
-                                                                        RegExp(
-                                                                          r'[\s\-]',
-                                                                        ),
-                                                                        '',
-                                                                      );
-                                                                  if (cleanNumber
-                                                                              .length <
-                                                                          6 ||
-                                                                      cleanNumber
-                                                                              .length >
-                                                                          15) {
-                                                                    return 'Enter a valid mobile number (6-15 digits)';
-                                                                  }
-                                                                }
-                                                                return null;
-                                                              },
-                                                            ),
-                                                          );
-                                                        });
-                                                      }
+    return SizedBox(
+      child: IntlPhoneField(
+        key: ValueKey('${mobileFieldKey}_${currentCountryCode.value}'),
+        controller: phoneController,
+        focusNode: focusNode,
+        keyboardType: TextInputType.phone,
+        enabled: controller.isEnable.value,
+        decoration: InputDecoration(
+          labelText: '$label${isMandatory ? " *" : ""}',
+          labelStyle: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          errorText: field['Error'],
+          counterText: "",
+        ),
+        initialCountryCode: currentCountryCode.value,
+        onChanged: (phone) {
+          // Update controllers when phone number changes
+          countryCodeController.text = '+${phone.countryCode}';
+          phoneController.text = phone.number;
+          
+          // Update the stored country code
+          final newIsoCode = getIsoCodeFromDialCode('+${phone.countryCode}');
+          if (currentCountryCode.value != newIsoCode) {
+            currentCountryCode.value = newIsoCode;
+          }
+          
+          // Update the full number
+          final fullNumber = phone.number.isNotEmpty 
+              ? '+${phone.countryCode} ${phone.number}' 
+              : '+${phone.countryCode}';
+          
+          if (fullNumber != field['_rxStringValue'].value) {
+            field['_rxStringValue'].value = fullNumber;
+            field['EnteredValue'] = fullNumber;
+          }
+          
+          // Clear any validation errors when user starts typing
+          field['Error'] = null;
+        },
+        onCountryChanged: (country) {
+          // Update controllers when country changes
+          countryCodeController.text = '+${country.dialCode}';
+          
+          // Update the stored country code
+          final newIsoCode = getIsoCodeFromDialCode('+${country.dialCode}');
+          if (currentCountryCode.value != newIsoCode) {
+            currentCountryCode.value = newIsoCode;
+          }
+          
+          // Update the full number when country changes
+          final currentNumber = phoneController.text;
+          final fullNumber = currentNumber.isNotEmpty 
+              ? '+${country.dialCode} $currentNumber' 
+              : '+${country.dialCode}';
+          
+          if (fullNumber != field['_rxStringValue'].value) {
+            field['_rxStringValue'].value = fullNumber;
+            field['EnteredValue'] = fullNumber;
+          }
+          
+          // Clear validation errors when country changes
+          field['Error'] = null;
+        },
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9\s\-]+')),
+        ],
+        validator: (phone) {
+          // Only validate if the field is mandatory
+          if (isMandatory) {
+            // Skip validation if the phone number is empty
+            if (phone == null || phone.number.trim().isEmpty) {
+              return '$label is required';
+            }
+            
+            // Only validate the number part (not the country code)
+            final cleanNumber = phone.number.replaceAll(RegExp(r'[\s\-]'), '');
+            
+            // Basic length validation (6-15 digits)
+            if (cleanNumber.length < 6 || cleanNumber.length > 15) {
+              return 'Enter a valid mobile number (6-15 digits)';
+            }
+          }
+          return null;
+        },
+      ),
+    );
+  });
+}
                                                       // Default Text type - Make Reactive
                                                       else {
                                                         if (field['_rxStringValue'] ==
@@ -5240,6 +5070,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             'resubmit',
                                             true,
                                           );
+                                           controller.lineItemControllers
+      ..clear()
+      ..addAll(itemizeControllers);
                                           controller.addToFinalItems(
                                             widget.items,
                                           );
@@ -5261,6 +5094,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                   );
                                                 });
                                           } else {
+                                             controller.lineItemControllers
+      ..clear()
+      ..addAll(itemizeControllers);
                                             controller.addToFinalItems(
                                               widget.items,
                                             );
@@ -5286,6 +5122,9 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                     );
                                                   });
                                             } else {
+                                               controller.lineItemControllers
+      ..clear()
+      ..addAll(itemizeControllers);
                                               controller.addToFinalItems(
                                                 widget.items,
                                               );
@@ -5446,9 +5285,10 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                             'submit',
                                             true,
                                           );
-                                          controller.addToFinalItems(
-                                            widget.items,
-                                          );
+                                         controller.lineItemControllers
+  ..clear()
+  ..addAll(itemizeControllers);
+controller.addToFinalItems(widget.items);
                                           controller
                                               .saveinviewPageGeneralExpense(
                                                 context,
@@ -5511,9 +5351,10 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                 'saveGE',
                                                 true,
                                               );
-                                              controller.addToFinalItems(
-                                                widget.items,
-                                              );
+                                             controller.lineItemControllers
+  ..clear()
+  ..addAll(itemizeControllers);
+controller.addToFinalItems(widget.items);
                                               controller
                                                   .saveinviewPageGeneralExpense(
                                                     context,

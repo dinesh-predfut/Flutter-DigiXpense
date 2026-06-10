@@ -54,9 +54,14 @@ DateTime todayInOrgTimezone(String? offsetMsStr) {
 }
 
 int toStartOfDayUtc(DateTime localDt) {
-  final int offsetMs =
-      int.tryParse(Get.find<Controller>().selectedTimezonevalue.value) ?? 0;
+final controller = Get.find<Controller>();
 
+print(controller.selectedTimezonevalue);
+print(controller.selectedTimezonevalue.runtimeType);
+print(controller.selectedTimezonevalue.value);
+
+final int offsetMs =
+    int.tryParse(controller.selectedTimezonevalue.value) ?? 0;
   // ✅ Step 1: get correct date in ORG timezone — not device timezone
   final int nowUtcMs = localDt.toUtc().millisecondsSinceEpoch;
   final DateTime orgNow = DateTime.fromMillisecondsSinceEpoch(

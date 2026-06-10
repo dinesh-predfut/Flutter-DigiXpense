@@ -90,6 +90,7 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.getPersonalDetails(context);
+      controller.loadAllCustomFieldValues();
       // controller.fetchMileageRates();
       await controller.loadSequenceModules();
       controller.fetchGetallGExpense().then((_) {

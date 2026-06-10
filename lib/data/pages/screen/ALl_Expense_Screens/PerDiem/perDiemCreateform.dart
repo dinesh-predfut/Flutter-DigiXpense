@@ -118,8 +118,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         controller.fetchExchangeRatePerdiem();
         print("isReadOnly ${widget.isReadOnly}");
       }
+            _initializeData();
+
     });
-    _initializeData();
+  
   }
 
   Future<void> _loadSettings() async {
@@ -264,10 +266,10 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   }
 
   Future<void> _initializeData() async {
-    final fromMs = toStartOfDayUtc(DateTime.now());
-    final toMs = toEndOfDayUtc(DateTime.now());
+    final fromMs = toStartOfDayUtc(DateTime.now().add(Duration(days: 1)));;
+    final toMs = toEndOfDayUtc(DateTime.now().add(Duration(days: 1)));;
 
-    final fromDate = DateTime.fromMillisecondsSinceEpoch(fromMs);
+    final fromDate = DateTime.fromMillisecondsSinceEpoch(fromMs,);
     final toDate = DateTime.fromMillisecondsSinceEpoch(toMs, isUtc: true);
 
     controller.fromDateController.text = formatDate(fromDate);

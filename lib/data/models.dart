@@ -1109,8 +1109,8 @@ class ExpenseCategory {
     required this.itemisationMandatory,
     required this.maxExpenseAmount,
     required this.minExpensesAmount,
-    required this.receiptRequiredLimit, 
-  });   
+    required this.receiptRequiredLimit,
+  });
 
   factory ExpenseCategory.fromJson(Map<String, dynamic> json) {
     return ExpenseCategory(
@@ -5762,8 +5762,8 @@ class CashAdvanceRequestItemize {
   String? uomId;
   double? unitEstimatedAmount;
   double? userExchRate;
-  List<CustomFieldValue>? cshHeaderCategoryCustomFieldValues;
-  List<CustomFieldValue>? cshHeaderCustomFieldValues;
+ List<CustomFieldValue>? cshTransCustomFieldValues;
+List<CustomFieldValue>? cshTransCategoryCustomFieldValues;
   List<dynamic>? cashAdvTrans;
   double? taxAmount;
 
@@ -5809,8 +5809,8 @@ class CashAdvanceRequestItemize {
     this.uomId,
     this.unitEstimatedAmount,
     this.userExchRate,
-    this.cshHeaderCategoryCustomFieldValues,
-    this.cshHeaderCustomFieldValues,
+   this.cshTransCustomFieldValues,
+this.cshTransCategoryCustomFieldValues,
     this.cashAdvTrans,
     this.taxAmount,
   });
@@ -5882,16 +5882,17 @@ class CashAdvanceRequestItemize {
       uomId: json['UOMId'],
       unitEstimatedAmount: _toDoubleOrNull(json['UnitEstimatedAmount']),
       userExchRate: _toDoubleOrNull(json['UserExchRate']),
-      cshHeaderCategoryCustomFieldValues:
-          (json['CSHHeaderCategoryCustomFieldValues'] as List<dynamic>?)
-              ?.map((e) => CustomFieldValue.fromJson(e))
-              .toList() ??
-          [],
-      cshHeaderCustomFieldValues:
-          (json['CSHHeaderCustomFieldValues'] as List<dynamic>?)
-              ?.map((e) => CustomFieldValue.fromJson(e))
-              .toList() ??
-          [],
+    cshTransCustomFieldValues:
+    (json['CSHTransCustomFieldValues'] as List<dynamic>?)
+        ?.map((e) => CustomFieldValue.fromJson(e))
+        .toList() ??
+    [],
+
+cshTransCategoryCustomFieldValues:
+    (json['CSHTransCategoryCustomFieldValues'] as List<dynamic>?)
+        ?.map((e) => CustomFieldValue.fromJson(e))
+        .toList() ??
+    [],
       cashAdvTrans: json['CashAdvTrans'] ?? [],
     );
   }
@@ -6123,8 +6124,8 @@ class CashAdvanceRequestHeader {
   final String? location;
   final String? stepType;
   final int? workitemrecid;
-  final List<dynamic> cshHeaderCustomFieldValues;
-  final List<dynamic> cshHeaderCategoryCustomFieldValues;
+  final List<Map<String, dynamic>> cshHeaderCustomFieldValues;
+final List<Map<String, dynamic>> cshHeaderCategoryCustomFieldValues;
   final List<CashAdvanceRequestItemize> cshCashAdvReqTrans;
 
   CashAdvanceRequestHeader({
@@ -6191,12 +6192,17 @@ class CashAdvanceRequestHeader {
       location: json['Location'],
       stepType: json['StepType'],
       workitemrecid: json['workitemrecid'],
-      cshHeaderCustomFieldValues: List<dynamic>.from(
-        json['CSHHeaderCustomFieldValues'] ?? [],
-      ),
-      cshHeaderCategoryCustomFieldValues: List<dynamic>.from(
-        json['CSHHeaderCategoryCustomFieldValues'] ?? [],
-      ),
+    cshHeaderCustomFieldValues:
+    (json['CSHHeaderCustomFieldValues'] as List<dynamic>?)
+        ?.map((e) => Map<String, dynamic>.from(e))
+        .toList() ??
+    [],
+
+cshHeaderCategoryCustomFieldValues:
+    (json['CSHHeaderCategoryCustomFieldValues'] as List<dynamic>?)
+        ?.map((e) => Map<String, dynamic>.from(e))
+        .toList() ??
+    [],
       cshCashAdvReqTrans:
           (json['CSHCashAdvReqTrans'] as List<dynamic>?)
               ?.map((e) => CashAdvanceRequestItemize.fromJson(e))
@@ -6570,7 +6576,6 @@ class LineItemModel {
   RxBool lineProject = false.obs;
   Timer? timer;
   int? timerStartMillis;
-  
 
   LineItemModel({
     this.project,
