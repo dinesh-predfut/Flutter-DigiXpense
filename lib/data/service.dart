@@ -9260,6 +9260,7 @@ String get currentDateFormat {
   }
 
   Future<void> saveGeneralExpense(context, bool bool, bool? reSubmit) async {
+    print("saveGeneralExpense finalItems = ${finalItems.length}");
     final formatted = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(selectedDate!);
@@ -9726,6 +9727,7 @@ String get currentDateFormat {
     int recId,
     String? expenseId,
   ) async {
+    print("createcashAdvanceReturn finalItems = ${finalItems.length}");
     final formatted = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(selectedDate!);
