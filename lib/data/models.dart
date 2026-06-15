@@ -1786,7 +1786,7 @@ class ExpenseItem {
       "TaxGroup": taxGroup,
       "LineAmountTrans": lineAmountTrans,
       "LineAmountReporting": lineAmountReporting,
-      "ProjectId": projectId,
+      "ProjectId": projectId, 
       "Description": description,
       "IsReimbursable": isReimbursable,
       "IsBillable": isBillable,
@@ -2464,14 +2464,13 @@ class LeaveRequest {
   final int totalDays;
   final int? workitemrecid;
   final int? duration;
-  // final String status;
   final int? recId;
   final String? leaveId;
-  // final String? approvalStatus;
   final double leaveBalance;
   final List<LeaveTransactionModel> transactions;
   final List<DocumentAttachmentbase64> attachments;
   final List<Map<String, dynamic>>? leaveCustomFieldValues;
+  
   LeaveRequest({
     required this.employeeId,
     required this.employeeName,
@@ -2500,15 +2499,22 @@ class LeaveRequest {
     this.notifyTeam,
     this.isPaidLeave,
     required this.totalDays,
-    // required this.status,
     this.recId,
-    // this.approvalStatus,
     required this.transactions,
     this.attachments = const [],
     this.leaveCustomFieldValues,
   });
 
   Map<String, dynamic> toJson() {
+    // Convert startDate and endDate from UTC DateTime to UTC milliseconds
+    // The stored startDate/endDate are UTC DateTimes that represent org-local dates
+    final int? fromDateMs = startDate != null 
+        ? _dateTimeToUtcMilliseconds(startDate!) 
+        : null;
+    final int? toDateMs = endDate != null 
+        ? _dateTimeToUtcMilliseconds(endDate!) 
+        : null;
+    
     return {
       "LeaveId": leaveId,
       "EmployeeId": employeeId,
@@ -2520,55 +2526,59 @@ class LeaveRequest {
       "ProjectId": (projectId?.trim().isNotEmpty ?? false) ? projectId : null,
       "Reliever": relieverId,
       "LeaveBalance": leaveBalance,
-      "FromDate": toMillisecondsWithTimezone(startDate!),
+      "FromDate": fromDateMs,
       "ToDate": toMillisecondsWithTimezone(endDate!),
       "LeaveDateType": "MultipleDays",
       "ToDateHalfDay": toDateHalfDay,
       "ToDateHalfDayValue": toDateHalfDayValue,
       "LeaveLocation": location,
-
-      if (workitemrecid != null) "workitemrecid": workitemrecid,
-
+      "workitemrecid": workitemrecid,
       "ReasonForLeave": comments,
-
       "FromDateHalfDay": fromDateHalfDay,
       "FromDateHalfDayValue": fromDateHalfDayValue,
-
-      "AvailabilityDuringLeave":
-          (availabilityDuringLeave?.trim().isNotEmpty ?? false)
+      "AvailabilityDuringLeave": (availabilityDuringLeave?.trim().isNotEmpty ?? false)
           ? availabilityDuringLeave
           : null,
-
       "OutOfOfficeMessage": (outOfOfficeMessage?.trim().isNotEmpty ?? false)
           ? outOfOfficeMessage
           : null,
-
       "NotifyHR": notifyHR ?? false,
       "NotifyTeamMembers": notifyTeam ?? false,
       "IsLeaveUnPaid": !(isPaidLeave ?? true),
-
-      "EmergencyContactNumber":
-          (contactNumber != null && contactNumber!.isNotEmpty)
+      "EmergencyContactNumber": (contactNumber != null && contactNumber!.isNotEmpty)
           ? contactNumber
           : null,
-
       "NotifyingUserIds": (notifyingUsers != null && notifyingUsers!.isNotEmpty)
           ? notifyingUsers!.join(';')
           : null,
-
       "Duration": duration,
-
-      /// ✅ Custom Fields
       "LeaveCustomFieldValues": leaveCustomFieldValues ?? [],
-
       "LeaveTransactions": transactions.map((t) => t.toJson()).toList(),
-
       "DocumentAttachment": {
         "File": attachments.isEmpty
             ? []
             : attachments.expand((a) => a.file).map((f) => f.toJson()).toList(),
       },
     };
+  }
+  
+  // Helper method to convert DateTime to UTC milliseconds
+  int _dateTimeToUtcMilliseconds(DateTime dateTime) {
+    // Ensure we're working with UTC
+    final DateTime utcDateTime = dateTime.isUtc ? dateTime : dateTime.toUtc();
+    
+    // If the DateTime is stored as UTC but represents org-local time,
+    // we need to convert it to proper UTC milliseconds for API
+    final offsetMs = getTimezoneOffsetMs();
+    
+    // Convert to org-local first (add offset)
+    final orgLocalDateTime = DateTime.fromMillisecondsSinceEpoch(
+      utcDateTime.millisecondsSinceEpoch + offsetMs,
+      isUtc: true,
+    );
+    
+    // Then convert to start of day UTC milliseconds (subtract offset)
+    return toStartOfDayUtc(orgLocalDateTime);
   }
 }
 

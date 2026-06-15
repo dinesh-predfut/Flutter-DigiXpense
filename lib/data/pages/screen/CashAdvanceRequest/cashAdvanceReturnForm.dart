@@ -7,7 +7,7 @@ import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/permissionHelper.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
-import 'package:diginexa/core/utils.dart' show toStartOfDayUtc;
+import 'package:diginexa/core/utils.dart' show toStartOfDayUtc, todayInOrgTimezone, formatDate;
 import 'package:diginexa/data/models.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:diginexa/main.dart';
@@ -143,11 +143,17 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       await controller.fetchExpenseCategory();
       // await loadTimezoneValue();
 
-      final now = DateTime.now();
+      // Get today's date in organization's timezone
+final todayOrg = todayInOrgTimezone();
 
-      /// Convert using timezone method
-      final fromMs = toStartOfDayUtc(now);
-      controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(fromMs);
+// Convert to UTC milliseconds
+final fromMs = toStartOfDayUtc(todayOrg);
+
+// Store as UTC DateTime (always keep isUtc: true)
+controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
+  fromMs,
+  isUtc: true,
+);
       // print('checktimeXoje${controller.selectedDate}');
       controller.fetchBusinessjustification();
       controller.fetchLocation();
@@ -3921,20 +3927,11 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        controller.selectedDate == null
-                                            ? AppLocalizations.of(
-                                                context,
-                                              )!.selectDate
-                                            : DateFormat(
-                                                controller
-                                                        .selectedFormat
-                                                        ?.key ??
-                                                    'dd-MM-yyyy',
-                                              ).format(
-                                                controller.selectedDate!,
-                                              ),
-                                      ),
+                                     Text(
+  controller.selectedDate == null
+      ? AppLocalizations.of(context)!.selectDate
+      : formatDate(controller.selectedDate!), // Use your formatDate function
+),
                                       const Icon(
                                         Icons.calendar_today,
                                         size: 20,

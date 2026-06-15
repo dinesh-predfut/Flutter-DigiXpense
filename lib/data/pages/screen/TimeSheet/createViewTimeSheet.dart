@@ -164,115 +164,143 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
   /// =======================
   /// PREPARE API REQUEST BODY
   /// =======================
-  Future<Map<String, dynamic>> _prepareRequestBody() async {
-    // Get current employee info (you might need to get this from your auth system)
-    final employeeId = Params.employeeId; // Replace with actual employee ID
-    final employeeName = Params.employeeName;
-    print("REDID${controller.recId}");
+Future<Map<String, dynamic>> _prepareRequestBody() async {
+  // Get current employee info
+  final employeeId = Params.employeeId;
+  final employeeName = Params.employeeName;
+  print("RECID${controller.recId}");
 
-    List<Map<String, dynamic>> timesheetLines = [];
+  List<Map<String, dynamic>> timesheetLines = [];
 
-    for (int i = 0; i < controller.lineItems.length; i++) {
-      final line = controller.lineItems[i];
-      final timeEntries = controller.timeEntries[i] ?? {};
+  for (int i = 0; i < controller.lineItems.length; i++) {
+    final line = controller.lineItems[i];
+    final timeEntries = controller.timeEntries[i] ?? {};
 
-      // Prepare DailyEntry for this line
-      List<Map<String, dynamic>> dailyEntries = [];
+    // Prepare DailyEntry for this line
+    List<Map<String, dynamic>> dailyEntries = [];
 
-      timeEntries.forEach((entryDate, entry) {
-        dailyEntries.add({
-          "EntryDate": entryDate,
-          "TimeFrom": entry.timeFrom,
-          "TimeTo": entry.timeTo,
-          "TotalHours": double.tryParse(entry.totalHours) ?? 0.0,
-          "OTHours": null,
-          "TimerRunning": false,
-          "InternalComment": entry.comment,
-          "RecId": entry.recId,
-          "AccountingDistributions": entry.accountingDistributions ?? [],
-        });
+    timeEntries.forEach((entryDate, entry) {
+      dailyEntries.add({
+        "EntryDate": entryDate,
+        "TimeFrom": entry.timeFrom,
+        "TimeTo": entry.timeTo,
+        "TotalHours": double.tryParse(entry.totalHours) ?? 0.0,
+        "OTHours": null,
+        "TimerRunning": false,
+        "InternalComment": entry.comment,
+        "RecId": entry.recId,
+        "AccountingDistributions": entry.accountingDistributions ?? [],
       });
+    });
 
-      // Add custom fields if needed
-      List<Map<String, dynamic>> linesCustomFields = controller
-          .prepareLineCustomFieldsForAPI(i);
+    // Add custom fields if needed
+    List<Map<String, dynamic>> linesCustomFields = controller
+        .prepareLineCustomFieldsForAPI(i);
 
-      timesheetLines.add({
-        "LinesCustomfields": linesCustomFields,
-        "ProjectId": line.project?.code?.isEmpty == true
-            ? null
-            : line.project?.code,
-
-        "BoardId": line.board?.boardId ?? "",
-        "TaskId": line.task?.taskId ?? "",
-        "InternalComment": "",
-        "ExternalComment": "",
-        "IsConverted": false,
-        "RecId": line.recId,
-        "DailyEntry": dailyEntries,
-        "TaskName": line.task?.taskName ?? "",
-      });
-    }
-    controller.fileItems.clear();
-    for (int i = 0; i < controller.uploadedImages.length; i++) {
-      File image = controller.uploadedImages[i];
-      List<int> imageBytes = await image.readAsBytes();
-      String base64String = base64Encode(imageBytes);
-
-      controller.fileItems.add(
-        FileItem(
-          index: i,
-          name: image.path.split('/').last,
-          type: 'image/${image.path.split('.').last}',
-          base64Data: base64String,
-          hashMapKey: '',
-        ),
-      );
-    }
-    List<Map<String, dynamic>> timesheetCustomFieldValues = controller
-        .prepareHeaderCustomFieldsForAPI();
-    return {
-      "TimesheetId": controller.timeSheetID.text.trim().isEmpty
+    timesheetLines.add({
+      "LinesCustomfields": linesCustomFields,
+      "ProjectId": line.project?.code?.isEmpty == true
           ? null
-          : controller.timeSheetID.text.trim(),
-
-      "EmployeeId": employeeId,
-      "ApplicationDate": toMillisecondsWithTimezone(DateTime.now()),
-      "Source": "Mobile",
-      "CaptureMethod": controller.timerClicked ? "TimeTracker" : "Manual",
-      "FromDate": toMillisecondsWithTimezone(controller.dateRange!.start),
-      "ToDate": toMillisecondsWithTimezone(controller.dateRange!.end),
-      "EmployeeName": Params.employeeName ?? controller.userName.value,
-      "TimesheetLocation": null,
-      "ReferenceId": null,
-      "Frequency": getFrequency(controller.periodType.value),
-      // Convert "Weekly" to "Week"
-      "ProjectId": controller.projectDropDowncontroller.text.isEmpty
-          ? null
-          : controller.projectDropDowncontroller.text,
-
-      "TimesheetCustomFieldValues": timesheetCustomFieldValues,
-      "Timesheetlines": timesheetLines,
-      "DocumentAttachment": {
-        "File": controller.fileItems
-            .map(
-              (file) => {
-                "index": file.index,
-                "name": file.name,
-                "type": file.type,
-                "base64Data": file.base64Data,
-                "hashMapKey": file.hashMapKey,
-              },
-            )
-            .toList(),
-      },
-
-      "RecId": (controller.recId == null || controller.recId == 0)
-          ? null
-          : controller.recId,
-      "CalendarId": null,
-    };
+          : line.project?.code,
+      "BoardId": line.board?.boardId ?? "",
+      "TaskId": line.task?.taskId ?? "",
+      "InternalComment": "",
+      "ExternalComment": "",
+      "IsConverted": false,
+      "RecId": line.recId,
+      "DailyEntry": dailyEntries,
+      "TaskName": line.task?.taskName ?? "",
+    });
   }
+  
+  controller.fileItems.clear();
+  for (int i = 0; i < controller.uploadedImages.length; i++) {
+    File image = controller.uploadedImages[i];
+    List<int> imageBytes = await image.readAsBytes();
+    String base64String = base64Encode(imageBytes);
+
+    controller.fileItems.add(
+      FileItem(
+        index: i,
+        name: image.path.split('/').last,
+        type: 'image/${image.path.split('.').last}',
+        base64Data: base64String,
+        hashMapKey: '',
+      ),
+    );
+  }
+  
+  List<Map<String, dynamic>> timesheetCustomFieldValues = controller
+      .prepareHeaderCustomFieldsForAPI();
+  
+  // FIX: Convert dates with proper timezone handling
+  // Get current date in org timezone for application date
+  final todayOrg = todayInOrgTimezone();
+  final applicationDateMs = toStartOfDayUtc(todayOrg);
+  
+  // Convert dateRange dates from UTC DateTime to proper UTC milliseconds
+  final offsetMs = getTimezoneOffsetMs();
+  
+  // Convert stored UTC DateTime to org-local first
+  final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
+    controller.dateRange!.start.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
+  final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
+    controller.dateRange!.end.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
+  
+  // Then convert to UTC milliseconds for API
+  final fromDateMs = toStartOfDayUtc(fromDateOrg);
+  final toDateMs = toEndOfDayUtc(toDateOrg);
+  
+  print("=== TIMESHEET DATE CONVERSION ===");
+  print("Original start (stored UTC): ${controller.dateRange!.start}");
+  print("Original end (stored UTC): ${controller.dateRange!.end}");
+  print("FromDate Org: $fromDateOrg");
+  print("ToDate Org: $toDateOrg");
+  print("FromDate MS: $fromDateMs");
+  print("ToDate MS: $toDateMs");
+  
+  return {
+    "TimesheetId": controller.timeSheetID.text.trim().isEmpty
+        ? null
+        : controller.timeSheetID.text.trim(),
+    "EmployeeId": employeeId,
+    "ApplicationDate": applicationDateMs,  // Fixed
+    "Source": "Mobile",
+    "CaptureMethod": controller.timerClicked ? "TimeTracker" : "Manual",
+    "FromDate": fromDateMs,  // Fixed
+    "ToDate": toDateMs,      // Fixed
+    "EmployeeName": Params.employeeName ?? controller.userName.value,
+    "TimesheetLocation": null,
+    "ReferenceId": null,
+    "Frequency": getFrequency(controller.periodType.value),
+    "ProjectId": controller.projectDropDowncontroller.text.isEmpty
+        ? null
+        : controller.projectDropDowncontroller.text,
+    "TimesheetCustomFieldValues": timesheetCustomFieldValues,
+    "Timesheetlines": timesheetLines,
+    "DocumentAttachment": {
+      "File": controller.fileItems
+          .map(
+            (file) => {
+              "index": file.index,
+              "name": file.name,
+              "type": file.type,
+              "base64Data": file.base64Data,
+              "hashMapKey": file.hashMapKey,
+            },
+          )
+          .toList(),
+    },
+    "RecId": (controller.recId == null || controller.recId == 0)
+        ? null
+        : controller.recId,
+    "CalendarId": null,
+  };
+}
 
   /// =======================
   /// SUBMIT API CALL
@@ -482,10 +510,26 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
       }
       controller.fetchProjectName();
       controller.fetchBoardDropDown();
-      controller.fetchTasksTimeSheet(
-        fromDate: toStartOfDayUtc(controller.dateRange!.start),
-        toDate: toEndOfDayUtc(controller.dateRange!.end),
-      );
+      // Convert stored UTC DateTime to org-local first
+final offsetMs = getTimezoneOffsetMs();
+
+final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
+  controller.dateRange!.start.millisecondsSinceEpoch + offsetMs,
+  isUtc: true,
+);
+final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
+  controller.dateRange!.end.millisecondsSinceEpoch + offsetMs,
+  isUtc: true,
+);
+
+// Then convert to UTC milliseconds for API
+final fromDateMs = toStartOfDayUtc(fromDateOrg);
+final toDateMs = toEndOfDayUtc(toDateOrg);
+
+controller.fetchTasksTimeSheet(
+  fromDate: fromDateMs,
+  toDate: toDateMs,
+);
       final start = controller.dateRange!.start;
       final end = controller.dateRange!.end;
 
@@ -547,11 +591,32 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
     final range = controller.getWeekRangeUTC(DateTime.now());
 
-    final config = await controller.getRuleConfig(
-      employeeId: Params.employeeId,
-      fromDate: DateTime.fromMillisecondsSinceEpoch(range['fromDate']!),
-      toDate: DateTime.fromMillisecondsSinceEpoch(range['toDate']!),
-    );
+   // Convert the milliseconds to UTC DateTime first
+final fromDateUtc = DateTime.fromMillisecondsSinceEpoch(
+  range['fromDate']!, 
+  isUtc: true,
+);
+final toDateUtc = DateTime.fromMillisecondsSinceEpoch(
+  range['toDate']!, 
+  isUtc: true,
+);
+
+// Convert UTC to org-local for the API call (if getRuleConfig expects org-local DateTime)
+final offsetMs = getTimezoneOffsetMs();
+final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
+  fromDateUtc.millisecondsSinceEpoch + offsetMs,
+  isUtc: true,
+);
+final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
+  toDateUtc.millisecondsSinceEpoch + offsetMs,
+  isUtc: true,
+);
+
+final config = await controller.getRuleConfig(
+  employeeId: Params.employeeId,
+  fromDate: fromDateOrg,
+  toDate: toDateOrg,
+);
 
     controller.ruleConfig = config;
 
@@ -592,7 +657,7 @@ class _TimeSheetRequestPageState extends State<TimeSheetRequestPage> {
 
     print("Final periodType: ${controller.periodType.value}");
 
-    if (!widget.status) {
+    if (widget.status) {
       setState(() {
         controller.isEditMode = true;
       });
@@ -3972,58 +4037,89 @@ case 'date&time':
     // FIX (Bug #90): Split month into two fixed halves (1–15, 16–end).
     // Removed the old week-offset logic entirely.
     // ================= BIWEEKLY =================
-    else if (type == "biweekly") {
-      if (date.day <= 14) {
-        startDate = DateTime(date.year, date.month, 1);
-        endDate = DateTime(date.year, date.month, 14);
-      } else {
-        startDate = DateTime(date.year, date.month, 15);
-        endDate = DateTime(date.year, date.month + 1, 0); // last day of month
-      }
+ // ================= BIWEEKLY =================
+// ================= BIWEEKLY =================
+else if (type == "biweekly") {
+  if (weekStart.trim().isEmpty) {
+    // No config: calendar halves
+    if (date.day <= 14) {
+      startDate = DateTime(date.year, date.month, 1);
+      endDate   = DateTime(date.year, date.month, 14);
+    } else {
+      startDate = DateTime(date.year, date.month, 15);
+      endDate   = DateTime(date.year, date.month + 1, 0);
     }
-    // ================= MONTHLY =================
-    else if (type == "monthly") {
-      if (monthStart.trim().isEmpty) {
-        // No config: tapped date IS the start; end = 30 days later (day - 1 of next month)
-        // FIX (Bug #89): Use rolling 30-day window instead of end-of-calendar-month.
-        startDate = date;
-        endDate = DateTime(date.year, date.month + 1, date.day - 1);
-      } else {
-        int startDay = extractDay(monthStart);
+  } else {
+    // Step 1: find start of THIS week (aligned to configured weekday)
+    int startWeekday = getWeekdayFromString(weekStart);
+    int diff = date.weekday - startWeekday;
+    if (diff < 0) diff += 7;
+    DateTime thisWeekStart = date.subtract(Duration(days: diff));
 
-        if (startDay <= 0) {
-          // Fallback
-          startDate = date;
-          endDate = DateTime(date.year, date.month + 1, date.day - 1);
-        } else if (date.day >= startDay) {
-          // FIX (Bug #89): Cycle starts this month on startDay,
-          // ends on (startDay - 1) of next month.
-          startDate = DateTime(
-            date.year,
-            date.month,
-            getSafeDay(date.year, date.month, startDay),
-          );
-          endDate = DateTime(
-            date.year,
-            date.month + 1,
-            getSafeDay(date.year, date.month + 1, startDay - 1),
-          );
-        } else {
-          // FIX (Bug #89): Cycle started last month on startDay,
-          // ends on (startDay - 1) of this month.
-          startDate = DateTime(
-            date.year,
-            date.month - 1,
-            getSafeDay(date.year, date.month - 1, startDay),
-          );
-          endDate = DateTime(
-            date.year,
-            date.month,
-            getSafeDay(date.year, date.month, startDay - 1),
-          );
+    // Step 2: find the first occurrence of the configured weekday
+    // on or after the 1st of thisWeekStart's month
+    DateTime monthStart = DateTime(thisWeekStart.year, thisWeekStart.month, 1);
+    int daysToFirst = (startWeekday - monthStart.weekday + 7) % 7;
+    DateTime firstCycleStart = monthStart.add(Duration(days: daysToFirst));
+
+    // Step 3: how many full weeks between firstCycleStart and thisWeekStart?
+    int weekIndex = thisWeekStart.difference(firstCycleStart).inDays ~/ 7;
+
+    // Step 4: even weekIndex (0,2,4...) = first week of a cycle
+    //         odd weekIndex  (1,3,5...) = second week of a cycle
+    if (weekIndex % 2 == 0) {
+      startDate = thisWeekStart;
+    } else {
+      startDate = thisWeekStart.subtract(const Duration(days: 7));
+    }
+    endDate = startDate.add(const Duration(days: 13));
+  }
+}
+// ================= MONTHLY =================
+else if (type == "monthly") {
+  if (monthStart.trim().isEmpty) {
+    // No config: full calendar month containing the date
+    startDate = DateTime(date.year, date.month, 1);
+    endDate   = DateTime(date.year, date.month + 1, 0); // last day of month
+  } else {
+    int startDay = extractDay(monthStart);
+
+    if (startDay <= 0) {
+      // Fallback: full calendar month
+      startDate = DateTime(date.year, date.month, 1);
+      endDate   = DateTime(date.year, date.month + 1, 0);
+    } else {
+      // Clamp startDay to a valid day in the relevant month
+      // endDay = startDay - 1, but if startDay == 1 → endDay = last day of end month
+
+      int safeStartDay(int year, int month) {
+        int lastDay = DateTime(year, month + 1, 0).day;
+        return startDay.clamp(1, lastDay);
+      }
+
+      // endDay for a given year/month:
+      // if startDay == 1 → last day of that month
+      // else             → startDay - 1 (clamped)
+      int safeEndDay(int year, int month) {
+        if (startDay == 1) {
+          return DateTime(year, month + 1, 0).day; // last day
         }
+        int lastDay = DateTime(year, month + 1, 0).day;
+        return (startDay - 1).clamp(1, lastDay);
+      }
+
+      if (date.day >= startDay) {
+        // Cycle: startDay this month → (startDay-1) next month
+        startDate = DateTime(date.year, date.month,     safeStartDay(date.year, date.month));
+        endDate   = DateTime(date.year, date.month + 1, safeEndDay(date.year, date.month + 1));
+      } else {
+        // Cycle: startDay last month → (startDay-1) this month
+        startDate = DateTime(date.year, date.month - 1, safeStartDay(date.year, date.month - 1));
+        endDate   = DateTime(date.year, date.month,     safeEndDay(date.year, date.month));
       }
     }
+  }
+}
     // ================= SEMI-MONTHLY =================
     // ================= SEMI-MONTHLY =================
     else if (type == "semimonth" || type == "semimonthly") {
@@ -4495,19 +4591,44 @@ class _HourItem extends StatelessWidget {
       endDate = startDate.add(const Duration(days: 6));
     }
     // ================= BIWEEKLY =================
-    else if (type == "biweekly") {
-      if (weekStart.trim().isEmpty) {
-        /// ✅ No config: tapped date IS the start
-        startDate = date;
-      } else {
-        int startWeekday = getWeekdayFromString(weekStart);
-        int diff = date.weekday - startWeekday;
-        if (diff < 0) diff += 7;
-        DateTime currentWeekStart = date.subtract(Duration(days: diff));
-        startDate = currentWeekStart.subtract(const Duration(days: 7));
-      }
-      endDate = startDate.add(const Duration(days: 13));
+ // ================= BIWEEKLY =================
+// ================= BIWEEKLY =================
+else if (type == "biweekly") {
+  if (weekStart.trim().isEmpty) {
+    // No config: calendar halves
+    if (date.day <= 14) {
+      startDate = DateTime(date.year, date.month, 1);
+      endDate   = DateTime(date.year, date.month, 14);
+    } else {
+      startDate = DateTime(date.year, date.month, 15);
+      endDate   = DateTime(date.year, date.month + 1, 0);
     }
+  } else {
+    // Step 1: find start of THIS week (aligned to configured weekday)
+    int startWeekday = getWeekdayFromString(weekStart);
+    int diff = date.weekday - startWeekday;
+    if (diff < 0) diff += 7;
+    DateTime thisWeekStart = date.subtract(Duration(days: diff));
+
+    // Step 2: find the first occurrence of the configured weekday
+    // on or after the 1st of thisWeekStart's month
+    DateTime monthStart = DateTime(thisWeekStart.year, thisWeekStart.month, 1);
+    int daysToFirst = (startWeekday - monthStart.weekday + 7) % 7;
+    DateTime firstCycleStart = monthStart.add(Duration(days: daysToFirst));
+
+    // Step 3: how many full weeks between firstCycleStart and thisWeekStart?
+    int weekIndex = thisWeekStart.difference(firstCycleStart).inDays ~/ 7;
+
+    // Step 4: even weekIndex (0,2,4...) = first week of a cycle
+    //         odd weekIndex  (1,3,5...) = second week of a cycle
+    if (weekIndex % 2 == 0) {
+      startDate = thisWeekStart;
+    } else {
+      startDate = thisWeekStart.subtract(const Duration(days: 7));
+    }
+    endDate = startDate.add(const Duration(days: 13));
+  }
+}
     // ================= MONTHLY =================
     else if (type == "monthly") {
       if (monthStart.trim().isEmpty) {

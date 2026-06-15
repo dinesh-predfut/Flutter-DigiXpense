@@ -94,16 +94,23 @@ class _DashboardPageState extends State<DashboardPage>
     }
   }
 
-  Future<void> loadTimezoneValue() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? timezoneValue = prefs.getString('defaultTimeZone');
-
-    controller.selectedTimezonevalue.value = timezoneValue!;
-    print(
-      "controller.selectedTimezonevalue.value${controller.selectedTimezonevalue.value}",
-    );
+Future<void> loadTimezoneValue() async {
+  final prefs = await SharedPreferences.getInstance();
+  final String? timezoneValue = prefs.getString('defaultTimeZone');
+final String? defaultDateFormat = prefs.getString('DefaultDateformat'); // ← Same key  
+  // Handle potential null values safely
+  if (timezoneValue != null) {
+    controller.selectedTimezonevalue.value = timezoneValue;
   }
-
+  
+  // Handle date format with a default value if null
+  final String dateFormatToUse = defaultDateFormat ?? "DD/MM/YYYY";
+  controller.selectedFormat = MapEntry("DefaultDateformat", dateFormatToUse);
+  
+  print("Timezone: ${controller.selectedTimezonevalue.value}");
+  print("Date format key: ${controller.selectedFormat?.key}");
+  print("Date format value: ${controller.selectedFormat?.value}");
+}
   void _onUserScroll() {
     if (_animationController.isAnimating) {
       _animationController.stop();

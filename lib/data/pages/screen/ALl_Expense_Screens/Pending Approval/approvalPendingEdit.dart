@@ -3074,9 +3074,9 @@ class _ApprovalViewEditExpensePageState
                                             SearchableMultiColumnDropdownField<
                                               ExpenseCategory
                                             >(
-                                              labelText: AppLocalizations.of(
+                                              labelText: '${AppLocalizations.of(
                                                 context,
-                                              )!.paidFor,
+                                              )!.paidFor } *',
                                               enabled:
                                                   controller.isEnable.value,
                                               columnHeaders: [
@@ -5071,8 +5071,8 @@ class _ApprovalViewEditExpensePageState
                       controller.selectedProject = null;
                       for (var c in itemizeControllers) {
                         c.expenseCategory.value = [];
-                        c.categoryController.clear();
-                        c.projectDropDowncontroller.clear();
+                        // c.categoryController.clear();
+                        // c.projectDropDowncontroller.clear();
                       }
                     });
                     loadAndAppendCashAdvanceList();

@@ -1,6 +1,7 @@
 import 'package:diginexa/data/service.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart' show Get;
+import 'package:intl/intl.dart';
 
 int getTimezoneOffsetMs() {
   return int.tryParse(
@@ -37,93 +38,62 @@ int toMillisecondsWithTimezone(DateTime localDt) {
   // 1778011200000
 }
 
-DateTime todayInOrgTimezone(String? offsetMsStr) {
-  final controller = Get.find<Controller>();
-
-  final int offsetMs =
-      int.tryParse(controller.selectedTimezonevalue.value ?? '0') ?? 0;
-  final int nowUtcMs = DateTime.now().toUtc().millisecondsSinceEpoch;
-
-  final DateTime orgNow = DateTime.fromMillisecondsSinceEpoch(
-    nowUtcMs + offsetMs,
+DateTime todayInOrgTimezone() {
+  final offsetMs = getTimezoneOffsetMs();
+  final nowUtc = DateTime.now().toUtc();
+  final orgNow = DateTime.fromMillisecondsSinceEpoch(
+    nowUtc.millisecondsSinceEpoch + offsetMs,
     isUtc: true,
   );
-
-  // Return date-only (no time)
   return DateTime.utc(orgNow.year, orgNow.month, orgNow.day);
 }
 
-int toStartOfDayUtc(DateTime localDt) {
-final controller = Get.find<Controller>();
-
-print(controller.selectedTimezonevalue);
-print(controller.selectedTimezonevalue.runtimeType);
-print(controller.selectedTimezonevalue.value);
-
-final int offsetMs =
-    int.tryParse(controller.selectedTimezonevalue.value) ?? 0;
-  // ✅ Step 1: get correct date in ORG timezone — not device timezone
-  final int nowUtcMs = localDt.toUtc().millisecondsSinceEpoch;
-  final DateTime orgNow = DateTime.fromMillisecondsSinceEpoch(
-    nowUtcMs + offsetMs,
-    isUtc: true,
+int toStartOfDayUtc(DateTime orgLocalDate) {
+  final offsetMs = getTimezoneOffsetMs();
+  
+  final DateTime utcMidnight = DateTime.utc(
+    orgLocalDate.year,
+    orgLocalDate.month,
+    orgLocalDate.day,
+    0, 0, 0, 0,
   );
-
-  // ✅ Step 2: build midnight using ORG date (not localDt)
-  final DateTime startOfDay = DateTime.utc(
-    orgNow.year,
-    orgNow.month,
-    orgNow.day,
-    0,
-    0,
-    0,
-    0,
-  );
-
-  final int result = startOfDay.millisecondsSinceEpoch - offsetMs;
-
-  print("toStartOfDayUtc - nowUtcMs  : $nowUtcMs");
-  print("toStartOfDayUtc - offsetMs  : $offsetMs");
-  print("toStartOfDayUtc - orgNow    : $orgNow"); // ✅ should show NZT date
-  print("toStartOfDayUtc - startOfDay: $startOfDay");
-  print("toStartOfDayUtc - result    : $result");
-
-  return result;
+  
+  return utcMidnight.millisecondsSinceEpoch - offsetMs;
 }
 
-int toEndOfDayUtc(DateTime localDt) {
-  final int offsetMs =
-      int.tryParse(Get.find<Controller>().selectedTimezonevalue.value ?? '0') ??
-      0;
-
-  // ✅ Same fix — use org timezone date
-  final int nowUtcMs = DateTime.now().millisecondsSinceEpoch;
-  final DateTime orgNow = DateTime.fromMillisecondsSinceEpoch(
-    nowUtcMs + offsetMs,
-    // isUtc: true,
+int toEndOfDayUtc(DateTime orgLocalDate) {
+  final offsetMs = getTimezoneOffsetMs();
+  
+  final DateTime utcEndOfDay = DateTime.utc(
+    orgLocalDate.year,
+    orgLocalDate.month,
+    orgLocalDate.day,
+    23, 59, 59, 999,
   );
-
-  final DateTime endOfDay = DateTime.utc(
-    localDt.year,
-    localDt.month,
-    localDt.day,
-    23,
-    59,
-    59,
-    999,
-  );
-
-  final int result = endOfDay.millisecondsSinceEpoch - offsetMs;
-
-  print("toEndOfDayUtc - orgNow    : $orgNow");
-  print("toEndOfDayUtc - endOfDay  : $endOfDay");
-  print("toEndOfDayUtc - result    : $result");
-
-  return result;
+  
+  return utcEndOfDay.millisecondsSinceEpoch - offsetMs;
 }
 
 DateTime fromOrgMilliseconds(int ms) {
   final offsetMs = getTimezoneOffsetMs();
 
   return DateTime.fromMillisecondsSinceEpoch(ms + offsetMs, isUtc: true);
+}
+
+String formatDate(DateTime date) {
+    final controller = Get.find<Controller>();
+
+  // Ensure we're working with UTC
+  final DateTime utcDate = date.isUtc ? date : date.toUtc();
+  
+  // Convert UTC to organization's local time for display
+  final offsetMs = getTimezoneOffsetMs();
+  final DateTime orgLocalDate = DateTime.fromMillisecondsSinceEpoch(
+    utcDate.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
+  
+  return DateFormat(
+    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+  ).format(orgLocalDate);
 }

@@ -64,7 +64,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
       controller.fetchCustomFields();
       controller.configuration();
       controller.isReadOnly = widget.isReadOnly;
-
+_initializeData();
       if (widget.item != null) {
         controller.cashAdvReqIds = widget.item!.cashAdvReqId ?? '';
         statusApproval = widget.item!.approvalStatus ?? 'Unknown';
@@ -98,7 +98,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         workitemrecid = null;
       }
     });
-
+_initializeData();
     // ✅ Defer all UI-affecting state updates
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (widget.item == null) {
@@ -118,7 +118,7 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
         controller.fetchExchangeRatePerdiem();
         print("isReadOnly ${widget.isReadOnly}");
       }
-            _initializeData();
+            
 
     });
   
@@ -266,133 +266,137 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   }
 
   Future<void> _initializeData() async {
-    final fromMs = toStartOfDayUtc(DateTime.now().add(Duration(days: 1)));;
-    final toMs = toEndOfDayUtc(DateTime.now().add(Duration(days: 1)));;
+  final todayOrg = todayInOrgTimezone();
+  final fromMs = toStartOfDayUtc(todayOrg);
+  final toMs = toEndOfDayUtc(todayOrg);
 
-    final fromDate = DateTime.fromMillisecondsSinceEpoch(fromMs,);
-    final toDate = DateTime.fromMillisecondsSinceEpoch(toMs, isUtc: true);
+  final fromDateUtc = DateTime.fromMillisecondsSinceEpoch(fromMs, isUtc: true);
+  final toDateUtc = DateTime.fromMillisecondsSinceEpoch(toMs, isUtc: true);
 
-    controller.fromDateController.text = formatDate(fromDate);
-    controller.toDateController.text = formatDate(toDate);
+  // This will now correctly convert UTC to org-local for display
+  controller.fromDateController.text = formatDate(fromDateUtc);
+  controller.toDateController.text = formatDate(toDateUtc);
 
-    print("FROM MS : $fromMs");
-    print("TO MS   : $toMs");
+  print("FROM MS (UTC): $fromMs");
+  print("TO MS (UTC): $toMs");
+  print("FROM DATE UTC: $fromDateUtc");
+  print("TO DATE UTC: $toDateUtc");
+  print("FROM DATE DISPLAY: ${controller.fromDateController.text}");
+  print("TO DATE DISPLAY: ${controller.toDateController.text}");
 
-    print("FROM DATE UTC : $fromDate");
-    print("TO DATE UTC   : $toDate");
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    await Future.wait([controller.fetchProjectName()]);
+  });
 
-    print("Its Called1112${controller.fromDateController.text}11");
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.wait([controller.fetchProjectName()]);
-    });
+  // Rest of your existing code for editing items...
+  if (widget.item != null) {
+    controller.isLoadingGE2.value = true;
+    print("Its Called ");
+    final item = widget.item!;
+    controller.isManualEntry = true;
 
-    if (widget.item != null) {
-      controller.isLoadingGE2.value = true;
-      print("Its Called ");
-      final item = widget.item!;
-      controller.isManualEntry = true;
+    // Safe project matching with fallback
+    final matchedProject = controller.project.firstWhere(
+      (p) => p.code == item.projectId,
+      orElse: () => Project(name: '', code: '', isNotEmpty: false),
+    );
 
-      // Safe project matching with fallback
-      final matchedProject = controller.project.firstWhere(
-        (p) => p.code == item.projectId,
-        orElse: () => Project(name: '', code: '', isNotEmpty: false),
+    if (matchedProject.isNotEmpty) {
+      controller.selectedProject = matchedProject;
+      print("controller.selectedProject${controller.selectedProject!.code} ");
+      controller.projectIdController.text = matchedProject.code;
+    } else {
+      controller.selectedProject = null;
+      controller.projectIdController.clear();
+    }
+
+    // Safe location handling
+    if (item.location != null && item.location!.trim().isNotEmpty) {
+      final matchedLocation = controller.location.firstWhere(
+        (l) => l.location == item.location,
+        orElse: () => LocationModel(location: '', country: '', description: '', createdBy: '', modifiedBy: '', organizationId: 0, recId: 0, region: '', city: '', createdDatetime: 0, modifiedDatetime: 0, subOrganizationId: 0, state: ''),
       );
 
-      if (matchedProject.isNotEmpty) {
-        controller.selectedProject = matchedProject;
-        print("controller.selectedProject${controller.selectedProject!.code} ");
-        controller.projectIdController.text = matchedProject.code;
-      } else {
-        controller.selectedProject = null;
-        controller.projectIdController.clear();
-      }
-
-      // Safe location handling
-      if (item.location != null && item.location!.trim().isNotEmpty) {
-        final matchedLocation = controller.location.firstWhere(
-          (l) => l.location == item.location,
-          // orElse: () => LocationModel(location: '', country: ''), // Safe fallback
-        );
-
-        if (matchedLocation.location.isNotEmpty) {
-          controller.selectedLocation = matchedLocation;
-          controller.locationController.text = matchedLocation.location;
-        } else {
-          controller.selectedLocation = null;
-          controller.locationController.clear();
-        }
+      if (matchedLocation.location.isNotEmpty) {
+        controller.selectedLocation = matchedLocation;
+        controller.locationController.text = matchedLocation.location;
       } else {
         controller.selectedLocation = null;
         controller.locationController.clear();
       }
-      if (controller.cashAdvanceIds.text.isNotEmpty) {
-        final ids = controller.cashAdvanceIds.text
-            .split(',')
-            .where((e) => e.isNotEmpty)
-            .toSet()
-            .toList();
-
-        controller.cashAdvanceIds.text = ids.join(',');
-
-        controller.multiSelectedItems.clear();
-        controller.multiSelectedItems.addAll(
-          controller.cashAdvanceListDropDown.where(
-            (e) => ids.contains(e.cashAdvanceReqId),
-          ),
-        );
-      }
-      // Safe date handling
-      if (item.fromDate != null) {
-        controller.fromDateController.text =
-            DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
-              DateTime.fromMillisecondsSinceEpoch(item.fromDate, isUtc: true),
-            );
-      }
-
-      if (item.toDate != null) {
-        controller.toDateController.text = DateFormat(
-          controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-        ).format(DateTime.fromMillisecondsSinceEpoch(item.toDate, isUtc: true));
-      }
-
-      controller.expenseIdController.text = item.expenseId ?? '';
-      controller.employeeDropDownController.text = item.employeeId ?? '';
-      controller.employeeName.text =
-          item.employeeName ?? ''; // ✅ Safe null handling
-      controller.daysController.text = (item.noOfDays ?? 0).toString();
-
-      await controller.fetchPerDiemRates();
-      controller.amountInController.clear();
-      controller.allocationLines.clear();
-      controller.amountInController.text = (item.totalAmountReporting ?? 0.0)
-          .toString();
-      controller.exchangeamountInController.text =
-          (item.totalAmountTrans ?? 0.0).toString();
-      controller.purposeController.text = item.description ?? '';
-
-      historyFuture = controller.fetchExpenseHistory(item.recId);
-
-      controller.allocationLines.clear();
-      controller.allocationLines = item.allocationLines ?? [];
-      for (var item in controller.allocationLines) {
-        controller.perDiemController.text = item.perDiemId ?? '';
-      }
-
-      print(
-        "allocationLinesData ${controller.allocationLines.map((e) => e.toJson()).toList()}",
-      );
-      controller.accountingDistributions = item.accountingDistributions ?? [];
-      controller.isLoadingGE2.value = false;
+    } else {
+      controller.selectedLocation = null;
+      controller.locationController.clear();
     }
-  }
+    
+    if (controller.cashAdvanceIds.text.isNotEmpty) {
+      final ids = controller.cashAdvanceIds.text
+          .split(',')
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
 
-  String formatDate(DateTime date) {
-    // ✅ Convert to UTC before formatting so the displayed date
-    // matches the UTC epoch stored, not the local device date
-    return DateFormat(
-      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(date); // ← add .toUtc()
+      controller.cashAdvanceIds.text = ids.join(',');
+
+      controller.multiSelectedItems.clear();
+      controller.multiSelectedItems.addAll(
+        controller.cashAdvanceListDropDown.where(
+          (e) => ids.contains(e.cashAdvanceReqId),
+        ),
+      );
+    }
+    
+    // Safe date handling for existing items - FIXED: Use formatDate for display
+    if (item.fromDate != null) {
+      final fromDateUtc = DateTime.fromMillisecondsSinceEpoch(item.fromDate, isUtc: true);
+      controller.fromDateController.text = formatDate(fromDateUtc);
+    }
+
+    if (item.toDate != null) {
+      final toDateUtc = DateTime.fromMillisecondsSinceEpoch(item.toDate, isUtc: true);
+      controller.toDateController.text = formatDate(toDateUtc);
+    }
+
+    controller.expenseIdController.text = item.expenseId ?? '';
+    controller.employeeDropDownController.text = item.employeeId ?? '';
+    controller.employeeName.text = item.employeeName ?? '';
+    controller.daysController.text = (item.noOfDays ?? 0).toString();
+
+    await controller.fetchPerDiemRates();
+    controller.amountInController.clear();
+    controller.allocationLines.clear();
+    controller.amountInController.text = (item.totalAmountReporting ?? 0.0).toString();
+    controller.exchangeamountInController.text = (item.totalAmountTrans ?? 0.0).toString();
+    controller.purposeController.text = item.description ?? '';
+
+    historyFuture = controller.fetchExpenseHistory(item.recId);
+
+    controller.allocationLines.clear();
+    controller.allocationLines = item.allocationLines ?? [];
+    for (var item in controller.allocationLines) {
+      controller.perDiemController.text = item.perDiemId ?? '';
+    }
+
+    print("allocationLinesData ${controller.allocationLines.map((e) => e.toJson()).toList()}");
+    controller.accountingDistributions = item.accountingDistributions ?? [];
+    controller.isLoadingGE2.value = false;
   }
+}
+String formatDate(DateTime date) {
+  // Ensure we're working with UTC
+  final DateTime utcDate = date.isUtc ? date : date.toUtc();
+  
+  // Convert UTC to organization's local time for display
+  final offsetMs = getTimezoneOffsetMs();
+  final DateTime orgLocalDate = DateTime.fromMillisecondsSinceEpoch(
+    utcDate.millisecondsSinceEpoch + offsetMs,
+    isUtc: true,
+  );
+  
+  return DateFormat(
+    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+  ).format(orgLocalDate);
+}
 
   Future<void> _initializeDataCashAdvance() async {
     await loadAndAppendCashAdvanceList();
@@ -2653,90 +2657,95 @@ class _CreatePerDiemPageState extends State<CreatePerDiemPage>
   }
 
   Widget buildDateField(
-    String label,
-    TextEditingController controllers,
-    bool isFromDate, {
-    bool enabled = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: GestureDetector(
-        onTap: enabled
-            ? () async {
-                DateTime initialDate = DateTime.now();
-
-                if (controllers.text.trim().isNotEmpty) {
-                  try {
-                    initialDate = DateFormat(
-                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                    ).parseStrict(controllers.text.trim());
-                  } catch (_) {}
-                }
-
-                DateTime firstDate = DateTime(2000);
-                DateTime lastDate = DateTime.now();
-
-                if (!isFromDate &&
-                    controller.fromDateController.text.isNotEmpty) {
-                  try {
-                    firstDate = DateFormat(
-                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                    ).parseStrict(controller.fromDateController.text.trim());
-                  } catch (_) {}
-                }
-
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: initialDate,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-
-                if (picked != null) {
-                  if (!isFromDate &&
-                      controller.fromDateController.text.isNotEmpty) {
-                    final fromDate = DateFormat(
-                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                    ).parseStrict(controller.fromDateController.text.trim());
-                    if (picked.isBefore(fromDate)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "To Date cannot be earlier than From Date.",
-                          ),
-                        ),
-                      );
-                      return;
-                    }
+  String label,
+  TextEditingController controllers,
+  bool isFromDate, {
+  bool enabled = true,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: GestureDetector(
+      onTap: enabled
+          ? () async {
+              // Get current date from controller text (which is in org-local format)
+              DateTime initialDate = DateTime.now();
+              
+              if (controllers.text.trim().isNotEmpty) {
+                try {
+                  // Parse the displayed date (which is in org-local format)
+                  initialDate = DateFormat(
+                    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                  ).parseStrict(controllers.text.trim());
+                } catch (_) {}
+              }
+              
+              DateTime firstDate = DateTime(2000);
+              DateTime lastDate = DateTime.now();
+              
+              if (!isFromDate && controller.fromDateController.text.isNotEmpty) {
+                try {
+                  final fromDateDisplay = DateFormat(
+                    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                  ).parseStrict(controller.fromDateController.text.trim());
+                  
+                  firstDate = fromDateDisplay;
+                } catch (_) {}
+              }
+              
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: initialDate,
+                firstDate: firstDate,
+                lastDate: lastDate,
+              );
+              
+              if (picked != null) {
+                if (!isFromDate && controller.fromDateController.text.isNotEmpty) {
+                  final fromDateDisplay = DateFormat(
+                    controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                  ).parseStrict(controller.fromDateController.text.trim());
+                  
+                  if (picked.isBefore(fromDateDisplay)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("To Date cannot be earlier than From Date."),
+                      ),
+                    );
+                    return;
                   }
-
-                  controllers.text = formatDate(picked);
-                  await controller.fetchPerDiemRates();
-                  controller.fetchExchangeRatePerdiem();
+                }
+                
+                // Store the picked date (will be converted to UTC when saving)
+                controllers.text = DateFormat(
+                  controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                ).format(picked);
+                
+                await controller.fetchPerDiemRates();
+                controller.fetchExchangeRatePerdiem();
+                loadAndAppendCashAdvanceList();
+                if (controller.locationController.text.isNotEmpty) {
                   loadAndAppendCashAdvanceList();
-                  if (controller.locationController.text.isNotEmpty) {
-                    loadAndAppendCashAdvanceList();
-                  }
                 }
               }
-            : null,
-        child: AbsorbPointer(
-          child: TextField(
-            controller: controllers,
-            enabled: enabled,
-            decoration: InputDecoration(
-              labelText: label,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              suffixIcon: const Icon(Icons.calendar_today),
+            }
+          : null,
+      child: AbsorbPointer(
+        child: TextField(
+          controller: controllers,
+          enabled: enabled,
+          decoration: InputDecoration(
+            labelText: label,
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
+            suffixIcon: const Icon(Icons.calendar_today),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildSection({
     required String title,

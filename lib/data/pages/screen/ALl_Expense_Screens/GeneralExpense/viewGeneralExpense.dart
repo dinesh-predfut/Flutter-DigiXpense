@@ -3070,7 +3070,7 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
                                                       // const SizedBox(height: 8),
                                                       inputField,
                                                       const SizedBox(
-                                                        height: 16,
+                                                        height: 8,
                                                       ),
                                                     ],
                                                   );
@@ -4007,7 +4007,7 @@ else if (fieldType == 'MobileNumber') {
                                                     .toList(),
                                               );
                                             }),
-                                            SizedBox(height: 13),
+                                            SizedBox(height: 8),
                                             SearchableMultiColumnDropdownField<
                                               ExpenseCategory
                                             >(
@@ -4290,7 +4290,7 @@ else if (fieldType == 'MobileNumber') {
                                                 );
                                               },
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 14),
                                             SearchableMultiColumnDropdownField<
                                               Unit
                                             >(
@@ -4354,7 +4354,7 @@ else if (fieldType == 'MobileNumber') {
                                                 );
                                               },
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
                                             _buildTextField(
                                               keyboardType:
                                                   TextInputType.number,
@@ -4402,7 +4402,7 @@ else if (fieldType == 'MobileNumber') {
                                                 });
                                               },
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
                                             Obx(() {
                                               final error = itemController
                                                   .paidAmountError
@@ -4555,7 +4555,7 @@ else if (fieldType == 'MobileNumber') {
                                                 ],
                                               );
                                             }),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
                                             // const SizedBox(height: 8),
                                             _buildTextField(
                                               label: AppLocalizations.of(
@@ -4574,7 +4574,7 @@ else if (fieldType == 'MobileNumber') {
                                                     );
                                               },
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
                                             _buildTextField(
                                               label:
                                                   '${AppLocalizations.of(context)!.lineAmountInInr} '
@@ -4592,7 +4592,7 @@ else if (fieldType == 'MobileNumber') {
                                                 });
                                               },
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
                                             ...controller.configList
                                                 .where(
                                                   (field) =>
@@ -4717,7 +4717,7 @@ else if (fieldType == 'MobileNumber') {
                                                       ),
 
                                                       const SizedBox(
-                                                        height: 16,
+                                                        height:   8,
                                                       ),
                                                     ],
                                                   );

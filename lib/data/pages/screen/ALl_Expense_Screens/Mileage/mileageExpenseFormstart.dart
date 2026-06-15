@@ -14,6 +14,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/comman/widgets/multiselectDropdown.dart';
+import '../../../../../core/utils.dart';
 
 class MileageFirstFrom extends StatefulWidget {
   final bool isReadOnly;
@@ -47,13 +48,21 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   void initState() {
     super.initState();
     print("mileageId${widget.mileageId}");
-    final dateTime = controller.selectedDateMileage ??= DateTime.now();
-    final formattedDate = DateFormat(
-      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(dateTime);
+    // Get today's date in organization's timezone
+    final todayOrg = todayInOrgTimezone();
+    final fromMs = toStartOfDayUtc(todayOrg);
+
+    // Store as UTC DateTime
+    controller.selectedDateMileage ??= DateTime.fromMillisecondsSinceEpoch(
+      fromMs,
+      isUtc: true,
+    );
+
+    // Format for display (converts UTC to org-local timezone)
+    final formattedDate = formatDate(controller.selectedDateMileage!);
     controller.mileagDateController.text = formattedDate;
-    controller.selectedDate = dateTime;
-    
+    controller.selectedDate = controller.selectedDateMileage;
+
     // Delay your logic safely
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.fetchMileageRates();
@@ -65,7 +74,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       loadAndAppendCashAdvanceList();
       initializeCashAdvanceSelection();
       setupCustomFieldValidation(); // ✅ Add validation listeners
-      
+
       if (widget.mileageId != null) {
         controller.isEnable.value = false;
         historyFuture = controller.fetchExpenseHistory(widget.mileageId!.recId);
@@ -81,22 +90,21 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
         controller.isEnable.value = true;
       }
     });
-   
+
     if (widget.mileageId != null) {
       controller.tripControllers.clear();
 
       final expense = widget.mileageId!;
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(
-        expense.receiptDate,
-        isUtc: true,
-      );
-      final formattedDate = DateFormat(
-        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-      ).format(dateTime);
+      final dateTimeUtc = DateTime.fromMillisecondsSinceEpoch(
+  expense.receiptDate,
+  isUtc: true,
+);
+     final formattedDate = formatDate(dateTimeUtc);
       controller.expenseIdController.text = expense.expenseId;
       controller.employeeDropDownController.text = expense.employeeId;
       controller.employeeName.text = expense.employeeName;
-      controller.accountingDistributions = expense.accountingDistributions ?? [];
+      controller.accountingDistributions =
+          expense.accountingDistributions ?? [];
       controller.expenseID = expense.expenseId;
       controller.cashAdvReqIds = expense.cashAdvReqId;
       statusApproval = expense.approvalStatus;
@@ -105,9 +113,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       controller.mileageVehicleID.text = expense.mileageRateId;
       controller.mileagDateController.text = formattedDate;
       controller.calculatedAmountINR = expense.totalAmountReporting;
-      
+
       print("controller.calculatedAmountINR${controller.recID}");
-      
+
       if (expense.travelPoints.isNotEmpty &&
           expense.travelPoints.first.fromLocation ==
               expense.travelPoints.last.toLocation) {
@@ -115,7 +123,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       } else {
         controller.isRoundTrip = false;
       }
-      
+
       if (expense.travelPoints.isNotEmpty) {
         final travelPoints = expense.travelPoints;
 
@@ -131,9 +139,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
               TextEditingController(text: firstFrom),
             );
             controller.tripControllers.add(
-              TextEditingController(
-                text: travelPoints.first.toLocation,
-              ),
+              TextEditingController(text: travelPoints.first.toLocation),
             );
             print("✅ Round trip detected. Only one Start-End pair created.");
           } else {
@@ -208,163 +214,170 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
   }
 
   bool validateCustomFields() {
-    bool isValid = true;
-    
-    for (var field in controller.customFields) {
-      // Only validate ExpenseHeader fields with Mileage type
-      if (field['ObjectName'] != 'ExpenseHeader' || field['ExpenseType'] != 'Mileage') {
-        continue;
-      }
-      
-      final fieldType = field['FieldType']?.toString().toLowerCase();
-      final isMandatory = field['IsMandatory'] == true;
-      final fieldName = field['FieldLabel'] ?? field['FieldName'] ?? '';
-      
-      String? error;
-      
-      if (isMandatory) {
-        switch (fieldType) {
-          case 'list':
-          case 'customlist':
-          case 'systemlist':
-            final selectedValue = field['SelectedValue'];
-            if (selectedValue == null) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-            
-          case 'checkbox':
-            final value = field['EnteredValue'] ?? false;
-            if (value != true && value != false) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-            
-          case 'date':
-          case 'date&time':
-            final value = field['EnteredValue'];
-            if (value == null) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-            
-          case 'integer':
-          case 'longinteger':
-            final value = field['EnteredValue'];
-            if (value == null || (value is int && value == 0)) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-            
-          case 'decimal':
-          case 'amount':
-          case 'percent':
-          case 'percentage':
-            final value = field['EnteredValue'];
-            if (value == null || (value is double && value == 0.0)) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-            
-          case 'email':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isEmpty) {
-              error = '$fieldName is required';
-              isValid = false;
-            } else {
-              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-              if (!emailRegex.hasMatch(value)) {
-                error = 'Please enter a valid email address';
-                isValid = false;
-              }
-            }
-            break;
-            
-          case 'mobilenumber':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isEmpty) {
-              error = '$fieldName is required';
-              isValid = false;
-            } else {
-              final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
-              if (!phoneRegex.hasMatch(value)) {
-                error = 'Please enter a valid mobile number';
-                isValid = false;
-              }
-            }
-            break;
-            
-          case 'url':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isEmpty) {
-              error = '$fieldName is required';
-              isValid = false;
-            } else {
-              final urlRegex = RegExp(r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$');
-              if (!urlRegex.hasMatch(value)) {
-                error = 'Please enter a valid URL';
-                isValid = false;
-              }
-            }
-            break;
-            
-          default:
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isEmpty) {
-              error = '$fieldName is required';
-              isValid = false;
-            }
-            break;
-        }
-      } else {
-        // Optional fields - still validate format if value is provided
-        switch (fieldType) {
-          case 'email':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isNotEmpty) {
-              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-              if (!emailRegex.hasMatch(value)) {
-                error = 'Please enter a valid email address';
-                isValid = false;
-              }
-            }
-            break;
-            
-          case 'mobilenumber':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isNotEmpty) {
-              final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
-              if (!phoneRegex.hasMatch(value)) {
-                error = 'Please enter a valid mobile number';
-                isValid = false;
-              }
-            }
-            break;
-            
-          case 'url':
-            final value = field['EnteredValue']?.toString().trim() ?? '';
-            if (value.isNotEmpty) {
-              final urlRegex = RegExp(r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$');
-              if (!urlRegex.hasMatch(value)) {
-                error = 'Please enter a valid URL';
-                isValid = false;
-              }
-            }
-            break;
-        }
-      }
-      
-      field['Error'] = error;
+  bool isValid = true;
+
+  for (var field in controller.customFields) {
+    // Only validate ExpenseHeader fields with Mileage type
+    if (field['ObjectName'] != 'ExpenseHeader' ||
+        field['ExpenseType'] != 'Mileage') {
+      continue;
     }
-    
-    controller.customFields.refresh();
-    return isValid;
+
+    final fieldType = field['FieldType']?.toString().toLowerCase();
+    final isMandatory = field['IsMandatory'] == true;
+    final fieldName = field['FieldLabel'] ?? field['FieldName'] ?? '';
+
+    String? error;
+
+    if (isMandatory) {
+      switch (fieldType) {
+        case 'list':
+        case 'customlist':
+        case 'systemlist':
+          final selectedValue = field['SelectedValue'];
+          if (selectedValue == null) {
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+
+        case 'checkbox':
+          final value = field['EnteredValue'] ?? false;
+          if (value != true) {  // ✅ Check if checkbox is not checked
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+
+        case 'date':
+        case 'date&time':
+          final value = field['EnteredValue'];
+          if (value == null) {
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+
+        case 'integer':
+        case 'longinteger':
+          final value = field['EnteredValue'];
+          // ✅ Also check if value is null for mandatory fields
+          if (value == null || (value is int && value == 0)) {
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+
+        case 'decimal':
+        case 'amount':
+        case 'percent':
+        case 'percentage':
+          final value = field['EnteredValue'];
+          // ✅ Check both null and zero for mandatory numeric fields
+          if (value == null || (value is double && value == 0.0)) {
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+
+        case 'email':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isEmpty) {
+            error = '$fieldName is required';
+            isValid = false;
+          } else {
+            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+            if (!emailRegex.hasMatch(value)) {
+              error = 'Please enter a valid email address';
+              isValid = false;
+            }
+          }
+          break;
+
+        case 'mobilenumber':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isEmpty) {
+            error = '$fieldName is required';
+            isValid = false;
+          } else {
+            final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
+            if (!phoneRegex.hasMatch(value)) {
+              error = 'Please enter a valid mobile number';
+              isValid = false;
+            }
+          }
+          break;
+
+        case 'url':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isEmpty) {
+            error = '$fieldName is required';
+            isValid = false;
+          } else {
+            final urlRegex = RegExp(
+              r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
+            );
+            if (!urlRegex.hasMatch(value)) {
+              error = 'Please enter a valid URL';
+              isValid = false;
+            }
+          }
+          break;
+
+        default: // Text fields
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isEmpty) {
+            error = '$fieldName is required';
+            isValid = false;
+          }
+          break;
+      }
+    } else {
+      // Optional fields - still validate format if value is provided
+      switch (fieldType) {
+        case 'email':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isNotEmpty) {
+            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+            if (!emailRegex.hasMatch(value)) {
+              error = 'Please enter a valid email address';
+              isValid = false;
+            }
+          }
+          break;
+
+        case 'mobilenumber':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isNotEmpty) {
+            final phoneRegex = RegExp(r'^\+?[\d\s\-]{7,15}$');
+            if (!phoneRegex.hasMatch(value)) {
+              error = 'Please enter a valid mobile number';
+              isValid = false;
+            }
+          }
+          break;
+
+        case 'url':
+          final value = field['EnteredValue']?.toString().trim() ?? '';
+          if (value.isNotEmpty) {
+            final urlRegex = RegExp(
+              r'^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$',
+            );
+            if (!urlRegex.hasMatch(value)) {
+              error = 'Please enter a valid URL';
+              isValid = false;
+            }
+          }
+          break;
+      }
+    }
+
+    field['Error'] = error;
   }
+
+  controller.customFields.refresh();
+  return isValid;
+}
 
   void handleSubmit() {
     setState(() {
@@ -389,14 +402,14 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
         });
       }
     }
-    
+
     if (controller.employeeDropDownController.text.trim().isEmpty) {
       setState(() {
         employeeError = AppLocalizations.of(context)!.fieldRequired;
       });
       isValid = false;
     }
-    
+
     final projectMandatory = isFieldMandatory('Project Id');
     if (controller.projectIdController.text.isEmpty && projectMandatory) {
       _showProjectError = true;
@@ -404,7 +417,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     } else {
       _showProjectError = false;
     }
-    
+
     if (controller.mileageVehicleID.text.isEmpty) {
       setState(() {
         vehicleError = AppLocalizations.of(context)!.fieldRequired;
@@ -414,14 +427,16 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
     // ✅ Validate custom fields
     final customFieldsValid = validateCustomFields();
-    if (!customFieldsValid) {
-      isValid = false;
-      Fluttertoast.showToast(
-        msg: "Please fill all required custom fields",
-        backgroundColor: Colors.red[100],
-        textColor: Colors.red[800],
-      );
-    }
+   if (!customFieldsValid) {
+  isValid = false;
+  Fluttertoast.showToast(
+    msg: "Please fill all required custom fields",
+    backgroundColor: Colors.red[100],
+    textColor: Colors.red[800],
+  );
+  scrollToFirstError(); // Optional: scroll to first error
+  return; // Prevent navigation
+}
 
     if (isValid) {
       debugPrint("✅ mileageId received: ${widget.isReadOnly}");
@@ -436,45 +451,61 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
       );
     }
   }
-
+void scrollToFirstError() {
+  for (int i = 0; i < controller.customFields.length; i++) {
+    final field = controller.customFields[i];
+    if (field['Error'] != null && mounted) {
+      // You can use a ScrollController to scroll to the error field
+      // For now, just show a toast
+      Fluttertoast.showToast(
+        msg: "Please fix errors in the form",
+        backgroundColor: Colors.red[100],
+        textColor: Colors.red[800],
+      );
+      break;
+    }
+  }
+}
   String getCustomFieldDisplayValue(Map<String, dynamic> field) {
     final fieldType = field['FieldType']?.toString().toLowerCase();
     final value = field['EnteredValue'];
-    
+
     if (value == null) return '';
-    
+
     switch (fieldType) {
       case 'date':
         if (value is DateTime) {
           return DateFormat('dd/MM/yyyy').format(value);
         }
         return value.toString();
-        
+
       case 'date&time':
         if (value is DateTime) {
           return DateFormat('dd/MM/yyyy hh:mm a').format(value);
         }
         return value.toString();
-        
+
       case 'integer':
       case 'longinteger':
         if (value is int) {
           return value.toString();
         }
         return value.toString();
-        
+
       case 'decimal':
       case 'amount':
       case 'percent':
       case 'percentage':
         if (value is double) {
-          return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
+          return value.toStringAsFixed(
+            value.truncateToDouble() == value ? 0 : 2,
+          );
         }
         return value.toString();
-        
+
       case 'checkbox':
         return (value is bool && value) ? 'true' : 'false';
-        
+
       default:
         return value.toString();
     }
@@ -482,7 +513,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
 
   void setupCustomFieldValidation() {
     for (var field in controller.customFields) {
-      if (field['ObjectName'] == 'ExpenseHeader' && field['ExpenseType'] == 'Mileage') {
+      if (field['ObjectName'] == 'ExpenseHeader' &&
+          field['ExpenseType'] == 'Mileage') {
         final fieldKey = field['FieldName'];
         final textController = fieldControllers[fieldKey];
         if (textController != null) {
@@ -686,7 +718,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                     return const SizedBox();
                                   }
 
-                                  final bool isCreate = widget.mileageId == null;
+                                  final bool isCreate =
+                                      widget.mileageId == null;
                                   final bool hideField = controller.hasModule(
                                     "Expense",
                                   );
@@ -954,8 +987,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'Checkbox') {
+                                        } else if (fieldType == 'Checkbox') {
                                           if (field['_rxCheckboxValue'] ==
                                               null) {
                                             field['_rxCheckboxValue'] =
@@ -992,8 +1024,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                                   : null,
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'Date' ||
+                                        } else if (fieldType == 'Date' ||
                                             fieldType == 'Date&Time') {
                                           if (field['_rxDateValue'] == null) {
                                             field['_rxDateValue'] =
@@ -1121,8 +1152,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'LongInteger') {
+                                        } else if (fieldType == 'LongInteger') {
                                           if (field['_rxIntValue'] == null) {
                                             field['_rxIntValue'] = Rx<int?>(
                                               field['EnteredValue'] as int?,
@@ -1184,8 +1214,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'Decimal') {
+                                        } else if (fieldType == 'Decimal') {
                                           if (field['_rxDoubleValue'] == null) {
                                             field['_rxDoubleValue'] =
                                                 Rx<double?>(
@@ -1251,8 +1280,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'Email') {
+                                        } else if (fieldType == 'Email') {
                                           if (field['_rxStringValue'] == null) {
                                             field['_rxStringValue'] =
                                                 Rx<String?>(
@@ -1321,38 +1349,56 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else if (fieldType == 'MobileNumber') {
+                                        } else if (fieldType ==
+                                            'MobileNumber') {
                                           if (field['_rxStringValue'] == null ||
-                                              field['_rxStringValue'] is! Rx<String?>) {
-                                            field['_rxStringValue'] = Rx<String?>(
-                                              field['EnteredValue']?.toString(),
-                                            );
+                                              field['_rxStringValue']
+                                                  is! Rx<String?>) {
+                                            field['_rxStringValue'] =
+                                                Rx<String?>(
+                                                  field['EnteredValue']
+                                                      ?.toString(),
+                                                );
                                           }
 
                                           inputField = Obx(() {
                                             final Rx<String?> rxValue =
-                                                field['_rxStringValue'] as Rx<String?>;
+                                                field['_rxStringValue']
+                                                    as Rx<String?>;
 
                                             final newText = rxValue.value ?? '';
 
-                                            if (fieldControllers[fieldKey]!.text != newText) {
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                if (fieldControllers.containsKey(fieldKey)) {
-                                                  fieldControllers[fieldKey]!.text = newText;
-                                                }
-                                              });
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    if (fieldControllers
+                                                        .containsKey(
+                                                          fieldKey,
+                                                        )) {
+                                                      fieldControllers[fieldKey]!
+                                                              .text =
+                                                          newText;
+                                                    }
+                                                  });
                                             }
 
                                             return TextFormField(
-                                              enabled: controller.isEnable.value,
+                                              enabled:
+                                                  controller.isEnable.value,
                                               keyboardType: TextInputType.phone,
-                                              controller: fieldControllers[fieldKey],
+                                              controller:
+                                                  fieldControllers[fieldKey],
                                               decoration: InputDecoration(
-                                                labelText: '$label${isMandatory ? " *" : ""}',
-                                                border: const OutlineInputBorder(),
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
                                                 errorText: field['Error'],
-                                                suffixIcon: const Icon(Icons.phone_outlined),
+                                                suffixIcon: const Icon(
+                                                  Icons.phone_outlined,
+                                                ),
                                               ),
                                               onChanged: (value) {
                                                 rxValue.value = value;
@@ -1361,15 +1407,20 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                               validator: (value) {
                                                 if (isMandatory &&
-                                                    (value == null || value.trim().isEmpty)) {
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
                                                   return '$label is required';
                                                 }
 
-                                                if (value != null && value.isNotEmpty) {
-                                                  final phoneRegex =
-                                                      RegExp(r'^\+?[\d\s\-]{7,15}$');
+                                                if (value != null &&
+                                                    value.isNotEmpty) {
+                                                  final phoneRegex = RegExp(
+                                                    r'^\+?[\d\s\-]{7,15}$',
+                                                  );
 
-                                                  if (!phoneRegex.hasMatch(value)) {
+                                                  if (!phoneRegex.hasMatch(
+                                                    value,
+                                                  )) {
                                                     return 'Enter a valid mobile number';
                                                   }
                                                 }
@@ -1378,36 +1429,51 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                             );
                                           });
-                                        }
-                                        else {
+                                        } else {
                                           if (field['_rxStringValue'] == null ||
-                                              field['_rxStringValue'] is! Rx<String?>) {
-                                            field['_rxStringValue'] = Rx<String?>(
-                                              field['EnteredValue']?.toString(),
-                                            );
+                                              field['_rxStringValue']
+                                                  is! Rx<String?>) {
+                                            field['_rxStringValue'] =
+                                                Rx<String?>(
+                                                  field['EnteredValue']
+                                                      ?.toString(),
+                                                );
                                           }
 
                                           inputField = Obx(() {
                                             final Rx<String?> rxValue =
-                                                field['_rxStringValue'] as Rx<String?>;
+                                                field['_rxStringValue']
+                                                    as Rx<String?>;
 
                                             final newText = rxValue.value ?? '';
 
-                                            if (fieldControllers[fieldKey]!.text != newText) {
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                if (fieldControllers.containsKey(fieldKey)) {
-                                                  fieldControllers[fieldKey]!.text = newText;
-                                                }
-                                              });
+                                            if (fieldControllers[fieldKey]!
+                                                    .text !=
+                                                newText) {
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                    if (fieldControllers
+                                                        .containsKey(
+                                                          fieldKey,
+                                                        )) {
+                                                      fieldControllers[fieldKey]!
+                                                              .text =
+                                                          newText;
+                                                    }
+                                                  });
                                             }
 
                                             return TextFormField(
-                                              enabled: controller.isEnable.value,
+                                              enabled:
+                                                  controller.isEnable.value,
                                               keyboardType: TextInputType.text,
-                                              controller: fieldControllers[fieldKey],
+                                              controller:
+                                                  fieldControllers[fieldKey],
                                               decoration: InputDecoration(
-                                                labelText: '$label${isMandatory ? " *" : ""}',
-                                                border: const OutlineInputBorder(),
+                                                labelText:
+                                                    '$label${isMandatory ? " *" : ""}',
+                                                border:
+                                                    const OutlineInputBorder(),
                                                 errorText: field['Error'],
                                               ),
                                               onChanged: (value) {
@@ -1417,7 +1483,8 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
                                               },
                                               validator: (value) {
                                                 if (isMandatory &&
-                                                    (value == null || value.trim().isEmpty)) {
+                                                    (value == null ||
+                                                        value.trim().isEmpty)) {
                                                   return '$label is required';
                                                 }
                                                 return null;
@@ -1770,11 +1837,7 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Column(
-          children: [
-            Icon(Icons.check_circle, color: Colors.blue),
-          ],
-        ),
+        const Column(children: [Icon(Icons.check_circle, color: Colors.blue)]),
         const SizedBox(width: 10),
         Expanded(
           child: Card(
@@ -1878,11 +1941,9 @@ class _MileageFirstFromState extends State<MileageFirstFrom>
           DateTime initialDate = DateTime.now();
           if (controllers.text.isNotEmpty) {
             try {
-              initialDate =
-                  DateFormat(
-                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                      )
-                      .parseStrict(controllers.text.trim());
+              initialDate = DateFormat(
+                controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+              ).parseStrict(controllers.text.trim());
             } catch (e) {
               print("Invalid date in controllers.text: ${controllers.text}");
               initialDate = DateTime.now();

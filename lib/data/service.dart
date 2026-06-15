@@ -1946,7 +1946,7 @@ class Controller extends GetxController {
   ) async {
     if (totalRequestedDays.value == 0 || totalRequestedDays.value == 0.0) {
       Fluttertoast.showToast(
-        msg: "Total Leaves 0 not Vaild ",
+        msg: "Total Leaves 0 not Valid",
         backgroundColor: Colors.orange,
       );
       return;
@@ -1958,18 +1958,15 @@ class Controller extends GetxController {
     final expenseHeaderCustomFields = customFields
         .where((field) => field['ObjectName'] == 'LeaveRequisition')
         .map((field) {
-          String fieldValue; // ✅ Change dynamic → String
+          String fieldValue;
 
           if (field['FieldType'] == 'List' ||
               field['FieldType'] == 'CustomList' ||
               field['FieldType'] == 'SystemList') {
             fieldValue = field['SelectedValue']?.valueId?.toString() ?? '';
           } else if (field['FieldType'] == 'Checkbox') {
-            // ✅ Was: field['EnteredValue'] ?? false  (sending bool True/False)
-            // Fix: convert bool → "true" / "false" string
             final raw = field['EnteredValue'];
-            fieldValue = (raw ?? false)
-                .toString(); // true → "true", false → "false"
+            fieldValue = (raw ?? false).toString();
           } else if (field['FieldType'] == 'Date') {
             final dateTime = _parseToDateTime(field['EnteredValue']);
             fieldValue = dateTime != null
@@ -1987,39 +1984,12 @@ class Controller extends GetxController {
           return {
             "CustomFieldEntity": field['ObjectName'] ?? 'LeaveRequisition',
             "FieldId": field['FieldId'] ?? '',
-            "FieldValue": fieldValue, // ✅ Always String now
+            "FieldValue": fieldValue,
             "FieldName": field['FieldName'] ?? '',
             "FieldType": field['FieldType'] ?? '',
           };
         })
         .toList();
-    // for (final tx in leaveTransactions) {
-    //   String derivedDayType = 'FullDay';
-
-    //   if (tx.leaveFirstHalf && !tx.leaveSecondHalf) {
-    //     derivedDayType = 'FirstHalf';
-    //   } else if (!tx.leaveFirstHalf && tx.leaveSecondHalf) {
-    //     derivedDayType = 'SecondHalf';
-    //   }
-
-    //   final leaveDay = LeaveTransactionModel(
-    //     employeeId: tx.employeeId,
-    //     transDate: tx.transDate,
-    //     noOfDays: tx.noOfDays,
-    //     leaveCode: tx.leaveCode,
-    //     leaveFirstHalf: tx.leaveFirstHalf,
-    //     leaveSecondHalf: tx.leaveSecondHalf,
-    //     isHoliday: tx.isHoliday,
-    //     recId: tx.recId,
-    //     originalDayType: derivedDayType,
-    //     dayType: derivedDayType.obs,
-    //     dayTypeLeave: derivedDayType.obs,
-    //     approvalStatus: tx.approvalStatus,
-    //   );
-    //   debugPrint("leaveDay completed$leaveDay");
-    //   leaveDays.add(leaveDay);
-    //   // totalRequestedDays.value += leaveDay.calculatedDays;
-    // }
 
     fileItems.clear();
     for (int i = 0; i < uploadedImages.length; i++) {
@@ -2037,21 +2007,64 @@ class Controller extends GetxController {
         ),
       );
     }
+
     final code = countryCodeController.text.trim();
     final phone = phoneController.text.trim();
+
+    // CRITICAL FIX: Convert dates properly
+    // Get today in org timezone for application date
+    final todayOrg = todayInOrgTimezone();
+    final applicationDateMs = toStartOfDayUtc(todayOrg);
+
+    // Ensure startDate and endDate are in org-local format before converting to UTC
+    DateTime startDateOrg;
+    DateTime endDateOrg;
+
+    if (startDate.value!.isUtc) {
+      // Convert from UTC to org-local
+      final offsetMs = getTimezoneOffsetMs();
+      startDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        startDate.value!.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+      endDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        endDate.value!.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+    } else {
+      startDateOrg = startDate.value!;
+      endDateOrg = endDate.value!;
+    }
+
+    // Debug logging
+    print("=== SUBMIT LEAVE REQUEST ===");
+    print("startDate.value (stored): ${startDate.value}");
+    print("endDate.value (stored): ${endDate.value}");
+    print("startDateOrg: $startDateOrg");
+    print("endDateOrg: $endDateOrg");
+    print("applicationDateMs: $applicationDateMs");
+    print("fromDateMs: ${toStartOfDayUtc(startDateOrg)}");
+    print("toDateMs: ${toEndOfDayUtc(endDateOrg)}");
+
     final leaveRequest = LeaveRequest(
       leaveId: leaveID ?? leaveIdcontroller.text,
       recId: recID,
       employeeId: Params.employeeId,
       employeeName: Params.employeeName ?? userName.value,
-      applicationDate: toStartOfDayUtc(DateTime.now()),
+      applicationDate: applicationDateMs,
       calendarId: calendarId ?? '',
       duration: totalRequestedDays.value.toInt(),
       leaveCode: selectedLeaveCode.value?.leaveCode,
       projectId: projectDropDowncontroller.text,
       relieverId: selectedReliever.value?.id,
-      startDate: startDate.value,
-      endDate: endDate.value,
+      startDate: DateTime.fromMillisecondsSinceEpoch(
+        toStartOfDayUtc(startDateOrg),
+        isUtc: true,
+      ),
+      endDate: DateTime.fromMillisecondsSinceEpoch(
+        toEndOfDayUtc(endDateOrg),
+        isUtc: true,
+      ), // Convert org-local to UTC ms
       location: selectedLocation?.location,
       notifyingUsers: selectedNotifyingUsers.map((e) => e.id).toList(),
       contactNumber:
@@ -2064,7 +2077,6 @@ class Controller extends GetxController {
       isPaidLeave: isPaidLeave.value,
       attachments: [DocumentAttachmentbase64(file: fileItems)],
       leaveCustomFieldValues: expenseHeaderCustomFields,
-      // status: submit ? 'Submitted' : 'Draft',
       fromDateHalfDay: false,
       fromDateHalfDayValue: null,
       leaveBalance: leaveBalance!.toDouble(),
@@ -2074,19 +2086,14 @@ class Controller extends GetxController {
     );
 
     try {
-      // setButtonLoading('submit', true);
       await submitLeaveRequestFinal(
         context,
         leaveRequest,
         resubmit: resubmit,
         submit: submit,
       );
-      // await ApiService().submitLeaveRequest(leaveRequest, isDraft);
-
-      if (context.mounted) {
-        // Navigator.pop(context);
-      }
     } catch (e) {
+      print("Error submitting leave: $e");
     } finally {
       setButtonLoading('submit', false);
     }
@@ -2304,6 +2311,7 @@ class Controller extends GetxController {
     selectedLeaveCode.value = leaveCodeMatch;
     leaveCodeController.text = leaveCodeMatch?.leaveCode ?? '';
     leaveBalance = leaveCodeMatch?.leaveBalance;
+
     fetchCalenderIDLeaveTransactions(
       employeeId: Params.employeeId,
       fromDate: leaveRequest.fromDate,
@@ -2320,20 +2328,48 @@ class Controller extends GetxController {
       selectedProject = projectMatch;
       projectDropDowncontroller.text = projectMatch?.name ?? '';
     }
+
+    /// ---------------- Leave Transactions (Dates) ----------------
     final transactions = leaveRequest.leaveTransactions;
 
     if (transactions.isNotEmpty) {
       transactions.sort((a, b) => a.transDate.compareTo(b.transDate));
 
-      startDate.value = DateTime.fromMillisecondsSinceEpoch(
+      // FIX: Convert UTC milliseconds from API to org-local DateTime
+      // API returns UTC milliseconds, we need to store as UTC DateTime that represents org-local time
+      final offsetMs = getTimezoneOffsetMs();
+
+      // Convert first transaction date
+      final firstTransDateUtc = DateTime.fromMillisecondsSinceEpoch(
         transactions.first.transDate,
-        // isUtc: true,
+        isUtc: true,
+      );
+      // Convert to org-local by adding offset
+      final startDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        firstTransDateUtc.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
       );
 
-      endDate.value = DateTime.fromMillisecondsSinceEpoch(
+      // Convert last transaction date
+      final lastTransDateUtc = DateTime.fromMillisecondsSinceEpoch(
         transactions.last.transDate,
-        // isUtc: true,
+        isUtc: true,
       );
+      // Convert to org-local by adding offset
+      final endDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        lastTransDateUtc.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+
+      // Store as UTC DateTimes (these represent org-local dates)
+      startDate.value = startDateOrg;
+      endDate.value = endDateOrg;
+
+      debugPrint(
+        "Original transDate (UTC ms): ${transactions.first.transDate}",
+      );
+      debugPrint("StartDate UTC: $startDateOrg");
+      debugPrint("StartDate formatted: ${formatDate(startDateOrg)}");
     }
 
     /// ---------------- Reliever ----------------
@@ -2346,16 +2382,14 @@ class Controller extends GetxController {
       relieverController.text = relieverMatch?.firstName ?? '';
     }
 
-    /// ---------------- Dates ----------------
-
-    updateDatesController();
+    /// ---------------- Dates Update Controller ----------------
+    updateDatesController(); // This will use formatDate for display
 
     /// ---------------- Location ----------------
     if (leaveRequest.leaveLocation != null) {
       final locationMatch = locations.firstWhereOrNull(
         (l) => l.location == leaveRequest.leaveLocation,
       );
-      // print("locationController.text${leaveRequest.leaveLocation}");
       selectedLocation = locationMatch;
       locationController.text = leaveRequest.leaveLocation ?? '';
     }
@@ -2373,9 +2407,12 @@ class Controller extends GetxController {
     }
 
     /// ---------------- Applied Date ----------------
-    appliedDateController.text = DateFormat(
-      selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(DateTime.fromMillisecondsSinceEpoch(leaveRequest.applicationDate));
+    // FIX: Convert application date from UTC ms to org-local for display
+    final applicationDateUtc = DateTime.fromMillisecondsSinceEpoch(
+      leaveRequest.applicationDate,
+      isUtc: true,
+    );
+    appliedDateController.text = formatDate(applicationDateUtc);
 
     /// ---------------- Other Fields ----------------
     leavephoneController.text = leaveRequest.emergencyContactNumber ?? '';
@@ -2406,8 +2443,7 @@ class Controller extends GetxController {
 
     /// ---------------- Leave Transactions ----------------
     leaveDays.clear();
-    // totalRequestedDays.value = 0.0;
-    /// ---------------- Custom Fields ----------------
+
     /// ---------------- Custom Fields ----------------
     expenseTransCustomFieldValues.clear();
 
@@ -2438,11 +2474,8 @@ class Controller extends GetxController {
           if (fieldType == 'List' ||
               fieldType == 'CustomList' ||
               fieldType == 'SystemList') {
-            // For dropdown lists, find the matching option
             final options =
                 matchingField["Options"] as List<CustomDropdownValue>? ?? [];
-
-            // Try to find matching option by comparing valueId or valueName
             CustomDropdownValue? matchedOption;
 
             for (final option in options) {
@@ -2455,10 +2488,7 @@ class Controller extends GetxController {
             }
 
             if (matchedOption != null) {
-              // Store directly as CustomDropdownValue
               matchingField["SelectedValue"] = matchedOption;
-
-              // Initialize or update the Rx reactive value for the dropdown
               if (matchingField["_rxSelectedValue"] == null) {
                 matchingField["_rxSelectedValue"] = Rx<CustomDropdownValue?>(
                   matchedOption,
@@ -2468,17 +2498,8 @@ class Controller extends GetxController {
                         .value =
                     matchedOption;
               }
-
-              debugPrint(
-                "Matched dropdown option: ${matchedOption.valueName} (ID: ${matchedOption.valueId})",
-              );
             } else {
-              debugPrint(
-                "No match found for value: $fieldValue in options: ${options.map((o) => '${o.valueId}:${o.valueName}').toList()}",
-              );
               matchingField["SelectedValue"] = null;
-
-              // Initialize Rx with null
               if (matchingField["_rxSelectedValue"] == null) {
                 matchingField["_rxSelectedValue"] = Rx<CustomDropdownValue?>(
                   null,
@@ -2489,8 +2510,6 @@ class Controller extends GetxController {
                     null;
               }
             }
-
-            // Also store the raw value for reference
             matchingField["EnteredValue"] = fieldValue;
           } else if (fieldType == 'Checkbox') {
             matchingField["EnteredValue"] =
@@ -2499,15 +2518,12 @@ class Controller extends GetxController {
                 fieldValue == 1 ||
                 fieldValue == "1";
           } else if (fieldType == 'Date') {
-            // Parse date string like "27/05/2026"
             try {
-              DateTime parsedDate;
-              if (fieldValue is String) {
-                // Try different date formats
+              if (fieldValue is String && fieldValue.isNotEmpty) {
                 if (fieldValue.contains('/')) {
                   final parts = fieldValue.split('/');
                   if (parts.length == 3) {
-                    parsedDate = DateTime(
+                    final parsedDate = DateTime(
                       int.parse(parts[2]), // year
                       int.parse(parts[1]), // month
                       int.parse(parts[0]), // day
@@ -2515,25 +2531,28 @@ class Controller extends GetxController {
                     matchingField["EnteredValue"] = parsedDate;
                   }
                 } else {
-                  parsedDate = DateTime.parse(fieldValue);
+                  final parsedDate = DateTime.parse(fieldValue);
                   matchingField["EnteredValue"] = parsedDate;
                 }
               } else if (fieldValue is int) {
-                matchingField["EnteredValue"] =
-                    DateTime.fromMillisecondsSinceEpoch(fieldValue);
-              } else {
-                matchingField["EnteredValue"] = fieldValue;
+                final utcDate = DateTime.fromMillisecondsSinceEpoch(
+                  fieldValue,
+                  isUtc: true,
+                );
+                final offsetMs = getTimezoneOffsetMs();
+                final orgLocalDate = DateTime.fromMillisecondsSinceEpoch(
+                  utcDate.millisecondsSinceEpoch + offsetMs,
+                  isUtc: true,
+                );
+                matchingField["EnteredValue"] = orgLocalDate;
               }
             } catch (e) {
               debugPrint("Error parsing date: $fieldValue - $e");
               matchingField["EnteredValue"] = null;
             }
           } else if (fieldType == 'Date&Time') {
-            // Parse datetime string like "29/05/2026 07:01 AM"
             try {
-              if (fieldValue is String) {
-                DateTime parsedDateTime;
-                // Format: "29/05/2026 07:01 AM"
+              if (fieldValue is String && fieldValue.isNotEmpty) {
                 final parts = fieldValue.split(' ');
                 if (parts.length >= 2) {
                   final dateParts = parts[0].split('/');
@@ -2544,7 +2563,7 @@ class Controller extends GetxController {
                   if (isPM && hour != 12) hour += 12;
                   if (!isPM && hour == 12) hour = 0;
 
-                  parsedDateTime = DateTime(
+                  final parsedDateTime = DateTime(
                     int.parse(dateParts[2]), // year
                     int.parse(dateParts[1]), // month
                     int.parse(dateParts[0]), // day
@@ -2554,10 +2573,16 @@ class Controller extends GetxController {
                   matchingField["EnteredValue"] = parsedDateTime;
                 }
               } else if (fieldValue is int) {
-                matchingField["EnteredValue"] =
-                    DateTime.fromMillisecondsSinceEpoch(fieldValue);
-              } else {
-                matchingField["EnteredValue"] = fieldValue;
+                final utcDate = DateTime.fromMillisecondsSinceEpoch(
+                  fieldValue,
+                  isUtc: true,
+                );
+                final offsetMs = getTimezoneOffsetMs();
+                final orgLocalDate = DateTime.fromMillisecondsSinceEpoch(
+                  utcDate.millisecondsSinceEpoch + offsetMs,
+                  isUtc: true,
+                );
+                matchingField["EnteredValue"] = orgLocalDate;
               }
             } catch (e) {
               debugPrint("Error parsing datetime: $fieldValue - $e");
@@ -2572,7 +2597,6 @@ class Controller extends GetxController {
               fieldValue?.toString() ?? '',
             );
           } else {
-            // Text fields and others
             matchingField["EnteredValue"] = fieldValue?.toString() ?? '';
           }
 
@@ -2581,20 +2605,15 @@ class Controller extends GetxController {
           final controller = matchingField["controller"];
 
           if (controller is TextEditingController) {
-            // Set text for display (for non-dropdown fields)
             if (fieldType != 'List' &&
                 fieldType != 'CustomList' &&
                 fieldType != 'SystemList') {
               if (fieldType == 'Date' &&
                   matchingField["EnteredValue"] is DateTime) {
-                controller.text = DateFormat(
-                  'dd/MM/yyyy',
-                ).format(matchingField["EnteredValue"]);
+                controller.text = formatDate(matchingField["EnteredValue"]);
               } else if (fieldType == 'Date&Time' &&
                   matchingField["EnteredValue"] is DateTime) {
-                controller.text = DateFormat(
-                  'dd/MM/yyyy hh:mm a',
-                ).format(matchingField["EnteredValue"]);
+                controller.text = formatDate(matchingField["EnteredValue"]);
               } else {
                 controller.text = fieldValue?.toString() ?? '';
               }
@@ -2606,9 +2625,10 @@ class Controller extends GetxController {
       debugPrint(
         "Loaded Custom Fields: ${expenseTransCustomFieldValues.length}",
       );
-      // Force refresh to update UI
       customFields.refresh();
     }
+
+    // FIX: Process leave transactions with proper timezone
     for (final tx in leaveRequest.leaveTransactions) {
       String derivedDayType = 'FullDay';
 
@@ -2617,12 +2637,25 @@ class Controller extends GetxController {
       } else if (!tx.leaveFirstHalf && tx.leaveSecondHalf) {
         derivedDayType = 'SecondHalf';
       }
+
       print("noOfDays${tx.noOfDays}");
+
+      // Convert transDate from UTC ms to org-local DateTime
+      final transDateUtc = DateTime.fromMillisecondsSinceEpoch(
+        tx.transDate,
+        isUtc: true,
+      );
+      final offsetMs = getTimezoneOffsetMs();
+      final transDateOrg = DateTime.fromMillisecondsSinceEpoch(
+        transDateUtc.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+
       if (tx.leaveCancelId == null) {
         print("leaveCode${tx.leaveCode}");
         final leaveDay = LeaveTransactionModel(
           employeeId: tx.employeeId,
-          transDate: tx.transDate,
+          transDate: transDateOrg.millisecondsSinceEpoch, // Store as UTC ms
           noOfDays: tx.noOfDays,
           leaveCode: tx.leaveCode,
           leaveFirstHalf: tx.leaveFirstHalf,
@@ -2634,15 +2667,12 @@ class Controller extends GetxController {
           dayTypeLeave: derivedDayType.obs,
           approvalStatus: tx.approvalStatus,
         );
-
         leaveDays.add(leaveDay);
-        // totalRequestedDays.value += leaveDay.calculatedDays;
       } else {
         print("leaveCancelId${tx.leaveCancelId}");
         final leaveDay = LeaveTransactionModel(
-          transDate: tx.transDate,
+          transDate: transDateOrg.millisecondsSinceEpoch, // Store as UTC ms
           noOfDays: tx.noOfDays,
-
           leaveFirstHalf: tx.leaveFirstHalf,
           leaveSecondHalf: tx.leaveSecondHalf,
           isHoliday: tx.isHoliday,
@@ -2652,12 +2682,9 @@ class Controller extends GetxController {
           dayTypeLeave: derivedDayType.obs,
           approvalStatus: tx.approvalStatus,
         );
-
         leaveDays.add(leaveDay);
-        // totalRequestedDays.value += leaveDay.calculatedDays;
       }
     }
-    // calculateTotalDays();
 
     /// ---------------- Paid / Unpaid ----------------
     isPaidLeave.value = !leaveRequest.isLeaveUnPaid;
@@ -3036,6 +3063,12 @@ class Controller extends GetxController {
     'dd.mm.yyyy': '20.01.2023',
     'yyyy.mm.dd': '2023.01.20',
   };
+  // In your controller
+String get currentDateFormat {
+  return selectedFormat?.value ?? 'dd/MM/yyyy';
+} 
+
+// Then in your widge
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ThemeColor');
@@ -3117,7 +3150,13 @@ class Controller extends GetxController {
             orgSettings["OrganizationDefaultCurrencySymbol"],
           );
         }
-        print("organizationCurrency$organizationCurrency");
+              await prefs.setString(
+  "DefaultDateformat",  // ← Key used when saving
+  settings["DefaultDateFormat"] ?? "DD/MM/YYYY",
+);
+        print("DefaultDateformat${settings["DefaultDateFormat"]}");
+                print("organizationCurrency$organizationCurrency");
+
         await prefs.setString(
           "ThemeColor",
           settings["ThemeColor"] ?? "BLUE_THEME",
@@ -3134,6 +3173,8 @@ class Controller extends GetxController {
           "LanguageID",
           settings["DefaultLanguageId"] ?? "LUG-01",
         );
+  
+
         final localeCode = getLocaleCodeFromId(settings["DefaultLanguageId"]);
         Provider.of<LocaleNotifier>(
           context,
@@ -4012,17 +4053,13 @@ class Controller extends GetxController {
                 (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
                 false;
           } else if (field['FieldType'] == 'Date') {
-  fieldValue = formatFieldDate(
-    field['EnteredValue'],
-    'dd/MM/yyyy',
-  );
-}
-else if (field['FieldType'] == 'Date&Time') {
-  fieldValue = formatFieldDate(
-    field['EnteredValue'],
-    'dd/MM/yyyy hh:mm a',
-  );
-}else if (field['FieldType'] == 'Email') {
+            fieldValue = formatFieldDate(field['EnteredValue'], 'dd/MM/yyyy');
+          } else if (field['FieldType'] == 'Date&Time') {
+            fieldValue = formatFieldDate(
+              field['EnteredValue'],
+              'dd/MM/yyyy hh:mm a',
+            );
+          } else if (field['FieldType'] == 'Email') {
             // ✅ CRITICAL: For Email type, get from EnteredValue or Rx observable
             final rxValue = field['_rxStringValue'] as Rx<String?>?;
             fieldValue =
@@ -4116,22 +4153,21 @@ else if (field['FieldType'] == 'Date&Time') {
           expenseTransCategoryCustomFields,
     );
   }
-String formatFieldDate(
-  dynamic value,
-  String pattern,
-) {
-  if (value == null) return '';
 
-  if (value is DateTime) {
-    return DateFormat(pattern).format(value);
+  String formatFieldDate(dynamic value, String pattern) {
+    if (value == null) return '';
+
+    if (value is DateTime) {
+      return DateFormat(pattern).format(value);
+    }
+
+    if (value is String) {
+      return value;
+    }
+
+    return '';
   }
 
-  if (value is String) {
-    return value;
-  }
-
-  return '';
-}
   void calculateLineAmounts(
     Controller itemController, [
     ExpenseItemUpdate? expenseTran,
@@ -4512,10 +4548,39 @@ String formatFieldDate(
     timeSheetID.text = data["TimesheetId"];
     recId = data["RecId"];
 
-    dateRange = DateTimeRange(
-      start: DateTime.fromMillisecondsSinceEpoch(data['FromDate']),
-      end: DateTime.fromMillisecondsSinceEpoch(data['ToDate']),
+    // FIX: Convert API UTC milliseconds to UTC DateTime (stored format)
+    // API returns UTC milliseconds, we store as UTC DateTime
+    final fromDateUtc = DateTime.fromMillisecondsSinceEpoch(
+      data['FromDate'],
+      isUtc: true,
     );
+    final toDateUtc = DateTime.fromMillisecondsSinceEpoch(
+      data['ToDate'],
+      isUtc: true,
+    );
+
+    // Convert to org-local for display in date range picker
+    final offsetMs = getTimezoneOffsetMs();
+    final fromDateOrg = DateTime.fromMillisecondsSinceEpoch(
+      fromDateUtc.millisecondsSinceEpoch + offsetMs,
+      isUtc: true,
+    );
+    final toDateOrg = DateTime.fromMillisecondsSinceEpoch(
+      toDateUtc.millisecondsSinceEpoch + offsetMs,
+      isUtc: true,
+    );
+
+    // Store as org-local DateTime objects (as UTC DateTimes representing org-local time)
+    dateRange = DateTimeRange(start: fromDateOrg, end: toDateOrg);
+
+    print("=== TIMESHEET DATE LOADING ===");
+    print("API FromDate MS: ${data['FromDate']}");
+    print("API ToDate MS: ${data['ToDate']}");
+    print("FromDate Utc: $fromDateUtc");
+    print("ToDate Utc: $toDateUtc");
+    print("FromDate Org: $fromDateOrg");
+    print("ToDate Org: $toDateOrg");
+    print("DateRange stored: ${dateRange!.start} to ${dateRange!.end}");
 
     statusApproval = data['ApprovalStatus'] ?? 'Created';
     stepType = data['StepType'] ?? '';
@@ -4556,7 +4621,7 @@ String formatFieldDate(
         recId: line['RecId'],
       );
 
-      /// ✅ FIX: Properly map custom fields with all required fields
+      /// FIX: Properly map custom fields with all required fields
       final List<dynamic> customFields = line['LinesCustomfields'] ?? [];
 
       // Map to the expected structure with proper field names
@@ -4564,33 +4629,41 @@ String formatFieldDate(
         return {
           "FieldId": field["FieldId"],
           "FieldName": field["FieldName"],
-          "FieldLabel":
-              field["FieldLabel"] ?? field["FieldName"], // ✅ Add label
+          "FieldLabel": field["FieldLabel"] ?? field["FieldName"],
           "FieldValue": field["FieldValue"] ?? "",
-          "EnteredValue":
-              field["FieldValue"] ?? "", // ✅ Add EnteredValue for UI
+          "EnteredValue": field["FieldValue"] ?? "",
           "CustomFieldEntity": field["CustomFieldEntity"],
-          "FieldType": _mapFieldType(
-            field["FieldType"] ?? "text",
-          ), // ✅ Map type properly
+          "FieldType": _mapFieldType(field["FieldType"] ?? "text"),
           "IsMandatory": field["IsMandatory"] ?? false,
-          "IsVisible": field["IsVisible"] ?? true, // ✅ Add visibility flag
-          "Options": _mapOptions(field["Options"]), // ✅ Map options properly
-          "DefaultValue": field["DefaultValue"] ?? "", // ✅ Add default value
+          "IsVisible": field["IsVisible"] ?? true,
+          "Options": _mapOptions(field["Options"]),
+          "DefaultValue": field["DefaultValue"] ?? "",
         };
       }).toList();
 
       lineItems.add(lineItem);
 
-      /// Time entries mapping
+      /// Time entries mapping - FIX: Convert entry dates properly
       final Map<int, TimeEntryModel> dailyMap = {};
 
       for (final daily in line['DailyEntry']) {
-        final int? entryDate = daily['EntryDate'];
-        if (entryDate == null) continue;
+        final int? entryDateMs = daily['EntryDate'];
+        if (entryDateMs == null) continue;
 
-        final d = DateTime.fromMillisecondsSinceEpoch(entryDate);
-        final normalized = toStartOfDayUtc(DateTime(d.year, d.month, d.day));
+        // Convert API UTC milliseconds to UTC DateTime
+        final entryDateUtc = DateTime.fromMillisecondsSinceEpoch(
+          entryDateMs,
+          isUtc: true,
+        );
+
+        // Convert to org-local for storage
+        final entryDateOrg = DateTime.fromMillisecondsSinceEpoch(
+          entryDateUtc.millisecondsSinceEpoch + offsetMs,
+          isUtc: true,
+        );
+
+        // Get start of day in org-local (as milliseconds for key)
+        final normalized = toStartOfDayUtc(entryDateOrg);
 
         dailyMap[normalized] = TimeEntryModel(
           recId: daily['RecId'],
@@ -6664,7 +6737,7 @@ String formatFieldDate(
     return null;
   }
 
-  String formatDate(dynamic value) {
+  String formatDates(dynamic value) {
     if (value == null) return 'No date';
 
     final dt = DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
@@ -8872,163 +8945,176 @@ String formatFieldDate(
   }
 
   List<dynamic> lineItemControllers = [];
- void addToFinalItems(GESpeficExpense expense) {
-  finalItemsSpecific.clear();
+  void addToFinalItems(GESpeficExpense expense) {
+    finalItemsSpecific.clear();
 
-  print("lineItemControllers length => ${lineItemControllers.length}");
-  print("expense.expenseTrans length => ${expense.expenseTrans.length}");
+    print("lineItemControllers length => ${lineItemControllers.length}");
+    print("expense.expenseTrans length => ${expense.expenseTrans.length}");
 
-  for (int i = 0; i < expense.expenseTrans.length; i++) {
-    final trans = expense.expenseTrans[i];
-    final dynamic itemCtrl = (i < lineItemControllers.length)
-        ? lineItemControllers[i]
-        : null;
+    for (int i = 0; i < expense.expenseTrans.length; i++) {
+      final trans = expense.expenseTrans[i];
+      final dynamic itemCtrl = (i < lineItemControllers.length)
+          ? lineItemControllers[i]
+          : null;
 
-    final taxGroupValue =
-        (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
-            ? trans.taxGroup
-            : null;
+      final taxGroupValue =
+          (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
+          ? trans.taxGroup
+          : null;
 
-    final mappedDistributions =
-        trans.accountingDistributions?.map((dist) {
-          return AccountingDistribution(
-            transAmount: dist.transAmount,
-            reportAmount: dist.reportAmount,
-            dimensionValueId: dist.dimensionValueId,
-            allocationFactor: dist.allocationFactor,
-            recId: dist.recId,
+      final mappedDistributions =
+          trans.accountingDistributions?.map((dist) {
+            return AccountingDistribution(
+              transAmount: dist.transAmount,
+              reportAmount: dist.reportAmount,
+              dimensionValueId: dist.dimensionValueId,
+              allocationFactor: dist.allocationFactor,
+              recId: dist.recId,
+            );
+          }).toList() ??
+          [];
+
+      final List<Map<String, dynamic>> transCustomFieldValues = [];
+      final List<Map<String, dynamic>> transCategoryCustomFieldValues = [];
+
+      if (itemCtrl != null) {
+        print(
+          "=== Processing item $i, customFieldsItems count: ${itemCtrl.customFieldsItems?.length} ===",
+        );
+
+        final List<dynamic> customFields = itemCtrl.customFieldsItems ?? [];
+
+        for (var field in customFields) {
+          final fieldId = field['FieldId'];
+          final fieldName = field['FieldName'];
+          final fieldType = field['FieldType'] ?? 'Text';
+          final objectName = field['ObjectName'] ?? '';
+
+          dynamic enteredValue;
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            final selected = field['SelectedValue'];
+            enteredValue =
+                selected?.valueId ?? field['EnteredValue']?.toString() ?? '';
+          } else if (fieldType == 'Checkbox') {
+            enteredValue =
+                field['EnteredValue'] ??
+                (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
+                false;
+          } else if (fieldType == 'Date') {
+            final date = field['EnteredValue'];
+            enteredValue = date != null
+                ? DateFormat('dd/MM/yyyy').format(date as DateTime)
+                : '';
+          } else if (fieldType == 'Date&Time') {
+            final date = field['EnteredValue'];
+            enteredValue = date != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(date as DateTime)
+                : '';
+          } else if (fieldType == 'Email' || fieldType == 'MobileNumber') {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            enteredValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'LongInteger') {
+            final rxValue = field['_rxIntValue'] as Rx<int?>?;
+            enteredValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Decimal') {
+            final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
+            enteredValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else {
+            // Text, Amount, and all others
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            enteredValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          }
+
+          final fieldMap = {
+            "CustomFieldEntity":
+                (objectName == 'ExpenseCategories' ||
+                    objectName ==
+                        'ExpenseTransExpensecategorycustomfieldvalues')
+                ? 'ExpenseCategories'
+                : 'ExpenseTrans',
+            "FieldId": fieldId,
+            "FieldName": fieldName,
+            "FieldValue": enteredValue?.toString() ?? '',
+            "FieldType": fieldType,
+          };
+
+          print(
+            "Field: $fieldName | Type: $fieldType | Object: $objectName | Value: $enteredValue",
           );
-        }).toList() ?? [];
 
-    final List<Map<String, dynamic>> transCustomFieldValues = [];
-    final List<Map<String, dynamic>> transCategoryCustomFieldValues = [];
-
-    if (itemCtrl != null) {
-      print("=== Processing item $i, customFieldsItems count: ${itemCtrl.customFieldsItems?.length} ===");
-
-      final List<dynamic> customFields = itemCtrl.customFieldsItems ?? [];
-
-      for (var field in customFields) {
-        final fieldId = field['FieldId'];
-        final fieldName = field['FieldName'];
-        final fieldType = field['FieldType'] ?? 'Text';
-        final objectName = field['ObjectName'] ?? '';
-
-        dynamic enteredValue;
-
-        if (fieldType == 'List' ||
-            fieldType == 'CustomList' ||
-            fieldType == 'SystemList') {
-          final selected = field['SelectedValue'];
-          enteredValue = selected?.valueId
-              ?? field['EnteredValue']?.toString()
-              ?? '';
-
-        } else if (fieldType == 'Checkbox') {
-          enteredValue =
-              field['EnteredValue'] ??
-              (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
-              false;
-
-        } else if (fieldType == 'Date') {
-          final date = field['EnteredValue'];
-          enteredValue = date != null
-              ? DateFormat('dd/MM/yyyy').format(date as DateTime)
-              : '';
-
-        } else if (fieldType == 'Date&Time') {
-          final date = field['EnteredValue'];
-          enteredValue = date != null
-              ? DateFormat('dd/MM/yyyy hh:mm a').format(date as DateTime)
-              : '';
-
-        } else if (fieldType == 'Email' || fieldType == 'MobileNumber') {
-          final rxValue = field['_rxStringValue'] as Rx<String?>?;
-          enteredValue =
-              rxValue?.value ??
-              field['EnteredValue']?.toString() ??
-              field['DefaultValue']?.toString() ??
-              '';
-
-        } else if (fieldType == 'LongInteger') {
-          final rxValue = field['_rxIntValue'] as Rx<int?>?;
-          enteredValue =
-              rxValue?.value?.toString() ??
-              field['EnteredValue']?.toString() ??
-              field['DefaultValue']?.toString() ??
-              '';
-
-        } else if (fieldType == 'Decimal') {
-          final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
-          enteredValue =
-              rxValue?.value?.toString() ??
-              field['EnteredValue']?.toString() ??
-              field['DefaultValue']?.toString() ??
-              '';
-
-        } else {
-          // Text, Amount, and all others
-          final rxValue = field['_rxStringValue'] as Rx<String?>?;
-          enteredValue =
-              rxValue?.value ??
-              field['EnteredValue']?.toString() ??
-              field['DefaultValue']?.toString() ??
-              '';
+          if (objectName == 'ExpenseTrans') {
+            transCustomFieldValues.add(fieldMap);
+            print("✅ Added to transCustomFieldValues");
+          } else if (objectName == 'ExpenseCategories' ||
+              objectName == 'ExpenseTransExpensecategorycustomfieldvalues') {
+            transCategoryCustomFieldValues.add(fieldMap);
+            print("✅ Added to transCategoryCustomFieldValues");
+          }
         }
 
-     final fieldMap = {
-  "CustomFieldEntity": (objectName == 'ExpenseCategories' ||
-          objectName == 'ExpenseTransExpensecategorycustomfieldvalues')
-      ? 'ExpenseCategories'
-      : 'ExpenseTrans',
-  "FieldId": fieldId,
-  "FieldName": fieldName,
-  "FieldValue": enteredValue?.toString() ?? '',
-  "FieldType": fieldType,
-};
-
-
-        print("Field: $fieldName | Type: $fieldType | Object: $objectName | Value: $enteredValue");
-
-     if (objectName == 'ExpenseTrans') {
-  transCustomFieldValues.add(fieldMap);
-  print("✅ Added to transCustomFieldValues");
-} else if (objectName == 'ExpenseCategories' ||
-    objectName == 'ExpenseTransExpensecategorycustomfieldvalues') {
-  transCategoryCustomFieldValues.add(fieldMap);
-  print("✅ Added to transCategoryCustomFieldValues");
-}
+        print("transCustomFieldValues count: ${transCustomFieldValues.length}");
+        print(
+          "transCategoryCustomFieldValues count: ${transCategoryCustomFieldValues.length}",
+        );
+      } else {
+        print(
+          "⚠️ No itemCtrl found for index $i — lineItemControllers not synced!",
+        );
       }
 
-      print("transCustomFieldValues count: ${transCustomFieldValues.length}");
-      print("transCategoryCustomFieldValues count: ${transCategoryCustomFieldValues.length}");
-    } else {
-      print("⚠️ No itemCtrl found for index $i — lineItemControllers not synced!");
+      final item = ExpenseItemUpdate(
+        recId: trans.recId,
+        expenseId: trans.expenseId,
+        expenseCategoryId: trans.expenseCategoryId,
+        uomId: itemCtrl?.uomId.text ?? trans.uomId,
+        quantity:
+            double.tryParse(itemCtrl?.quantity.text ?? '') ?? trans.quantity,
+        unitPriceTrans:
+            double.tryParse(itemCtrl?.unitPriceTrans.text ?? '') ??
+            trans.unitPriceTrans,
+        taxAmount:
+            double.tryParse(itemCtrl?.taxAmount.text ?? '') ?? trans.taxAmount,
+        taxGroup: itemCtrl?.selectedTax?.taxGroupId ?? taxGroupValue,
+        lineAmountTrans:
+            double.tryParse(itemCtrl?.lineAmount.text ?? '') ??
+            trans.lineAmountTrans,
+        lineAmountReporting:
+            double.tryParse(itemCtrl?.lineAmountINR.text ?? '') ??
+            trans.lineAmountReporting,
+        projectId: itemCtrl?.selectedProject?.code ?? trans.projectId,
+        description:
+            itemCtrl?.descriptionController.text ?? trans.description ?? '',
+        isReimbursable: itemCtrl?.isReimbursable ?? trans.isReimbursable,
+        isBillable: itemCtrl?.isBillableCreate ?? trans.isBillable,
+        accountingDistributions: mappedDistributions,
+        expenseTransCustomFieldValues: transCustomFieldValues,
+        expenseTransExpensecategorycustomfieldvalues:
+            transCategoryCustomFieldValues,
+      );
+
+      finalItemsSpecific.add(item);
     }
-
-    final item = ExpenseItemUpdate(
-      recId: trans.recId,
-      expenseId: trans.expenseId,
-      expenseCategoryId: trans.expenseCategoryId,
-      uomId: itemCtrl?.uomId.text ?? trans.uomId,
-      quantity: double.tryParse(itemCtrl?.quantity.text ?? '') ?? trans.quantity,
-      unitPriceTrans: double.tryParse(itemCtrl?.unitPriceTrans.text ?? '') ?? trans.unitPriceTrans,
-      taxAmount: double.tryParse(itemCtrl?.taxAmount.text ?? '') ?? trans.taxAmount,
-      taxGroup: itemCtrl?.selectedTax?.taxGroupId ?? taxGroupValue,
-      lineAmountTrans: double.tryParse(itemCtrl?.lineAmount.text ?? '') ?? trans.lineAmountTrans,
-      lineAmountReporting: double.tryParse(itemCtrl?.lineAmountINR.text ?? '') ?? trans.lineAmountReporting,
-      projectId: itemCtrl?.selectedProject?.code ?? trans.projectId,
-      description: itemCtrl?.descriptionController.text ?? trans.description ?? '',
-      isReimbursable: itemCtrl?.isReimbursable ?? trans.isReimbursable,
-      isBillable: itemCtrl?.isBillableCreate ?? trans.isBillable,
-      accountingDistributions: mappedDistributions,
-      expenseTransCustomFieldValues: transCustomFieldValues,
-      expenseTransExpensecategorycustomfieldvalues: transCategoryCustomFieldValues,
-    );
-
-    finalItemsSpecific.add(item);
   }
-}
+
   void addToFinalItemsUnProcess(UnprocessExpenseModels expense) {
     finalItemsSpecific.clear(); // Clear previous items first
 
@@ -9468,10 +9554,9 @@ String formatFieldDate(
       } else {
         isGESubmitBTNLoading.value = false;
       }
+    } finally {
+      setButtonLoading('submit', false);
     }
-    finally {
-  setButtonLoading('submit', false);
-}
   }
 
   String formatCashAdvanceIds(List<String> ids) {
@@ -11205,7 +11290,7 @@ String formatFieldDate(
         }
       }
     } catch (e) {
-    print("❌ Exception: $e");
+      print("❌ Exception: $e");
 
       if (!bool) {
         isUploading.value = false;
@@ -11678,16 +11763,30 @@ String formatFieldDate(
 
   /// Week range (Monday → Sunday) in UTC
   Map<String, int> getWeekRangeUTC(DateTime date) {
-    final start = date.subtract(Duration(days: date.weekday - 1));
+    // First, ensure we're working with org-local date
+    // Convert input to org-local if it's UTC
+    DateTime orgLocalDate;
+    if (date.isUtc) {
+      final offsetMs = getTimezoneOffsetMs();
+      orgLocalDate = DateTime.fromMillisecondsSinceEpoch(
+        date.millisecondsSinceEpoch + offsetMs,
+        isUtc: true,
+      );
+    } else {
+      orgLocalDate = date;
+    }
+
+    // Calculate week start and end in org-local timezone
+    final start = orgLocalDate.subtract(
+      Duration(days: orgLocalDate.weekday - 1),
+    );
     final end = start.add(const Duration(days: 6));
 
-    final startUtc = startOfDayUTC(start);
-    final endUtc = endOfDayUTC(end);
+    // Convert org-local dates to UTC milliseconds for API
+    final fromDateMs = toStartOfDayUtc(start);
+    final toDateMs = toEndOfDayUtc(end);
 
-    return {
-      "fromDate": toStartOfDayUtc(startUtc),
-      "toDate": toStartOfDayUtc(endUtc),
-    };
+    return {"fromDate": fromDateMs, "toDate": toDateMs};
   }
 
   Future<RuleConfigSettings?> getRuleConfig({
@@ -13780,7 +13879,10 @@ String formatFieldDate(
             ? null
             : employeeName.text.trim(),
         "ReceiptDate": toDateController.text.isNotEmpty
-            ? parseDateToEpoch(toDateController.text)
+            ? parseDateToEpoch(
+                toDateController.text,
+                isEndOfDay: true,
+              ) // ✅ 23:59:59:999
             : null,
         "Currency": perDiemexchangeCurrencyCode.value ?? '',
         "Description": purposeController.text.isNotEmpty
@@ -15101,7 +15203,7 @@ String formatFieldDate(
         "EmployeeName": employeeName.text.trim().isEmpty
             ? null
             : employeeName.text.trim(),
-        "ReceiptDate": toStartOfDayUtc(selectedDate!),
+        "ReceiptDate": parseDateToEpoch(mileagDateController.text),
         "Source": "ReceiptUpload",
         "ExchRate": 1,
         "ExpenseId": expenseId ?? "",
@@ -16751,7 +16853,7 @@ String formatFieldDate(
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? formatDate(cashAdvance.requestDate)
+              ? formatDates(cashAdvance.requestDate)
               : '';
           // Add more controllers if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
@@ -16820,7 +16922,7 @@ String formatFieldDate(
           final cashAdvance = specificCashAdvanceList[0];
           requisitionIdController.text = cashAdvance.requisitionId ?? '';
           requestDateController.text = cashAdvance.requestDate != null
-              ? formatDate(cashAdvance.requestDate)
+              ? formatDates(cashAdvance.requestDate)
               : '';
           // Add more  if needed
           //  //  // print("Requisition ID: ${requisitionIdController.text}");
