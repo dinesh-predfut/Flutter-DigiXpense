@@ -595,9 +595,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
       return isValid;
     }
 
-  
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-        _initializeUnits();
+      _initializeUnits();
       controller.isLoadingGE2.value = true;
       controller.configuration();
       controller.fetchPaidto();
@@ -2597,7 +2596,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                           return OutlinedButton.icon(
                             onPressed: () {
                               // Validate current form before adding new itemize
-                              if (validateDropdowns() && _validateAllBeforeSubmit()) {
+                              if (validateDropdowns() &&
+                                  _validateAllBeforeSubmit()) {
                                 _addItemize();
                               } else {
                                 // Optional: Show error message
@@ -2661,7 +2661,8 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
                         ElevatedButton(
                           onPressed: () {
                             if (showItemizeDetails) {
-                              if (_validateCurrentItemizeForm()&& _validateAllBeforeSubmit()) {
+                              if (_validateCurrentItemizeForm() &&
+                                  _validateAllBeforeSubmit()) {
                                 final invalidIndex =
                                     _getFirstInvalidItemizeIndex();
 
@@ -2757,7 +2758,7 @@ class _CashAdvanceReturnFormState extends State<CashAdvanceReturnForm>
 
                                 print('isValid$isValid');
                                 print('isValid${itemizeControllers.length}');
-                                if (isValid ) {
+                                if (isValid) {
                                   if (showItemizeDetails) {
                                     controllerItems.finalItems =
                                         itemizeControllers
@@ -4929,11 +4930,23 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                     ? null
                                     : () async {
                                         _isSubmitAttempted = true;
+
                                         if (_formKey.currentState?.validate() ??
                                             false) {
                                           controller.setButtonLoading(
                                             'submit',
                                             true,
+                                          );
+                                          controller.finalItems.clear();
+
+                                          // for (final item in itemizeControllers) {
+                                          //   controller.finalItems.add(
+                                          //     item.toExpenseItemModel(),
+                                          //   );
+                                          // }
+
+                                          print(
+                                            "finalItems count = ${controller.finalItems.length}",
                                           );
                                           try {
                                             await controller
@@ -4950,20 +4963,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                               false,
                                             );
                                           }
-                                        } else {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                '${loc.fieldRequired} ',
-                                              ),
-                                              backgroundColor: Colors.redAccent,
-                                            ),
-                                          );
-                                          setState(
-                                            () {},
-                                          ); // Refresh UI for inline errors
                                         }
                                       },
                                 style: ElevatedButton.styleFrom(
