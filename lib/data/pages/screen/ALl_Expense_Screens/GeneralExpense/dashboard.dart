@@ -1121,21 +1121,9 @@ class _GeneralExpenseDashboardState extends State<GeneralExpenseDashboard>
                   ),
                   Text(
                     item.receiptDate != null
-                        ? (() {
-                            final correctedMs = toStartOfDayUtc(
-                              item.receiptDate!,
-                            );
-
-                            final correctedDate =
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  correctedMs,
-                                  isUtc: true,
-                                );
-
-                            return DateFormat(
-                              controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                            ).format(correctedDate);
-                          })()
+                        ? formatDate(
+                                                  item.receiptDate!,
+                                                )
                         : 'No date',
                     style: const TextStyle(fontSize: 12),
                   ),

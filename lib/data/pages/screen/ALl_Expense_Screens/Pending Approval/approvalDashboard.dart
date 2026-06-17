@@ -7,6 +7,7 @@ import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
     with TickerProviderStateMixin {
   // final controllers = Get.put(Controller());
   bool isLoading = false;
-   final controller = Get.find<Controller>();
+  final controller = Get.find<Controller>();
 
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
@@ -138,7 +139,6 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
   @override
   void initState() {
     super.initState();
-    
 
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -192,7 +192,8 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
       // controller.isImageLoading.value = false;
     }
   }
- void _onUserScroll() {
+
+  void _onUserScroll() {
     if (_animationController.isAnimating) {
       _animationController.stop();
     }
@@ -203,6 +204,7 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
       }
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -456,35 +458,40 @@ class _PendingApprovalDashboardState extends State<PendingApprovalDashboard>
                             ),
                           ),
                           const SizedBox(height: 12),
-                           SizedBox(
-                  height: 140,
-                  child: Obx(() {
-                    if (controller.manageExpensesCards.isEmpty) {
-                      return Center(child: Text(loc.pleaseWait));
-                    }
-                    return NotificationListener<UserScrollNotification>(
-                      onNotification: (notification) {
-                        if (notification.direction == ScrollDirection.idle) {
-                          _onUserScroll();
-                        }
-                        return false;
-                      },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: controller.manageExpensesCards.length,
-                        itemBuilder: (context, index) {
-                          final card = controller.manageExpensesCards[index];
-                          return GestureDetector(
-                            onTap: _onUserScroll,
-                            child:  _buildStyledCard(card)
-                          );
-                        },
-                      ),
-                    );
-                  }),
-                ),
+                          SizedBox(
+                            height: 140,
+                            child: Obx(() {
+                              if (controller.manageExpensesCards.isEmpty) {
+                                return Center(child: Text(loc.pleaseWait));
+                              }
+                              return NotificationListener<
+                                UserScrollNotification
+                              >(
+                                onNotification: (notification) {
+                                  if (notification.direction ==
+                                      ScrollDirection.idle) {
+                                    _onUserScroll();
+                                  }
+                                  return false;
+                                },
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount:
+                                      controller.manageExpensesCards.length,
+                                  itemBuilder: (context, index) {
+                                    final card =
+                                        controller.manageExpensesCards[index];
+                                    return GestureDetector(
+                                      onTap: _onUserScroll,
+                                      child: _buildStyledCard(card),
+                                    );
+                                  },
+                                ),
+                              );
+                            }),
+                          ),
                           const SizedBox(height: 15),
                           Center(
                             child: SizedBox(
@@ -1329,11 +1336,13 @@ Widget _buildCard(ExpenseModel item, BuildContext context) {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
-                            DateTime.fromMillisecondsSinceEpoch(
-                              item.receiptDate,isUtc: true
-                            ),
-                          ),
+                          item.receiptDate != null
+                              ? formatDate(
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    item.receiptDate,
+                                  ),
+                                )
+                              : 'No date',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],

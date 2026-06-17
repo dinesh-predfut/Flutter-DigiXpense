@@ -2506,3 +2506,4 @@ class _MileageRegistrationPageState extends State<MileageRegistrationPage> {
     return true; // All fields are filled
   }
 }
+

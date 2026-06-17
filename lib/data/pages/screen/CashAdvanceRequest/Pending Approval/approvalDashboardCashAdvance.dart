@@ -7,6 +7,7 @@ import 'package:diginexa/core/comman/widgets/noDataFind.dart';
 import 'package:diginexa/core/comman/widgets/pageLoaders.dart';
 import 'package:diginexa/core/comman/widgets/searchDropown.dart';
 import 'package:diginexa/core/constant/Parames/colors.dart';
+import 'package:diginexa/core/utils.dart';
 import 'package:diginexa/data/pages/screen/widget/router/router.dart';
 import 'package:diginexa/data/service.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ class _PendingApprovalDashboardforPendingState
     with TickerProviderStateMixin {
   // final controllers = Get.put(Controller());
   bool isLoading = false;
-    final controller = Get.find<Controller>();
+  final controller = Get.find<Controller>();
 
   late final ScrollController _scrollController;
   late final AnimationController _animationController;
@@ -224,291 +225,252 @@ class _PendingApprovalDashboardforPendingState
                     return Column(
                       children: [
                         // Top Content in scroll view
-                     
-                                  Stack(
-                                    children: [
-                                      if (primaryColor !=
-                                          const Color(0xFF1e4db7))
-                                        Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                primaryColor,
-                                                primaryColor.withOpacity(
-                                                  0.7,
-                                                ), // Lighter primary color
-                                              ],
-                                            ),
-                                          ),
-                                          padding: const EdgeInsets.fromLTRB(
-                                            0,
-                                            40,
-                                            0,
-                                            16,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Flexible(
-                                                flex: 4,
-                                                child: Row(
-                                                  children: [
-                                                    IconButton(
-                                                      onPressed: _openMenu,
-                                                      icon: Icon(
-                                                        Icons.menu,
-                                                        color: Colors.black,
-                                                        size: 20,
-                                                      ),
-                                                      style: IconButton.styleFrom(
-                                                        // backgroundColor: Colors.white,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets.all(
-                                                              5,
-                                                            ),
-                                                      ),
-                                                    ),
-
-                                                    // Logo
-                                                    ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
-                                                      child: Image.asset(
-                                                        'assets/XpenseWhite.png',
-                                                        width: isSmallScreen
-                                                            ? 60
-                                                            : 80,
-                                                        height: isSmallScreen
-                                                            ? 30
-                                                            : 40,
-                                                        fit: BoxFit.cover,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              const Spacer(),
-                                              Flexible(
-                                                flex: 9,
-                                                child: SingleChildScrollView(
-                                                  scrollDirection:
-                                                      Axis.horizontal,
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.start,
-                                                    children: [
-                                                      const LanguageDropdown(),
-
-                                                      IconButton(
-                                                        icon: const Icon(
-                                                          Icons.fingerprint,
-                                                          color: Colors.white,
-                                                        ),
-                                                        onPressed: () {
-                                                          Navigator.pushNamed(
-                                                            context,
-                                                            AppRoutes
-                                                                .punchScreen,
-                                                          );
-                                                        },
-                                                      ),
-
-                                                      _buildNotificationBadge(),
-                                                      _buildProfileAvatar(),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      if (primaryColor ==
-                                          const Color(0xFF1e4db7))
-                                        Container(
-                                          width: double.infinity,
-                                          height: 100,
-                                          decoration: const BoxDecoration(
-                                            image: DecorationImage(
-                                              image: AssetImage(
-                                                'assets/Vector.png',
-                                              ),
-                                              fit: BoxFit.cover,
-                                            ),
-                                            borderRadius: BorderRadius.only(
-                                              bottomLeft: Radius.circular(10),
-                                              bottomRight: Radius.circular(10),
-                                            ),
-                                          ),
-                                          padding: const EdgeInsets.fromLTRB(
-                                            0,
-                                            40,
-                                            0,
-                                            16,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Flexible(
-                                                flex: 4,
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  children: [
-                                                    IconButton(
-                                                      onPressed: _openMenu,
-                                                      icon: Icon(
-                                                        Icons.menu,
-                                                        color: Colors.black,
-                                                        size: 20,
-                                                      ),
-                                                      style: IconButton.styleFrom(
-                                                        // backgroundColor: Colors.white,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets.all(
-                                                              5,
-                                                            ),
-                                                      ),
-                                                    ),
-
-                                                    // Logo
-                                                    ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
-                                                      child: Image.asset(
-                                                        'assets/XpenseWhite.png',
-                                                        width: isSmallScreen
-                                                            ? 60
-                                                            : 80,
-                                                        height: isSmallScreen
-                                                            ? 30
-                                                            : 40,
-                                                        fit: BoxFit.cover,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              const Spacer(),
-                                              Flexible(
-                                                flex: 9,
-                                                child: SingleChildScrollView(
-                                                  scrollDirection:
-                                                      Axis.horizontal,
-                                                  child: Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceEvenly,
-                                                    children: [
-                                                      const LanguageDropdown(),
-
-                                                      IconButton(
-                                                        icon: const Icon(
-                                                          Icons.fingerprint,
-                                                          color: Colors.white,
-                                                        ),
-                                                        onPressed: () {
-                                                          Navigator.pushNamed(
-                                                            context,
-                                                            AppRoutes
-                                                                .punchScreen,
-                                                          );
-                                                        },
-                                                      ),
-
-                                                      _buildNotificationBadge(),
-                                                      _buildProfileAvatar(),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                        Stack(
+                          children: [
+                            if (primaryColor != const Color(0xFF1e4db7))
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      primaryColor,
+                                      primaryColor.withOpacity(
+                                        0.7,
+                                      ), // Lighter primary color
                                     ],
                                   ),
-                                  const SizedBox(height: 15),
-                                  Obx(() {
-                                    return SizedBox(
-                                      height: 140,
-                                      child: ListView.builder(
-                                        controller: _scrollController,
-                                        scrollDirection: Axis.horizontal,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
-                                        itemCount: controller
-                                            .manageExpensesCards
-                                            .length,
-                                        itemBuilder: (context, index) {
-                                          final card = controller
-                                              .manageExpensesCards[index];
-                                          return _buildStyledCard(card);
-                                        },
-                                      ),
-                                    );
-                                  }),
-                                  const SizedBox(height: 15),
-                                  Center(
-                                    child: SizedBox(
-                                      width: 300,
-                                      height: 48,
-                                      child: TextField(
-                                        controller: controller
-                                            .searchControllerCashAdvanceApproval,
-                                        onChanged: (value) {
-                                          controller.searchQuery.value = value
-                                              .toLowerCase();
-                                        },
-                                        decoration: InputDecoration(
-                                          hintText: AppLocalizations.of(
-                                            context,
-                                          )!.search,
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
+                                ),
+                                padding: const EdgeInsets.fromLTRB(
+                                  0,
+                                  40,
+                                  0,
+                                  16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      flex: 4,
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            onPressed: _openMenu,
+                                            icon: Icon(
+                                              Icons.menu,
+                                              color: Colors.black,
+                                              size: 20,
+                                            ),
+                                            style: IconButton.styleFrom(
+                                              // backgroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding: const EdgeInsets.all(5),
                                             ),
                                           ),
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 12,
-                                              ),
-                                          prefixIcon: const Icon(
-                                            Icons.search,
-                                            color: Colors.grey,
+
+                                          // Logo
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            child: Image.asset(
+                                              'assets/XpenseWhite.png',
+                                              width: isSmallScreen ? 60 : 80,
+                                              height: isSmallScreen ? 30 : 40,
+                                              fit: BoxFit.cover,
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    const Spacer(),
+                                    Flexible(
+                                      flex: 9,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          children: [
+                                            const LanguageDropdown(),
+
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.fingerprint,
+                                                color: Colors.white,
+                                              ),
+                                              onPressed: () {
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  AppRoutes.punchScreen,
+                                                );
+                                              },
+                                            ),
+
+                                            _buildNotificationBadge(),
+                                            _buildProfileAvatar(),
+                                          ],
                                         ),
                                       ),
                                     ),
+                                  ],
+                                ),
+                              ),
+                            if (primaryColor == const Color(0xFF1e4db7))
+                              Container(
+                                width: double.infinity,
+                                height: 100,
+                                decoration: const BoxDecoration(
+                                  image: DecorationImage(
+                                    image: AssetImage('assets/Vector.png'),
+                                    fit: BoxFit.cover,
                                   ),
-                                
-                               const SizedBox(height: 15),
+                                  borderRadius: BorderRadius.only(
+                                    bottomLeft: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.fromLTRB(
+                                  0,
+                                  40,
+                                  0,
+                                  16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Flexible(
+                                      flex: 4,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        children: [
+                                          IconButton(
+                                            onPressed: _openMenu,
+                                            icon: Icon(
+                                              Icons.menu,
+                                              color: Colors.black,
+                                              size: 20,
+                                            ),
+                                            style: IconButton.styleFrom(
+                                              // backgroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              padding: const EdgeInsets.all(5),
+                                            ),
+                                          ),
+
+                                          // Logo
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            child: Image.asset(
+                                              'assets/XpenseWhite.png',
+                                              width: isSmallScreen ? 60 : 80,
+                                              height: isSmallScreen ? 30 : 40,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    const Spacer(),
+                                    Flexible(
+                                      flex: 9,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            const LanguageDropdown(),
+
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.fingerprint,
+                                                color: Colors.white,
+                                              ),
+                                              onPressed: () {
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  AppRoutes.punchScreen,
+                                                );
+                                              },
+                                            ),
+
+                                            _buildNotificationBadge(),
+                                            _buildProfileAvatar(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                        Obx(() {
+                          return SizedBox(
+                            height: 140,
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              scrollDirection: Axis.horizontal,
+                              physics:
+                                  const NeverScrollableScrollPhysics(), // 👈 Disable manual swipe
+                              itemCount: controller.manageExpensesCards.length,
+                              itemBuilder: (context, index) {
+                                final card =
+                                    controller.manageExpensesCards[index];
+                                return _buildStyledCard(card);
+                              },
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 15),
+                        Center(
+                          child: SizedBox(
+                            width: 300,
+                            height: 48,
+                            child: TextField(
+                              controller: controller
+                                  .searchControllerCashAdvanceApproval,
+                              onChanged: (value) {
+                                controller.searchQuery.value = value
+                                    .toLowerCase();
+                              },
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(context)!.search,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Padding(
@@ -589,7 +551,8 @@ class _PendingApprovalDashboardforPendingState
                                   ) ||
                                   item.referenceId.toLowerCase().contains(
                                     query,
-                                  ) ||   item.requisitionId.toLowerCase().contains(
+                                  ) ||
+                                  item.requisitionId.toLowerCase().contains(
                                     query,
                                   );
                             }).toList();
@@ -611,7 +574,7 @@ class _PendingApprovalDashboardforPendingState
                                     if (direction ==
                                         DismissDirection.startToEnd) {
                                       setState(() => isLoading = true);
-                                      controller 
+                                      controller
                                           .fetchSpecificCashAdvanceApprovalItem(
                                             context,
                                             item.workitemrecid,
@@ -1148,7 +1111,6 @@ class _PendingApprovalDashboardforPendingState
         direction: DismissDirection.horizontal,
 
         confirmDismiss: (direction) async {
-          
           controller.fetchSpecificCashAdvanceApprovalItem(
             context,
             item.workitemrecid,
@@ -1198,9 +1160,13 @@ class _PendingApprovalDashboardforPendingState
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy').format(
-                          DateTime.fromMillisecondsSinceEpoch(item.requestDate,isUtc: true),
-                        ),
+                        item.requestDate != null
+                            ? formatDate(
+                                DateTime.fromMillisecondsSinceEpoch(
+                                  item.requestDate!,
+                                ),
+                              )
+                            : 'No date',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ],

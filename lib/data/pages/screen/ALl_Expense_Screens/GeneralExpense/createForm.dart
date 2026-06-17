@@ -94,6 +94,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       fromMs,
       isUtc: true, // IMPORTANT: Keep this as true
     );
+
     _focusNode.addListener(() {
       setState(() {
         _isTyping = _focusNode.hasFocus;
@@ -474,15 +475,92 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                   .map((field) {
                     final Map<String, dynamic> cloned =
                         Map<String, dynamic>.from(field);
+
                     // Preserve all values
                     cloned['EnteredValue'] = field['EnteredValue'];
                     cloned['SelectedValue'] = field['SelectedValue'];
-                    cloned['_rxStringValue'] = field['_rxStringValue'];
-                    cloned['_rxCheckboxValue'] = field['_rxCheckboxValue'];
-                    cloned['_rxDateValue'] = field['_rxDateValue'];
-                    cloned['_rxIntValue'] = field['_rxIntValue'];
-                    cloned['_rxDoubleValue'] = field['_rxDoubleValue'];
-                    cloned['_rxSelectedValue'] = field['_rxSelectedValue'];
+
+                    // ✅ FIX: Properly clone Rx objects (create new Rx instances)
+                    if (field['_rxStringValue'] != null) {
+                      final currentValue =
+                          (field['_rxStringValue'] as Rx<String?>).value;
+                      cloned['_rxStringValue'] = Rx<String?>(currentValue);
+                    }
+                    if (field['_rxCheckboxValue'] != null) {
+                      final currentValue =
+                          (field['_rxCheckboxValue'] as Rx<bool>).value;
+                      cloned['_rxCheckboxValue'] = Rx<bool>(currentValue);
+                    }
+                    if (field['_rxDateValue'] != null) {
+                      final currentValue =
+                          (field['_rxDateValue'] as Rx<DateTime?>).value;
+                      cloned['_rxDateValue'] = Rx<DateTime?>(currentValue);
+                    }
+                    if (field['_rxIntValue'] != null) {
+                      final currentValue =
+                          (field['_rxIntValue'] as Rx<int?>).value;
+                      cloned['_rxIntValue'] = Rx<int?>(currentValue);
+                    }
+                    if (field['_rxDoubleValue'] != null) {
+                      final currentValue =
+                          (field['_rxDoubleValue'] as Rx<double?>).value;
+                      cloned['_rxDoubleValue'] = Rx<double?>(currentValue);
+                    }
+                    if (field['_rxSelectedValue'] != null) {
+                      final currentValue =
+                          (field['_rxSelectedValue']
+                                  as Rx<CustomDropdownValue?>)
+                              .value;
+                      cloned['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
+                        currentValue,
+                      );
+                    }
+
+                    // ✅ Clone controllers for text fields
+                    if (field['_controller'] != null) {
+                      final text =
+                          (field['_controller'] as TextEditingController).text;
+                      cloned['_controller'] = TextEditingController(text: text);
+                      cloned['_focusNode'] = FocusNode();
+                    }
+
+                    // ✅ Clone phone controllers
+                    if (field['_phoneController'] != null) {
+                      final phoneText =
+                          (field['_phoneController'] as TextEditingController)
+                              .text;
+                      cloned['_phoneController'] = TextEditingController(
+                        text: phoneText,
+                      );
+                    }
+                    if (field['_countryCodeController'] != null) {
+                      final codeText =
+                          (field['_countryCodeController']
+                                  as TextEditingController)
+                              .text;
+                      cloned['_countryCodeController'] = TextEditingController(
+                        text: codeText,
+                      );
+                    }
+                    if (field['_currentCountryCode'] != null) {
+                      final currentCode =
+                          (field['_currentCountryCode'] as Rx<String>).value;
+                      cloned['_currentCountryCode'] = Rx<String>(currentCode);
+                    }
+                    if (field['_selectedCountryCode'] != null) {
+                      cloned['_selectedCountryCode'] =
+                          field['_selectedCountryCode'];
+                    }
+
+                    // ✅ Preserve ObjectName and ExpenseType
+                    if (field['ObjectName'] != null) {
+                      cloned['ObjectName'] = field['ObjectName'];
+                    }
+                    if (field['ExpenseType'] != null) {
+                      cloned['ExpenseType'] = field['ExpenseType'];
+                    }
+
+                    cloned['Error'] = null;
                     return cloned;
                   })
                   .toList();
@@ -490,15 +568,81 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
               newController.customFieldsItems.addAll(clonedCategoryFields);
             }
 
-            // Also clone the selected category ID
+            // ✅ Clone selected category
             newController.selectedCategoryId =
                 currentController.selectedCategoryId;
 
+            // ✅ Clone selected category object
+            if (currentController.selectedCategory != null) {
+              newController.selectedCategory =
+                  currentController.selectedCategory;
+            }
+
+            // ✅ Clone category validation properties
+            newController.itemisationMandatory.value =
+                currentController.itemisationMandatory.value;
+            newController.minExpenseAmount.value =
+                currentController.minExpenseAmount.value;
+            newController.maxExpenseAmount.value =
+                currentController.maxExpenseAmount.value;
+            newController.receiptRequiredLimit.value =
+                currentController.receiptRequiredLimit.value;
+            newController.isReceiptRequired.value =
+                currentController.isReceiptRequired.value;
+
+            // ✅ Clone other properties
+            newController.isReimbursable = currentController.isReimbursable;
+            newController.isBillableCreate = currentController.isBillableCreate;
+            newController.isReimbursite = currentController.isReimbursite;
+
+            // ✅ Clone split list (accounting distributions)
+            if (currentController.split.isNotEmpty) {
+              newController.split.assignAll(
+                currentController.split
+                    .map(
+                      (split) => AccountingSplit(
+                        paidFor: split.paidFor,
+                        percentage: split.percentage,
+                        amount: split.amount,
+                      ),
+                    )
+                    .toList(),
+              );
+            }
+
+            // ✅ Clone selected project if available
+            if (currentController.selectedProject != null) {
+              newController.selectedProject = currentController.selectedProject;
+            }
+
+            // ✅ Clone selected unit if available
+            if (currentController.selectedunit != null) {
+              newController.selectedunit = currentController.selectedunit;
+            }
+
+            // ✅ Clone selected tax if available
+            if (currentController.selectedTax != null) {
+              newController.selectedTax = currentController.selectedTax;
+            }
+
+            // ✅ Ensure custom fields are refreshed
+            newController.customFieldsItems.refresh();
+
+            // Add the new controller to the list
             itemizeControllers.add(newController);
             _itemizeCount++;
             _selectedItemizeIndex = _itemizeCount - 1;
             showItemizeDetails = true;
+
+            // ✅ Force UI update
+            setState(() {});
           });
+        } else {
+          // Show toast or snackbar when max limit reached
+          Fluttertoast.showToast(
+            msg: "Maximum 5 items allowed",
+            backgroundColor: Colors.orange,
+          );
         }
       }
     }
@@ -872,6 +1016,48 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
       );
     }
     final currentCustomFields = controller.customFieldsItems;
+    if (currentCustomFields.isEmpty && controller.customFields.isNotEmpty) {
+      print("⚠️ Current custom fields is EMPTY, cloning from master...");
+      print(
+        "📋 Master fields to clone: ${controller.customFields.map((f) => f['FieldName']).toList()}",
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        print("🔄 Post-frame callback: Cloning custom fields...");
+        controller.cloneCustomFieldsFromRx(controller.customFields);
+
+        // Verify clone was successful
+        print(
+          "✅ After clone - Custom Fields Count: ${controller.customFieldsItems.length}",
+        );
+        print(
+          "✅ Cloned fields: ${controller.customFieldsItems.map((f) => f['FieldName']).toList()}",
+        );
+
+        // Check each cloned field
+        for (var field in controller.customFieldsItems) {
+          print(
+            "   📎 Field: ${field['FieldName']}, Type: ${field['FieldType']}, ObjectName: ${field['ObjectName']}",
+          );
+          print(
+            "      EnteredValue: ${field['EnteredValue']}, DefaultValue: ${field['DefaultValue']}",
+          );
+          print("      Has _rxStringValue: ${field['_rxStringValue'] != null}");
+          print("      Has _controller: ${field['_controller'] != null}");
+        }
+      });
+    } else if (currentCustomFields.isNotEmpty) {
+      print(
+        "✅ Current custom fields already populated with ${currentCustomFields.length} fields",
+      );
+      print(
+        "📋 Current fields: ${currentCustomFields.map((f) => f['ObjectName']).toList()}",
+      );
+    } else {
+      print("⚠️ Both current and master custom fields are EMPTY!");
+      print("💡 Master custom fields may not have been loaded yet.");
+    }
+    print("🔍 =========================================");
 
     // If this controller doesn't have its own custom fields yet,
     // initialize them from the master
@@ -1196,7 +1382,9 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                   .toList(),
               Obx(() {
                 return Column(
-                  children: currentCustomFields.asMap().entries.map((entry) {
+                  children: controllerItems.customFields.asMap().entries.map((
+                    entry,
+                  ) {
                     final index = entry.key;
                     final field = entry.value;
 
@@ -1217,16 +1405,104 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         field['FieldLabel'] ?? field['FieldName'];
                     final bool isMandatory = field['IsMandatory'] ?? false;
                     final String fieldType = field['FieldType'];
+                    final String fieldName = field['FieldName'];
 
                     /// UNIQUE KEY FOR EVERY FIELD
                     final String fieldKey =
-                        '${controller.hashCode}_${field['FieldName']}_${field['LineId'] ?? index}_${field['RecId'] ?? index}';
+                        '${controller.hashCode}_${fieldName}_${field['LineId'] ?? index}_${field['RecId'] ?? index}';
+
+                    /// 🔍 HELPER: Get or create field in current controller's customFieldsItems
+                    Map<String, dynamic> getOrCreateFieldInController() {
+                      // Try to find existing field in current controller's items
+                      Map<String, dynamic>? existingField;
+                      try {
+                        existingField = controller.customFieldsItems.firstWhere(
+                          (f) =>
+                              f['FieldName'] == fieldName &&
+                              f['ObjectName'] == objectName,
+                          // orElse: () => null,
+                        );
+                      } catch (e) {
+                        existingField = null;
+                      }
+
+                      if (existingField != null) {
+                        return existingField;
+                      }
+
+                      // Create new field in current controller
+                      final newField = Map<String, dynamic>.from(field);
+                      newField['EnteredValue'] =
+                          field['DefaultValue']?.toString() ?? '';
+                      newField['SelectedValue'] = null;
+                      newField['Error'] = null;
+
+                      // Initialize Rx values
+                      final fieldType = field['FieldType'];
+                      if (fieldType == 'List' ||
+                          fieldType == 'CustomList' ||
+                          fieldType == 'SystemList') {
+                        newField['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
+                          null,
+                        );
+                      } else if (fieldType == 'Checkbox') {
+                        newField['_rxCheckboxValue'] = Rx<bool>(false);
+                      } else if (fieldType == 'Date' ||
+                          fieldType == 'Date&Time') {
+                        newField['_rxDateValue'] = Rx<DateTime?>(null);
+                      } else if (fieldType == 'LongInteger') {
+                        newField['_rxIntValue'] = Rx<int?>(null);
+                      } else if (fieldType == 'Decimal') {
+                        newField['_rxDoubleValue'] = Rx<double?>(null);
+                      } else {
+                        newField['_rxStringValue'] = Rx<String?>(
+                          field['DefaultValue']?.toString() ?? '',
+                        );
+                      }
+
+                      controller.customFieldsItems.add(newField);
+                      controller.customFieldsItems.refresh();
+                      return newField;
+                    }
+
+                    /// 🔍 HELPER: Get value from current controller's field
+                    dynamic getValueFromController() {
+                      try {
+                        final existingField = controller.customFieldsItems
+                            .firstWhere(
+                              (f) =>
+                                  f['FieldName'] == fieldName &&
+                                  f['ObjectName'] == objectName,
+                              // orElse: () => null,
+                            );
+                        if (existingField != null) {
+                          return existingField['EnteredValue'];
+                        }
+                      } catch (e) {
+                        return null;
+                      }
+                      return null;
+                    }
+
+                    /// 🔍 HELPER: Update value in current controller's field
+                    void updateValueInController(
+                      dynamic value, {
+                      dynamic selectedValue,
+                    }) {
+                      final existingField = getOrCreateFieldInController();
+                      existingField['EnteredValue'] = value;
+                      if (selectedValue != null) {
+                        existingField['SelectedValue'] = selectedValue;
+                      }
+                      existingField['Error'] = null;
+                      controller.customFieldsItems.refresh();
+                    }
 
                     Widget inputField;
 
-                    if (field['FieldType'] == 'List' ||
-                        field['FieldType'] == 'CustomList' ||
-                        field['FieldType'] == 'SystemList') {
+                    if (fieldType == 'List' ||
+                        fieldType == 'CustomList' ||
+                        fieldType == 'SystemList') {
                       List<CustomDropdownValue> options = [];
                       if (field['Options'] != null &&
                           field['Options'] is List) {
@@ -1235,13 +1511,20 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         );
                       }
 
-                      field['_controller'] ??= TextEditingController();
+                      // Get or create controller for this field in the current controller
+                      final controllerField = getOrCreateFieldInController();
+
+                      // Initialize controller if needed
+                      controllerField['_controller'] ??=
+                          TextEditingController();
                       final TextEditingController fieldController =
-                          field['_controller'];
+                          controllerField['_controller'];
 
+                      // Get selected value from controller's field
                       CustomDropdownValue? selectedValue =
-                          field['SelectedValue'];
+                          controllerField['SelectedValue'];
 
+                      // If no selected value, try to get from default
                       if (selectedValue == null &&
                           field['DefaultValue'] != null) {
                         final matches = options.where(
@@ -1254,35 +1537,19 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                             : null;
 
                         if (selectedValue != null) {
-                          field['SelectedValue'] = selectedValue;
-                          field['EnteredValue'] = selectedValue.valueId;
+                          controllerField['SelectedValue'] = selectedValue;
+                          controllerField['EnteredValue'] =
+                              selectedValue.valueId;
                         }
                       }
 
-                      // Update controller text without triggering rebuild
+                      // Update controller text
                       final newText =
                           selectedValue?.valueName ??
                           field['DefaultValue']?.toString() ??
                           '';
                       if (fieldController.text != newText) {
                         fieldController.text = newText;
-                      }
-
-                      // If no matched selectedValue but DefaultValue exists
-                      if (selectedValue == null &&
-                          field['DefaultValue'] != null) {
-                        selectedValue = CustomDropdownValue(
-                          valueId: field['DefaultValue'].toString(),
-                          valueName: field['DefaultValue'].toString(),
-                        );
-                        final alreadyExists = options.any(
-                          (opt) => opt.valueId == selectedValue!.valueId,
-                        );
-                        if (!alreadyExists) {
-                          options = [selectedValue, ...options];
-                        }
-                        field['SelectedValue'] = selectedValue;
-                        field['EnteredValue'] = selectedValue.valueId;
                       }
 
                       inputField =
@@ -1307,46 +1574,54 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                   Expanded(
                                     child: Text(
                                       val.valueId,
-                                      style: TextStyle(fontSize: 8),
+                                      style: const TextStyle(fontSize: 8),
                                     ),
                                   ),
                                   Expanded(
                                     child: Text(
                                       val.valueName,
-                                      style: TextStyle(fontSize: 8),
+                                      style: const TextStyle(fontSize: 8),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             onChanged: (val) {
-                              field['SelectedValue'] = val;
-                              field['EnteredValue'] = val?.valueId;
-                              field['Error'] = null;
+                              // Update the current controller's field
+                              updateValueInController(
+                                val?.valueId,
+                                selectedValue: val,
+                              );
                               fieldController.text = val?.valueName ?? '';
+                              controllerField['SelectedValue'] = val;
                               controller.customFields.refresh();
                             },
                           );
                     }
-                    // Date and DateTime types - Make Reactive
+                    // Date and DateTime types
                     else if (fieldType == 'Date' || fieldType == 'Date&Time') {
                       final bool isDateTime = fieldType == 'Date&Time';
 
+                      // Get or create field in current controller
+                      final controllerField = getOrCreateFieldInController();
+
                       // Create Rx value if not exists
-                      if (field['_rxDateValue'] == null) {
-                        field['_rxDateValue'] = Rx<DateTime?>(
-                          field['EnteredValue'] as DateTime?,
+                      if (controllerField['_rxDateValue'] == null) {
+                        controllerField['_rxDateValue'] = Rx<DateTime?>(
+                          controllerField['EnteredValue'] as DateTime?,
                         );
                       }
 
                       // Create stable controller
-                      field['_dateController'] ??= TextEditingController();
+                      controllerField['_dateController'] ??=
+                          TextEditingController();
                       final dateController =
-                          field['_dateController'] as TextEditingController;
+                          controllerField['_dateController']
+                              as TextEditingController;
 
                       inputField = Obx(() {
                         final rxDateValue =
-                            field['_rxDateValue'] as Rx<DateTime?>;
+                            controllerField['_rxDateValue'] as Rx<DateTime?>;
                         final currentDate = rxDateValue.value;
 
                         // Update controller only if value changed
@@ -1373,7 +1648,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: const OutlineInputBorder(),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                             suffixIcon: const Icon(Icons.calendar_today),
                           ),
                           onTap: () async {
@@ -1414,13 +1689,14 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                               );
 
                               rxDateValue.value = fullDateTime;
-                              field['EnteredValue'] = fullDateTime;
+                              controllerField['EnteredValue'] = fullDateTime;
                             } else {
                               rxDateValue.value = pickedDate;
-                              field['EnteredValue'] = pickedDate;
+                              controllerField['EnteredValue'] = pickedDate;
                             }
 
-                            field['Error'] = null;
+                            controllerField['Error'] = null;
+                            controller.customFieldsItems.refresh();
                           },
                           validator: (value) {
                             if (isMandatory && rxDateValue.value == null) {
@@ -1431,34 +1707,44 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         );
                       });
                     }
-                    // LongInteger (Integer) type - Make Reactive
+                    // LongInteger (Integer) type
                     else if (fieldType == 'LongInteger') {
-                      if (field['_rxIntValue'] == null) {
-                        field['_rxIntValue'] = Rx<int?>(
-                          field['EnteredValue'] as int?,
+                      final controllerField = getOrCreateFieldInController();
+
+                      if (controllerField['_rxIntValue'] == null) {
+                        controllerField['_rxIntValue'] = Rx<int?>(
+                          controllerField['EnteredValue'] as int?,
                         );
                       }
 
-                      // Create stable controller
-                      field['_intController'] ??= TextEditingController();
+                      controllerField['_intController'] ??=
+                          TextEditingController();
                       final intController =
-                          field['_intController'] as TextEditingController;
+                          controllerField['_intController']
+                              as TextEditingController;
 
                       inputField = Obx(() {
-                        final rxValue = field['_rxIntValue'] as Rx<int?>;
+                        final rxValue =
+                            controllerField['_rxIntValue'] as Rx<int?>;
 
-                        // Update controller without triggering rebuild
                         final newText = rxValue.value?.toString() ?? '';
                         if (intController.text != newText) {
                           intController.text = newText;
                         }
 
-                        // Remove old listener and add new one
                         intController.removeListener(
-                          _getIntListener(field, rxValue, intController),
+                          _getIntListener(
+                            controllerField,
+                            rxValue,
+                            intController,
+                          ),
                         );
                         intController.addListener(
-                          _getIntListener(field, rxValue, intController),
+                          _getIntListener(
+                            controllerField,
+                            rxValue,
+                            intController,
+                          ),
                         );
 
                         return TextFormField(
@@ -1471,7 +1757,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: const OutlineInputBorder(),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                           ),
                           validator: (value) {
                             if (isMandatory &&
@@ -1483,34 +1769,44 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         );
                       });
                     }
-                    // Decimal type - Make Reactive
+                    // Decimal type
                     else if (fieldType == 'Decimal') {
-                      if (field['_rxDoubleValue'] == null) {
-                        field['_rxDoubleValue'] = Rx<double?>(
-                          field['EnteredValue'] as double?,
+                      final controllerField = getOrCreateFieldInController();
+
+                      if (controllerField['_rxDoubleValue'] == null) {
+                        controllerField['_rxDoubleValue'] = Rx<double?>(
+                          controllerField['EnteredValue'] as double?,
                         );
                       }
 
-                      // Create stable controller
-                      field['_doubleController'] ??= TextEditingController();
+                      controllerField['_doubleController'] ??=
+                          TextEditingController();
                       final doubleController =
-                          field['_doubleController'] as TextEditingController;
+                          controllerField['_doubleController']
+                              as TextEditingController;
 
                       inputField = Obx(() {
-                        final rxValue = field['_rxDoubleValue'] as Rx<double?>;
+                        final rxValue =
+                            controllerField['_rxDoubleValue'] as Rx<double?>;
 
-                        // Update controller without triggering rebuild
                         final newText = rxValue.value?.toString() ?? '';
                         if (doubleController.text != newText) {
                           doubleController.text = newText;
                         }
 
-                        // Remove old listener and add new one
                         doubleController.removeListener(
-                          _getDoubleListener(field, rxValue, doubleController),
+                          _getDoubleListener(
+                            controllerField,
+                            rxValue,
+                            doubleController,
+                          ),
                         );
                         doubleController.addListener(
-                          _getDoubleListener(field, rxValue, doubleController),
+                          _getDoubleListener(
+                            controllerField,
+                            rxValue,
+                            doubleController,
+                          ),
                         );
 
                         return TextFormField(
@@ -1527,7 +1823,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: const OutlineInputBorder(),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                           ),
                           validator: (value) {
                             if (isMandatory &&
@@ -1539,34 +1835,44 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         );
                       });
                     }
-                    // Email type - Make Reactive
+                    // Email type
                     else if (fieldType == 'Email') {
-                      if (field['_rxStringValue'] == null) {
-                        field['_rxStringValue'] = Rx<String?>(
-                          field['EnteredValue'] as String?,
+                      final controllerField = getOrCreateFieldInController();
+
+                      if (controllerField['_rxStringValue'] == null) {
+                        controllerField['_rxStringValue'] = Rx<String?>(
+                          controllerField['EnteredValue'] as String?,
                         );
                       }
 
-                      // Create stable controller
-                      field['_emailController'] ??= TextEditingController();
+                      controllerField['_emailController'] ??=
+                          TextEditingController();
                       final emailController =
-                          field['_emailController'] as TextEditingController;
+                          controllerField['_emailController']
+                              as TextEditingController;
 
                       inputField = Obx(() {
-                        final rxValue = field['_rxStringValue'] as Rx<String?>;
+                        final rxValue =
+                            controllerField['_rxStringValue'] as Rx<String?>;
 
-                        // Update controller without triggering rebuild
                         final newText = rxValue.value ?? '';
                         if (emailController.text != newText) {
                           emailController.text = newText;
                         }
 
-                        // Remove old listener and add new one
                         emailController.removeListener(
-                          _getStringListener(field, rxValue, emailController),
+                          _getStringListener(
+                            controllerField,
+                            rxValue,
+                            emailController,
+                          ),
                         );
                         emailController.addListener(
-                          _getStringListener(field, rxValue, emailController),
+                          _getStringListener(
+                            controllerField,
+                            rxValue,
+                            emailController,
+                          ),
                         );
 
                         return TextFormField(
@@ -1576,7 +1882,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: const OutlineInputBorder(),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                             suffixIcon: const Icon(Icons.email_outlined),
                           ),
                           validator: (value) {
@@ -1597,17 +1903,19 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                         );
                       });
                     }
-                    // MobileNumber type - Make Reactive
+                    // MobileNumber type
                     else if (fieldType == 'MobileNumber') {
+                      final controllerField = getOrCreateFieldInController();
+
                       // Initialize persistent controllers and values if not exists
-                      if (field['_phoneController'] == null) {
+                      if (controllerField['_phoneController'] == null) {
                         final defaultValue =
                             field['DefaultValue']?.toString() ?? '';
-                        final existingValue = field['EnteredValue'] as String?;
+                        final existingValue =
+                            controllerField['EnteredValue'] as String?;
                         final initialValue = existingValue ?? defaultValue;
 
-                        // Parse existing phone number to extract country code and number
-                        String countryCode = '+91'; // Default India
+                        String countryCode = '+91';
                         String phoneNumber = '';
 
                         if (initialValue.isNotEmpty) {
@@ -1625,54 +1933,63 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           }
                         }
 
-                        // Create controllers
-                        field['_countryCodeController'] = TextEditingController(
-                          text: countryCode,
+                        controllerField['_countryCodeController'] =
+                            TextEditingController(text: countryCode);
+                        controllerField['_phoneController'] =
+                            TextEditingController(text: phoneNumber);
+                        controllerField['_rxStringValue'] = Rx<String?>(
+                          initialValue,
                         );
-                        field['_phoneController'] = TextEditingController(
-                          text: phoneNumber,
-                        );
-                        field['_rxStringValue'] = Rx<String?>(initialValue);
-                        field['_focusNode'] = FocusNode();
-                        field['EnteredValue'] = initialValue;
+                        controllerField['_focusNode'] = FocusNode();
+                        controllerField['EnteredValue'] = initialValue;
 
-                        // Update EnteredValue when phone number changes
-                        field['_phoneController'].addListener(() {
-                          final phoneVal = field['_phoneController'].text;
-                          final codeVal = field['_countryCodeController'].text;
+                        controllerField['_phoneController'].addListener(() {
+                          final phoneVal =
+                              controllerField['_phoneController'].text;
+                          final codeVal =
+                              controllerField['_countryCodeController'].text;
                           final fullNumber = phoneVal.isNotEmpty
                               ? '$codeVal $phoneVal'
                               : '';
 
-                          if (fullNumber != field['_rxStringValue'].value) {
-                            field['_rxStringValue'].value = fullNumber;
-                            field['EnteredValue'] = fullNumber;
+                          if (fullNumber !=
+                              controllerField['_rxStringValue'].value) {
+                            controllerField['_rxStringValue'].value =
+                                fullNumber;
+                            controllerField['EnteredValue'] = fullNumber;
                           }
-                          field['Error'] = null;
+                          controllerField['Error'] = null;
                         });
 
-                        // Update EnteredValue when country code changes
-                        field['_countryCodeController'].addListener(() {
-                          final phoneVal = field['_phoneController'].text;
-                          final codeVal = field['_countryCodeController'].text;
-                          final fullNumber = phoneVal.isNotEmpty
-                              ? '$codeVal $phoneVal'
-                              : '';
+                        controllerField['_countryCodeController'].addListener(
+                          () {
+                            final phoneVal =
+                                controllerField['_phoneController'].text;
+                            final codeVal =
+                                controllerField['_countryCodeController'].text;
+                            final fullNumber = phoneVal.isNotEmpty
+                                ? '$codeVal $phoneVal'
+                                : '';
 
-                          if (fullNumber != field['_rxStringValue'].value) {
-                            field['_rxStringValue'].value = fullNumber;
-                            field['EnteredValue'] = fullNumber;
-                          }
-                          field['Error'] = null;
-                        });
+                            if (fullNumber !=
+                                controllerField['_rxStringValue'].value) {
+                              controllerField['_rxStringValue'].value =
+                                  fullNumber;
+                              controllerField['EnteredValue'] = fullNumber;
+                            }
+                            controllerField['Error'] = null;
+                          },
+                        );
                       }
 
                       final phoneController =
-                          field['_phoneController'] as TextEditingController;
-                      final countryCodeController =
-                          field['_countryCodeController']
+                          controllerField['_phoneController']
                               as TextEditingController;
-                      final focusNode = field['_focusNode'] as FocusNode;
+                      final countryCodeController =
+                          controllerField['_countryCodeController']
+                              as TextEditingController;
+                      final focusNode =
+                          controllerField['_focusNode'] as FocusNode;
 
                       inputField = SizedBox(
                         child: IntlPhoneField(
@@ -1680,7 +1997,7 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           controller: phoneController,
                           focusNode: focusNode,
                           initialCountryCode:
-                              field['_selectedCountryCode'] ?? 'IN',
+                              controllerField['_selectedCountryCode'] ?? 'IN',
                           onChanged: (phone) {
                             countryCodeController.text =
                                 '+${phone.countryCode}';
@@ -1688,58 +2005,109 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                           },
                           onCountryChanged: (country) {
                             countryCodeController.text = '+${country.dialCode}';
-                            field['_selectedCountryCode'] = country.code;
+                            controllerField['_selectedCountryCode'] =
+                                country.code;
                           },
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                             counterText: "",
                           ),
                         ),
                       );
                     }
-                    // Default Text type - Make Reactive
-                    else {
-                      if (field['_rxStringValue'] == null) {
-                        field['_rxStringValue'] = Rx<String?>(
-                          field['EnteredValue'] as String?,
+                    // Checkbox type
+                    else if (fieldType == 'Checkbox') {
+                      final controllerField = getOrCreateFieldInController();
+
+                      if (controllerField['_rxCheckboxValue'] == null) {
+                        bool initialValue = false;
+                        final enteredValue = controllerField['EnteredValue'];
+                        if (enteredValue is bool) {
+                          initialValue = enteredValue;
+                        } else if (enteredValue is String) {
+                          initialValue =
+                              enteredValue.toLowerCase() == 'true' ||
+                              enteredValue == '1';
+                        } else if (enteredValue is int) {
+                          initialValue = enteredValue == 1;
+                        }
+                        controllerField['_rxCheckboxValue'] = Rx<bool>(
+                          initialValue,
                         );
                       }
 
-                      // Create stable controller
-                      field['_textController'] ??= TextEditingController();
+                      inputField = Obx(() {
+                        final rxValue =
+                            controllerField['_rxCheckboxValue'] as Rx<bool>;
+                        return CheckboxListTile(
+                          key: ValueKey('checkbox_$fieldKey'),
+                          title: Text('$label${isMandatory ? " *" : ""}'),
+                          value: rxValue.value,
+                          onChanged: (bool? newValue) {
+                            if (newValue != null) {
+                              rxValue.value = newValue;
+                              controllerField['EnteredValue'] = newValue;
+                              controllerField['Error'] = null;
+                              controller.customFieldsItems.refresh();
+                            }
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        );
+                      });
+                    }
+                    // Default Text type
+                    else {
+                      final controllerField = getOrCreateFieldInController();
+
+                      if (controllerField['_rxStringValue'] == null) {
+                        controllerField['_rxStringValue'] = Rx<String?>(
+                          controllerField['EnteredValue'] as String?,
+                        );
+                      }
+
+                      controllerField['_textController'] ??=
+                          TextEditingController();
                       final textController =
-                          field['_textController'] as TextEditingController;
+                          controllerField['_textController']
+                              as TextEditingController;
 
                       inputField = Obx(() {
-                        final rxValue = field['_rxStringValue'] as Rx<String?>;
+                        final rxValue =
+                            controllerField['_rxStringValue'] as Rx<String?>;
 
-                        // Update controller without triggering rebuild
                         final newText = rxValue.value ?? '';
                         if (textController.text != newText) {
                           textController.text = newText;
                         }
 
-                        // Remove old listener and add new one
                         textController.removeListener(
-                          _getStringListener(field, rxValue, textController),
+                          _getStringListener(
+                            controllerField,
+                            rxValue,
+                            textController,
+                          ),
                         );
                         textController.addListener(
-                          _getStringListener(field, rxValue, textController),
+                          _getStringListener(
+                            controllerField,
+                            rxValue,
+                            textController,
+                          ),
                         );
 
                         return TextFormField(
                           key: ValueKey('text_$fieldKey'),
-                          enabled: controller.isEnable.value,
                           keyboardType: TextInputType.text,
                           controller: textController,
                           decoration: InputDecoration(
                             labelText: '$label${isMandatory ? " *" : ""}',
                             border: const OutlineInputBorder(),
-                            errorText: field['Error'],
+                            errorText: controllerField['Error'],
                           ),
                           validator: (value) {
                             if (isMandatory &&
@@ -2749,8 +3117,10 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
         total += amount;
       }
     }
-    controller.paidAmount.text = total.toString();
-    print("totaltotal$total");
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.paidAmount.text = total.toString();
+      print("totaltotal$total");
+    });
     return total;
   }
 
@@ -3107,15 +3477,12 @@ class _ExpenseCreationFormState extends State<ExpenseCreationForm>
                                       children: [
                                         Text(
                                           controller.selectedDate == null
-                                              ? loc.selectDate
-                                              : DateFormat(
-                                                  controller
-                                                          .selectedFormat
-                                                          ?.key ??
-                                                      'dd-MM-yyyy',
-                                                ).format(
+                                              ? AppLocalizations.of(
+                                                  context,
+                                                )!.selectDate
+                                              : formatDate(
                                                   controller.selectedDate!,
-                                                ),
+                                                ), // Use your formatDate function
                                         ),
                                         const Icon(
                                           Icons.calendar_today,

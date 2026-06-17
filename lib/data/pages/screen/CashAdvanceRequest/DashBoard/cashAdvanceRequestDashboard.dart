@@ -779,22 +779,13 @@ class _CashAdvanceRequestDashboardState
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    item.requestDate != null
-                        ? DateFormat(
-                            controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-                          ).format(
-                            DateTime.fromMillisecondsSinceEpoch(
-                              toStartOfDayUtc(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                  item.requestDate,
-                                  isUtc: true,
-                                ),
-                              ),
-                            ),
-                          )
-                        : 'No date',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+  item.requestDate != null
+      ? formatDate(
+          DateTime.fromMillisecondsSinceEpoch(item.requestDate!),
+        )
+      : 'No date',
+  style: const TextStyle(fontSize: 12),
+),
                 ],
               ),
 

@@ -124,45 +124,53 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       controller.currencyDropDown();
       controller.fetchBusinessjustification();
       controller.fetchExpenseDocImage(widget.items!.recId);
-      
+
       // ✅ Load header custom fields
-        final allTransSavedValues = widget.items!.cshCashAdvReqTrans
-      .expand((trans) => trans.cshTransCustomFieldValues ?? [])
-      .toList();
+      final allTransSavedValues = widget.items!.cshCashAdvReqTrans
+          .expand((trans) => trans.cshTransCustomFieldValues ?? [])
+          .toList();
 
-  await controller.loadAllCustomFieldValues(
-    savedValues: [
-      ...widget.items!.cshHeaderCustomFieldValues,
-      ...allTransSavedValues,
-    ],
-  );
+      await controller.loadAllCustomFieldValues(
+        savedValues: [
+          ...widget.items!.cshHeaderCustomFieldValues,
+          ...allTransSavedValues,
+        ],
+      );
 
-  _initializeItemizeControllers(controller);
+      _initializeItemizeControllers(controller);
 
-      
       historyFuture = controller.cashadvanceTracking(widget.items!.recId);
       setState(() => isLoading = true);
 
       final timestamp = widget.items!.requestDate;
-      final requestDate = DateTime.fromMillisecondsSinceEpoch(timestamp, isUtc: true);
-      final fromMs = toStartOfDayUtc(requestDate);
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(fromMs);
+      final int offsetMs =
+          int.tryParse(controller.selectedTimezonevalue.value!) ?? 0;
+      final DateTime receiptDate = DateTime.fromMillisecondsSinceEpoch(
+        timestamp + offsetMs,
+        isUtc: true,
+      );
       final formatted = DateFormat(
         controller.selectedFormat?.key ?? 'dd/MM/yyyy',
-      ).format(dateTime);
+      ).format(receiptDate);
+      controller.selectedDate = receiptDate;
       requestDateController.text = formatted;
 
-      if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
-        controller.paymentMethodID = widget.items!.prefferedPaymentMethod.toString();
+      if (widget.items != null &&
+          widget.items!.prefferedPaymentMethod != null) {
+        controller.paymentMethodID = widget.items!.prefferedPaymentMethod
+            .toString();
       }
       controller.employeeName.text = widget.items!.employeeName!;
       controller.employeeDropDownController.text = widget.items!.employeeId!;
       expenseIdController.text = widget.items!.requisitionId.toString();
-      controller.justificationController.text = widget.items!.businessJustification;
+      controller.justificationController.text =
+          widget.items!.businessJustification;
       controller.referenceID.text = widget.items?.referenceId?.toString() ?? '';
 
-      if (widget.items != null && widget.items!.prefferedPaymentMethod != null) {
-        controller.paidWithController.text = widget.items!.prefferedPaymentMethod!;
+      if (widget.items != null &&
+          widget.items!.prefferedPaymentMethod != null) {
+        controller.paidWithController.text =
+            widget.items!.prefferedPaymentMethod!;
       } else {
         controller.paidWithController.text = '';
       }
@@ -170,22 +178,26 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       selectedPaidTo = paidToOptions.first;
       selectedPaidWith = paidWithOptions.first;
       controller.locationController.text = widget.items!.location ?? '';
-      controller.estimatedamountINR.text =
-          widget.items!.totalEstimatedAmountInReporting.toString();
-      controller.requestamountINR.text =
-          widget.items!.totalRequestedAmountInReporting.toString();
+      controller.estimatedamountINR.text = widget
+          .items!
+          .totalEstimatedAmountInReporting
+          .toString();
+      controller.requestamountINR.text = widget
+          .items!
+          .totalRequestedAmountInReporting
+          .toString();
       controller.requestedPercentage.text =
           widget.items?.percentage?.toString() ?? '100';
-      controller.unitRate.text =
-          widget.items!.totalEstimatedAmountInReporting.toString();
+      controller.unitRate.text = widget.items!.totalEstimatedAmountInReporting
+          .toString();
 
       if (widget.items?.workitemrecid != null) {
         workitemrecid = widget.items!.workitemrecid!;
       }
 
       calculateAmounts(controller.exchangeRate.toString());
-      controller.amountINR.text =
-          widget.items!.totalEstimatedAmountInReporting.toString();
+      controller.amountINR.text = widget.items!.totalEstimatedAmountInReporting
+          .toString();
       controller.expenseID = widget.items!.referenceId;
       controller.recID = widget.items!.recId;
 
@@ -196,10 +208,7 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   // ─────────────────────────────────────────────────────────────
   // ✅ COMMON CALCULATION FUNCTION
   // ─────────────────────────────────────────────────────────────
-  Future<void> _recalculate(
-    Controller itemController,
-    int index,
-  ) async {
+  Future<void> _recalculate(Controller itemController, int index) async {
     try {
       final double qty =
           double.tryParse(itemController.quantity.text.trim()) ?? 0.0;
@@ -211,21 +220,20 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
 
       final double lineAmount = qty > 0 ? qty * unitAmount : unitAmount;
 
-      itemController.totalunitEstimatedAmount.text =
-          lineAmount.toStringAsFixed(2);
+      itemController.totalunitEstimatedAmount.text = lineAmount.toStringAsFixed(
+        2,
+      );
 
       itemController.paidAmount.text = lineAmount.toStringAsFixed(2);
 
       final double percentage =
           double.tryParse(
-            itemController.requestedPercentage.text
-                .replaceAll('%', '')
-                .trim(),
+            itemController.requestedPercentage.text.replaceAll('%', '').trim(),
           ) ??
           0.0;
 
-      final String currency1 =
-          itemController.currencyDropDowncontrollerCA3.text.trim();
+      final String currency1 = itemController.currencyDropDowncontrollerCA3.text
+          .trim();
 
       double exchangeRate1 = 1.0;
 
@@ -248,8 +256,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       final double amountINRCA2 = (amountINRCA1 * percentage) / 100;
       itemController.amountINRCA2.text = amountINRCA2.toStringAsFixed(2);
 
-      final String currency2 =
-          itemController.currencyDropDowncontrollerCA2.text.trim();
+      final String currency2 = itemController.currencyDropDowncontrollerCA2.text
+          .trim();
 
       double exchangeRate2 = 1.0;
 
@@ -265,8 +273,10 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
         }
       }
 
-      final double totalRequestedAmount = (amountINRCA1 * exchangeRate2 * percentage) / 100;
-      itemController.totalRequestedAmount.text = totalRequestedAmount.toStringAsFixed(2);
+      final double totalRequestedAmount =
+          (amountINRCA1 * exchangeRate2 * percentage) / 100;
+      itemController.totalRequestedAmount.text = totalRequestedAmount
+          .toStringAsFixed(2);
       itemController.calculatedPercentage.value = amountINRCA2;
 
       _syncControllerToModel(index);
@@ -306,16 +316,17 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
       final double requestedAmount = (baseAmountINR * percentage) / 100;
       itemController.calculatedPercentage.value = requestedAmount;
 
-      final String currency2 =
-          itemController.currencyDropDowncontrollerCA2.text.trim();
+      final String currency2 = itemController.currencyDropDowncontrollerCA2.text
+          .trim();
       if (currency2.isNotEmpty) {
-        final ExchangeRateResponse? exchangeResponse2 = await itemController.fetchExchangeRateCA(
-          currency2,
-          requestedAmount.toString(),
-        );
+        final ExchangeRateResponse? exchangeResponse2 = await itemController
+            .fetchExchangeRateCA(currency2, requestedAmount.toString());
         if (exchangeResponse2 != null) {
-          itemController.unitRateCA2.text = exchangeResponse2.exchangeRate.toString();
-          itemController.totalRequestedAmount.text = exchangeResponse2.totalAmount.toStringAsFixed(2);
+          itemController.unitRateCA2.text = exchangeResponse2.exchangeRate
+              .toString();
+          itemController.totalRequestedAmount.text = exchangeResponse2
+              .totalAmount
+              .toStringAsFixed(2);
           itemController.amountINRCA2.text = requestedAmount.toStringAsFixed(2);
         }
       }
@@ -350,7 +361,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
     double total = 0.0;
     total += double.tryParse(controllers.amountINRCA1.text) ?? 0.0;
     for (var c in itemizeControllers) {
-      if (c != controllers) total += double.tryParse(c.amountINRCA1.text) ?? 0.0;
+      if (c != controllers)
+        total += double.tryParse(c.amountINRCA1.text) ?? 0.0;
     }
     controller.estimatedamountINR.text = total.toStringAsFixed(2);
     return total;
@@ -360,7 +372,8 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
     double total = 0.0;
     total += double.tryParse(controllers.amountINRCA2.text) ?? 0.0;
     for (var c in itemizeControllers) {
-      if (c != controllers) total += double.tryParse(c.amountINRCA2.text) ?? 0.0;
+      if (c != controllers)
+        total += double.tryParse(c.amountINRCA2.text) ?? 0.0;
     }
     controller.requestamountINR.text = total.toStringAsFixed(2);
     return total;
@@ -379,186 +392,219 @@ class _ViewCashAdvanseReturnFormState extends State<ViewCashAdvanseReturnForm>
   // ─────────────────────────────────────────────────────────────
   // ✅ INITIALIZE ITEMIZE CONTROLLERS WITH CUSTOM FIELDS
   // ─────────────────────────────────────────────────────────────
-void _initializeItemizeControllers(Controller controllers) {
-  final mainController = Get.find<Controller>();
-  
-  if (widget.items!.cshCashAdvReqTrans.isEmpty) {
-    final newController = Controller();
-    if (mainController.customFields.isNotEmpty) {
-      newController.cloneCustomFieldsFromRx(mainController.customFields);
-      print("Cloned ${newController.customFieldsItems.length} fields for empty transaction");
-    } else {
-      print("No custom fields to clone for empty transaction");
-    }
-    itemizeControllers = [newController];
-    _itemizeCount = 1;
-    return;
-  }
+  void _initializeItemizeControllers(Controller controllers) {
+    final mainController = Get.find<Controller>();
 
-  itemizeControllers = widget.items!.cshCashAdvReqTrans.asMap().entries.map((entry) {
-    final int idx = entry.key;
-    final item = entry.value;
-    final itemCtrl = Controller();
-    
-    // Set basic fields
-    itemCtrl.amountINRCA1.text = item.lineEstimatedAmountInReporting.toString();
-    itemCtrl.amountINRCA2.text = item.lineRequestedAdvanceInReporting.toString();
-    itemCtrl.totalRequestedAmount.text = item.lineAdvanceRequested.toString();
-    itemCtrl.projectDropDowncontroller.text = item.projectId ?? '';
-    itemCtrl.descriptionController.text = item.description ?? '';
-    itemCtrl.quantity.text = item.quantity?.toString() ?? '0';
-    itemCtrl.unitPriceTrans.text = item.unitEstimatedAmount?.toString() ?? '0';
-    itemCtrl.lineAmount.text = item.unitEstimatedAmount?.toString() ?? '0';
-    itemCtrl.lineAmountINR.text = item.unitEstimatedAmount?.toString() ?? '0';
-    itemCtrl.taxAmount.text = item.taxAmount?.toString() ?? '0';
-    itemCtrl.unitRateCA2.text = item.lineRequestedExchangerate?.toString() ?? '0';
-    itemCtrl.unitRateCA1.text = item.lineEstimatedExchangerate?.toString() ?? '0';
-    itemCtrl.categoryController.text = item.expenseCategoryId ?? '';
-    itemCtrl.selectedCategoryId = item.expenseCategoryId ?? '';
-    itemCtrl.uomId.text = item.uomId ?? '';
-    itemCtrl.locationController.text = item.location ?? '';
-    itemCtrl.unitAmount.text = item.unitEstimatedAmount?.toString() ?? '0';
-    itemCtrl.totalunitEstimatedAmount.text = item.lineEstimatedAmount?.toString() ?? '0';
-    itemCtrl.currencyDropDowncontrollerCA3.text = item.lineEstimatedCurrency ?? '';
-    itemCtrl.currencyDropDowncontrollerCA2.text = item.lineRequestedCurrency ?? '';
-
-    // ✅ CRITICAL FIX: First, make sure customFieldsItems has all fields from main controller
-    if (mainController.customFields.isNotEmpty) {
-      itemCtrl.cloneCustomFieldsFromRx(mainController.customFields);
-      print("Cloned ${itemCtrl.customFieldsItems.length} fields for item $idx");
-    } else {
-      print("Main controller customFields is empty for item $idx");
-      itemCtrl.customFieldsItems.value = [];
+    if (widget.items!.cshCashAdvReqTrans.isEmpty) {
+      final newController = Controller();
+      if (mainController.customFields.isNotEmpty) {
+        newController.cloneCustomFieldsFromRx(mainController.customFields);
+        print(
+          "Cloned ${newController.customFieldsItems.length} fields for empty transaction",
+        );
+      } else {
+        print("No custom fields to clone for empty transaction");
+      }
+      itemizeControllers = [newController];
+      _itemizeCount = 1;
+      return;
     }
 
-    // ✅ NOW load ExpenseTrans custom fields (transaction level)
-    if (item.cshTransCustomFieldValues != null && item.cshTransCustomFieldValues!.isNotEmpty) {
-      print("Loading ExpenseTrans custom fields for item $idx: ${item.cshTransCustomFieldValues?.length} fields");
+    itemizeControllers = widget.items!.cshCashAdvReqTrans.asMap().entries.map((
+      entry,
+    ) {
+      final int idx = entry.key;
+      final item = entry.value;
+      final itemCtrl = Controller();
 
-      for (var savedField in item.cshTransCustomFieldValues!) {
-        final savedFieldId = savedField.fieldId;
-        final savedFieldValue = savedField.fieldValue;
-        final savedFieldName = savedField.fieldName;
+      // Set basic fields
+      itemCtrl.amountINRCA1.text = item.lineEstimatedAmountInReporting
+          .toString();
+      itemCtrl.amountINRCA2.text = item.lineRequestedAdvanceInReporting
+          .toString();
+      itemCtrl.totalRequestedAmount.text = item.lineAdvanceRequested.toString();
+      itemCtrl.projectDropDowncontroller.text = item.projectId ?? '';
+      itemCtrl.descriptionController.text = item.description ?? '';
+      itemCtrl.quantity.text = item.quantity?.toString() ?? '0';
+      itemCtrl.unitPriceTrans.text =
+          item.unitEstimatedAmount?.toString() ?? '0';
+      itemCtrl.lineAmount.text = item.unitEstimatedAmount?.toString() ?? '0';
+      itemCtrl.lineAmountINR.text = item.unitEstimatedAmount?.toString() ?? '0';
+      itemCtrl.taxAmount.text = item.taxAmount?.toString() ?? '0';
+      itemCtrl.unitRateCA2.text =
+          item.lineRequestedExchangerate?.toString() ?? '0';
+      itemCtrl.unitRateCA1.text =
+          item.lineEstimatedExchangerate?.toString() ?? '0';
+      itemCtrl.categoryController.text = item.expenseCategoryId ?? '';
+      itemCtrl.selectedCategoryId = item.expenseCategoryId ?? '';
+      itemCtrl.uomId.text = item.uomId ?? '';
+      itemCtrl.locationController.text = item.location ?? '';
+      itemCtrl.unitAmount.text = item.unitEstimatedAmount?.toString() ?? '0';
+      itemCtrl.totalunitEstimatedAmount.text =
+          item.lineEstimatedAmount?.toString() ?? '0';
+      itemCtrl.currencyDropDowncontrollerCA3.text =
+          item.lineEstimatedCurrency ?? '';
+      itemCtrl.currencyDropDowncontrollerCA2.text =
+          item.lineRequestedCurrency ?? '';
 
-        print("Looking for ExpenseTrans field: $savedFieldId - $savedFieldName");
+      // ✅ CRITICAL FIX: First, make sure customFieldsItems has all fields from main controller
+      if (mainController.customFields.isNotEmpty) {
+        itemCtrl.cloneCustomFieldsFromRx(mainController.customFields);
+        print(
+          "Cloned ${itemCtrl.customFieldsItems.length} fields for item $idx",
+        );
+      } else {
+        print("Main controller customFields is empty for item $idx");
+        itemCtrl.customFieldsItems.value = [];
+      }
 
-        // Find matching field in customFieldsItems by FieldId
-        final matchingFieldIndex = itemCtrl.customFieldsItems.indexWhere(
-          (f) => f['FieldId'] == savedFieldId,
+      // ✅ NOW load ExpenseTrans custom fields (transaction level)
+      if (item.cshTransCustomFieldValues != null &&
+          item.cshTransCustomFieldValues!.isNotEmpty) {
+        print(
+          "Loading ExpenseTrans custom fields for item $idx: ${item.cshTransCustomFieldValues?.length} fields",
         );
 
-        if (matchingFieldIndex != -1) {
-          final field = itemCtrl.customFieldsItems[matchingFieldIndex];
-          final fieldType = field['FieldType'] ?? 'Text';
-          
-          // ✅ Ensure ObjectName is set for transaction fields
-          field['ObjectName'] = 'cashadvancetrans';
+        for (var savedField in item.cshTransCustomFieldValues!) {
+          // Instead of using dot notation, use bracket notation with the correct keys
+          final savedFieldId =
+              savedField['FieldId']; // or 'fieldId' - check your map structure
+          final savedFieldValue = savedField['FieldValue']; // or 'fieldValue'
+          final savedFieldName = savedField['FieldName']; // or 'fieldName'
 
-          print("✅ Found matching ExpenseTrans field: ${field['FieldName']} (${field['FieldId']})");
-          print("  → Setting value: $savedFieldValue");
+          print(
+            "Looking for ExpenseTrans field: $savedFieldId - $savedFieldName",
+          );
 
-          _setFieldValue(field, savedFieldValue, fieldType);
-        } else {
-          print("⚠️ Could not find matching ExpenseTrans field for saved field: $savedFieldId - $savedFieldName");
+          // Find matching field in customFieldsItems by FieldId
+          final matchingFieldIndex = itemCtrl.customFieldsItems.indexWhere(
+            (f) => f['FieldId'] == savedFieldId,
+          );
 
-          // ✅ If field doesn't exist, create it dynamically with proper structure
-          final newField = {
-            'FieldId': savedFieldId,
-            'FieldName': savedFieldName,
-            'FieldLabel': savedFieldName,
-            'FieldValue': savedFieldValue,
-            'FieldType': _detectFieldTypeFromValue(savedFieldValue), // Auto-detect type
-            'ObjectName': 'cashadvancetrans',
-            'EnteredValue': savedFieldValue?.toString() ?? '',
-            'IsMandatory': false,
-            'IsEnabled': true,
-          };
-          
-          // Initialize reactive values based on field type
-          _initializeFieldReactiveValue(newField, savedFieldValue);
-          
-          itemCtrl.customFieldsItems.add(newField);
-          print("  → Created new field: $savedFieldName with type: ${newField['FieldType']}");
+          if (matchingFieldIndex != -1) {
+            final field = itemCtrl.customFieldsItems[matchingFieldIndex];
+            final fieldType = field['FieldType'] ?? 'Text';
+
+            // ✅ Ensure ObjectName is set for transaction fields
+            field['ObjectName'] = 'cashadvancetrans';
+
+            print(
+              "✅ Found matching ExpenseTrans field: ${field['FieldName']} (${field['FieldId']})",
+            );
+            print("  → Setting value: $savedFieldValue");
+
+            _setFieldValue(field, savedFieldValue, fieldType);
+          } else {
+            print(
+              "⚠️ Could not find matching ExpenseTrans field for saved field: $savedFieldId - $savedFieldName",
+            );
+
+            // ✅ If field doesn't exist, create it dynamically with proper structure
+            final newField = {
+              'FieldId': savedFieldId,
+              'FieldName': savedFieldName,
+              'FieldLabel': savedFieldName,
+              'FieldValue': savedFieldValue,
+              'FieldType': _detectFieldTypeFromValue(
+                savedFieldValue,
+              ), // Auto-detect type
+              'ObjectName': 'cashadvancetrans',
+              'EnteredValue': savedFieldValue?.toString() ?? '',
+              'IsMandatory': false,
+              'IsEnabled': true,
+            };
+
+            // Initialize reactive values based on field type
+            _initializeFieldReactiveValue(newField, savedFieldValue);
+
+            itemCtrl.customFieldsItems.add(newField);
+            print(
+              "  → Created new field: $savedFieldName with type: ${newField['FieldType']}",
+            );
+          }
         }
       }
-    }
 
-    // Load accounting distributions
-    if (item.accountingDistributions != null) {
-      itemCtrl.split = (item.accountingDistributions ?? []).map((dist) {
-        return AccountingSplit(
-          paidFor: dist.dimensionValueId ?? '',
-          percentage: dist.allocationFactor ?? 0.0,
-          amount: dist.transAmount ?? 0.0,
-        );
-      }).toList();
-    }
-
-    if (itemCtrl.location.isNotEmpty) {
-      itemCtrl.selectedLocation = itemCtrl.location.firstWhere(
-        (e) => e.city == item.location,
-        orElse: () => itemCtrl.location.first,
-      );
-    }
-
-    if (item.accountingDistributions != null) {
-      itemCtrl.accountingDistributions.clear();
-      itemCtrl.accountingDistributions.addAll(
-        item.accountingDistributions!.map((dist) {
-          return AccountingDistribution(
-            transAmount: dist.transAmount ?? 0.0,
-            reportAmount: dist.reportAmount ?? 0.0,
-            allocationFactor: dist.allocationFactor ?? 0.0,
-            dimensionValueId: dist.dimensionValueId ?? '',
+      // Load accounting distributions
+      if (item.accountingDistributions != null) {
+        itemCtrl.split = (item.accountingDistributions ?? []).map((dist) {
+          return AccountingSplit(
+            paidFor: dist.dimensionValueId ?? '',
+            percentage: dist.allocationFactor ?? 0.0,
+            amount: dist.transAmount ?? 0.0,
           );
-        }),
+        }).toList();
+      }
+
+      if (itemCtrl.location.isNotEmpty) {
+        itemCtrl.selectedLocation = itemCtrl.location.firstWhere(
+          (e) => e.city == item.location,
+          orElse: () => itemCtrl.location.first,
+        );
+      }
+
+      if (item.accountingDistributions != null) {
+        itemCtrl.accountingDistributions.clear();
+        itemCtrl.accountingDistributions.addAll(
+          item.accountingDistributions!.map((dist) {
+            return AccountingDistribution(
+              transAmount: dist.transAmount ?? 0.0,
+              reportAmount: dist.reportAmount ?? 0.0,
+              allocationFactor: dist.allocationFactor ?? 0.0,
+              dimensionValueId: dist.dimensionValueId ?? '',
+            );
+          }),
+        );
+      }
+
+      return itemCtrl;
+    }).toList();
+
+    _itemizeCount = widget.items!.cshCashAdvReqTrans.length;
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      _itemizeFormKeys[i] = GlobalKey<FormState>();
+    }
+
+    // Also initialize async data for each item
+    for (int i = 0; i < itemizeControllers.length; i++) {
+      _initializeControllerAsyncData(
+        itemizeControllers[i],
+        widget.items!.cshCashAdvReqTrans[i],
       );
     }
 
-    return itemCtrl;
-  }).toList();
+    setState(() => isLoading = false);
+  }
 
-  _itemizeCount = widget.items!.cshCashAdvReqTrans.length;
-  for (int i = 0; i < itemizeControllers.length; i++) {
-    _itemizeFormKeys[i] = GlobalKey<FormState>();
-  }
-  
-  // Also initialize async data for each item
-  for (int i = 0; i < itemizeControllers.length; i++) {
-    _initializeControllerAsyncData(itemizeControllers[i], widget.items!.cshCashAdvReqTrans[i]);
-  }
-  
-  setState(() => isLoading = false);
-}
+  // ✅ Helper method to detect field type from value
+  String _detectFieldTypeFromValue(dynamic value) {
+    if (value == null) return 'Text';
 
-// ✅ Helper method to detect field type from value
-String _detectFieldTypeFromValue(dynamic value) {
-  if (value == null) return 'Text';
-  
-  // Check if it's a number
-  if (value is num) {
-    if (value is int) return 'LongInteger';
-    return 'Decimal';
-  }
-  
-  if (value is bool) return 'Checkbox';
-  
-  if (value is String) {
-    // Check if it's a date
-    if (value.contains(RegExp(r'\d{4}-\d{2}-\d{2}'))) {
-      if (value.contains(':')) {
-        return 'Date&Time';
-      }
-      return 'Date';
+    // Check if it's a number
+    if (value is num) {
+      if (value is int) return 'LongInteger';
+      return 'Decimal';
     }
-    // Check if it's a number string
-    if (RegExp(r'^\d+$').hasMatch(value)) return 'LongInteger';
-    if (RegExp(r'^\d+\.\d+$').hasMatch(value)) return 'Decimal';
+
+    if (value is bool) return 'Checkbox';
+
+    if (value is String) {
+      // Check if it's a date
+      if (value.contains(RegExp(r'\d{4}-\d{2}-\d{2}'))) {
+        if (value.contains(':')) {
+          return 'Date&Time';
+        }
+        return 'Date';
+      }
+      // Check if it's a number string
+      if (RegExp(r'^\d+$').hasMatch(value)) return 'LongInteger';
+      if (RegExp(r'^\d+\.\d+$').hasMatch(value)) return 'Decimal';
+    }
+
+    return 'Text';
   }
-  
-  return 'Text';
-}
-void _setFieldValue(
+
+  void _setFieldValue(
     Map<String, dynamic> field,
     dynamic savedFieldValue,
     String fieldType,
@@ -704,57 +750,62 @@ void _setFieldValue(
   }
 
   // ✅ Helper method to initialize reactive values for custom fields
-  void _initializeFieldReactiveValue(Map<String, dynamic> field, dynamic savedFieldValue) {
+  void _initializeFieldReactiveValue(
+    Map<String, dynamic> field,
+    dynamic savedFieldValue,
+  ) {
     final String fieldType = field['FieldType'] ?? 'Text';
     final dynamic defaultValue = field['DefaultValue'];
     final dynamic valueToUse = savedFieldValue ?? defaultValue;
-    
-    if (fieldType == 'List' || fieldType == 'CustomList' || fieldType == 'SystemList') {
+
+    if (fieldType == 'List' ||
+        fieldType == 'CustomList' ||
+        fieldType == 'SystemList') {
       final options = field['Options'] as List<CustomDropdownValue>? ?? [];
       CustomDropdownValue? matchedOption;
-      
+
       if (valueToUse != null && options.isNotEmpty) {
         matchedOption = options.firstWhereOrNull(
-          (opt) => opt.valueId == valueToUse.toString() || opt.valueName == valueToUse.toString(),
+          (opt) =>
+              opt.valueId == valueToUse.toString() ||
+              opt.valueName == valueToUse.toString(),
         );
       }
-      
+
       field['SelectedValue'] = matchedOption;
       field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(matchedOption);
-      field['EnteredValue'] = matchedOption?.valueId ?? valueToUse?.toString() ?? '';
-      
+      field['EnteredValue'] =
+          matchedOption?.valueId ?? valueToUse?.toString() ?? '';
     } else if (fieldType == 'Checkbox') {
-      final boolValue = valueToUse == true || valueToUse == 'true' || valueToUse == 'True' || valueToUse == '1';
+      final boolValue =
+          valueToUse == true ||
+          valueToUse == 'true' ||
+          valueToUse == 'True' ||
+          valueToUse == '1';
       field['_rxCheckboxValue'] = Rx<bool>(boolValue);
       field['EnteredValue'] = boolValue;
-      
     } else if (fieldType == 'Date' || fieldType == 'Date&Time') {
       DateTime? parsedDate = _parseDateTimeValue(valueToUse);
       field['_rxDateValue'] = Rx<DateTime?>(parsedDate);
       field['EnteredValue'] = parsedDate;
-      
     } else if (fieldType == 'LongInteger') {
       final intValue = int.tryParse(valueToUse?.toString() ?? '');
       field['_rxIntValue'] = Rx<int?>(intValue);
       field['EnteredValue'] = intValue;
-      
     } else if (fieldType == 'Decimal') {
       final doubleValue = double.tryParse(valueToUse?.toString() ?? '');
       field['_rxDoubleValue'] = Rx<double?>(doubleValue);
       field['EnteredValue'] = doubleValue;
-      
     } else if (fieldType == 'Email') {
       final stringValue = valueToUse?.toString() ?? '';
       field['_rxStringValue'] = Rx<String?>(stringValue);
       field['EnteredValue'] = stringValue;
       field['_controller'] = TextEditingController(text: stringValue);
-      
     } else if (fieldType == 'MobileNumber') {
       final stringValue = valueToUse?.toString() ?? '';
       field['_rxStringValue'] = Rx<String?>(stringValue);
       field['EnteredValue'] = stringValue;
       field['_controller'] = TextEditingController(text: stringValue);
-      
     } else {
       final stringValue = valueToUse?.toString() ?? '';
       field['_rxStringValue'] = Rx<String?>(stringValue);
@@ -792,7 +843,10 @@ void _setFieldValue(
     if (currency != null && paidAmountText != null) {
       try {
         final results = await Future.wait([
-          itemCtrl.fetchExchangeRateCAEstimated(currency, paidAmountText.toString()),
+          itemCtrl.fetchExchangeRateCAEstimated(
+            currency,
+            paidAmountText.toString(),
+          ),
           itemCtrl.fetchMaxAllowedPercentage(),
         ]);
 
@@ -801,13 +855,16 @@ void _setFieldValue(
 
         if (exchangeResponse1 != null) {
           itemCtrl.unitRateCA1.text = exchangeResponse1.exchangeRate.toString();
-          itemCtrl.amountINRCA1.text = exchangeResponse1.totalAmount.toStringAsFixed(2);
+          itemCtrl.amountINRCA1.text = exchangeResponse1.totalAmount
+              .toStringAsFixed(2);
           itemCtrl.isVisible.value = true;
         }
 
         if (maxPercentage != null && maxPercentage > 0 && paidAmounts != null) {
-          itemCtrl.totalRequestedAmount.text = item.lineAdvanceRequested.toString();
-          itemCtrl.calculatedPercentage.value = (paidAmounts * maxPercentage) / 100;
+          itemCtrl.totalRequestedAmount.text = item.lineAdvanceRequested
+              .toString();
+          itemCtrl.calculatedPercentage.value =
+              (paidAmounts * maxPercentage) / 100;
           itemCtrl.requestedPercentage.text = maxPercentage.toString();
         }
 
@@ -819,8 +876,10 @@ void _setFieldValue(
             reqPaidAmount,
           );
           if (exchangeResponse2 != null) {
-            itemCtrl.unitRateCA2.text = exchangeResponse2.exchangeRate.toString();
-            itemCtrl.amountINRCA2.text = exchangeResponse2.totalAmount.toStringAsFixed(2);
+            itemCtrl.unitRateCA2.text = exchangeResponse2.exchangeRate
+                .toString();
+            itemCtrl.amountINRCA2.text = exchangeResponse2.totalAmount
+                .toStringAsFixed(2);
           }
         }
       } catch (e) {
@@ -848,79 +907,102 @@ void _setFieldValue(
   // ─────────────────────────────────────────────────────────────
   // ✅ SYNC MODEL WITH CUSTOM FIELDS
   // ─────────────────────────────────────────────────────────────
-void _syncControllerToModel(int index) {
-  final itemCtrl = itemizeControllers[index];
-  final originalItem = widget.items!.cshCashAdvReqTrans[index];
+  void _syncControllerToModel(int index) {
+    final itemCtrl = itemizeControllers[index];
+    final originalItem = widget.items!.cshCashAdvReqTrans[index];
 
-  // ✅ Collect transaction custom field values as List<CustomFieldValue>
-  final List<CustomFieldValue> transCustomFieldValues = [];
-  for (var field in itemCtrl.customFieldsItems) {
-    if (field['ObjectName'] == 'cashadvancetrans') {
-      final fieldId = field['FieldId']?.toString();
-      final fieldName = field['FieldName']?.toString();
-      dynamic fieldValue = field['EnteredValue'];
-      
-      // Handle different field types
-      final fieldType = field['FieldType'] ?? 'Text';
-      if (fieldType == 'Date' && fieldValue is DateTime) {
-        fieldValue = fieldValue.toIso8601String();
-      } else if (fieldType == 'Date&Time' && fieldValue is DateTime) {
-        fieldValue = fieldValue.toIso8601String();
-      } else if (fieldType == 'Checkbox') {
-        fieldValue = fieldValue == true ? 'true' : 'false';
-      } else if (field['_rxSelectedValue'] != null) {
-        final selectedValue = (field['_rxSelectedValue'] as Rx<CustomDropdownValue?>).value;
-        fieldValue = selectedValue?.valueId ?? fieldValue;
-      }
-      
-      transCustomFieldValues.add(CustomFieldValue(
-        fieldId: fieldId!,
-        fieldName: fieldName!,
-        fieldValue: fieldValue?.toString() ?? '', customFieldEntity: 'cashadvancetrans',
-      ));
-    }
-  }
+    // ✅ Collect transaction custom field values as List<CustomFieldValue>
+    final List<CustomFieldValue> transCustomFieldValues = [];
+    for (var field in itemCtrl.customFieldsItems) {
+      if (field['ObjectName'] == 'cashadvancetrans') {
+        final fieldId = field['FieldId']?.toString();
+        final fieldName = field['FieldName']?.toString();
+        dynamic fieldValue = field['EnteredValue'];
 
-  // ✅ Also collect category custom fields if any
+        // Handle different field types
+        final fieldType = field['FieldType'] ?? 'Text';
+        if (fieldType == 'Date' && fieldValue is DateTime) {
+          fieldValue = fieldValue.toIso8601String();
+        } else if (fieldType == 'Date&Time' && fieldValue is DateTime) {
+          fieldValue = fieldValue.toIso8601String();
+        } else if (fieldType == 'Checkbox') {
+          fieldValue = fieldValue == true ? 'true' : 'false';
+        } else if (field['_rxSelectedValue'] != null) {
+          final selectedValue =
+              (field['_rxSelectedValue'] as Rx<CustomDropdownValue?>).value;
+          fieldValue = selectedValue?.valueId ?? fieldValue;
+        }
 
-  setState(() {
-    widget.items!.cshCashAdvReqTrans[index] = CashAdvanceRequestItemize(
-      cashAdvReqHeader: originalItem.cashAdvReqHeader,
-      recId: originalItem.recId,
-      description: itemCtrl.descriptionController.text,
-      quantity: int.tryParse(itemCtrl.quantity.text) ?? originalItem.quantity ?? 1,
-      location: itemCtrl.locationController.text,
-      projectId: itemCtrl.projectDropDowncontroller.text,
-      expenseCategoryId: itemCtrl.selectedCategoryId,
-      uomId: itemCtrl.uomId.text,
-      unitEstimatedAmount: double.tryParse(itemCtrl.unitAmount.text) ?? 1,
-      percentage: (double.tryParse(itemCtrl.requestedPercentage.text) ?? 1).toInt(),
-      lineEstimatedCurrency: itemCtrl.currencyDropDowncontrollerCA3.text,
-      lineRequestedCurrency: itemCtrl.currencyDropDowncontrollerCA2.text,
-      lineEstimatedAmount: double.tryParse(itemCtrl.totalunitEstimatedAmount.text) ?? 0.0,
-      lineEstimatedAmountInReporting: double.tryParse(itemCtrl.amountINRCA1.text) ?? 0.0,
-      lineAdvanceRequested: double.tryParse(itemCtrl.totalRequestedAmount.text) ?? 0.0,
-      lineRequestedAdvanceInReporting: double.tryParse(itemCtrl.amountINRCA2.text) ?? 0.0,
-      lineRequestedExchangerate: double.tryParse(itemCtrl.unitRateCA2.text) ?? 0.0,
-      lineEstimatedExchangerate: double.tryParse(itemCtrl.unitRateCA1.text) ?? 0.0,
-      maxAllowedPercentage: (double.tryParse(itemCtrl.requestedPercentage.text) ?? 1).toInt(),
-      baseUnit: originalItem.baseUnit,
-      baseUnitRequested: originalItem.baseUnitRequested,
-      taxAmount: double.tryParse(itemCtrl.taxAmount.text) ?? 0.0,
-      accountingDistributions: itemCtrl.accountingDistributions.map((dist) {
-        return AccountingDistribution(
-          transAmount: dist!.transAmount ?? 0.0,
-          reportAmount: dist.reportAmount ?? 0.0,
-          allocationFactor: dist.allocationFactor ?? 0.0,
-          dimensionValueId: dist.dimensionValueId ?? 'Branch001',
+        transCustomFieldValues.add(
+          CustomFieldValue(
+            fieldId: fieldId!,
+            fieldName: fieldName!,
+            fieldValue: fieldValue?.toString() ?? '',
+            customFieldEntity: 'cashadvancetrans',
+          ),
         );
-      }).toList(),
-      // ✅ Use CustomFieldValue objects
-      cshTransCustomFieldValues: transCustomFieldValues,
-      // cshTransCategoryCustomFieldValues: categoryCustomFieldValues,
-    );
-  });
-}
+      }
+    }
+
+    // ✅ Also collect category custom fields if any
+
+    setState(() {
+      widget.items!.cshCashAdvReqTrans[index] = CashAdvanceRequestItemize(
+        cashAdvReqHeader: originalItem.cashAdvReqHeader,
+        recId: originalItem.recId,
+        description: itemCtrl.descriptionController.text,
+        quantity:
+            int.tryParse(itemCtrl.quantity.text) ?? originalItem.quantity ?? 1,
+        location: itemCtrl.locationController.text,
+        projectId: itemCtrl.projectDropDowncontroller.text,
+        expenseCategoryId: itemCtrl.selectedCategoryId,
+        uomId: itemCtrl.uomId.text,
+        unitEstimatedAmount: double.tryParse(itemCtrl.unitAmount.text) ?? 1,
+        percentage: (double.tryParse(itemCtrl.requestedPercentage.text) ?? 1)
+            .toInt(),
+        lineEstimatedCurrency: itemCtrl.currencyDropDowncontrollerCA3.text,
+        lineRequestedCurrency: itemCtrl.currencyDropDowncontrollerCA2.text,
+        lineEstimatedAmount:
+            double.tryParse(itemCtrl.totalunitEstimatedAmount.text) ?? 0.0,
+        lineEstimatedAmountInReporting:
+            double.tryParse(itemCtrl.amountINRCA1.text) ?? 0.0,
+        lineAdvanceRequested:
+            double.tryParse(itemCtrl.totalRequestedAmount.text) ?? 0.0,
+        lineRequestedAdvanceInReporting:
+            double.tryParse(itemCtrl.amountINRCA2.text) ?? 0.0,
+        lineRequestedExchangerate:
+            double.tryParse(itemCtrl.unitRateCA2.text) ?? 0.0,
+        lineEstimatedExchangerate:
+            double.tryParse(itemCtrl.unitRateCA1.text) ?? 0.0,
+        maxAllowedPercentage:
+            (double.tryParse(itemCtrl.requestedPercentage.text) ?? 1).toInt(),
+        baseUnit: originalItem.baseUnit,
+        baseUnitRequested: originalItem.baseUnitRequested,
+        taxAmount: double.tryParse(itemCtrl.taxAmount.text) ?? 0.0,
+        accountingDistributions: itemCtrl.accountingDistributions.map((dist) {
+          return AccountingDistribution(
+            transAmount: dist!.transAmount ?? 0.0,
+            reportAmount: dist.reportAmount ?? 0.0,
+            allocationFactor: dist.allocationFactor ?? 0.0,
+            dimensionValueId: dist.dimensionValueId ?? 'Branch001',
+          );
+        }).toList(),
+        // ✅ Use CustomFieldValue objects
+        cshTransCustomFieldValues: transCustomFieldValues
+            .map(
+              (e) => {
+                'FieldId': e.fieldId,
+                'FieldName': e.fieldName,
+                'FieldValue': e.fieldValue,
+
+                // Add any other fields your CustomFieldValue class has
+              },
+            )
+            .toList(),
+        // cshTransCategoryCustomFieldValues: categoryCustomFieldValues,
+      );
+    });
+  }
 
   // ─────────────────────────────────────────────────────────────
   // ADD / REMOVE ITEMIZE
@@ -956,12 +1038,16 @@ void _syncControllerToModel(int index) {
         widget.items!.cshCashAdvReqTrans.add(newItem);
 
         final newCtrl = Controller();
-        newCtrl.currencyDropDowncontrollerCA3 = TextEditingController(text: 'INR');
-        newCtrl.currencyDropDowncontrollerCA2 = TextEditingController(text: 'INR');
+        newCtrl.currencyDropDowncontrollerCA3 = TextEditingController(
+          text: 'INR',
+        );
+        newCtrl.currencyDropDowncontrollerCA2 = TextEditingController(
+          text: 'INR',
+        );
         newCtrl.isVisible = false.obs;
         newCtrl.calculatedPercentage = 0.0.obs;
         newCtrl.split = <AccountingSplit>[].obs;
-        
+
         // ✅ Initialize empty custom fields list for new item
         newCtrl.customFieldsItems.value = [];
 
@@ -1020,7 +1106,8 @@ void _syncControllerToModel(int index) {
     bool isValid = true;
     if (!_formKey.currentState!.validate()) isValid = false;
     for (int i = 0; i < itemizeControllers.length; i++) {
-      if (_itemizeFormKeys[i]?.currentState?.validate() == false) isValid = false;
+      if (_itemizeFormKeys[i]?.currentState?.validate() == false)
+        isValid = false;
     }
     if (controller.justificationController.text.isEmpty) {
       setState(() => paidToError = 'Business Justification is required');
@@ -1029,14 +1116,22 @@ void _syncControllerToModel(int index) {
     return isValid;
   }
 
-  String? _validateRequiredField(String value, String fieldName, bool isMandatory) {
+  String? _validateRequiredField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
     if (isMandatory && (value.isEmpty || value.trim().isEmpty)) {
       return '$fieldName is required';
     }
     return null;
   }
 
-  String? _validateNumericField(String value, String fieldName, bool isMandatory) {
+  String? _validateNumericField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
     if (isMandatory && value.isEmpty) return '$fieldName is required';
     if (value.isNotEmpty && double.tryParse(value) == null) {
       return '$fieldName must be a valid number';
@@ -1044,7 +1139,11 @@ void _syncControllerToModel(int index) {
     return null;
   }
 
-  String? _validateDropdownField(String value, String fieldName, bool isMandatory) {
+  String? _validateDropdownField(
+    String value,
+    String fieldName,
+    bool isMandatory,
+  ) {
     if (isMandatory && value.isEmpty) return 'Please select $fieldName';
     return null;
   }
@@ -1065,7 +1164,9 @@ void _syncControllerToModel(int index) {
       }
     } catch (e) {
       Fluttertoast.showToast(
-          msg: "Failed to upload image", backgroundColor: Colors.red);
+        msg: "Failed to upload image",
+        backgroundColor: Colors.red,
+      );
     } finally {
       controller.isImageLoading.value = false;
     }
@@ -1137,7 +1238,9 @@ void _syncControllerToModel(int index) {
               PhotoView.customChild(
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 9.0,
-                backgroundDecoration: const BoxDecoration(color: Colors.transparent),
+                backgroundDecoration: const BoxDecoration(
+                  color: Colors.transparent,
+                ),
                 child: Image.file(file, fit: BoxFit.contain),
               ),
               Positioned(
@@ -1159,7 +1262,9 @@ void _syncControllerToModel(int index) {
                         onPressed: () async {
                           final croppedFile = await _cropImage(file);
                           if (croppedFile != null) {
-                            setState(() => controller.imageFiles[index] = croppedFile);
+                            setState(
+                              () => controller.imageFiles[index] = croppedFile,
+                            );
                             Navigator.pop(context);
                             _showFullImage(croppedFile, index);
                           }
@@ -1211,8 +1316,10 @@ void _syncControllerToModel(int index) {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: Text(AppLocalizations.of(context)!.ok,
-                    style: const TextStyle(color: Colors.red)),
+                child: Text(
+                  AppLocalizations.of(context)!.ok,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -1245,26 +1352,34 @@ void _syncControllerToModel(int index) {
                     widget.items!.approvalStatus != "Pending" ||
                 widget.items!.stepType == "Review" &&
                     PermissionHelper.canUpdate("Cash Advance Requisition"))
-              Obx(() => IconButton(
-                    icon: Icon(controller.isEnable.value
+              Obx(
+                () => IconButton(
+                  icon: Icon(
+                    controller.isEnable.value
                         ? Icons.remove_red_eye
-                        : Icons.edit_document),
-                    onPressed: () {
-                      controller.isEnable.value = !controller.isEnable.value;
-                    },
-                  )),
+                        : Icons.edit_document,
+                  ),
+                  onPressed: () {
+                    controller.isEnable.value = !controller.isEnable.value;
+                  },
+                ),
+              ),
             if (widget.items != null &&
                 widget.items!.stepType == "Approval" &&
                 PermissionHelper.canUpdate("Cash Advance Requisition"))
-              Obx(() => IconButton(
-                    icon: Icon(controller.isApprovalEnable.value
+              Obx(
+                () => IconButton(
+                  icon: Icon(
+                    controller.isApprovalEnable.value
                         ? Icons.remove_red_eye
-                        : Icons.edit_document),
-                    onPressed: () {
-                      controller.isApprovalEnable.value =
-                          !controller.isApprovalEnable.value;
-                    },
-                  )),
+                        : Icons.edit_document,
+                  ),
+                  onPressed: () {
+                    controller.isApprovalEnable.value =
+                        !controller.isApprovalEnable.value;
+                  },
+                ),
+              ),
             const SizedBox.shrink(),
           ],
         ),
@@ -1286,26 +1401,32 @@ void _syncControllerToModel(int index) {
 
                         // ── HEADER FIELDS ──
                         _buildTextField(
-                          label: "${AppLocalizations.of(context)!.employeeId} *",
+                          label:
+                              "${AppLocalizations.of(context)!.employeeId} *",
                           controller: controller.employeeDropDownController,
                           isReadOnly: false,
                         ),
                         _buildTextField(
-                          label: "${AppLocalizations.of(context)!.employeeName} *",
+                          label:
+                              "${AppLocalizations.of(context)!.employeeName} *",
                           controller: controller.employeeName,
                           isReadOnly: false,
                         ),
                         _buildTextField(
-                          label: "${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *",
+                          label:
+                              "${AppLocalizations.of(context)!.cashAdvanceRequisitionId} *",
                           controller: expenseIdController,
                           isReadOnly: false,
                           validator: (value) => _validateRequiredField(
-                              value!, "Cash Advance Requisition ID", true),
+                            value!,
+                            "Cash Advance Requisition ID",
+                            true,
+                          ),
                         ),
 
                         const SizedBox(height: 6),
                         buildDateField(
-                          AppLocalizations.of(context)!.requestDate,
+                          '${AppLocalizations.of(context)!.requestDate} *',
                           requestDateController,
                           isReadOnly: !controller.isEnable.value,
                         ),
@@ -1316,8 +1437,11 @@ void _syncControllerToModel(int index) {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 8),
-                            SearchableMultiColumnDropdownField<Businessjustification>(
-                              labelText: '${AppLocalizations.of(context)!.businessJustification} * ',
+                            SearchableMultiColumnDropdownField<
+                              Businessjustification
+                            >(
+                              labelText:
+                                  '${AppLocalizations.of(context)!.businessJustification} * ',
                               enabled: controller.isEnable.value,
                               columnHeaders: [
                                 AppLocalizations.of(context)!.id,
@@ -1328,13 +1452,15 @@ void _syncControllerToModel(int index) {
                               searchValue: (p) => '${p.id} ${p.name}',
                               displayText: (p) => p.name,
                               validator: (p) => _validateDropdownField(
-                                  controller.justificationController.text,
-                                  "Business Justification",
-                                  true),
+                                controller.justificationController.text,
+                                "Business Justification",
+                                true,
+                              ),
                               onChanged: (p) {
                                 setState(() {
                                   controller.selectedjustification = p;
-                                  controller.justificationController.text = p!.name;
+                                  controller.justificationController.text =
+                                      p!.name;
                                   paidToError = null;
                                 });
                               },
@@ -1342,21 +1468,30 @@ void _syncControllerToModel(int index) {
                               rowBuilder: (p, searchQuery) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 12, horizontal: 16),
-                                  child: Row(children: [
-                                    const SizedBox(width: 8),
-                                    Expanded(child: Text(p.name)),
-                                    Expanded(child: Text(p.id)),
-                                  ]),
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(p.name)),
+                                      Expanded(child: Text(p.id)),
+                                    ],
+                                  ),
                                 );
                               },
                             ),
                             const SizedBox(height: 8),
                             if (paidToError != null)
                               Padding(
-                                padding: const EdgeInsets.only(left: 8.0, bottom: 8),
-                                child: Text(paidToError!,
-                                    style: const TextStyle(color: Colors.red)),
+                                padding: const EdgeInsets.only(
+                                  left: 8.0,
+                                  bottom: 8,
+                                ),
+                                child: Text(
+                                  paidToError!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
                               ),
                           ],
                         ),
@@ -1366,7 +1501,9 @@ void _syncControllerToModel(int index) {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SearchableMultiColumnDropdownField<PaymentMethodModel>(
+                            SearchableMultiColumnDropdownField<
+                              PaymentMethodModel
+                            >(
                               enabled: controller.isEnable.value,
                               labelText: AppLocalizations.of(context)!.paidWith,
                               columnHeaders: [
@@ -1375,28 +1512,38 @@ void _syncControllerToModel(int index) {
                               ],
                               items: controller.paymentMethods,
                               selectedValue: controller.selectedPaidWith,
-                              searchValue: (p) => '${p.paymentMethodName} ${p.paymentMethodId}',
+                              searchValue: (p) =>
+                                  '${p.paymentMethodName} ${p.paymentMethodId}',
                               displayText: (p) => p.paymentMethodName,
-                              validator: (p) => _validateDropdownField(
-                                  controller.paidWithController.text,
-                                  "Payment Method",
-                                  true),
+                              // validator: (p) => _validateDropdownField(
+                              //   controller.paidWithController.text,
+                              //   "Payment Method",
+                              //   true,
+                              // ),
                               onChanged: (p) {
                                 setState(() {
                                   controller.selectedPaidWith = p;
-                                  controller.paymentMethodID = p!.paymentMethodId;
-                                  controller.paidWithController.text = p.paymentMethodId;
+                                  controller.paymentMethodID =
+                                      p!.paymentMethodId;
+                                  controller.paidWithController.text =
+                                      p.paymentMethodId;
                                 });
                               },
                               controller: controller.paidWithController,
                               rowBuilder: (p, searchQuery) {
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 12, horizontal: 16),
-                                  child: Row(children: [
-                                    Expanded(child: Text(p.paymentMethodName)),
-                                    Expanded(child: Text(p.paymentMethodId)),
-                                  ]),
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(p.paymentMethodName),
+                                      ),
+                                      Expanded(child: Text(p.paymentMethodId)),
+                                    ],
+                                  ),
                                 );
                               },
                             ),
@@ -1410,17 +1557,24 @@ void _syncControllerToModel(int index) {
                           return Column(
                             children: controller.customFields
                                 .where(
-                                  (field) => field['ObjectName'] == 'cashadvanceheader'
+                                  (field) =>
+                                      field['ObjectName'] ==
+                                      'cashadvanceheader',
                                 )
                                 .map((field) {
-                                  final String label = field['FieldLabel'] ?? field['FieldName'];
-                                  final bool isMandatory = field['IsMandatory'] ?? false;
+                                  final String label =
+                                      field['FieldLabel'] ?? field['FieldName'];
+                                  final bool isMandatory =
+                                      field['IsMandatory'] ?? false;
                                   final String fieldKey = field['FieldName'];
-                                  final String fieldType = field['FieldType'] ?? 'Text';
-                                  final bool isDateTime = fieldType == 'Date&Time';
+                                  final String fieldType =
+                                      field['FieldType'] ?? 'Text';
+                                  final bool isDateTime =
+                                      fieldType == 'Date&Time';
 
                                   if (!fieldControllers.containsKey(fieldKey)) {
-                                    fieldControllers[fieldKey] = TextEditingController();
+                                    fieldControllers[fieldKey] =
+                                        TextEditingController();
                                   }
 
                                   Widget inputField = _buildCustomFieldWidget(
@@ -1436,7 +1590,9 @@ void _syncControllerToModel(int index) {
                                   );
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
                                     child: inputField,
                                   );
                                 })
@@ -1446,25 +1602,37 @@ void _syncControllerToModel(int index) {
 
                         // ── REFERENCE ID (config-driven) ──
                         ...controller.configListAdvance
-                            .where((field) => field['IsEnabled'] == true && field['FieldName'] == 'Refrence Id')
+                            .where(
+                              (field) =>
+                                  field['IsEnabled'] == true &&
+                                  field['FieldName'] == 'Refrence Id',
+                            )
                             .map((field) {
-                          final bool isMandatory = field['IsMandatory'] ?? false;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 8),
-                              _buildTextField(
-                                label: '${AppLocalizations.of(context)!.referenceId} ${isMandatory ? "*" : ""}',
-                                controller: controller.referenceID,
-                                isReadOnly: controller.isEnable.value,
-                                validator: (value) => isRefrenceIDConfig.isMandatory
-                                    ? _validateRequiredField(value!, "Reference ID", true)
-                                    : null,
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          );
-                        }).toList(),
+                              final bool isMandatory =
+                                  field['IsMandatory'] ?? false;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  _buildTextField(
+                                    label:
+                                        '${AppLocalizations.of(context)!.referenceId} ${isMandatory ? "*" : ""}',
+                                    controller: controller.referenceID,
+                                    isReadOnly: controller.isEnable.value,
+                                    validator: (value) =>
+                                        isRefrenceIDConfig.isMandatory
+                                        ? _validateRequiredField(
+                                            value!,
+                                            "Reference ID",
+                                            true,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            })
+                            .toList(),
 
                         const SizedBox(height: 4),
 
@@ -1473,9 +1641,12 @@ void _syncControllerToModel(int index) {
                           controller: controller.estimatedamountINR,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: '${AppLocalizations.of(context)!.totalEstimatedAmountInInr} ${controller.organizationCurrency}',
+                            labelText:
+                                '${AppLocalizations.of(context)!.totalEstimatedAmountInInr} ${controller.organizationCurrency}',
                             filled: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -1483,9 +1654,12 @@ void _syncControllerToModel(int index) {
                           controller: controller.requestamountINR,
                           enabled: false,
                           decoration: InputDecoration(
-                            labelText: '${AppLocalizations.of(context)!.totalRequestedAmountInINR} ${controller.organizationCurrency}',
+                            labelText:
+                                '${AppLocalizations.of(context)!.totalRequestedAmountInINR} ${controller.organizationCurrency}',
                             filled: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -1494,25 +1668,41 @@ void _syncControllerToModel(int index) {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(children: [
-                              Text(
-                                "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.details}",
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ]),
+                            Row(
+                              children: [
+                                Text(
+                                  "${AppLocalizations.of(context)!.itemize} ${AppLocalizations.of(context)!.details}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 10),
                             isLoading
-                                ? const Center(child: CircularProgressIndicator())
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
                                 : ListView.builder(
                                     shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: widget.items!.cshCashAdvReqTrans.length,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount:
+                                        widget.items!.cshCashAdvReqTrans.length,
                                     itemBuilder: (context, index) {
-                                      final item = widget.items!.cshCashAdvReqTrans[index];
-                                      final itemCtrl = itemizeControllers[index];
+                                      final item = widget
+                                          .items!
+                                          .cshCashAdvReqTrans[index];
+                                      final itemCtrl =
+                                          itemizeControllers[index];
                                       return Form(
                                         key: _itemizeFormKeys[index],
-                                        child: _buildItemizeCard(index, item, itemCtrl),
+                                        child: _buildItemizeCard(
+                                          index,
+                                          item,
+                                          itemCtrl,
+                                        ),
                                       );
                                     },
                                   ),
@@ -1529,11 +1719,16 @@ void _syncControllerToModel(int index) {
                             FutureBuilder<List<ExpenseHistory>>(
                               future: historyFuture,
                               builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const Center(child: CircularProgressIndicator());
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
                                 }
                                 if (snapshot.hasError) {
-                                  return const Center(child: Text("No Data Available"));
+                                  return const Center(
+                                    child: Text("No Data Available"),
+                                  );
                                 }
                                 final historyList = snapshot.data!;
                                 if (historyList.isEmpty) {
@@ -1541,9 +1736,13 @@ void _syncControllerToModel(int index) {
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
                                       child: Text(
-                                        AppLocalizations.of(context)!.noHistoryMessage,
+                                        AppLocalizations.of(
+                                          context,
+                                        )!.noHistoryMessage,
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(color: Colors.grey),
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ),
                                   );
@@ -1554,7 +1753,9 @@ void _syncControllerToModel(int index) {
                                   itemCount: historyList.length,
                                   itemBuilder: (context, index) {
                                     return _buildTimelineItem(
-                                        historyList[index], index == historyList.length - 1);
+                                      historyList[index],
+                                      index == historyList.length - 1,
+                                    );
                                   },
                                 );
                               },
@@ -1589,7 +1790,9 @@ void _syncControllerToModel(int index) {
     required Map<String, TextEditingController> fieldControllers,
   }) {
     // List type fields
-    if (fieldType == 'List' || fieldType == 'CustomList' || fieldType == 'SystemList') {
+    if (fieldType == 'List' ||
+        fieldType == 'CustomList' ||
+        fieldType == 'SystemList') {
       if (field['_rxSelectedValue'] == null) {
         field['_rxSelectedValue'] = Rx<CustomDropdownValue?>(
           field['SelectedValue'] as CustomDropdownValue?,
@@ -1651,7 +1854,9 @@ void _syncControllerToModel(int index) {
     // Date and DateTime types
     else if (fieldType == 'Date' || fieldType == 'Date&Time') {
       if (field['_rxDateValue'] == null) {
-        field['_rxDateValue'] = Rx<DateTime?>(field['EnteredValue'] as DateTime?);
+        field['_rxDateValue'] = Rx<DateTime?>(
+          field['EnteredValue'] as DateTime?,
+        );
       }
 
       return Obx(() {
@@ -1660,9 +1865,13 @@ void _syncControllerToModel(int index) {
 
         if (currentDate != null) {
           if (isDateTime) {
-            fieldControllers[fieldKey]!.text = DateFormat('dd/MM/yyyy hh:mm a').format(currentDate);
+            fieldControllers[fieldKey]!.text = DateFormat(
+              'dd/MM/yyyy hh:mm a',
+            ).format(currentDate);
           } else {
-            fieldControllers[fieldKey]!.text = DateFormat('dd/MM/yyyy').format(currentDate);
+            fieldControllers[fieldKey]!.text = DateFormat(
+              'dd/MM/yyyy',
+            ).format(currentDate);
           }
         } else {
           fieldControllers[fieldKey]!.text = '';
@@ -1783,7 +1992,9 @@ void _syncControllerToModel(int index) {
         return TextFormField(
           enabled: controller.isEnable.value,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*'))],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*')),
+          ],
           controller: fieldControllers[fieldKey],
           decoration: InputDecoration(
             labelText: '$label${isMandatory ? " *" : ""}',
@@ -1849,7 +2060,10 @@ void _syncControllerToModel(int index) {
   // ✅ ITEMIZE CARD WIDGET WITH TRANSACTION CUSTOM FIELDS
   // ─────────────────────────────────────────────────────────────
   Widget _buildItemizeCard(
-      int index, CashAdvanceRequestItemize item, Controller itemCtrl) {
+    int index,
+    CashAdvanceRequestItemize item,
+    Controller itemCtrl,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1863,11 +2077,15 @@ void _syncControllerToModel(int index) {
               children: [
                 Text(
                   "${AppLocalizations.of(context)!.item} ${index + 1}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 Row(
                   children: [
-                    if (controller.isEnable.value && widget.items!.cshCashAdvReqTrans.length > 1)
+                    if (controller.isEnable.value &&
+                        widget.items!.cshCashAdvReqTrans.length > 1)
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _removeItemize(index),
@@ -1892,71 +2110,84 @@ void _syncControllerToModel(int index) {
               children: [
                 // ── CONFIG-DRIVEN FIELDS (Project Id etc.) ──
                 ...controller.configListAdvance
-                    .where((field) =>
-                        field['IsEnabled'] == true &&
-                        field['FieldName'] != 'Location' &&
-                        field['FieldName'] != 'Refrence Id' &&
-                        field['FieldName'] != 'Is Billable' &&
-                        field['FieldName'] != 'Is Reimbursible')
+                    .where(
+                      (field) =>
+                          field['IsEnabled'] == true &&
+                          field['FieldName'] != 'Location' &&
+                          field['FieldName'] != 'Refrence Id' &&
+                          field['FieldName'] != 'Is Billable' &&
+                          field['FieldName'] != 'Is Reimbursible',
+                    )
                     .map((field) {
-                  final String label = field['FieldName'];
-                  final bool isMandatory = field['IsMandatory'] ?? false;
+                      final String label = field['FieldName'];
+                      final bool isMandatory = field['IsMandatory'] ?? false;
 
-                  Widget inputField;
-                  if (label == 'Project Id') {
-                    inputField = SearchableMultiColumnDropdownField<Project>(
-                      enabled: controller.isEnable.value,
-                      labelText: AppLocalizations.of(context)!.projectId,
-                      columnHeaders: [
-                        AppLocalizations.of(context)!.projectName,
-                        AppLocalizations.of(context)!.projectId,
-                      ],
-                      items: controller.project,
-                      selectedValue: itemCtrl.selectedProject,
-                      searchValue: (p) => '${p.name} ${p.code}',
-                      displayText: (p) => p.code,
-                      validator: (p) => _validateDropdownField(
-                          itemCtrl.projectDropDowncontroller.text, "Project", isMandatory),
-                      onChanged: (p) {
-                        setState(() {
-                          controller.selectedProject = p;
-                          itemCtrl.selectedProject = p;
-                          controller.projectDropDowncontroller.text = p!.code;
-                        });
-                        controller.fetchCashAdvanceExpenseCategory();
-                        _recalculate(itemCtrl, index);
-                      },
-                      controller: itemCtrl.projectDropDowncontroller,
-                      rowBuilder: (p, sq) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        child: Row(children: [
-                          Expanded(child: Text(p.name)),
-                          Expanded(child: Text(p.code)),
-                        ]),
-                      ),
-                    );
-                  } else {
-                    inputField = TextField(
-                      decoration: InputDecoration(
-                        labelText: '$label${isMandatory ? " *" : ""}',
-                        border: const OutlineInputBorder(),
-                      ),
-                    );
-                  }
+                      Widget inputField;
+                      if (label == 'Project Id') {
+                        inputField =
+                            SearchableMultiColumnDropdownField<Project>(
+                              enabled: controller.isEnable.value,
+                              labelText: AppLocalizations.of(
+                                context,
+                              )!.projectId,
+                              columnHeaders: [
+                                AppLocalizations.of(context)!.projectName,
+                                AppLocalizations.of(context)!.projectId,
+                              ],
+                              items: controller.project,
+                              selectedValue: itemCtrl.selectedProject,
+                              searchValue: (p) => '${p.name} ${p.code}',
+                              displayText: (p) => p.code,
+                              validator: (p) => _validateDropdownField(
+                                itemCtrl.projectDropDowncontroller.text,
+                                "Project",
+                                isMandatory,
+                              ),
+                              onChanged: (p) {
+                                setState(() {
+                                  controller.selectedProject = p;
+                                  itemCtrl.selectedProject = p;
+                                  controller.projectDropDowncontroller.text =
+                                      p!.code;
+                                });
+                                controller.fetchCashAdvanceExpenseCategory();
+                                _recalculate(itemCtrl, index);
+                              },
+                              controller: itemCtrl.projectDropDowncontroller,
+                              rowBuilder: (p, sq) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(p.name)),
+                                    Expanded(child: Text(p.code)),
+                                  ],
+                                ),
+                              ),
+                            );
+                      } else {
+                        inputField = TextField(
+                          decoration: InputDecoration(
+                            labelText: '$label${isMandatory ? " *" : ""}',
+                            border: const OutlineInputBorder(),
+                          ),
+                        );
+                      }
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      inputField,
-                      const SizedBox(height: 16),
-                    ],
-                  );
-                }).toList(),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          inputField,
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    })
+                    .toList(),
 
                 // ✅ TRANSACTION CUSTOM FIELDS SECTION (Each item has its own unique fields)
-               
-
                 const SizedBox(height: 12),
 
                 // ── EXPENSE CATEGORY ──
@@ -1972,24 +2203,33 @@ void _syncControllerToModel(int index) {
                   searchValue: (p) => '${p.categoryName} ${p.categoryId}',
                   displayText: (p) => p.categoryId,
                   validator: (p) => _validateDropdownField(
-                      itemCtrl.categoryController.text, "Expense Category", false),
+                    itemCtrl.categoryController.text,
+                    "Expense Category",
+                    false,
+                  ),
                   onChanged: (p) {
                     setState(() {
                       itemCtrl.selectedCategory = p;
                       itemCtrl.selectedCategoryId = p!.categoryId;
                       itemCtrl.categoryController.text = p.categoryId;
-                      controller.selectedCategoryId = itemCtrl.selectedCategoryId = p.categoryId;
+                      controller.selectedCategoryId =
+                          itemCtrl.selectedCategoryId = p.categoryId;
                     });
                     itemCtrl.fetchMaxAllowedPercentage();
                     _recalculate(itemCtrl, index);
                   },
                   controller: itemCtrl.categoryController,
                   rowBuilder: (p, sq) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    child: Row(children: [
-                      Expanded(child: Text(p.categoryName)),
-                      Expanded(child: Text(p.categoryId)),
-                    ]),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(p.categoryName)),
+                        Expanded(child: Text(p.categoryId)),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1999,56 +2239,79 @@ void _syncControllerToModel(int index) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: controller.configListAdvance
-                        .where((field) => field['FieldName'] == 'Location' && field['IsEnabled'] == true)
+                        .where(
+                          (field) =>
+                              field['FieldName'] == 'Location' &&
+                              field['IsEnabled'] == true,
+                        )
                         .map((field) {
-                      final bool isMandatory = field['IsMandatory'] ?? false;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SearchableMultiColumnDropdownField<LocationModel>(
-                            labelText: '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
-                            columnHeaders: [
-                              AppLocalizations.of(context)!.location,
-                              AppLocalizations.of(context)!.country,
-                            ],
-                            enabled: controller.isEnable.value,
-                            controller: itemCtrl.locationController,
-                            items: controller.location,
-                            selectedValue: itemCtrl.selectedLocation,
-                            searchValue: (loc) => loc.location,
-                            displayText: (loc) => loc.location,
-                            validator: (loc) => _validateDropdownField(
-                                itemCtrl.locationController.text, "Location", isMandatory),
-                            onChanged: (loc) {
-                              itemCtrl.locationController.text = loc!.city;
-                              controller.selectedLocation = loc;
-                              itemCtrl.fetchMaxAllowedPercentage();
-                              field['Error'] = null;
+                          final bool isMandatory =
+                              field['IsMandatory'] ?? false;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SearchableMultiColumnDropdownField<LocationModel>(
+                                labelText:
+                                    '${AppLocalizations.of(context)!.location} ${isMandatory ? "*" : ""}',
+                                columnHeaders: [
+                                  AppLocalizations.of(context)!.location,
+                                  AppLocalizations.of(context)!.country,
+                                ],
+                                enabled: controller.isEnable.value,
+                                controller: itemCtrl.locationController,
+                                items: controller.location,
+                                selectedValue: itemCtrl.selectedLocation,
+                                searchValue: (loc) => loc.location,
+                                displayText: (loc) => loc.location,
+                                validator: (loc) => _validateDropdownField(
+                                  itemCtrl.locationController.text,
+                                  "Location",
+                                  isMandatory,
+                                ),
+                                onChanged: (loc) {
+                                  itemCtrl.locationController.text = loc!.city;
+                                  controller.selectedLocation = loc;
+                                  itemCtrl.fetchMaxAllowedPercentage();
+                                  field['Error'] = null;
 
-                              if (_debounce?.isActive ?? false) _debounce!.cancel();
-                              _debounce = Timer(
-                                  const Duration(milliseconds: 400), () => _recalculate(itemCtrl, index));
-                            },
-                            rowBuilder: (loc, sq) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                              child: Row(children: [
-                                Expanded(child: Text(loc.location)),
-                                Expanded(child: Text(loc.country)),
-                              ]),
-                            ),
-                          ),
-                          if (_showLocationError)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                AppLocalizations.of(context)!.pleaseSelectLocation,
-                                style: const TextStyle(color: Colors.red, fontSize: 12),
+                                  if (_debounce?.isActive ?? false)
+                                    _debounce!.cancel();
+                                  _debounce = Timer(
+                                    const Duration(milliseconds: 400),
+                                    () => _recalculate(itemCtrl, index),
+                                  );
+                                },
+                                rowBuilder: (loc, sq) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text(loc.location)),
+                                      Expanded(child: Text(loc.country)),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          const SizedBox(height: 6),
-                        ],
-                      );
-                    }).toList(),
+                              if (_showLocationError)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.pleaseSelectLocation,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 6),
+                            ],
+                          );
+                        })
+                        .toList(),
                   );
                 }),
 
@@ -2061,7 +2324,8 @@ void _syncControllerToModel(int index) {
                     _syncControllerToModel(index);
                     _updateHeaderTotals(itemCtrl);
                   },
-                  validator: (value) => _validateRequiredField(value!, "Description", false),
+                  validator: (value) =>
+                      _validateRequiredField(value!, "Description", false),
                 ),
 
                 // ── REQUESTED PERCENTAGE ──
@@ -2071,29 +2335,51 @@ void _syncControllerToModel(int index) {
                   enabled: controller.isEnable.value,
                   textInputAction: TextInputAction.done,
                   validator: (value) {
-                    final requiredError = _validateRequiredField(value ?? '', "Percentage", true);
+                    final requiredError = _validateRequiredField(
+                      value ?? '',
+                      "Percentage",
+                      true,
+                    );
                     if (requiredError != null) return requiredError;
 
                     final number = double.tryParse(value!);
-                    final total = double.tryParse(itemCtrl.allowedPercentage.text);
+                    final total = double.tryParse(
+                      itemCtrl.allowedPercentage.text,
+                    );
                     if (number == null) return 'Enter valid number';
                     if (total == null) return 'Invalid allowed percentage';
-                    if (number < 0 || number > total) return 'Percentage cannot exceed $total';
+                    if (number < 0 || number > total)
+                      return 'Percentage cannot exceed $total';
                     return null;
                   },
                   decoration: InputDecoration(
-                    labelText: "${AppLocalizations.of(context)!.requestedPercentage} *",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    labelText:
+                        "${AppLocalizations.of(context)!.requestedPercentage} *",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onChanged: (val) {
-                    itemCtrl.validatePercentage(val, itemCtrl.allowedPercentage.text, itemCtrl);
+                    itemCtrl.validatePercentage(
+                      val,
+                      itemCtrl.allowedPercentage.text,
+                      itemCtrl,
+                    );
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
                     _debounce = Timer(const Duration(seconds: 2), () async {
-                      await _recalculateFromPercentage(itemCtrl, index, itemCtrl.requestedPercentage.text);
+                      await _recalculateFromPercentage(
+                        itemCtrl,
+                        index,
+                        itemCtrl.requestedPercentage.text,
+                      );
                     });
                   },
                   onEditingComplete: () {
-                    _recalculateFromPercentage(itemCtrl, index, itemCtrl.requestedPercentage.text);
+                    _recalculateFromPercentage(
+                      itemCtrl,
+                      index,
+                      itemCtrl.requestedPercentage.text,
+                    );
                     FocusScope.of(context).unfocus();
                   },
                 ),
@@ -2111,7 +2397,8 @@ void _syncControllerToModel(int index) {
                   selectedValue: itemCtrl.selectedunit,
                   searchValue: (tax) => '${tax.code} ${tax.name}',
                   displayText: (tax) => tax.name,
-                  validator: (tax) => _validateDropdownField(itemCtrl.uomId.text, "Unit", true),
+                  validator: (tax) =>
+                      _validateDropdownField(itemCtrl.uomId.text, "Unit", true),
                   onChanged: (tax) {
                     setState(() {
                       itemCtrl.selectedunit = tax;
@@ -2121,11 +2408,16 @@ void _syncControllerToModel(int index) {
                   },
                   controller: itemCtrl.uomId,
                   rowBuilder: (tax, sq) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    child: Row(children: [
-                      Expanded(child: Text(tax.code)),
-                      Expanded(child: Text(tax.name)),
-                    ]),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(tax.code)),
+                        Expanded(child: Text(tax.name)),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -2134,14 +2426,22 @@ void _syncControllerToModel(int index) {
                 // ── QUANTITY ──
                 _buildTextField(
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d*\.?\d{0,2}'),
+                    ),
+                  ],
                   label: "${AppLocalizations.of(context)!.quantity} *",
                   controller: itemCtrl.quantity,
                   isReadOnly: controller.isEnable.value,
-                  validator: (value) => _validateNumericField(value!, "Quantity", true),
+                  validator: (value) =>
+                      _validateNumericField(value!, "Quantity", true),
                   onChanged: (value) {
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(milliseconds: 400), () => _recalculate(itemCtrl, index));
+                    _debounce = Timer(
+                      const Duration(milliseconds: 400),
+                      () => _recalculate(itemCtrl, index),
+                    );
                   },
                 ),
 
@@ -2151,17 +2451,29 @@ void _syncControllerToModel(int index) {
                   textInputAction: TextInputAction.done,
                   controller: itemCtrl.unitAmount,
                   enabled: controller.isEnable.value,
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-                  validator: (value) => _validateNumericField(value!, "Unit Estimated Amount", true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'^\d*\.?\d{0,2}'),
+                    ),
+                  ],
+                  validator: (value) => _validateNumericField(
+                    value!,
+                    "Unit Estimated Amount",
+                    true,
+                  ),
                   onChanged: (value) {
                     final qty = double.tryParse(itemCtrl.quantity.text) ?? 0.0;
                     final unit = double.tryParse(value) ?? 0.0;
                     final lineAmount = qty * unit;
-                    itemCtrl.totalunitEstimatedAmount.text = lineAmount.toStringAsFixed(2);
+                    itemCtrl.totalunitEstimatedAmount.text = lineAmount
+                        .toStringAsFixed(2);
                     itemCtrl.paidAmount.text = lineAmount.toStringAsFixed(2);
 
                     if (_debounce?.isActive ?? false) _debounce!.cancel();
-                    _debounce = Timer(const Duration(seconds: 1), () => _recalculate(itemCtrl, index));
+                    _debounce = Timer(
+                      const Duration(seconds: 1),
+                      () => _recalculate(itemCtrl, index),
+                    );
                   },
                   onFieldSubmitted: (_) async {
                     await _recalculate(itemCtrl, index);
@@ -2177,8 +2489,11 @@ void _syncControllerToModel(int index) {
                     await _recalculate(itemCtrl, index);
                   },
                   decoration: InputDecoration(
-                    labelText: "${AppLocalizations.of(context)!.unitEstimatedAmount} *",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    labelText:
+                        "${AppLocalizations.of(context)!.unitEstimatedAmount} *",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
 
@@ -2191,104 +2506,147 @@ void _syncControllerToModel(int index) {
                       // CA1 — Total Estimated
                       Text(
                         '${AppLocalizations.of(context)!.totalEstimatedAmountIn} *',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Row(children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            controller: itemCtrl.totalunitEstimatedAmount,
-                            enabled: !showItemizeDetails,
-                            keyboardType: TextInputType.number,
-                            validator: (value) => _validateNumericField(value!, "Total Estimated Amount", true),
-                            decoration: InputDecoration(
-                              hintText: AppLocalizations.of(context)!.paidAmount,
-                              isDense: true,
-                              border: const OutlineInputBorder(
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10),
-                                ),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: itemCtrl.totalunitEstimatedAmount,
+                              enabled: !showItemizeDetails,
+                              keyboardType: TextInputType.number,
+                              validator: (value) => _validateNumericField(
+                                value!,
+                                "Total Estimated Amount",
+                                true,
                               ),
-                            ),
-                            onChanged: (_) async {
-                              if (_debounce?.isActive ?? false) _debounce!.cancel();
-                              _debounce = Timer(const Duration(milliseconds: 400), () {
-                                itemCtrl.unitAmount.text = itemCtrl.totalunitEstimatedAmount.text;
-                                _recalculate(itemCtrl, index);
-                              });
-                            },
-                            onEditingComplete: () {
-                              final text = itemCtrl.totalunitEstimatedAmount.text;
-                              final value = double.tryParse(text);
-                              if (value != null) {
-                                itemCtrl.totalunitEstimatedAmount.text = value.toStringAsFixed(2);
-                              }
-                            },
-                          ),
-                        ),
-                        // CA1 currency dropdown
-                        Obx(() => SizedBox(
-                              width: 90,
-                              child: SearchableMultiColumnDropdownField<Currency>(
-                                labelText: AppLocalizations.of(context)!.currency,
-                                alignLeft: -90,
-                                dropdownWidth: 280,
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.code,
-                                  AppLocalizations.of(context)!.name,
-                                  AppLocalizations.of(context)!.symbol,
-                                ],
-                                controller: itemCtrl.currencyDropDowncontrollerCA3,
-                                items: controller.currencies,
-                                selectedValue: itemCtrl.selectedCurrencyCA1.value,
-                                searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
-                                displayText: (c) => c.code,
-                                enabled: controller.isEnable.value,
-                                validator: (c) => _validateDropdownField(
-                                    itemCtrl.currencyDropDowncontrollerCA3.text, "Currency", true),
-                                inputDecoration: const InputDecoration(
-                                  suffixIcon: Icon(Icons.arrow_drop_down_outlined),
-                                  filled: true,
-                                  isDense: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.only(
-                                      topRight: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
-                                    ),
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(
+                                  context,
+                                )!.paidAmount,
+                                isDense: true,
+                                border: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
                                   ),
                                 ),
-                                onChanged: (c) async {
-                                  itemCtrl.selectedCurrencyCA1.value = c;
-                                  itemCtrl.currencyDropDowncontrollerCA3.text = c?.code ?? '';
-                                  await _recalculate(itemCtrl, index);
-                                },
-                                rowBuilder: (c, sq) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                                  child: Row(children: [
-                                    Expanded(child: Text(c.code)),
-                                    Expanded(child: Text(c.name)),
-                                    Expanded(child: Text(c.symbol)),
-                                  ]),
-                                ),
                               ),
-                            )),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            enabled: false,
-                            controller: itemCtrl.unitRateCA1,
-                            decoration: InputDecoration(
-                              hintText: AppLocalizations.of(context)!.rate,
-                              isDense: true,
-                              border: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(10)),
+                              onChanged: (_) async {
+                                if (_debounce?.isActive ?? false)
+                                  _debounce!.cancel();
+                                _debounce = Timer(
+                                  const Duration(milliseconds: 400),
+                                  () {
+                                    itemCtrl.unitAmount.text =
+                                        itemCtrl.totalunitEstimatedAmount.text;
+                                    _recalculate(itemCtrl, index);
+                                  },
+                                );
+                              },
+                              onEditingComplete: () {
+                                final text =
+                                    itemCtrl.totalunitEstimatedAmount.text;
+                                final value = double.tryParse(text);
+                                if (value != null) {
+                                  itemCtrl.totalunitEstimatedAmount.text = value
+                                      .toStringAsFixed(2);
+                                }
+                              },
+                            ),
+                          ),
+                          // CA1 currency dropdown
+                          Obx(
+                            () => SizedBox(
+                              width: 90,
+                              child:
+                                  SearchableMultiColumnDropdownField<Currency>(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.currency,
+                                    alignLeft: -90,
+                                    dropdownWidth: 280,
+                                    columnHeaders: [
+                                      AppLocalizations.of(context)!.code,
+                                      AppLocalizations.of(context)!.name,
+                                      AppLocalizations.of(context)!.symbol,
+                                    ],
+                                    controller:
+                                        itemCtrl.currencyDropDowncontrollerCA3,
+                                    items: controller.currencies,
+                                    selectedValue:
+                                        itemCtrl.selectedCurrencyCA1.value,
+                                    searchValue: (c) =>
+                                        '${c.code} ${c.name} ${c.symbol}',
+                                    displayText: (c) => c.code,
+                                    enabled: controller.isEnable.value,
+                                    validator: (c) => _validateDropdownField(
+                                      itemCtrl
+                                          .currencyDropDowncontrollerCA3
+                                          .text,
+                                      "Currency",
+                                      true,
+                                    ),
+                                    inputDecoration: const InputDecoration(
+                                      suffixIcon: Icon(
+                                        Icons.arrow_drop_down_outlined,
+                                      ),
+                                      filled: true,
+                                      isDense: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(10),
+                                          bottomRight: Radius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (c) async {
+                                      itemCtrl.selectedCurrencyCA1.value = c;
+                                      itemCtrl
+                                              .currencyDropDowncontrollerCA3
+                                              .text =
+                                          c?.code ?? '';
+                                      await _recalculate(itemCtrl, index);
+                                    },
+                                    rowBuilder: (c, sq) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 6,
+                                        horizontal: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(c.code)),
+                                          Expanded(child: Text(c.name)),
+                                          Expanded(child: Text(c.symbol)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              enabled: false,
+                              controller: itemCtrl.unitRateCA1,
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(context)!.rate,
+                                isDense: true,
+                                border: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
 
                       const SizedBox(height: 10),
                       TextFormField(
@@ -2296,9 +2654,12 @@ void _syncControllerToModel(int index) {
                         enabled: false,
                         decoration: InputDecoration(
                           isDense: true,
-                          labelText: '${AppLocalizations.of(context)!.lineEstimatedAmountInINR} ${controller.organizationCurrency}',
+                          labelText:
+                              '${AppLocalizations.of(context)!.lineEstimatedAmountInINR} ${controller.organizationCurrency}',
                           filled: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
 
@@ -2307,98 +2668,135 @@ void _syncControllerToModel(int index) {
                       // CA2 — Total Requested
                       Text(
                         '${AppLocalizations.of(context)!.totalRequestedAmount}  *',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Row(children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextFormField(
-                            controller: itemCtrl.totalRequestedAmount,
-                            enabled: false,
-                            keyboardType: TextInputType.number,
-                            validator: (value) => _validateNumericField(value!, "Total Requested Amount", true),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: AppLocalizations.of(context)!.paidAmount,
-                              border: const OutlineInputBorder(
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10),
-                                ),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: itemCtrl.totalRequestedAmount,
+                              enabled: false,
+                              keyboardType: TextInputType.number,
+                              validator: (value) => _validateNumericField(
+                                value!,
+                                "Total Requested Amount",
+                                true,
                               ),
-                            ),
-                            onEditingComplete: () {
-                              final text = itemCtrl.totalRequestedAmount.text;
-                              final value = double.tryParse(text);
-                              if (value != null) {
-                                itemCtrl.totalRequestedAmount.text = value.toStringAsFixed(2);
-                              }
-                            },
-                          ),
-                        ),
-                        // CA2 currency dropdown
-                        Obx(() => SizedBox(
-                              width: 90,
-                              child: SearchableMultiColumnDropdownField<Currency>(
-                                labelText: AppLocalizations.of(context)!.currency,
-                                alignLeft: -90,
-                                enabled: controller.isEnable.value,
-                                dropdownWidth: 280,
-                                columnHeaders: [
-                                  AppLocalizations.of(context)!.code,
-                                  AppLocalizations.of(context)!.name,
-                                  AppLocalizations.of(context)!.symbol,
-                                ],
-                                controller: itemCtrl.currencyDropDowncontrollerCA2,
-                                items: controller.currencies,
-                                selectedValue: itemCtrl.selectedCurrencyCA2.value,
-                                backgroundColor: Colors.white,
-                                searchValue: (c) => '${c.code} ${c.name} ${c.symbol}',
-                                displayText: (c) => c.code,
-                                validator: (c) => _validateDropdownField(
-                                    itemCtrl.currencyDropDowncontrollerCA2.text, "Currency", true),
-                                inputDecoration: const InputDecoration(
-                                  isDense: true,
-                                  suffixIcon: Icon(Icons.arrow_drop_down_outlined),
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.only(
-                                      topRight: Radius.circular(10),
-                                      bottomRight: Radius.circular(10),
-                                    ),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: AppLocalizations.of(
+                                  context,
+                                )!.paidAmount,
+                                border: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
                                   ),
                                 ),
-                                onChanged: (c) async {
-                                  itemCtrl.selectedCurrencyCA2.value = c;
-                                  controller.currencyDropDowncontrollerCA2.text = c?.code ?? '';
-                                  await _recalculate(itemCtrl, index);
-                                },
-                                rowBuilder: (c, sq) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                                  child: Row(children: [
-                                    Expanded(child: Text(c.code)),
-                                    Expanded(child: Text(c.name)),
-                                    Expanded(child: Text(c.symbol)),
-                                  ]),
-                                ),
                               ),
-                            )),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: itemCtrl.unitRateCA2,
-                            enabled: false,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: AppLocalizations.of(context)!.rate,
-                              border: const OutlineInputBorder(
-                                borderRadius: BorderRadius.all(Radius.circular(10)),
+                              onEditingComplete: () {
+                                final text = itemCtrl.totalRequestedAmount.text;
+                                final value = double.tryParse(text);
+                                if (value != null) {
+                                  itemCtrl.totalRequestedAmount.text = value
+                                      .toStringAsFixed(2);
+                                }
+                              },
+                            ),
+                          ),
+                          // CA2 currency dropdown
+                          Obx(
+                            () => SizedBox(
+                              width: 90,
+                              child:
+                                  SearchableMultiColumnDropdownField<Currency>(
+                                    labelText: AppLocalizations.of(
+                                      context,
+                                    )!.currency,
+                                    alignLeft: -90,
+                                    enabled: controller.isEnable.value,
+                                    dropdownWidth: 280,
+                                    columnHeaders: [
+                                      AppLocalizations.of(context)!.code,
+                                      AppLocalizations.of(context)!.name,
+                                      AppLocalizations.of(context)!.symbol,
+                                    ],
+                                    controller:
+                                        itemCtrl.currencyDropDowncontrollerCA2,
+                                    items: controller.currencies,
+                                    selectedValue:
+                                        itemCtrl.selectedCurrencyCA2.value,
+                                    backgroundColor: Colors.white,
+                                    searchValue: (c) =>
+                                        '${c.code} ${c.name} ${c.symbol}',
+                                    displayText: (c) => c.code,
+                                    validator: (c) => _validateDropdownField(
+                                      itemCtrl
+                                          .currencyDropDowncontrollerCA2
+                                          .text,
+                                      "Currency",
+                                      true,
+                                    ),
+                                    inputDecoration: const InputDecoration(
+                                      isDense: true,
+                                      suffixIcon: Icon(
+                                        Icons.arrow_drop_down_outlined,
+                                      ),
+                                      filled: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.only(
+                                          topRight: Radius.circular(10),
+                                          bottomRight: Radius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (c) async {
+                                      itemCtrl.selectedCurrencyCA2.value = c;
+                                      controller
+                                              .currencyDropDowncontrollerCA2
+                                              .text =
+                                          c?.code ?? '';
+                                      await _recalculate(itemCtrl, index);
+                                    },
+                                    rowBuilder: (c, sq) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 6,
+                                        horizontal: 8,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(c.code)),
+                                          Expanded(child: Text(c.name)),
+                                          Expanded(child: Text(c.symbol)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: itemCtrl.unitRateCA2,
+                              enabled: false,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: AppLocalizations.of(context)!.rate,
+                                border: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
 
                       const SizedBox(height: 10),
                       TextFormField(
@@ -2406,9 +2804,12 @@ void _syncControllerToModel(int index) {
                         enabled: false,
                         decoration: InputDecoration(
                           isDense: true,
-                          labelText: '${AppLocalizations.of(context)!.lineRequestedAmountInINR} ${controller.organizationCurrency}',
+                          labelText:
+                              '${AppLocalizations.of(context)!.lineRequestedAmountInINR} ${controller.organizationCurrency}',
                           filled: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ],
@@ -2421,8 +2822,10 @@ void _syncControllerToModel(int index) {
                   children: [
                     TextButton(
                       onPressed: () {
-                        final double lineAmount = double.tryParse(itemCtrl.lineAmount.text) ?? 0.0;
-                        if (itemCtrl.split.isEmpty && item.accountingDistributions!.isNotEmpty) {
+                        final double lineAmount =
+                            double.tryParse(itemCtrl.lineAmount.text) ?? 0.0;
+                        if (itemCtrl.split.isEmpty &&
+                            item.accountingDistributions!.isNotEmpty) {
                           itemCtrl.split.assignAll(
                             item.accountingDistributions!.map((e) {
                               return AccountingSplit(
@@ -2433,14 +2836,18 @@ void _syncControllerToModel(int index) {
                             }).toList(),
                           );
                         } else if (itemCtrl.split.isEmpty) {
-                          itemCtrl.split.add(AccountingSplit(percentage: 100.0));
+                          itemCtrl.split.add(
+                            AccountingSplit(percentage: 100.0),
+                          );
                         }
 
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
                           shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
                           ),
                           builder: (context) => Padding(
                             padding: EdgeInsets.only(
@@ -2462,7 +2869,9 @@ void _syncControllerToModel(int index) {
                                 onDistributionChanged: (newList) {
                                   if (!mounted) return;
                                   itemCtrl.accountingDistributions.clear();
-                                  itemCtrl.accountingDistributions.addAll(newList);
+                                  itemCtrl.accountingDistributions.addAll(
+                                    newList,
+                                  );
                                   _syncControllerToModel(index);
                                 },
                               ),
@@ -2483,20 +2892,26 @@ void _syncControllerToModel(int index) {
                     ),
                   ],
                 ),
-                 Obx(() {
+                Obx(() {
                   return Column(
                     children: itemCtrl.customFieldsItems
-                        .where((field) => field['ObjectName'] == 'cashadvancetrans')
+                        .where(
+                          (field) => field['ObjectName'] == 'cashadvancetrans',
+                        )
                         .map((field) {
-                          final String label = field['FieldLabel'] ?? field['FieldName'];
-                          final bool isMandatory = field['IsMandatory'] ?? false;
-                          final String fieldKey = 'trans_${index}_${field['FieldId']}';
+                          final String label =
+                              field['FieldLabel'] ?? field['FieldName'];
+                          final bool isMandatory =
+                              field['IsMandatory'] ?? false;
+                          final String fieldKey =
+                              'trans_${index}_${field['FieldId']}';
                           final String fieldType = field['FieldType'] ?? 'Text';
                           final bool isDateTime = fieldType == 'Date&Time';
 
                           // Create unique controller for this field if not exists
                           if (!itemizeFieldControllers.containsKey(fieldKey)) {
-                            itemizeFieldControllers[fieldKey] = TextEditingController();
+                            itemizeFieldControllers[fieldKey] =
+                                TextEditingController();
                           }
 
                           Widget inputField = _buildCustomFieldWidget(
@@ -2540,16 +2955,20 @@ void _syncControllerToModel(int index) {
   Widget _buildNoWorkitemButtons() {
     return Column(
       children: [
-        if (controller.isEnable.value && widget.items!.approvalStatus == "Rejected")
+        if (controller.isEnable.value &&
+            widget.items!.approvalStatus == "Rejected")
           Obx(() {
-            final isResubmitLoading = controller.buttonLoaders['resubmit'] ?? false;
+            final isResubmitLoading =
+                controller.buttonLoaders['resubmit'] ?? false;
             final isAnyLoading = controller.buttonLoaders.values.any((l) => l);
             return SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   backgroundColor: const Color.fromARGB(255, 29, 1, 128),
                 ),
                 onPressed: (isResubmitLoading || isAnyLoading)
@@ -2557,8 +2976,9 @@ void _syncControllerToModel(int index) {
                     : () {
                         if (!_validateForm()) {
                           Fluttertoast.showToast(
-                              msg: "Please fill all required fields",
-                              backgroundColor: Colors.red);
+                            msg: "Please fill all required fields",
+                            backgroundColor: Colors.red,
+                          );
                           return;
                         }
                         controller.setButtonLoading('resubmit', true);
@@ -2571,69 +2991,104 @@ void _syncControllerToModel(int index) {
                               widget.items!.recId,
                               widget.items!.requisitionId,
                             )
-                            .whenComplete(() => controller.setButtonLoading('resubmit', false));
+                            .whenComplete(
+                              () => controller.setButtonLoading(
+                                'resubmit',
+                                false,
+                              ),
+                            );
                       },
                 child: isResubmitLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(AppLocalizations.of(context)!.resubmit,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        AppLocalizations.of(context)!.resubmit,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             );
           }),
 
         if (controller.isEnable.value) const SizedBox(height: 20),
 
-        if (controller.isEnable.value && widget.items!.approvalStatus == "Rejected")
-          Row(children: [
-            Obx(() {
-              final isUpdateLoading = controller.buttonLoaders['update'] ?? false;
-              final isAnyLoading = controller.buttonLoaders.values.any((l) => l);
-              return Expanded(
-                child: ElevatedButton(
-                  onPressed: (isUpdateLoading || isAnyLoading)
-                      ? null
-                      : () {
-                          if (!_validateForm()) {
-                            Fluttertoast.showToast(
+        if (controller.isEnable.value &&
+            widget.items!.approvalStatus == "Rejected")
+          Row(
+            children: [
+              Obx(() {
+                final isUpdateLoading =
+                    controller.buttonLoaders['update'] ?? false;
+                final isAnyLoading = controller.buttonLoaders.values.any(
+                  (l) => l,
+                );
+                return Expanded(
+                  child: ElevatedButton(
+                    onPressed: (isUpdateLoading || isAnyLoading)
+                        ? null
+                        : () {
+                            if (!_validateForm()) {
+                              Fluttertoast.showToast(
                                 msg: "Please fill all required fields",
-                                backgroundColor: Colors.red);
-                            return;
-                          }
-                          controller.setButtonLoading('update', true);
-                          controller
-                              .saveinEditCashAdvance(
-                                context,
-                                false,
-                                false,
-                                widget.items!.recId,
-                                widget.items!.requisitionId,
-                              )
-                              .whenComplete(() => controller.setButtonLoading('update', false));
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E7503)),
-                  child: isUpdateLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(AppLocalizations.of(context)!.update,
-                          style: const TextStyle(color: Colors.white)),
+                                backgroundColor: Colors.red,
+                              );
+                              return;
+                            }
+                            controller.setButtonLoading('update', true);
+                            controller
+                                .saveinEditCashAdvance(
+                                  context,
+                                  false,
+                                  false,
+                                  widget.items!.recId,
+                                  widget.items!.requisitionId,
+                                )
+                                .whenComplete(
+                                  () => controller.setButtonLoading(
+                                    'update',
+                                    false,
+                                  ),
+                                );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E7503),
+                    ),
+                    child: isUpdateLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.update,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => controller.chancelButtonCA(context),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                  child: Text(AppLocalizations.of(context)!.cancel),
                 ),
-              );
-            }),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => controller.chancelButtonCA(context),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                child: Text(AppLocalizations.of(context)!.cancel),
               ),
-            ),
-          ])
-        else if (controller.isEnable.value && widget.items!.approvalStatus == "Created") ...[
+            ],
+          )
+        else if (controller.isEnable.value &&
+            widget.items!.approvalStatus == "Created") ...[
           Obx(() {
             final isSubmitLoading = controller.buttonLoaders['submit'] ?? false;
             final isAnyLoading = controller.buttonLoaders.values.any((l) => l);
@@ -2642,7 +3097,9 @@ void _syncControllerToModel(int index) {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   backgroundColor: const Color.fromARGB(255, 26, 2, 110),
                 ),
                 onPressed: (isSubmitLoading || isAnyLoading)
@@ -2650,8 +3107,9 @@ void _syncControllerToModel(int index) {
                     : () {
                         if (!_validateForm()) {
                           Fluttertoast.showToast(
-                              msg: "Please fill all required fields",
-                              backgroundColor: Colors.red);
+                            msg: "Please fill all required fields",
+                            backgroundColor: Colors.red,
+                          );
                           return;
                         }
                         controller.setButtonLoading('submit', true);
@@ -2664,107 +3122,166 @@ void _syncControllerToModel(int index) {
                               widget.items!.recId,
                               widget.items!.requisitionId,
                             )
-                            .whenComplete(() => controller.setButtonLoading('submit', false));
+                            .whenComplete(
+                              () =>
+                                  controller.setButtonLoading('submit', false),
+                            );
                       },
                 child: isSubmitLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(AppLocalizations.of(context)!.submit,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        AppLocalizations.of(context)!.submit,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             );
           }),
           const SizedBox(height: 12),
-          Row(children: [
-            Obx(() {
-              final isSaveLoading = controller.buttonLoaders['saveGE'] ?? false;
-              final isAnyLoading = controller.buttonLoaders.values.any((l) => l);
-              return Expanded(
-                child: ElevatedButton(
-                  onPressed: (isSaveLoading || isAnyLoading)
-                      ? null
-                      : () {
-                          if (!_validateForm()) {
-                            Fluttertoast.showToast(
-                                msg: "Please fill all required fields",
-                                backgroundColor: Colors.red);
-                            return;
-                          }
-                          controller.setButtonLoading('saveGE', true);
-                          controller.cashAdvanceReturnFinalItem(widget.items!);
-                          controller
-                              .saveinEditCashAdvance(
-                                context,
-                                false,
-                                false,
-                                widget.items!.recId,
-                                widget.items!.requisitionId,
-                              )
-                              .whenComplete(() => controller.setButtonLoading('saveGE', false));
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E7503)),
-                  child: isSaveLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(AppLocalizations.of(context)!.save,
-                          style: const TextStyle(color: Colors.white)),
-                ),
-              );
-            }),
-            const SizedBox(width: 12),
-            Obx(() {
-              final isAnyLoading = controller.buttonLoaders.values.any((l) => l);
-              return Expanded(
-                child: ElevatedButton(
-                  onPressed: isAnyLoading
-                      ? null
-                      : () => Navigator.pushNamed(context, AppRoutes.cashAdvanceRequestDashboard),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                  child: Text(AppLocalizations.of(context)!.cancel),
-                ),
-              );
-            }),
-          ]),
-        ],
-
-        if (widget.isReadOnly && widget.items!.approvalStatus == "Pending")
-          Row(children: [
-            if (PermissionHelper.canUpdate("Cash Advance Requisition"))
+          Row(
+            children: [
               Obx(() {
-                final isLoading = controller.buttonLoaders['cancel'] ?? false;
+                final isSaveLoading =
+                    controller.buttonLoaders['saveGE'] ?? false;
+                final isAnyLoading = controller.buttonLoaders.values.any(
+                  (l) => l,
+                );
                 return Expanded(
                   child: ElevatedButton(
-                    onPressed: isLoading
+                    onPressed: (isSaveLoading || isAnyLoading)
                         ? null
                         : () {
-                            controller.setButtonLoading('cancel', true);
+                            if (!_validateForm()) {
+                              Fluttertoast.showToast(
+                                msg: "Please fill all required fields",
+                                backgroundColor: Colors.red,
+                              );
+                              return;
+                            }
+                            controller.setButtonLoading('saveGE', true);
+                            controller.cashAdvanceReturnFinalItem(
+                              widget.items!,
+                            );
                             controller
-                                .cancelCashadvance(context, widget.items!.recId.toString())
-                                .whenComplete(() => controller.setButtonLoading('cancel', false));
+                                .saveinEditCashAdvance(
+                                  context,
+                                  false,
+                                  false,
+                                  widget.items!.recId,
+                                  widget.items!.requisitionId,
+                                )
+                                .whenComplete(
+                                  () => controller.setButtonLoading(
+                                    'saveGE',
+                                    false,
+                                  ),
+                                );
                           },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE99797)),
-                    child: isLoading
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E7503),
+                    ),
+                    child: isSaveLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2))
-                        : const Text("Cancel", style: TextStyle(color: Colors.red)),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.save,
+                            style: const TextStyle(color: Colors.white),
+                          ),
                   ),
                 );
               }),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => controller.chancelButtonCA(context),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                child: Text(AppLocalizations.of(context)!.close),
+              const SizedBox(width: 12),
+              Obx(() {
+                final isAnyLoading = controller.buttonLoaders.values.any(
+                  (l) => l,
+                );
+                return Expanded(
+                  child: ElevatedButton(
+                    onPressed: isAnyLoading
+                        ? null
+                        : () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.cashAdvanceRequestDashboard,
+                          ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                    child: Text(AppLocalizations.of(context)!.cancel),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ],
+
+        if (widget.isReadOnly && widget.items!.approvalStatus == "Pending")
+          Row(
+            children: [
+              if (PermissionHelper.canUpdate("Cash Advance Requisition"))
+                Obx(() {
+                  final isLoading = controller.buttonLoaders['cancel'] ?? false;
+                  return Expanded(
+                    child: ElevatedButton(
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              controller.setButtonLoading('cancel', true);
+                              controller
+                                  .cancelCashadvance(
+                                    context,
+                                    widget.items!.recId.toString(),
+                                  )
+                                  .whenComplete(
+                                    () => controller.setButtonLoading(
+                                      'cancel',
+                                      false,
+                                    ),
+                                  );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE99797),
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.red,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Cancel",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                    ),
+                  );
+                }),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => controller.chancelButtonCA(context),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                  child: Text(AppLocalizations.of(context)!.close),
+                ),
               ),
-            ),
-          ])
+            ],
+          )
         else if (!controller.isEnable.value)
           ElevatedButton(
             onPressed: () => controller.chancelButtonCA(context),
@@ -2778,231 +3295,332 @@ void _syncControllerToModel(int index) {
   Widget _buildWorkitemButtons() {
     return Column(
       children: [
-        if (controller.isEnable.value && widget.items!.stepType == "Review") ...[
-          Row(children: [
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['update_accept'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any((l) => l == true);
-                return ElevatedButton(
-                  onPressed: (isLoading || isAnyLoading)
-                      ? null
-                      : () async {
-                          if (!_validateForm()) {
-                            Fluttertoast.showToast(
+        if (controller.isEnable.value &&
+            widget.items!.stepType == "Review") ...[
+          Row(
+            children: [
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['update_accept'] ?? false;
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (l) => l == true,
+                  );
+                  return ElevatedButton(
+                    onPressed: (isLoading || isAnyLoading)
+                        ? null
+                        : () async {
+                            if (!_validateForm()) {
+                              Fluttertoast.showToast(
                                 msg: "Please fill all required fields",
-                                backgroundColor: Colors.red);
-                            return;
-                          }
-                          controller.setButtonLoading('update_accept', true);
-                          controller.cashAdvanceReturnFinalItem(widget.items!);
-                          try {
-                            await controller.reviewandUpdateCashAdvance(
-                              context,
+                                backgroundColor: Colors.red,
+                              );
+                              return;
+                            }
+                            controller.setButtonLoading('update_accept', true);
+                            controller.cashAdvanceReturnFinalItem(
+                              widget.items!,
+                            );
+                            try {
+                              await controller.reviewandUpdateCashAdvance(
+                                context,
+                                true,
+                                widget.items!.recId,
+                                widget.items!.requisitionId,
+                                widget.items!.workitemrecid,
+                              );
+                            } finally {
+                              controller.setButtonLoading(
+                                'update_accept',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.updateAndAccept,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['update_review'] ?? false;
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (l) => l == true,
+                  );
+                  return ElevatedButton(
+                    onPressed: (isLoading || isAnyLoading)
+                        ? null
+                        : () async {
+                            if (!_validateForm()) {
+                              Fluttertoast.showToast(
+                                msg: "Please fill all required fields",
+                                backgroundColor: Colors.red,
+                              );
+                              return;
+                            }
+                            controller.setButtonLoading('update_review', true);
+                            controller.cashAdvanceReturnFinalItem(
+                              widget.items!,
+                            );
+                            try {
+                              await controller.reviewandUpdateCashAdvance(
+                                context,
+                                false,
+                                widget.items!.recId,
+                                widget.items!.requisitionId,
+                                widget.items!.workitemrecid,
+                              );
+                            } finally {
+                              controller.setButtonLoading(
+                                'update_review',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.update,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['reject_review'] ?? false;
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (l) => l == true,
+                  );
+                  return ElevatedButton(
+                    onPressed: (isLoading || isAnyLoading)
+                        ? null
+                        : () async {
+                            controller.setButtonLoading('reject_review', true);
+                            try {
+                              showActionPopup(context, "Reject");
+                            } finally {
+                              controller.setButtonLoading(
+                                'reject_review',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 238, 20, 20),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.reject,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['close_review'] ?? false;
+                  final isAnyLoading = controller.buttonLoaders.values.any(
+                    (l) => l == true,
+                  );
+                  return ElevatedButton(
+                    onPressed: (isLoading || isAnyLoading)
+                        ? null
+                        : () async {
+                            controller.setButtonLoading('close_review', true);
+                            try {
+                              controller.chancelButtonCA(context);
+                            } finally {
+                              controller.setButtonLoading(
+                                'close_review',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(strokeWidth: 2)
+                        : Text(AppLocalizations.of(context)!.close),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ],
+
+        if (controller.isApprovalEnable.value &&
+            widget.items!.stepType == "Approval") ...[
+          Row(
+            children: [
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['approve'] ?? false;
+                  return ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            controller.setButtonLoading('approve', true);
+                            try {
+                              showActionPopup(context, "Approve");
+                            } finally {
+                              controller.setButtonLoading('approve', false);
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 30, 117, 3),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.approve,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['reject_approval'] ?? false;
+                  return ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            controller.setButtonLoading(
+                              'reject_approval',
                               true,
-                              widget.items!.recId,
-                              widget.items!.requisitionId,
-                              widget.items!.workitemrecid,
                             );
-                          } finally {
-                            controller.setButtonLoading('update_accept', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 3, 20, 117)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.updateAndAccept,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['update_review'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any((l) => l == true);
-                return ElevatedButton(
-                  onPressed: (isLoading || isAnyLoading)
-                      ? null
-                      : () async {
-                          if (!_validateForm()) {
-                            Fluttertoast.showToast(
-                                msg: "Please fill all required fields",
-                                backgroundColor: Colors.red);
-                            return;
-                          }
-                          controller.setButtonLoading('update_review', true);
-                          controller.cashAdvanceReturnFinalItem(widget.items!);
-                          try {
-                            await controller.reviewandUpdateCashAdvance(
-                              context,
-                              false,
-                              widget.items!.recId,
-                              widget.items!.requisitionId,
-                              widget.items!.workitemrecid,
-                            );
-                          } finally {
-                            controller.setButtonLoading('update_review', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 3, 20, 117)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.update,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-          ]),
+                            try {
+                              showActionPopup(context, "Reject");
+                            } finally {
+                              controller.setButtonLoading(
+                                'reject_approval',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 238, 20, 20),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.reject,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['reject_review'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any((l) => l == true);
-                return ElevatedButton(
-                  onPressed: (isLoading || isAnyLoading)
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('reject_review', true);
-                          try {
-                            showActionPopup(context, "Reject");
-                          } finally {
-                            controller.setButtonLoading('reject_review', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 238, 20, 20)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.reject,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['close_review'] ?? false;
-                final isAnyLoading = controller.buttonLoaders.values.any((l) => l == true);
-                return ElevatedButton(
-                  onPressed: (isLoading || isAnyLoading)
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('close_review', true);
-                          try {
-                            controller.chancelButtonCA(context);
-                          } finally {
-                            controller.setButtonLoading('close_review', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                  child: isLoading
-                      ? const CircularProgressIndicator(strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.close),
-                );
-              }),
-            ),
-          ]),
+          Row(
+            children: [
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['escalate'] ?? false;
+                  return ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            controller.setButtonLoading('escalate', true);
+                            try {
+                              showActionPopup(context, "Escalate");
+                            } finally {
+                              controller.setButtonLoading('escalate', false);
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 3, 20, 117),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Text(
+                            AppLocalizations.of(context)!.escalate,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                  );
+                }),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Obx(() {
+                  final isLoading =
+                      controller.buttonLoaders['close_approval'] ?? false;
+                  return ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            controller.setButtonLoading('close_approval', true);
+                            try {
+                              controller.chancelButtonCA(context);
+                            } finally {
+                              controller.setButtonLoading(
+                                'close_approval',
+                                false,
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(strokeWidth: 2)
+                        : Text(AppLocalizations.of(context)!.close),
+                  );
+                }),
+              ),
+            ],
+          ),
         ],
 
-        if (controller.isApprovalEnable.value && widget.items!.stepType == "Approval") ...[
-          Row(children: [
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['approve'] ?? false;
-                return ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('approve', true);
-                          try {
-                            showActionPopup(context, "Approve");
-                          } finally {
-                            controller.setButtonLoading('approve', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 30, 117, 3)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.approve,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['reject_approval'] ?? false;
-                return ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('reject_approval', true);
-                          try {
-                            showActionPopup(context, "Reject");
-                          } finally {
-                            controller.setButtonLoading('reject_approval', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 238, 20, 20)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.reject,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['escalate'] ?? false;
-                return ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('escalate', true);
-                          try {
-                            showActionPopup(context, "Escalate");
-                          } finally {
-                            controller.setButtonLoading('escalate', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 3, 20, 117)),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.escalate,
-                          style: const TextStyle(color: Colors.white)),
-                );
-              }),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Obx(() {
-                final isLoading = controller.buttonLoaders['close_approval'] ?? false;
-                return ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          controller.setButtonLoading('close_approval', true);
-                          try {
-                            controller.chancelButtonCA(context);
-                          } finally {
-                            controller.setButtonLoading('close_approval', false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-                  child: isLoading
-                      ? const CircularProgressIndicator(strokeWidth: 2)
-                      : Text(AppLocalizations.of(context)!.close),
-                );
-              }),
-            ),
-          ]),
-        ],
-
-        if (!controller.isEnable.value && !controller.isApprovalEnable.value && widget.items!.stepType != "Review")
+        if (!controller.isEnable.value &&
+            !controller.isApprovalEnable.value &&
+            widget.items!.stepType != "Review")
           ElevatedButton(
             onPressed: () async {
               controller.setButtonLoading('close_review', true);
@@ -3042,7 +3660,9 @@ void _syncControllerToModel(int index) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
@@ -3065,48 +3685,68 @@ void _syncControllerToModel(int index) {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(AppLocalizations.of(context)!.action,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(
+                      AppLocalizations.of(context)!.action,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
 
                     if (status == "Escalate") ...[
-                      Text('${AppLocalizations.of(context)!.selectUser}*',
-                          style: const TextStyle(fontSize: 16)),
+                      Text(
+                        '${AppLocalizations.of(context)!.selectUser}*',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                       const SizedBox(height: 8),
-                      Obx(() => SearchableMultiColumnDropdownField<User>(
-                            labelText: '${AppLocalizations.of(context)!.user} *',
-                            columnHeaders: [
-                              AppLocalizations.of(context)!.userName,
-                              AppLocalizations.of(context)!.userId,
-                            ],
-                            items: controller.userList,
-                            selectedValue: controller.selectedUser.value,
-                            searchValue: (user) => '${user.userName} ${user.userId}',
-                            displayText: (user) => user.userId,
-                            onChanged: (user) {
-                              controller.userIdController.text = user?.userId ?? '';
-                              controller.selectedUser.value = user;
-                            },
-                            controller: controller.userIdController,
-                            rowBuilder: (user, sq) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                              child: Row(children: [
+                      Obx(
+                        () => SearchableMultiColumnDropdownField<User>(
+                          labelText: '${AppLocalizations.of(context)!.user} *',
+                          columnHeaders: [
+                            AppLocalizations.of(context)!.userName,
+                            AppLocalizations.of(context)!.userId,
+                          ],
+                          items: controller.userList,
+                          selectedValue: controller.selectedUser.value,
+                          searchValue: (user) =>
+                              '${user.userName} ${user.userId}',
+                          displayText: (user) => user.userId,
+                          onChanged: (user) {
+                            controller.userIdController.text =
+                                user?.userId ?? '';
+                            controller.selectedUser.value = user;
+                          },
+                          controller: controller.userIdController,
+                          rowBuilder: (user, sq) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
                                 Expanded(child: Text(user.userName)),
                                 Expanded(child: Text(user.userId)),
-                              ]),
+                              ],
                             ),
-                          )),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                     ],
 
                     const SizedBox(height: 16),
-                    Text('${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ""}',
-                        style: const TextStyle(fontSize: 16)),
+                    Text(
+                      '${AppLocalizations.of(context)!.comments} ${status == "Reject" ? "*" : ""}',
+                      style: const TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: commentController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.enterCommentHere,
+                        hintText: AppLocalizations.of(
+                          context,
+                        )!.enterCommentHere,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(
@@ -3121,7 +3761,9 @@ void _syncControllerToModel(int index) {
                             width: 2,
                           ),
                         ),
-                        errorText: isCommentError ? AppLocalizations.of(context)!.commentRequired : null,
+                        errorText: isCommentError
+                            ? AppLocalizations.of(context)!.commentRequired
+                            : null,
                       ),
                       onChanged: (value) {
                         if (isCommentError && value.trim().isEmpty) {
@@ -3149,28 +3791,38 @@ void _syncControllerToModel(int index) {
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (ctx) => const Center(child: SkeletonLoaderPage()),
+                              builder: (ctx) =>
+                                  const Center(child: SkeletonLoaderPage()),
                             );
 
-                            final success = await controller.postApprovalActioncashAdvance(
+                            final success = await controller
+                                .postApprovalActioncashAdvance(
+                                  context,
+                                  workitemrecid: [workitemrecid],
+                                  decision: status,
+                                  comment: commentController.text,
+                                );
+
+                            if (Navigator.of(
                               context,
-                              workitemrecid: [workitemrecid],
-                              decision: status,
-                              comment: commentController.text,
-                            );
-
-                            if (Navigator.of(context, rootNavigator: true).canPop()) {
+                              rootNavigator: true,
+                            ).canPop()) {
                               Navigator.of(context, rootNavigator: true).pop();
                             }
 
                             if (!context.mounted) return;
 
                             if (success) {
-                              Navigator.pushNamed(context, AppRoutes.approvalDashboardForDashboard);
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.approvalDashboardForDashboard,
+                              );
                               controller.isApprovalEnable.value = false;
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to submit action')),
+                                const SnackBar(
+                                  content: Text('Failed to submit action'),
+                                ),
                               );
                             }
                           },
@@ -3210,94 +3862,144 @@ void _syncControllerToModel(int index) {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: controller.imageFiles.isEmpty
-                  ? Center(child: Text(AppLocalizations.of(context)!.tapToUploadDocs))
-                  : Stack(children: [
-                      PageView.builder(
-                        controller: _pageController,
-                        itemCount: controller.imageFiles.length,
-                        onPageChanged: (index) => controller.currentIndex.value = index,
-                        itemBuilder: (_, index) {
-                          final file = controller.imageFiles[index];
-                          final path = file.path;
-                          return GestureDetector(
-                            onTap: () => controller.openFile(context, file, index),
-                            child: Container(
-                              margin: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.deepPurple),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: controller.isImage(path)
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(file, fit: BoxFit.cover, width: double.infinity),
-                                    )
-                                  : controller.isPdf(path)
-                                      ? Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(Icons.picture_as_pdf, size: 70, color: Colors.red),
-                                            Padding(
-                                              padding: const EdgeInsets.all(8),
-                                              child: Text(file.path.split('/').last, textAlign: TextAlign.center),
-                                            ),
-                                          ],
-                                        )
-                                      : controller.isExcel(path)
-                                          ? Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                const Icon(Icons.table_chart, size: 70, color: Colors.green),
-                                                Text(file.path.split('/').last, textAlign: TextAlign.center),
-                                              ],
-                                            )
-                                          : Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                const Icon(Icons.insert_drive_file, size: 70),
-                                                Text(file.path.split('/').last, textAlign: TextAlign.center),
-                                              ],
-                                            ),
-                            ),
-                          );
-                        },
+                  ? Center(
+                      child: Text(
+                        AppLocalizations.of(context)!.tapToUploadDocs,
                       ),
-                      Positioned(
-                        bottom: 40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Obx(() => Container(
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    )
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: controller.imageFiles.length,
+                          onPageChanged: (index) =>
+                              controller.currentIndex.value = index,
+                          itemBuilder: (_, index) {
+                            final file = controller.imageFiles[index];
+                            final path = file.path;
+                            return GestureDetector(
+                              onTap: () =>
+                                  controller.openFile(context, file, index),
+                              child: Container(
+                                margin: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.deepPurple),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: controller.isImage(path)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          file,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                        ),
+                                      )
+                                    : controller.isPdf(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.picture_as_pdf,
+                                            size: 70,
+                                            color: Colors.red,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Text(
+                                              file.path.split('/').last,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : controller.isExcel(path)
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.table_chart,
+                                            size: 70,
+                                            color: Colors.green,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      )
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.insert_drive_file,
+                                            size: 70,
+                                          ),
+                                          Text(
+                                            file.path.split('/').last,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Obx(
+                              () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 16,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.5),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
                                   '${controller.currentIndex.value + 1}/${controller.imageFiles.length}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                  ),
                                 ),
-                              )),
-                        ),
-                      ),
-                      if (controller.isEnable.value)
-                        Positioned(
-                          bottom: 16,
-                          right: 16,
-                          child: GestureDetector(
-                            onTap: _pickFile,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
                               ),
-                              padding: const EdgeInsets.all(8),
-                              child: const Icon(Icons.add, color: Colors.white, size: 28),
                             ),
                           ),
                         ),
-                    ]),
+                        if (controller.isEnable.value)
+                          Positioned(
+                            bottom: 16,
+                            right: 16,
+                            child: GestureDetector(
+                              onTap: _pickFile,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
             ),
           ),
           if (controller.isLoadingviewImage.value)
@@ -3308,7 +4010,10 @@ void _syncControllerToModel(int index) {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Center(
-                  child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -3329,7 +4034,8 @@ void _syncControllerToModel(int index) {
       controller: controllers,
       readOnly: true,
       enabled: !isReadOnly,
-      validator: (value) => _validateRequiredField(value!, "Request Date", true),
+      validator: (value) =>
+          _validateRequiredField(value!, "Request Date", true),
       decoration: InputDecoration(
         labelText: label,
         suffixIcon: IconButton(
@@ -3340,8 +4046,9 @@ void _syncControllerToModel(int index) {
                   DateTime initialDate = DateTime.now();
                   if (controllers.text.isNotEmpty) {
                     try {
-                      initialDate = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy')
-                          .parseStrict(controllers.text.trim());
+                      initialDate = DateFormat(
+                        controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                      ).parseStrict(controllers.text.trim());
                     } catch (_) {
                       initialDate = DateTime.now();
                     }
@@ -3353,8 +4060,9 @@ void _syncControllerToModel(int index) {
                     lastDate: DateTime.now(),
                   );
                   if (picked != null) {
-                    controllers.text = DateFormat(controller.selectedFormat?.key ?? 'dd/MM/yyyy')
-                        .format(picked);
+                    controllers.text = DateFormat(
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                    ).format(picked);
                     setState(() {
                       controller.selectedDate = picked;
                       controller.selectedProject = null;
@@ -3379,10 +4087,13 @@ void _syncControllerToModel(int index) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(children: [
-          const Icon(Icons.check_circle, color: Colors.blue),
-          if (!isLast) Container(width: 2, height: 40, color: Colors.grey.shade300),
-        ]),
+        Column(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.blue),
+            if (!isLast)
+              Container(width: 2, height: 40, color: Colors.grey.shade300),
+          ],
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Card(
@@ -3392,7 +4103,10 @@ void _syncControllerToModel(int index) {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.eventType, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    item.eventType,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text(item.notes),
                   const SizedBox(height: 6),
@@ -3431,7 +4145,10 @@ void _syncControllerToModel(int index) {
           validator: validator,
           decoration: InputDecoration(
             labelText: label,
-            contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 20,
+              horizontal: 16,
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
           ),
         ),
@@ -3440,25 +4157,38 @@ void _syncControllerToModel(int index) {
     );
   }
 
-  Widget _buildSection({required String title, required List<Widget> children}) {
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       child: SizedBox(
         width: double.infinity,
         child: Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ExpansionTile(
-            title: Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.deepPurple)),
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.deepPurple,
+              ),
+            ),
             textColor: Colors.deepPurple,
             iconColor: Colors.deepPurple,
             collapsedIconColor: Colors.grey,
-            childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            childrenPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 6,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             children: children,
           ),
         ),

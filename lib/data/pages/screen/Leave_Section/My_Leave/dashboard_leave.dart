@@ -1117,7 +1117,6 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                           // const SizedBox(height: 16),
                           _buildViewTypeDropdown(context, controller),
 
-                          
                           Obx(
                             () => controller.showEmployeeField.value
                                 ? Column(
@@ -1226,7 +1225,7 @@ class _LeaveDashboardState extends State<LeaveDashboard>
               text: controller.selectedFilterDate.value == null
                   ? ''
                   : DateFormat(
-                     controller.selectedFormat?.key ?? 'dd/MM/yyyy',
+                      controller.selectedFormat?.key ?? 'dd/MM/yyyy',
                     ).format(controller.selectedFilterDate.value!),
             ),
             decoration: InputDecoration(
@@ -1475,22 +1474,12 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                 // Use current month range or selected dates
                 final now = DateTime.now();
                 final fromDate = toMillisecondsWithTimezone(
-                  DateTime(
-                    now.year,
-                    now.month,
-                    1,
-                  ),
+                  DateTime(now.year, now.month, 1),
                 );
 
                 final toDate = toMillisecondsWithTimezone(
-                  DateTime(
-                    now.year,
-                    now.month + 1,
-                    0,
-                  23,
-                  59,
-                  59,
-                ));
+                  DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+                );
 
                 controller.loadCalendarLeaves(
                   fromDate: fromDate,
@@ -1508,20 +1497,13 @@ class _LeaveDashboardState extends State<LeaveDashboard>
             onPressed: () {
               controller.resetFilters(); // reset filters
               final now = DateTime.now();
-              final fromDate =toMillisecondsWithTimezone(DateTime(
-                now.year,
-                now.month,
-                1,
-              ));
+              final fromDate = toMillisecondsWithTimezone(
+                DateTime(now.year, now.month, 1),
+              );
 
-              final toDate =toMillisecondsWithTimezone( DateTime(
-                now.year,
-                now.month + 1,
-                0,
-                23,
-                59,
-                59,
-              ));
+              final toDate = toMillisecondsWithTimezone(
+                DateTime(now.year, now.month + 1, 0, 23, 59, 59),
+              );
 
               controller.loadCalendarLeaves(fromDate: fromDate, toDate: toDate);
               Navigator.pop(context); // close dialog/page
@@ -2318,12 +2300,14 @@ class _LeaveDashboardState extends State<LeaveDashboard>
                 right: 0,
                 top: 0,
                 child: Text(
-                  formatDateFromMillis(item.applicationDate),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                  item.applicationDate != null
+                      ? formatDate(
+                          DateTime.fromMillisecondsSinceEpoch(
+                            item.applicationDate!,
+                          ),
+                        )
+                      : 'No date',
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
               Column(

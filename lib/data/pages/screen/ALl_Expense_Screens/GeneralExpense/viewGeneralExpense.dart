@@ -1093,6 +1093,37 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
             orElse: () => controller.unit.first,
           );
         }
+  final currentController = itemizeControllers[_selectedItemizeIndex];
+
+            // Clone ExpenseTrans custom fields
+            if (currentController.customFields.isNotEmpty) {
+              newController.cloneCustomFieldsFromRx(
+                currentController.customFields,
+              );
+            }
+
+            // ✅ CRITICAL: Clone ExpenseCategories custom fields with their values
+            if (currentController.customFieldsItems.isNotEmpty) {
+              final clonedCategoryFields = currentController.customFieldsItems
+                  .where((f) => f['ObjectName'] == 'ExpenseCategories')
+                  .map((field) {
+                    final Map<String, dynamic> cloned =
+                        Map<String, dynamic>.from(field);
+                    // Preserve all values
+                    cloned['EnteredValue'] = field['EnteredValue'];
+                    cloned['SelectedValue'] = field['SelectedValue'];
+                    cloned['_rxStringValue'] = field['_rxStringValue'];
+                    cloned['_rxCheckboxValue'] = field['_rxCheckboxValue'];
+                    cloned['_rxDateValue'] = field['_rxDateValue'];
+                    cloned['_rxIntValue'] = field['_rxIntValue'];
+                    cloned['_rxDoubleValue'] = field['_rxDoubleValue'];
+                    cloned['_rxSelectedValue'] = field['_rxSelectedValue'];
+                    return cloned;
+                  })
+                  .toList();
+
+              newController.customFieldsItems.addAll(clonedCategoryFields);
+            }
 
         debugPrint(
           "Controller added with unit: ${newController.selectedunit?.name}",
@@ -1214,6 +1245,68 @@ class _ViewEditExpensePageState extends State<ViewEditExpensePage>
 
   @override
   Widget build(BuildContext context) {
+     VoidCallback _getStringListener(
+    Map<String, dynamic> field,
+    Rx<String?> rxValue,
+    TextEditingController controller,
+  ) {
+    return () {
+      final value = controller.text;
+      if (value != rxValue.value) {
+        rxValue.value = value;
+        field['EnteredValue'] = value;
+        field['Error'] = null;
+      }
+    };
+  }
+
+  // Helper method for Integer fields
+  VoidCallback _getIntListener(
+    Map<String, dynamic> field,
+    Rx<int?> rxValue,
+    TextEditingController controller,
+  ) {
+    return () {
+      final value = controller.text;
+      if (value.isEmpty) {
+        if (rxValue.value != null) {
+          rxValue.value = null;
+          field['EnteredValue'] = null;
+        }
+      } else {
+        final intValue = int.tryParse(value);
+        if (intValue != rxValue.value) {
+          rxValue.value = intValue;
+          field['EnteredValue'] = intValue;
+        }
+      }
+      field['Error'] = null;
+    };
+  }
+
+  // Helper method for Double fields
+  VoidCallback _getDoubleListener(
+    Map<String, dynamic> field,
+    Rx<double?> rxValue,
+    TextEditingController controller,
+  ) {
+    return () {
+      final value = controller.text;
+      if (value.isEmpty) {
+        if (rxValue.value != null) {
+          rxValue.value = null;
+          field['EnteredValue'] = null;
+        }
+      } else {
+        final doubleValue = double.tryParse(value);
+        if (doubleValue != rxValue.value) {
+          rxValue.value = doubleValue;
+          field['EnteredValue'] = doubleValue;
+        }
+      }
+      field['Error'] = null;
+    };
+  }
     return WillPopScope(
       onWillPop: () async {
         if (!controller.isEnable.value) {
@@ -3924,89 +4017,62 @@ else if (fieldType == 'MobileNumber') {
 }
                                                       // Default Text type - Make Reactive
                                                       else {
-                                                        if (field['_rxStringValue'] ==
-                                                            null) {
-                                                          field['_rxStringValue'] =
-                                                              Rx<String?>(
-                                                                field['EnteredValue']
-                                                                    as String?,
-                                                              );
-                                                        }
+                      if (field['_rxStringValue'] == null) {
+                        field['_rxStringValue'] = Rx<String?>(
+                          field['EnteredValue'] as String?,
+                        );
+                      }
 
-                                                        inputField = Obx(() {
-                                                          final rxValue =
-                                                              field['_rxStringValue']
-                                                                  as Rx<
-                                                                    String?
-                                                                  >;
-                                                          final textEditingController =
-                                                              TextEditingController(
-                                                                text:
-                                                                    rxValue
-                                                                        .value ??
-                                                                    '',
-                                                              );
+                      // Create stable controller
+                      field['_textController'] ??= TextEditingController();
+                      final textController =
+                          field['_textController'] as TextEditingController;
 
-                                                          textEditingController
-                                                              .addListener(() {
-                                                                final value =
-                                                                    textEditingController
-                                                                        .text;
-                                                                if (value !=
-                                                                    rxValue
-                                                                        .value) {
-                                                                  rxValue.value =
-                                                                      value;
-                                                                  field['EnteredValue'] =
-                                                                      value;
-                                                                }
-                                                                field['Error'] =
-                                                                    null;
-                                                              });
+                      inputField = Obx(() {
+                        final rxValue = field['_rxStringValue'] as Rx<String?>;
 
-                                                          return TextFormField(
-                                                            enabled: controller
-                                                                .isEnable
-                                                                .value,
-                                                            keyboardType:
-                                                                TextInputType
-                                                                    .text,
-                                                            controller:
-                                                                textEditingController,
-                                                            decoration: InputDecoration(
-                                                              labelText:
-                                                                  '$label${isMandatory ? " *" : ""}',
-                                                              border:
-                                                                  const OutlineInputBorder(),
-                                                              errorText:
-                                                                  field['Error'],
-                                                            ),
-                                                            validator: (value) {
-                                                              if (isMandatory &&
-                                                                  (value ==
-                                                                          null ||
-                                                                      value
-                                                                          .trim()
-                                                                          .isEmpty)) {
-                                                                return '$label is required';
-                                                              }
-                                                              return null;
-                                                            },
-                                                          );
-                                                        });
-                                                      }
+                        // Update controller without triggering rebuild
+                        final newText = rxValue.value ?? '';
+                        if (textController.text != newText) {
+                          textController.text = newText;
+                        }
 
-                                                      return Padding(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 6,
-                                                            ),
-                                                        child: inputField,
-                                                      );
-                                                    })
-                                                    .toList(),
-                                              );
-                                            }),
+                        // Remove old listener and add new one
+                        textController.removeListener(
+                          _getStringListener(field, rxValue, textController),
+                        );
+                        textController.addListener(
+                          _getStringListener(field, rxValue, textController),
+                        );
+
+                        return TextFormField(
+                          // key: ValueKey('text_$fieldKey'),
+                          // enabled: controller.isEnable.value,
+                          keyboardType: TextInputType.text,
+                          controller: textController,
+                          decoration: InputDecoration(
+                            labelText: '$label${isMandatory ? " *" : ""}',
+                            border: const OutlineInputBorder(),
+                            errorText: field['Error'],
+                          ),
+                          validator: (value) {
+                            if (isMandatory &&
+                                (value == null || value.trim().isEmpty)) {
+                              return '$label is required';
+                            }
+                            return null;
+                          },
+                        );
+                      });
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: inputField,
+                    );
+                  }).toList(),
+                );
+              }),
                                             SizedBox(height: 8),
                                             SearchableMultiColumnDropdownField<
                                               ExpenseCategory

@@ -1786,7 +1786,7 @@ class ExpenseItem {
       "TaxGroup": taxGroup,
       "LineAmountTrans": lineAmountTrans,
       "LineAmountReporting": lineAmountReporting,
-      "ProjectId": projectId, 
+      "ProjectId": projectId,
       "Description": description,
       "IsReimbursable": isReimbursable,
       "IsBillable": isBillable,
@@ -2470,7 +2470,7 @@ class LeaveRequest {
   final List<LeaveTransactionModel> transactions;
   final List<DocumentAttachmentbase64> attachments;
   final List<Map<String, dynamic>>? leaveCustomFieldValues;
-  
+
   LeaveRequest({
     required this.employeeId,
     required this.employeeName,
@@ -2508,13 +2508,13 @@ class LeaveRequest {
   Map<String, dynamic> toJson() {
     // Convert startDate and endDate from UTC DateTime to UTC milliseconds
     // The stored startDate/endDate are UTC DateTimes that represent org-local dates
-    final int? fromDateMs = startDate != null 
-        ? _dateTimeToUtcMilliseconds(startDate!) 
+    final int? fromDateMs = startDate != null
+        ? _dateTimeToUtcMilliseconds(startDate!)
         : null;
-    final int? toDateMs = endDate != null 
-        ? _dateTimeToUtcMilliseconds(endDate!) 
+    final int? toDateMs = endDate != null
+        ? _dateTimeToUtcMilliseconds(endDate!)
         : null;
-    
+
     return {
       "LeaveId": leaveId,
       "EmployeeId": employeeId,
@@ -2536,7 +2536,8 @@ class LeaveRequest {
       "ReasonForLeave": comments,
       "FromDateHalfDay": fromDateHalfDay,
       "FromDateHalfDayValue": fromDateHalfDayValue,
-      "AvailabilityDuringLeave": (availabilityDuringLeave?.trim().isNotEmpty ?? false)
+      "AvailabilityDuringLeave":
+          (availabilityDuringLeave?.trim().isNotEmpty ?? false)
           ? availabilityDuringLeave
           : null,
       "OutOfOfficeMessage": (outOfOfficeMessage?.trim().isNotEmpty ?? false)
@@ -2545,7 +2546,8 @@ class LeaveRequest {
       "NotifyHR": notifyHR ?? false,
       "NotifyTeamMembers": notifyTeam ?? false,
       "IsLeaveUnPaid": !(isPaidLeave ?? true),
-      "EmergencyContactNumber": (contactNumber != null && contactNumber!.isNotEmpty)
+      "EmergencyContactNumber":
+          (contactNumber != null && contactNumber!.isNotEmpty)
           ? contactNumber
           : null,
       "NotifyingUserIds": (notifyingUsers != null && notifyingUsers!.isNotEmpty)
@@ -2561,22 +2563,22 @@ class LeaveRequest {
       },
     };
   }
-  
+
   // Helper method to convert DateTime to UTC milliseconds
   int _dateTimeToUtcMilliseconds(DateTime dateTime) {
     // Ensure we're working with UTC
     final DateTime utcDateTime = dateTime.isUtc ? dateTime : dateTime.toUtc();
-    
+
     // If the DateTime is stored as UTC but represents org-local time,
     // we need to convert it to proper UTC milliseconds for API
     final offsetMs = getTimezoneOffsetMs();
-    
+
     // Convert to org-local first (add offset)
     final orgLocalDateTime = DateTime.fromMillisecondsSinceEpoch(
       utcDateTime.millisecondsSinceEpoch + offsetMs,
       isUtc: true,
     );
-    
+
     // Then convert to start of day UTC milliseconds (subtract offset)
     return toStartOfDayUtc(orgLocalDateTime);
   }
@@ -4064,7 +4066,7 @@ class UnprocessExpenseModels {
   final DateTime? fromDate;
   final DateTime? toDate;
   final List<ExpenseItemUpdate> expenseTrans;
-
+  final List<Map<String, dynamic>> expenseHeaderCustomFieldValues;
   UnprocessExpenseModels({
     required this.expenseId,
     this.projectId,
@@ -4102,6 +4104,7 @@ class UnprocessExpenseModels {
     this.unprocessedRecId,
     this.fromDate,
     this.toDate,
+    this.expenseHeaderCustomFieldValues = const [],
   });
 
   factory UnprocessExpenseModels.fromJson(Map<String, dynamic> json) {
@@ -4137,8 +4140,8 @@ class UnprocessExpenseModels {
       taxAmount: (json['TaxAmount'] ?? 0).toDouble(),
       isReimbursable: _parseBool(json['IsReimbursable']),
       country: json['Country']?.toString(),
-      recId: json['RecId'] != null
-          ? int.tryParse(json['RecId'].toString())
+      recId: json['UnprocessedRecId'] != null
+          ? int.tryParse(json['UnprocessedRecId'].toString())
           : null,
       expenseStatus: json['ExpenseStatus']?.toString(),
       location: json['Location']?.toString(),
@@ -4159,6 +4162,10 @@ class UnprocessExpenseModels {
       expenseTrans: (json['ExpenseTrans'] as List<dynamic>? ?? [])
           .map((e) => ExpenseItemUpdate.fromJson(e))
           .toList(),
+      expenseHeaderCustomFieldValues:
+          (json['ExpenseHeaderCustomFieldValues'] as List<dynamic>? ?? [])
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
     );
   }
 
@@ -5772,8 +5779,8 @@ class CashAdvanceRequestItemize {
   String? uomId;
   double? unitEstimatedAmount;
   double? userExchRate;
- List<CustomFieldValue>? cshTransCustomFieldValues;
-List<CustomFieldValue>? cshTransCategoryCustomFieldValues;
+  final List<Map<String, dynamic>>? cshTransCustomFieldValues;
+  List<CustomFieldValue>? cshTransCategoryCustomFieldValues;
   List<dynamic>? cashAdvTrans;
   double? taxAmount;
 
@@ -5819,8 +5826,8 @@ List<CustomFieldValue>? cshTransCategoryCustomFieldValues;
     this.uomId,
     this.unitEstimatedAmount,
     this.userExchRate,
-   this.cshTransCustomFieldValues,
-this.cshTransCategoryCustomFieldValues,
+    this.cshTransCustomFieldValues,
+    this.cshTransCategoryCustomFieldValues,
     this.cashAdvTrans,
     this.taxAmount,
   });
@@ -5892,17 +5899,17 @@ this.cshTransCategoryCustomFieldValues,
       uomId: json['UOMId'],
       unitEstimatedAmount: _toDoubleOrNull(json['UnitEstimatedAmount']),
       userExchRate: _toDoubleOrNull(json['UserExchRate']),
-    cshTransCustomFieldValues:
-    (json['CSHTransCustomFieldValues'] as List<dynamic>?)
-        ?.map((e) => CustomFieldValue.fromJson(e))
-        .toList() ??
-    [],
+      cshTransCustomFieldValues:
+          (json['CSHTransCustomFieldValues'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [],
 
-cshTransCategoryCustomFieldValues:
-    (json['CSHTransCategoryCustomFieldValues'] as List<dynamic>?)
-        ?.map((e) => CustomFieldValue.fromJson(e))
-        .toList() ??
-    [],
+      cshTransCategoryCustomFieldValues:
+          (json['CSHTransCategoryCustomFieldValues'] as List<dynamic>?)
+              ?.map((e) => CustomFieldValue.fromJson(e))
+              .toList() ??
+          [],
       cashAdvTrans: json['CashAdvTrans'] ?? [],
     );
   }
@@ -6135,7 +6142,7 @@ class CashAdvanceRequestHeader {
   final String? stepType;
   final int? workitemrecid;
   final List<Map<String, dynamic>> cshHeaderCustomFieldValues;
-final List<Map<String, dynamic>> cshHeaderCategoryCustomFieldValues;
+  final List<Map<String, dynamic>> cshHeaderCategoryCustomFieldValues;
   final List<CashAdvanceRequestItemize> cshCashAdvReqTrans;
 
   CashAdvanceRequestHeader({
@@ -6202,17 +6209,17 @@ final List<Map<String, dynamic>> cshHeaderCategoryCustomFieldValues;
       location: json['Location'],
       stepType: json['StepType'],
       workitemrecid: json['workitemrecid'],
-    cshHeaderCustomFieldValues:
-    (json['CSHHeaderCustomFieldValues'] as List<dynamic>?)
-        ?.map((e) => Map<String, dynamic>.from(e))
-        .toList() ??
-    [],
+      cshHeaderCustomFieldValues:
+          (json['CSHHeaderCustomFieldValues'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [],
 
-cshHeaderCategoryCustomFieldValues:
-    (json['CSHHeaderCategoryCustomFieldValues'] as List<dynamic>?)
-        ?.map((e) => Map<String, dynamic>.from(e))
-        .toList() ??
-    [],
+      cshHeaderCategoryCustomFieldValues:
+          (json['CSHHeaderCategoryCustomFieldValues'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [],
       cshCashAdvReqTrans:
           (json['CSHCashAdvReqTrans'] as List<dynamic>?)
               ?.map((e) => CashAdvanceRequestItemize.fromJson(e))

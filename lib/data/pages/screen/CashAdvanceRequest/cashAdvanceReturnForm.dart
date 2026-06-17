@@ -121,7 +121,16 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
     //  controller.loadSequenceModules();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.isLoadingCAForm.value = true;
+final todayOrg = todayInOrgTimezone();
 
+// Convert to UTC milliseconds
+final fromMs = toStartOfDayUtc(todayOrg);
+
+// Store as UTC DateTime (always keep isUtc: true)
+controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
+  fromMs,
+  isUtc: true,
+);
       controller.fetchEmployeesID();
       loadSequenceAndUpdateUI();
 
@@ -144,16 +153,7 @@ class _FormCashAdvanceRequestState extends State<FormCashAdvanceRequest>
       // await loadTimezoneValue();
 
       // Get today's date in organization's timezone
-final todayOrg = todayInOrgTimezone();
 
-// Convert to UTC milliseconds
-final fromMs = toStartOfDayUtc(todayOrg);
-
-// Store as UTC DateTime (always keep isUtc: true)
-controller.selectedDate ??= DateTime.fromMillisecondsSinceEpoch(
-  fromMs,
-  isUtc: true,
-);
       // print('checktimeXoje${controller.selectedDate}');
       controller.fetchBusinessjustification();
       controller.fetchLocation();

@@ -1557,30 +1557,44 @@ class Controller extends GetxController {
   // }
 
   void updateDatesController() {
-    final today = DateTime.now();
+    final todayOrg = todayInOrgTimezone();
 
     if (startDate.value != null && endDate.value != null) {
-      final start = DateFormat(
-        selectedFormat?.key ?? 'dd/MM/yyyy',
-      ).format(startDate.value!);
-      final end = DateFormat(
-        selectedFormat?.key ?? 'dd/MM/yyyy',
-      ).format(endDate.value!);
-      datesController.text = '$start - $end';
-    } else {
-      final start = DateFormat(
-        selectedFormat?.key ?? 'dd/MM/yyyy',
-      ).format(today);
-      final end = DateFormat(selectedFormat?.key ?? 'dd/MM/yyyy').format(today);
+      final startMs = toStartOfDayUtc(startDate.value!);
+      final endMs = toEndOfDayUtc(endDate.value!);
 
-      datesController.text = '$start - $end';
-
-      // set startDate and endDate using millisecondsSinceEpoch
-      startDate.value = DateTime.fromMillisecondsSinceEpoch(
-        toStartOfDayUtc(today),
+      final startDateUtc = DateTime.fromMillisecondsSinceEpoch(
+        startMs,
+        isUtc: true,
       );
 
-      endDate.value = DateTime.fromMillisecondsSinceEpoch(toEndOfDayUtc(today));
+      final endDateUtc = DateTime.fromMillisecondsSinceEpoch(
+        endMs,
+        isUtc: true,
+      );
+
+      datesController.text =
+          '${formatDate(startDateUtc)} - ${formatDate(endDateUtc)}';
+    } else {
+      final startMs = toStartOfDayUtc(todayOrg);
+      final endMs = toEndOfDayUtc(todayOrg);
+
+      final startDateUtc = DateTime.fromMillisecondsSinceEpoch(
+        startMs,
+        isUtc: true,
+      );
+
+      final endDateUtc = DateTime.fromMillisecondsSinceEpoch(
+        endMs,
+        isUtc: true,
+      );
+
+      datesController.text =
+          '${formatDate(startDateUtc)} - ${formatDate(endDateUtc)}';
+
+      // store org timezone start/end dates
+      startDate.value = startDateUtc;
+      endDate.value = endDateUtc;
     }
   }
 
@@ -3064,11 +3078,11 @@ class Controller extends GetxController {
     'yyyy.mm.dd': '2023.01.20',
   };
   // In your controller
-String get currentDateFormat {
-  return selectedFormat?.value ?? 'dd/MM/yyyy';
-} 
+  String get currentDateFormat {
+    return selectedFormat?.value ?? 'dd/MM/yyyy';
+  }
 
-// Then in your widge
+  // Then in your widge
   Future signIn(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('ThemeColor');
@@ -3150,12 +3164,12 @@ String get currentDateFormat {
             orgSettings["OrganizationDefaultCurrencySymbol"],
           );
         }
-              await prefs.setString(
-  "DefaultDateformat",  // ← Key used when saving
-  settings["DefaultDateFormat"] ?? "DD/MM/YYYY",
-);
+        await prefs.setString(
+          "DefaultDateformat", // ← Key used when saving
+          settings["DefaultDateFormat"] ?? "DD/MM/YYYY",
+        );
         print("DefaultDateformat${settings["DefaultDateFormat"]}");
-                print("organizationCurrency$organizationCurrency");
+        print("organizationCurrency$organizationCurrency");
 
         await prefs.setString(
           "ThemeColor",
@@ -3173,7 +3187,6 @@ String get currentDateFormat {
           "LanguageID",
           settings["DefaultLanguageId"] ?? "LUG-01",
         );
-  
 
         final localeCode = getLocaleCodeFromId(settings["DefaultLanguageId"]);
         Provider.of<LocaleNotifier>(
@@ -3730,9 +3743,12 @@ String get currentDateFormat {
   }
 
   Future<List<Employee>> fetchEmployees() async {
+    final todayOrg = todayInOrgTimezone();
+    final endMs = toEndOfDayUtc(todayOrg);
+    final endDateUtc = DateTime.fromMillisecondsSinceEpoch(endMs, isUtc: true);
     final url = Uri.parse(
       '${Urls.baseURL}/api/v1/masters/employeemgmt/employees/employees'
-      '?filter_query=EMPEmployees.EmploymentEndDate__gte%3D1765823400000'
+      '?filter_query=EMPEmployees.EmploymentEndDate__gte%3D$endMs'
       '&page=1'
       '&sort_by=ModifiedDatetime&sort_order=desc'
       '&choosen_fields=FirstName,MiddleName,LastName,EmploymentStartDate,EmploymentEndDate,Id',
@@ -3904,18 +3920,189 @@ String get currentDateFormat {
   }
 
   ExpenseItemUpdate toExpenseItemUpdateModel() {
+    // Build custom fields for this expense transaction
+    final expenseTransCustomFields = customFieldsItems
+        .where(
+          (field) =>
+              field['ObjectName'] == 'ExpenseTrans' &&
+              (field['ExpenseType'] == 'General Expenses' ||
+                  field['ExpenseType'] == null),
+        )
+        .map((field) {
+          dynamic fieldValue;
+          final fieldType = field['FieldType']?.toString() ?? 'Text';
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            fieldValue =
+                field['SelectedValue']?.valueId ??
+                field['EnteredValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Checkbox') {
+            fieldValue =
+                field['EnteredValue'] ??
+                (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
+                false;
+          } else if (fieldType == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : '';
+          } else if (fieldType == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : '';
+          } else if (fieldType == 'Email' || fieldType == 'MobileNumber') {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            fieldValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'LongInteger') {
+            final rxValue = field['_rxIntValue'] as Rx<int?>?;
+            fieldValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Decimal' ||
+              fieldType == 'Amount' ||
+              fieldType == 'Percentage') {
+            final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
+            fieldValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            fieldValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          }
+
+          print(
+            "📤 ExpenseTrans Field: ${field['FieldName']}, Value: $fieldValue",
+          );
+
+          return {
+            "CustomFieldEntity": field['CustomFieldEntity'] ?? 'ExpenseTrans',
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue.toString(),
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": fieldType,
+          };
+        })
+        .toList();
+
+    // Build category-level custom fields
+    final expenseTransCategoryCustomFields = customFieldsItems
+        .where((field) => field['ObjectName'] == 'ExpenseCategories')
+        .map((field) {
+          dynamic fieldValue;
+          final fieldType = field['FieldType']?.toString() ?? 'Text';
+
+          print("📦 Processing Category Field: ${field['FieldName']}");
+          print("  - FieldType: $fieldType");
+          print("  - EnteredValue: ${field['EnteredValue']}");
+          print("  - SelectedValue: ${field['SelectedValue']}");
+          print("  - DefaultValue: ${field['DefaultValue']}");
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            fieldValue =
+                field['SelectedValue']?.valueId ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Checkbox') {
+            fieldValue =
+                field['EnteredValue'] ??
+                (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
+                false;
+          } else if (fieldType == 'Date') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
+                : field['DefaultValue'] ?? '';
+          } else if (fieldType == 'Date&Time') {
+            fieldValue = field['EnteredValue'] != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
+                : field['DefaultValue'] ?? '';
+          } else if (fieldType == 'Email') {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            fieldValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+            print("  📧 Email Value extracted: '$fieldValue'");
+          } else if (fieldType == 'MobileNumber') {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            fieldValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'LongInteger') {
+            final rxValue = field['_rxIntValue'] as Rx<int?>?;
+            fieldValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Decimal' ||
+              fieldType == 'Amount' ||
+              fieldType == 'Percentage') {
+            final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
+            fieldValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            fieldValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          }
+
+          print("  ✅ Final Value to send: '$fieldValue'");
+
+          return {
+            "CustomFieldEntity": "ExpenseCategories",
+            "FieldId": field['FieldId'] ?? '',
+            "FieldValue": fieldValue.toString(),
+            "FieldName": field['FieldName'] ?? '',
+            "FieldType": fieldType,
+          };
+        })
+        .toList();
+
+    print(
+      "✅ Total Category Custom Fields: ${expenseTransCategoryCustomFields.length}",
+    );
+    print(
+      "✅ Total Transaction Custom Fields: ${expenseTransCustomFields.length}",
+    );
+
     return ExpenseItemUpdate(
       recId: recIDItem,
       expenseId: expenseId?.toString(),
       expenseCategoryId: categoryController.text,
       quantity: double.tryParse(quantity.text) ?? 1.0,
-      uomId: uomId.text,
+      uomId: selectedunit?.code ?? uomId.text,
       unitPriceTrans: double.tryParse(unitPriceTrans.text) ?? 0,
       taxAmount: double.tryParse(taxAmount.text) ?? 0,
-      taxGroup: taxGroupController.text,
+      taxGroup: selectedTax?.taxGroupId ?? taxGroupController.text,
       lineAmountTrans: double.tryParse(lineAmount.text) ?? 0,
       lineAmountReporting: double.tryParse(lineAmountINR.text) ?? 0,
-      projectId: projectDropDowncontroller.text,
+      projectId: selectedProject?.code ?? projectDropDowncontroller.text,
       description: descriptionController.text,
       isReimbursable: isReimbursable,
       isBillable: isBillableCreate,
@@ -3930,6 +4117,9 @@ String get currentDateFormat {
           dimensionValueId: controller?.dimensionValueId ?? 'Branch001',
         );
       }).toList(),
+      expenseTransCustomFieldValues: expenseTransCustomFields,
+      expenseTransExpensecategorycustomfieldvalues:
+          expenseTransCategoryCustomFields,
     );
   }
 
@@ -5334,19 +5524,24 @@ String get currentDateFormat {
 
   Future<void> fetchExpenseCategory() async {
     expenseCategory.clear();
-    final dateToUse = selectedDate ?? DateTime.now().add(Duration(days: 1));
-    //  // print("fetchExpenseCategory${selectedProject?.code}");
-    //  // print("fetchExpenseCategory$selectedDate");
+    final dateToUse = selectedDate;
+    print("fetchExpenseCategory$selectedDate");
     isLoading.value = true;
+
+    // Format the date for display (if needed)
     final formatted = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).format(dateToUse);
-    final fromDate = parseDateToEpoch(formatted);
-    //  // print("fetchExpenseCategory$fromDate");
+    ).format(dateToUse!);
+    print("fetchExpenseCategory formatted display: $formatted");
+
+    // ✅ CORRECT: Get milliseconds since epoch from the DateTime object
+    final millisecondsSinceEpoch = dateToUse.millisecondsSinceEpoch.toString();
+    print("fetchExpenseCategory milliseconds: $millisecondsSinceEpoch");
     try {
       // Safely construct query parameters
       final queryParams = <String, String>{
-        'TransactionDate': fromDate!.toStringAsFixed(2),
+        'TransactionDate':
+            millisecondsSinceEpoch, // Use the DateTime's milliseconds
       };
 
       if (selectedProject?.code != null && selectedProject!.code.isNotEmpty) {
@@ -8175,7 +8370,7 @@ String get currentDateFormat {
       final String message =
           responseData['detail']?['message'] ?? 'No message found';
       if (response.statusCode == 202 || response.statusCode == 280) {
-        Navigator.pushNamed(context, AppRoutes.approvalDashboard);
+        Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         resetFieldsMileage();
         clearFormFieldsPerdiem();
         Fluttertoast.showToast(
@@ -9116,75 +9311,172 @@ String get currentDateFormat {
   }
 
   void addToFinalItemsUnProcess(UnprocessExpenseModels expense) {
-    finalItemsSpecific.clear(); // Clear previous items first
+    finalItemsSpecific.clear();
 
-    for (var trans in expense.expenseTrans) {
-      final int? originalRecId = trans.recId;
-      print("""
-      --- Expense Transaction ---
-      recId: ${originalRecId}
-      expenseId: ${trans.expenseId}
-      expenseCategoryId: ${trans.expenseCategoryId}
-      uomId: ${trans.uomId}
-      quantity: ${trans.quantity}
-      unitPriceTrans: ${trans.unitPriceTrans}
-      taxAmount: ${trans.taxAmount}
-      taxGroup: ${trans.taxGroup}
-      lineAmountTranss: ${trans.lineAmountTrans}
-      lineAmountReporting: ${trans.lineAmountReporting}
-      projectId: ${trans.projectId}
-      description: ${trans.description}
-      isReimbursable: ${trans.isReimbursable}
-      isBillable: ${trans.isBillable}
-      accountingDistributions: ${trans.accountingDistributions.map((d) => d.toJson()).toList()}
-      ----------------------------
-      """);
+    print("lineItemControllers length => ${lineItemControllers.length}");
+    print("expense.expenseTrans length => ${expense.expenseTrans.length}");
 
-      // Preserve the original recId from the transaction
+    for (int i = 0; i < expense.expenseTrans.length; i++) {
+      final trans = expense.expenseTrans[i];
+      final dynamic itemCtrl = (i < lineItemControllers.length)
+          ? lineItemControllers[i]
+          : null;
 
       final taxGroupValue =
           (trans.taxGroup != null && trans.taxGroup.toString().isNotEmpty)
           ? trans.taxGroup
           : null;
 
-      // Map accounting distributions while preserving their recIds
       final mappedDistributions =
           trans.accountingDistributions?.map((dist) {
-            //  //  // print("Distribution recId: ${dist.recId}");
             return AccountingDistribution(
               transAmount: dist.transAmount,
               reportAmount: dist.reportAmount,
               dimensionValueId: dist.dimensionValueId,
               allocationFactor: dist.allocationFactor,
-              recId: dist.recId, // Preserve the distribution recId
+              recId: dist.recId,
             );
           }).toList() ??
           [];
 
-      // Create the expense item update model with preserved recId
+      final List<Map<String, dynamic>> transCustomFieldValues = [];
+      final List<Map<String, dynamic>> transCategoryCustomFieldValues = [];
+
+      if (itemCtrl != null) {
+        print(
+          "=== Processing item $i, customFieldsItems count: ${itemCtrl.customFieldsItems?.length} ===",
+        );
+
+        final List<dynamic> customFields = itemCtrl.customFieldsItems ?? [];
+
+        for (var field in customFields) {
+          final fieldId = field['FieldId'];
+          final fieldName = field['FieldName'];
+          final fieldType = field['FieldType'] ?? 'Text';
+          final objectName = field['ObjectName'] ?? '';
+
+          dynamic enteredValue;
+
+          if (fieldType == 'List' ||
+              fieldType == 'CustomList' ||
+              fieldType == 'SystemList') {
+            final selected = field['SelectedValue'];
+            enteredValue =
+                selected?.valueId ?? field['EnteredValue']?.toString() ?? '';
+          } else if (fieldType == 'Checkbox') {
+            enteredValue =
+                field['EnteredValue'] ??
+                (field['_rxCheckboxValue'] as Rx<bool>?)?.value ??
+                false;
+          } else if (fieldType == 'Date') {
+            final date = field['EnteredValue'];
+            enteredValue = date != null
+                ? DateFormat('dd/MM/yyyy').format(date as DateTime)
+                : '';
+          } else if (fieldType == 'Date&Time') {
+            final date = field['EnteredValue'];
+            enteredValue = date != null
+                ? DateFormat('dd/MM/yyyy hh:mm a').format(date as DateTime)
+                : '';
+          } else if (fieldType == 'Email' || fieldType == 'MobileNumber') {
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            enteredValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'LongInteger') {
+            final rxValue = field['_rxIntValue'] as Rx<int?>?;
+            enteredValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else if (fieldType == 'Decimal') {
+            final rxValue = field['_rxDoubleValue'] as Rx<double?>?;
+            enteredValue =
+                rxValue?.value?.toString() ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          } else {
+            // Text, Amount, and all others
+            final rxValue = field['_rxStringValue'] as Rx<String?>?;
+            enteredValue =
+                rxValue?.value ??
+                field['EnteredValue']?.toString() ??
+                field['DefaultValue']?.toString() ??
+                '';
+          }
+
+          final fieldMap = {
+            "CustomFieldEntity":
+                (objectName == 'ExpenseCategories' ||
+                    objectName ==
+                        'ExpenseTransExpensecategorycustomfieldvalues')
+                ? 'ExpenseCategories'
+                : 'ExpenseTrans',
+            "FieldId": fieldId,
+            "FieldName": fieldName,
+            "FieldValue": enteredValue?.toString() ?? '',
+            "FieldType": fieldType,
+          };
+
+          print(
+            "Field: $fieldName | Type: $fieldType | Object: $objectName | Value: $enteredValue",
+          );
+
+          if (objectName == 'ExpenseTrans') {
+            transCustomFieldValues.add(fieldMap);
+            print("✅ Added to transCustomFieldValues");
+          } else if (objectName == 'ExpenseCategories' ||
+              objectName == 'ExpenseTransExpensecategorycustomfieldvalues') {
+            transCategoryCustomFieldValues.add(fieldMap);
+            print("✅ Added to transCategoryCustomFieldValues");
+          }
+        }
+
+        print("transCustomFieldValues count: ${transCustomFieldValues.length}");
+        print(
+          "transCategoryCustomFieldValues count: ${transCategoryCustomFieldValues.length}",
+        );
+      } else {
+        print(
+          "⚠️ No itemCtrl found for index $i — lineItemControllers not synced!",
+        );
+      }
+
       final item = ExpenseItemUpdate(
-        recId: originalRecId,
+        recId: trans.recId,
         expenseId: trans.expenseId,
         expenseCategoryId: trans.expenseCategoryId,
-        uomId: trans.uomId,
-        quantity: trans.quantity,
-        unitPriceTrans: trans.unitPriceTrans,
-        taxAmount: trans.taxAmount,
-        taxGroup: taxGroupValue,
-        lineAmountTrans: trans.lineAmountTrans,
-        lineAmountReporting: trans.lineAmountReporting,
-        projectId: trans.projectId,
-        description: trans.description ?? '',
-        isReimbursable: trans.isReimbursable,
-        isBillable: trans.isBillable,
+        uomId: itemCtrl?.uomId.text ?? trans.uomId,
+        quantity:
+            double.tryParse(itemCtrl?.quantity.text ?? '') ?? trans.quantity,
+        unitPriceTrans:
+            double.tryParse(itemCtrl?.unitPriceTrans.text ?? '') ??
+            trans.unitPriceTrans,
+        taxAmount:
+            double.tryParse(itemCtrl?.taxAmount.text ?? '') ?? trans.taxAmount,
+        taxGroup: itemCtrl?.selectedTax?.taxGroupId ?? taxGroupValue,
+        lineAmountTrans:
+            double.tryParse(itemCtrl?.lineAmount.text ?? '') ??
+            trans.lineAmountTrans,
+        lineAmountReporting:
+            double.tryParse(itemCtrl?.lineAmountINR.text ?? '') ??
+            trans.lineAmountReporting,
+        projectId: itemCtrl?.selectedProject?.code ?? trans.projectId,
+        description:
+            itemCtrl?.descriptionController.text ?? trans.description ?? '',
+        isReimbursable: itemCtrl?.isReimbursable ?? trans.isReimbursable,
+        isBillable: itemCtrl?.isBillableCreate ?? trans.isBillable,
         accountingDistributions: mappedDistributions,
+        expenseTransCustomFieldValues: transCustomFieldValues,
+        expenseTransExpensecategorycustomfieldvalues:
+            transCategoryCustomFieldValues,
       );
 
-      //  //  // print("Final item recId: ${item.recId}");
       finalItemsSpecific.add(item);
-      print(
-        "ExpenseTrans recIds: ${finalItemsSpecific.map((e) => e.recId).toList()}",
-      );
     }
 
     //  //  // print("Total items in finalItemsSpecific: ${finalItemsSpecific.length}");
@@ -9259,25 +9551,60 @@ String get currentDateFormat {
     }
   }
 
-  Future<void> saveGeneralExpense(context, bool bool, bool? reSubmit) async {
+  // Add this property to your Controller class
+  List<Map<String, dynamic>>? expenseTransListForSubmit;
+  Future<void> saveGeneralExpense(
+    BuildContext context,
+    bool bool,
+    bool? reSubmit,
+  ) async {
     print("saveGeneralExpense finalItems = ${finalItems.length}");
+
+    // Build ExpenseTrans array from finalItems
+    List<Map<String, dynamic>> expenseTransArray = [];
+
+    for (var item in finalItems) {
+      // Convert each ExpenseItem to the format backend expects
+      Map<String, dynamic> expenseTransItem = {
+        "ExpenseCategoryId": item.expenseCategoryId,
+        "Quantity": item.quantity,
+        "UomId": item.uomId,
+        "UnitPriceTrans": item.unitPriceTrans,
+        "TaxAmount": item.taxAmount,
+        "TaxGroup": item.taxGroup,
+        "LineAmountTrans": item.lineAmountTrans,
+        "LineAmountReporting": item.lineAmountReporting,
+        "ProjectId": item.projectId,
+        "Description": item.description ?? "",
+        "IsReimbursable": item.isReimbursable,
+        "IsBillable": item.isBillable,
+        "AccountingDistributions": item.accountingDistributions
+            .map((ad) => ad.toJson())
+            .toList(),
+        "ExpenseTransCustomFieldValues":
+            item.expenseTransCustomFieldValues ?? [],
+        "ExpenseTransExpensecategorycustomfieldvalues":
+            item.expenseTransExpensecategorycustomfieldvalues ?? [],
+      };
+
+      // Remove null values
+      expenseTransItem.removeWhere((key, value) => value == null);
+      expenseTransArray.add(expenseTransItem);
+    }
+
+    print("✅ Built ExpenseTrans array with ${expenseTransArray.length} items");
+
     final formatted = DateFormat(
       selectedFormat?.key ?? 'dd/MM/yyyy',
     ).format(selectedDate!);
-    print("selectedDate$selectedDate!");
-    final parsedDate = DateFormat(
-      selectedFormat?.key ?? 'dd/MM/yyyy',
-    ).parse(formatted.toString());
     final receiptDate = toStartOfDayUtc(selectedDate!);
-    print("receiptDate$receiptDate");
     final hideField = hasModule("Expense");
-    //  //  // print("receiptDate$receiptDate");
+
     final attachmentPayload = await buildDocumentAttachment(imageFiles);
-    // Build ExpenseHeaderCustomFieldValues from customFields
+
+    // Build ExpenseHeaderCustomFieldValues
     final expenseHeaderCustomFields = customFields
-        .where(
-          (field) => field['ObjectName'] == 'ExpenseHeader',
-        ) // adjust if needed
+        .where((field) => field['ObjectName'] == 'ExpenseHeader')
         .map((field) {
           dynamic fieldValue;
 
@@ -9288,13 +9615,25 @@ String get currentDateFormat {
           } else if (field['FieldType'] == 'Checkbox') {
             fieldValue = field['EnteredValue'] ?? false;
           } else if (field['FieldType'] == 'Date') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy').format(field['EnteredValue'])
-                : '';
+            final enteredValue = field['EnteredValue'];
+            if (enteredValue == null) {
+              fieldValue = '';
+            } else if (enteredValue is DateTime) {
+              fieldValue = DateFormat('yyyy-MM-dd').format(enteredValue);
+            } else {
+              fieldValue = enteredValue.toString();
+            }
           } else if (field['FieldType'] == 'Date&Time') {
-            fieldValue = field['EnteredValue'] != null
-                ? DateFormat('dd/MM/yyyy hh:mm a').format(field['EnteredValue'])
-                : '';
+            final enteredValue = field['EnteredValue'];
+            if (enteredValue == null) {
+              fieldValue = '';
+            } else if (enteredValue is DateTime) {
+              fieldValue = DateFormat(
+                'yyyy-MM-dd HH:mm:ss',
+              ).format(enteredValue);
+            } else {
+              fieldValue = enteredValue.toString();
+            }
           } else {
             fieldValue = field['EnteredValue']?.toString() ?? '';
           }
@@ -9308,43 +9647,37 @@ String get currentDateFormat {
           };
         })
         .toList();
-    //  //  // print("receiptDate${unitAmount.text}");
-    //  //  // print("finalItems${finalItems.length}");
+
+    final hasValidUnit = finalItems.isNotEmpty;
+
     if (!bool) {
       isUploading.value = true;
     } else {
       isGESubmitBTNLoading.value = true;
     }
-    final hasValidUnit = finalItems.isNotEmpty;
-    //  //  // print("hasValidUnit$hasValidUnit${selectedunit?.code}");
+
+    // Build the complete request body
     final Map<String, dynamic> requestBody = {
       "ReceiptDate": receiptDate,
       "ExpenseId": hideField ? null : expenseIdController.text,
-      "EmployeeId": employeeDropDownController.text.trim().isEmpty
-          ? null
-          : employeeDropDownController.text.trim(),
-      "EmployeeName": employeeName.text.trim().isEmpty
-          ? null
-          : employeeName.text.trim(),
+      "EmployeeId": Params.employeeId,
+      "EmployeeName": Params.userName,
       "MerchantName": isManualEntryMerchant
           ? manualPaidToController.text.trim()
           : selectedPaidto?.merchantNames ?? '',
       "MerchantId": isManualEntryMerchant ? null : selectedPaidto?.merchantId,
       "CashAdvReqId": cashAdvanceIds.text,
-      "Location": "", // or locationController.text.trim()
+      "Location": "",
       "ReferenceNumber": referenceID.text,
-      "PaymentMethod": paidWithCashAdvance.value!.isEmpty
+      "PaymentMethod": paidWithController.text.isEmpty
           ? null
-          : paidWithCashAdvance.value,
-
+          : paidWithController.text.trim(),
       "TotalAmountTrans": paidAmount.text.isNotEmpty
           ? double.tryParse(paidAmount.text) ?? 0
           : 0,
       "TotalAmountReporting": amountINR.text.isNotEmpty
           ? double.tryParse(amountINR.text) ?? 0
           : 0,
-
-      if (!hasValidUnit) "IsReimbursable": isReimbursiteCreate.value,
       "Currency": currencyDropDowncontroller.text,
       "ExchRate": unitRate.text.isNotEmpty
           ? double.tryParse(unitRate.text) ?? 1
@@ -9357,36 +9690,55 @@ String get currentDateFormat {
       "IsForged": false,
       "IsTobacco": isTobacco,
       "Source": "ReceiptUpload",
-      // if (!hasValidUnit) "ExpenseCategoryId": categoryController.text.trim(),
       "IsBillable": isBillable.value,
       "ExpenseType": "General Expenses",
       "ExpenseHeaderCustomFieldValues": expenseHeaderCustomFields,
       "ExpenseHeaderExpensecategorycustomfieldvalues": [],
-      "ExpenseCategoryId": categoryController.text.trim(),
-      // if (!hasValidUnit) "ExpenseCategoryId": selectedCategoryId,
-      if (!hasValidUnit) 'ProjectId': selectedProject?.code,
-      if (!hasValidUnit) 'Description': descriptionController.text,
-      if (!hasValidUnit)
-        "TaxGroup": !hasValidUnit ? selectedTax?.taxGroupId : null,
-      if (!hasValidUnit) "TaxAmount": double.tryParse(taxAmount.text) ?? 0,
-      if (!hasValidUnit)
-        'AccountingDistributions': accountingDistributions
-            .map((e) => e?.toJson())
-            .toList(),
       "DocumentAttachment": {"File": attachmentPayload},
-      if (hasValidUnit && finalItems.isNotEmpty)
-        "ExpenseTrans": finalItems.map((item) => item.toJson()).toList(),
     };
+
+    // CRITICAL: Add ExpenseTrans array if there are line items
+    if (expenseTransArray.isNotEmpty) {
+      requestBody["ExpenseTrans"] = expenseTransArray;
+      print(
+        "✅ Added ExpenseTrans to requestBody with ${expenseTransArray.length} items",
+      );
+    } else {
+      // If no line items, add single expense fields
+      requestBody["ExpenseCategoryId"] = categoryController.text.trim();
+      if (selectedProject?.code != null)
+        requestBody["ProjectId"] = selectedProject?.code;
+      if (descriptionController.text.isNotEmpty)
+        requestBody["Description"] = descriptionController.text;
+      if (selectedTax?.taxGroupId != null)
+        requestBody["TaxGroup"] = selectedTax?.taxGroupId;
+      if (taxAmount.text.isNotEmpty)
+        requestBody["TaxAmount"] = double.tryParse(taxAmount.text) ?? 0;
+      requestBody["IsReimbursable"] = isReimbursiteCreate.value;
+      requestBody["AccountingDistributions"] = accountingDistributions
+          .map((e) => e?.toJson())
+          .toList();
+    }
+
+    // Remove null values from request body
+    requestBody.removeWhere((key, value) => value == null);
+
+    print("📤 Final requestBody keys: ${requestBody.keys}");
+    print("📤 Has ExpenseTrans: ${requestBody.containsKey('ExpenseTrans')}");
+    if (requestBody.containsKey('ExpenseTrans')) {
+      print(
+        "📤 ExpenseTrans count: ${(requestBody['ExpenseTrans'] as List).length}",
+      );
+    }
 
     try {
       final response = await ApiService.post(
         Uri.parse(
           '${Urls.saveGenderalExpense}&Submit=$bool&Resubmit=${reSubmit ?? false}&screen_name=MyExpense',
         ),
-
         body: jsonEncode(requestBody),
       );
-      //  //  // print("requestBody$requestBody");
+
       if (response.statusCode == 201) {
         if (!bool) {
           isUploading.value = false;
@@ -9394,9 +9746,7 @@ String get currentDateFormat {
           isGESubmitBTNLoading.value = false;
         }
         final data = jsonDecode(response.body);
-
         final message = data['detail']['message'] ?? 'Expense created';
-        final recId = data['detail']['RecId'];
         clearFormFields();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
@@ -9427,9 +9777,7 @@ String get currentDateFormat {
           isGESubmitBTNLoading.value = false;
         }
         final data = jsonDecode(response.body);
-
         final message = data['detail']['message'];
-        final recId = data['detail']['RecId'];
         clearFormFields();
         Navigator.pushNamed(context, AppRoutes.generalExpense);
         Fluttertoast.showToast(
@@ -9527,7 +9875,6 @@ String get currentDateFormat {
         } else {
           isGESubmitBTNLoading.value = false;
         }
-
         return;
       } else {
         final data = jsonDecode(response.body);
@@ -9540,7 +9887,6 @@ String get currentDateFormat {
           textColor: const Color.fromARGB(255, 212, 210, 241),
           fontSize: 16.0,
         );
-        //  //  // print("❌  ${response.body}");
         if (!bool) {
           isUploading.value = false;
         } else {
@@ -9548,8 +9894,7 @@ String get currentDateFormat {
         }
       }
     } catch (e) {
-      //  //  // print("❌ Exception: $e");
-
+      print("❌ Exception: $e");
       if (!bool) {
         isUploading.value = false;
       } else {
@@ -11644,9 +11989,9 @@ String get currentDateFormat {
       "ReceiptDate": receiptDate,
       "ExpenseId": expenseId ?? '',
       if (recId > 0) "RecId": recId,
-      "EmployeeId": employeeDropDownController.text.trim().isEmpty
+      "EmployeeId": employeeIdController.text.trim().isEmpty
           ? null
-          : employeeDropDownController.text.trim(),
+          : employeeIdController.text.trim(),
       "EmployeeName": employeeName.text.trim().isEmpty
           ? null
           : employeeName.text.trim(),
@@ -14419,7 +14764,7 @@ String get currentDateFormat {
         Navigator.pushNamed(context, AppRoutes.approvalHubMain);
         final responseData = jsonDecode(response.body);
         Fluttertoast.showToast(
-          msg: " ${responseData['detail']['message']}}",
+          msg: " ${responseData['detail']['message']}",
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           backgroundColor: const Color.fromARGB(255, 88, 1, 250),
@@ -19217,7 +19562,7 @@ String get currentDateFormat {
       'leavehistory',
       'EmployeesLeaveConnectedWithWeekends',
       "empleaveconectwithweekends",
-
+      'Top5CashAdvanceRequesters',
       "ExpensesByDepartment",
     ];
     const multibarCharts = ['ExpensesByCategories'];
@@ -19237,7 +19582,7 @@ String get currentDateFormat {
       'SumOfCashAdvancesByApprovalStatus',
       'NoOfCashAdvancesByApprovalStatus',
       'CashAdvancesByBusinessJustification',
-      'Top5CashAdvanceRequesters',
+
       'NoOfExpensesByStatus',
       'Top10ExpenseCategoriesByLocations',
       'top5leavecodevsleaves',
